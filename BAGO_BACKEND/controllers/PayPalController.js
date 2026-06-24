@@ -3,7 +3,8 @@ import { findProfileById } from '../lib/postgres/profiles.js';
 import { getPackageById, getTripById, getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
-import { sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { sendWithdrawalSubmittedEmail, sendWithdrawalAdminNotification } from '../services/emailNotifications.js';
+import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 import {
   capturePaypalOrder as capturePaypalOrderApi,
@@ -394,6 +395,20 @@ export async function withdrawPaypalPayout(req, res) {
       currency: walletCurrency,
       reference: senderBatchId,
       method: 'PayPal',
+    }).catch(() => {});
+
+    // Notify all admins
+    listActiveAdminEmails().then((emails) => {
+      for (const email of emails) {
+        sendWithdrawalAdminNotification(email, {
+          userName: prepared.userName,
+          userEmail: prepared.userEmail,
+          amount,
+          currency: walletCurrency,
+          method: 'PayPal',
+          reference: senderBatchId,
+        }).catch(() => {});
+      }
     }).catch(() => {});
 
     res.json({

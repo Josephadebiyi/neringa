@@ -2,6 +2,8 @@ String formatFrontendStatus(String? rawStatus) {
   final normalized = rawStatus?.trim().toLowerCase() ?? '';
 
   switch (normalized) {
+    case 'pending_admin_approval':
+      return 'Under Review';
     case 'pending':
     case 'pending_admin_review':
     case 'pending_review':

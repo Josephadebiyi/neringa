@@ -204,11 +204,62 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           'method': 'paypal',
       });
       if (mounted) {
-        AppSnackBar.show(context,
-            message: 'Withdrawal submitted successfully!',
-            type: SnackBarType.success);
-        _amountCtrl.clear();
         await _fetchBalance();
+        _amountCtrl.clear();
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 12),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.schedule_rounded, color: Color(0xFF1B24FF), size: 34),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Withdrawal Submitted',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Your withdrawal of $currency ${amount.toStringAsFixed(2)} is under review. Once approved by our team, the funds will be sent to your payout account.',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280), height: 1.5),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'You can track the status in your transaction history.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1B24FF),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () { Navigator.of(ctx).pop(); if (mounted) context.pop(); },
+                  child: const Text('Got it', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ],
+          ),
+        );
       }
     } on DioException catch (e) {
       if (mounted) {

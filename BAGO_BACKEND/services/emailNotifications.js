@@ -689,6 +689,37 @@ export async function sendNewTripAdminNotification(adminEmail, travelerName, tri
   }
 }
 
+export async function sendWithdrawalAdminNotification(adminEmail, { userName, userEmail, amount, currency, method, reference }) {
+  if (!resend) return false;
+  try {
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        A user has submitted a withdrawal request that requires your approval before funds are sent.
+      </p>
+      <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5240E8;">
+        <p style="margin:0 0 12px; font-size:14px; color:#111827; font-weight:600;">WITHDRAWAL DETAILS</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>User:</strong> ${userName} (${userEmail})</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Amount:</strong> ${currency} ${Number(amount).toFixed(2)}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Method:</strong> ${method}</p>
+        <p style="margin:0; font-size:14px; color:#374151;"><strong>Reference:</strong> ${reference}</p>
+      </div>
+      <p style="margin:0; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Log in to the Admin Dashboard → Withdrawals to review and approve or reject this request.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago Admin <admin@sendwithbago.com>',
+      to: adminEmail,
+      subject: `💸 Withdrawal Request — ${currency} ${Number(amount).toFixed(2)} via ${method}`,
+      html: generateEmailTemplate('Withdrawal Pending Approval', content, 'Review Withdrawal', `${process.env.ADMIN_URL || FRONTEND_URL + '/admin'}/withdrawals`),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send withdrawal admin notification:', error);
+    return false;
+  }
+}
+
 /**
  * Send email when trip is declined by admin
  */

@@ -3,7 +3,8 @@ import cloudinary from 'cloudinary';
 import { Resend } from 'resend';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
-import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail, sendWithdrawalAdminNotification } from '../services/emailNotifications.js';
+import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { updatePreferredCurrency, findProfileById } from '../lib/postgres/profiles.js';
 import { initiateTransfer } from '../services/paystackService.js';
@@ -461,9 +462,10 @@ export const withdrawFunds = async (req, res) => {
       ]
     );
 
+    const userName = [account.first_name, account.last_name].filter(Boolean).join(' ').trim();
     await sendWithdrawalSubmittedEmail(
       account.email,
-      [account.first_name, account.last_name].filter(Boolean).join(' ').trim(),
+      userName,
       {
         amount: Number(amount),
         currency: walletCurrency,
@@ -471,6 +473,20 @@ export const withdrawFunds = async (req, res) => {
         method: selectedMethod === 'bank' ? 'bank account' : 'Stripe Connect',
       },
     ).catch(() => {});
+
+    // Notify admins
+    listActiveAdminEmails().then((emails) => {
+      for (const email of emails) {
+        sendWithdrawalAdminNotification(email, {
+          userName,
+          userEmail: account.email,
+          amount: Number(amount),
+          currency: walletCurrency,
+          method: selectedMethod === 'bank' ? 'Bank Transfer (Paystack)' : 'Stripe Connect',
+          reference,
+        }).catch(() => {});
+      }
+    }).catch(() => {});
 
     return res.status(200).json({
       success: true,
