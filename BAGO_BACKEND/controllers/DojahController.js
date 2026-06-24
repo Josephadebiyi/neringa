@@ -956,7 +956,7 @@ export const updateLegalName = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false });
 
-    const { firstName, lastName } = req.body;
+    const { firstName, lastName, dateOfBirth } = req.body;
     const { validateLegalName } = await import('../services/securityService.js');
 
     const nameCheck = validateLegalName(`${firstName || ''} ${lastName || ''}`.trim());
@@ -964,9 +964,25 @@ export const updateLegalName = async (req, res) => {
       return res.status(400).json({ success: false, message: nameCheck.reason });
     }
 
+    // Validate DOB if provided
+    let dobValue = null;
+    if (dateOfBirth) {
+      const dob = new Date(dateOfBirth);
+      if (isNaN(dob.getTime())) {
+        return res.status(400).json({ success: false, message: 'Invalid date of birth.' });
+      }
+      const ageMs = Date.now() - dob.getTime();
+      const ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
+      if (ageYears < 18) {
+        return res.status(400).json({ success: false, message: 'You must be at least 18 years old to use Bago.' });
+      }
+      dobValue = dob.toISOString().split('T')[0]; // YYYY-MM-DD
+    }
+
     await query(
       `UPDATE public.profiles
        SET first_name = $2, last_name = $3,
+           date_of_birth = COALESCE($4::date, date_of_birth),
            legal_name_submitted = concat($2, ' ', $3),
            account_status = CASE
              WHEN account_status = 'pending_name' THEN 'active'
@@ -974,10 +990,10 @@ export const updateLegalName = async (req, res) => {
            END,
            updated_at = NOW()
        WHERE id = $1`,
-      [userId, firstName.trim(), lastName.trim()],
+      [userId, firstName.trim(), lastName.trim(), dobValue],
     );
 
-    return res.json({ success: true, message: 'Name updated successfully' });
+    return res.json({ success: true, message: 'Details updated successfully' });
   } catch (err) {
     console.error('updateLegalName error:', err);
     return res.status(500).json({ success: false, message: 'Failed to update name' });

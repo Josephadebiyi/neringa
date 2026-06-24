@@ -1,6 +1,7 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { markKycApproved } from '../../lib/postgres/accounts.js';
 import { dojahReferenceFromPayload, syncDojahReferenceForUser } from '../DojahController.js';
+import { syncPremblyForUser } from '../PremblyController.js';
 
 function buildManualApprovalPayload(user = {}) {
   const submission = user.kycVerifiedData || {};
@@ -339,6 +340,25 @@ export const syncDojahKYCByReference = async (req, res) => {
   } catch (error) {
     console.error('syncDojahKYCByReference error:', error);
     return res.status(500).json({ success: false, message: 'Failed to sync by reference', error: error.message });
+  }
+};
+
+// POST /admin/kyc/users/:userId/sync-prembly
+// Admin triggers a live Prembly result sync for a user (fixes charged-but-not-verified)
+export const syncPremblyKYCStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await syncPremblyForUser(userId, { notify: true });
+    return res.status(result.success ? 200 : 400).json({
+      success: result.success,
+      message: result.success
+        ? `Prembly sync complete: ${result.status}`
+        : (result.message || 'Sync failed'),
+      data: { userId, ...result },
+    });
+  } catch (error) {
+    console.error('syncPremblyKYCStatus error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to sync Prembly status', error: error.message });
   }
 };
 

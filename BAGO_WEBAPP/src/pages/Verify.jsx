@@ -5,7 +5,6 @@ import {
     ArrowRight, Loader2, Lock, Globe,
 } from 'lucide-react';
 import Dojah from 'dojah-kyc-sdk-react';
-import useIdentityPayKYC from 'prembly-react-kyc';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
@@ -107,14 +106,14 @@ export default function Verify() {
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [selectedCountry, setSelectedCountry] = useState('');
 
-    // Name collection
+    // Details collection (name + DOB)
     const [legalFirstName, setLegalFirstName] = useState(user?.firstName || '');
     const [legalLastName,  setLegalLastName]  = useState(user?.lastName  || '');
+    const [legalDob,       setLegalDob]       = useState(user?.dateOfBirth || '');
     const [nameSaving,     setNameSaving]     = useState(false);
 
-    const [dojahCreds, setDojahCreds]       = useState(null); // { appId, publicKey, widgetId, userId, referenceId }
-    const [premblyConfig, setPremblyConfig] = useState(null); // { widgetKey, widgetId } — fetched from backend
-    const [premblyActive, setPremblyActive] = useState(false);
+    const [dojahCreds, setDojahCreds]   = useState(null); // { appId, publicKey, widgetId, userId, referenceId }
+    const [premblyUrl, setPremblyUrl]   = useState(null); // backend-issued verification URL for iframe
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError]                 = useState('');
     const [blockMsg, setBlockMsg]           = useState('');
@@ -151,13 +150,32 @@ export default function Verify() {
     // ── Fetch Prembly widget config from backend (never hardcoded in bundle) ──
     useEffect(() => {
         if (!isAuthenticated) return;
-        api.get('/api/config/app').then((res) => {
-            const { premblyWidgetKey, premblyWidgetId } = res.data || {};
-            if (premblyWidgetKey && premblyWidgetId) {
-                setPremblyConfig({ widgetKey: premblyWidgetKey, widgetId: premblyWidgetId });
-            }
-        }).catch(() => {});
     }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ── Prembly iframe message + visibility sync ───────────────────────────────
+    useEffect(() => {
+        const BACKEND = import.meta.env.VITE_API_URL || '';
+        const onMessage = (e) => {
+            // Only accept messages from our own backend origin or same origin
+            const origin = e.origin || '';
+            if (BACKEND && !origin.startsWith(BACKEND) && origin !== window.location.origin) return;
+            if (e.data?.type === 'prembly_complete') {
+                handlePremblyComplete();
+            }
+        };
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible' && step === 'verifying' && !premblyUrl) {
+                handlePremblyComplete();
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => document.removeEventListener('visibilitychange', onVisibility);
+    }, [step, premblyUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── KYC status + pre-check ────────────────────────────────────────────────
     const fetchKycStatus = async () => {
@@ -175,7 +193,7 @@ export default function Verify() {
                     return;
                 }
                 if (preData.status === 'pending_name' || preData.nameRequired) {
-                    setStep('name');
+                    setStep('details');
                     setPageLoading(false);
                     return;
                 }
@@ -204,19 +222,19 @@ export default function Verify() {
         }
     };
 
-    // ── Save legal name (when user is in pending_name step) ───────────────────
+    // ── Save details (name + DOB) before consent ──────────────────────────────
     const handleSaveLegalName = async () => {
         setNameSaving(true);
         setError('');
         try {
             await api.post('/api/bago/kyc/update-legal-name', {
-                firstName: legalFirstName.trim(),
-                lastName:  legalLastName.trim(),
+                firstName:   legalFirstName.trim(),
+                lastName:    legalLastName.trim(),
+                dateOfBirth: legalDob || undefined,
             });
-            // Re-run pre-check to see if they can proceed now
-            await fetchKycStatus();
+            setStep('consent');
         } catch (err) {
-            setError(err.response?.data?.message || 'Could not save name. Please try again.');
+            setError(err.response?.data?.message || 'Could not save details. Please try again.');
         } finally {
             setNameSaving(false);
         }
@@ -257,7 +275,7 @@ export default function Verify() {
             } catch { /* default to dojah */ }
 
             if (provider === 'prembly') {
-                // Preflight: check for a final existing result
+                // Preflight: sync any existing result first (catches charged-but-not-verified)
                 try {
                     const preflightRes = await api.post('/api/bago/kyc/prembly/sync-existing', {});
                     const preflightStatus = preflightRes.data?.kycStatus;
@@ -266,11 +284,24 @@ export default function Verify() {
                         await refreshUser();
                         return;
                     }
+                    // Also try a full sync in case the webhook already fired
+                    if (preflightStatus === 'pending') {
+                        const syncRes = await api.post('/api/bago/kyc/prembly/sync-result', {});
+                        const syncStatus = normalizeKycStatus(syncRes.data?.kycStatus);
+                        if (['approved', 'blocked_duplicate'].includes(syncStatus)) {
+                            setKycStatus(syncStatus);
+                            await refreshUser();
+                            return;
+                        }
+                    }
                 } catch { /* non-fatal */ }
 
-                if (!premblyConfig) throw new Error('Verification service is not available right now. Please try again.');
+                // Start a new backend session — returns a URL we embed inline (no new tab)
+                const startRes = await api.post('/api/bago/kyc/prembly/start', { country: selectedCountry });
+                const verificationUrl = startRes.data?.verificationUrl;
+                if (!verificationUrl) throw new Error('Could not start verification. Please try again.');
+                setPremblyUrl(verificationUrl);
                 setStep('verifying');
-                setPremblyActive(true);
                 return;
             }
 
@@ -356,37 +387,22 @@ export default function Verify() {
         }
     };
 
-    // ── Prembly SDK response handler ──────────────────────────────────────────
-    const handlePremblyResponse = async (response) => {
-        setPremblyActive(false);
-        const code = String(response?.code || '');
-
-        if (code === 'E02') {
-            // User cancelled — return to consent
-            setStep('consent');
-            return;
-        }
-
-        if (code === '00') {
-            // Success — sync with backend then poll
-            setStep('status');
-            setKycStatus('pending');
-            try {
-                const syncRes = await api.post('/api/bago/kyc/prembly/sync-result', {});
-                const status  = normalizeKycStatus(syncRes.data?.kycStatus);
-                setKycStatus(status);
-                if (['approved', 'declined', 'blocked_duplicate'].includes(status)) {
-                    await refreshUser();
-                } else {
-                    startPolling();
-                }
-            } catch {
+    // ── Prembly iframe completion handler (called on postMessage or visibilitychange)
+    const handlePremblyComplete = async () => {
+        setPremblyUrl(null);
+        setStep('status');
+        setKycStatus('pending');
+        try {
+            const syncRes = await api.post('/api/bago/kyc/prembly/sync-result', {});
+            const synced  = normalizeKycStatus(syncRes.data?.kycStatus);
+            setKycStatus(synced);
+            if (['approved', 'declined', 'blocked_duplicate'].includes(synced)) {
+                await refreshUser();
+            } else {
                 startPolling();
             }
-        } else {
-            // Failed / other error
-            setStep('consent');
-            setError(response?.message || 'Verification was not successful. Please try again.');
+        } catch {
+            startPolling();
         }
     };
 
@@ -406,7 +422,7 @@ export default function Verify() {
             {/* Nav */}
             <nav className="w-full bg-white border-b border-gray-100 py-4 px-6 md:px-12 flex justify-between items-center sticky top-0 z-50">
                 <button
-                    onClick={() => step === 'consent' ? setStep('status') : navigate(-1)}
+                    onClick={() => step === 'consent' ? setStep('details') : step === 'details' ? setStep('status') : navigate(-1)}
                     className="flex items-center gap-2 text-[#012126] hover:text-[#5845D8] transition-colors"
                 >
                     <ChevronLeft size={20} />
@@ -416,17 +432,26 @@ export default function Verify() {
                 <div className="w-20" />
             </nav>
 
-            {/* Prembly SDK widget — keys fetched from backend at runtime, never bundled */}
-            {premblyActive && premblyConfig && (
-                <PremblyKycWidget
-                    widgetKey={premblyConfig.widgetKey}
-                    widgetId={premblyConfig.widgetId}
-                    firstName={user?.firstName || ''}
-                    lastName={user?.lastName  || ''}
-                    email={user?.email        || ''}
-                    userId={user?.id          || ''}
-                    onResponse={handlePremblyResponse}
-                />
+            {/* Prembly verification — full-screen inline iframe, no new tab */}
+            {premblyUrl && (
+                <div className="fixed inset-0 z-[60] flex flex-col bg-white">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white shrink-0">
+                        <button
+                            onClick={() => { setPremblyUrl(null); setStep('consent'); }}
+                            className="text-sm font-bold text-gray-500 hover:text-gray-800 flex items-center gap-1"
+                        >
+                            <ChevronLeft size={16} /> Back
+                        </button>
+                        <span className="text-xs font-black uppercase tracking-widest text-gray-700">Identity Verification</span>
+                        <div className="w-16" />
+                    </div>
+                    <iframe
+                        src={premblyUrl}
+                        title="Identity Verification"
+                        className="flex-1 w-full border-0"
+                        allow="camera; microphone"
+                    />
+                </div>
             )}
 
             {/* Dojah widget — always receives a FRESH referenceId generated by the
@@ -463,13 +488,15 @@ export default function Verify() {
 
             <main className="max-w-2xl mx-auto px-6 py-12 md:py-20">
 
-                {/* ── Security gate steps (shown before any KYC flow) ── */}
-                {step === 'name' && (
-                    <NameCollectionCard
+                {/* ── Details step: name + DOB before consent ── */}
+                {step === 'details' && (
+                    <DetailsCard
                         firstName={legalFirstName}
                         lastName={legalLastName}
+                        dob={legalDob}
                         onFirstNameChange={setLegalFirstName}
                         onLastNameChange={setLegalLastName}
+                        onDobChange={setLegalDob}
                         saving={nameSaving}
                         error={error}
                         onSave={handleSaveLegalName}
@@ -505,7 +532,7 @@ export default function Verify() {
                                 {step === 'status' && (
                                     <LandingCard
                                         declined={kycStatus === 'declined'}
-                                        onStart={() => { setError(''); setStep('consent'); }}
+                                        onStart={() => { setError(''); setStep('details'); }}
                                         t={t}
                                     />
                                 )}
@@ -523,7 +550,7 @@ export default function Verify() {
                                 )}
 
                                 {step === 'verifying' && (
-                                    <VerifyingCard />
+                                    <VerifyingCard onCheckStatus={handlePremblyComplete} />
                                 )}
                             </>
                         )}
@@ -687,7 +714,12 @@ function ConsentCard({
     );
 }
 
-function VerifyingCard() {
+function VerifyingCard({ onCheckStatus }) {
+    const [checking, setChecking] = useState(false);
+    const handleCheck = async () => {
+        setChecking(true);
+        try { await onCheckStatus(); } finally { setChecking(false); }
+    };
     return (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
@@ -695,13 +727,24 @@ function VerifyingCard() {
                     <Shield size={30} className="text-[#5845D8]" />
                 </div>
                 <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Verification in Progress</h1>
-                <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Follow the instructions in the overlay</p>
+                <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Complete the steps in the verification window</p>
             </div>
-            <div className="p-8 md:p-12 flex flex-col items-center gap-4">
+            <div className="p-8 md:p-12 flex flex-col items-center gap-6">
                 <Loader2 className="animate-spin text-[#5845D8]" size={32} />
-                <p className="text-sm text-gray-500 font-medium text-center">
-                    A secure verification window is open. Complete all steps there to verify your identity.
+                <p className="text-sm text-gray-500 font-medium text-center leading-relaxed">
+                    Your verification session is open above. Once you complete all steps it will update automatically.
                 </p>
+                <p className="text-xs text-gray-400 font-medium text-center">
+                    Already finished? Tap below to check your result.
+                </p>
+                <button
+                    onClick={handleCheck}
+                    disabled={checking}
+                    className="w-full border-2 border-[#5845D8] text-[#5845D8] py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-[#5845D8]/5 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {checking ? <Loader2 className="animate-spin" size={16} /> : null}
+                    {checking ? 'Checking…' : 'Check My Verification Status'}
+                </button>
             </div>
         </div>
     );
@@ -771,43 +814,97 @@ function PendingCard({ navigate, onResubmit }) {
 }
 
 // ─── Name collection gate ─────────────────────────────────────────────────────
-function NameCollectionCard({ firstName, lastName, onFirstNameChange, onLastNameChange, saving, error, onSave }) {
-    const canSave = firstName.trim().length >= 2 && lastName.trim().length >= 2 && !saving;
+function DetailsCard({ firstName, lastName, dob, onFirstNameChange, onLastNameChange, onDobChange, saving, error, onSave }) {
+    // DOB as three separate controlled fields
+    const [dobDay,   setDobDay]   = useState(dob ? dob.split('-')[2] || '' : '');
+    const [dobMonth, setDobMonth] = useState(dob ? dob.split('-')[1] || '' : '');
+    const [dobYear,  setDobYear]  = useState(dob ? dob.split('-')[0] || '' : '');
+
+    // Keep parent dob string in sync
+    useEffect(() => {
+        if (dobDay && dobMonth && dobYear && dobYear.length === 4) {
+            const d = parseInt(dobDay, 10), m = parseInt(dobMonth, 10), y = parseInt(dobYear, 10);
+            if (d >= 1 && d <= 31 && m >= 1 && m <= 12) {
+                try {
+                    const date = new Date(y, m - 1, d);
+                    if (date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d) {
+                        onDobChange(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+                        return;
+                    }
+                } catch { /**/ }
+            }
+        }
+        onDobChange('');
+    }, [dobDay, dobMonth, dobYear]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const dobValid = (() => {
+        if (!dobDay || !dobMonth || !dobYear || dobYear.length !== 4) return false;
+        const d = parseInt(dobDay, 10), m = parseInt(dobMonth, 10), y = parseInt(dobYear, 10);
+        if (d < 1 || d > 31 || m < 1 || m > 12) return false;
+        try {
+            const date = new Date(y, m - 1, d);
+            if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return false;
+            const age = Math.floor((Date.now() - date.getTime()) / 31_557_600_000);
+            return age >= 18;
+        } catch { return false; }
+    })();
+
+    const canSave = firstName.trim().length >= 2 && lastName.trim().length >= 2 && dobValid && !saving;
+    const inputCls = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10';
+
     return (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
                 <div className="w-16 h-16 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-4">
                     <Shield size={30} className="text-[#5845D8]" />
                 </div>
-                <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Confirm Your Legal Name</h1>
-                <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Required before identity verification</p>
+                <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Confirm Your Details</h1>
+                <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Must match your government-issued ID</p>
             </div>
             <div className="p-8 md:p-12 space-y-6">
                 <p className="text-sm text-gray-600 font-medium leading-relaxed">
-                    Please enter your full legal name exactly as it appears on your government-issued ID. This is required for identity verification.
+                    Enter your full legal name and date of birth exactly as they appear on your ID. This information will be used to verify your identity and cannot be changed after verification.
                 </p>
                 <div className="space-y-4">
                     <div>
                         <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">First Name</label>
-                        <input
-                            type="text"
-                            value={firstName}
-                            onChange={(e) => onFirstNameChange(e.target.value)}
-                            placeholder="e.g. Aanuoluwapo"
-                            autoComplete="given-name"
-                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10"
-                        />
+                        <input type="text" value={firstName} onChange={(e) => onFirstNameChange(e.target.value)}
+                            placeholder="As on your ID" autoComplete="given-name" className={inputCls} />
                     </div>
                     <div>
                         <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">Last Name</label>
-                        <input
-                            type="text"
-                            value={lastName}
-                            onChange={(e) => onLastNameChange(e.target.value)}
-                            placeholder="e.g. Johnson"
-                            autoComplete="family-name"
-                            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10"
-                        />
+                        <input type="text" value={lastName} onChange={(e) => onLastNameChange(e.target.value)}
+                            placeholder="As on your ID" autoComplete="family-name" className={inputCls} />
+                    </div>
+                    <div>
+                        <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">Date of Birth</label>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <input type="number" value={dobDay} onChange={(e) => setDobDay(e.target.value)}
+                                    placeholder="DD" min="1" max="31"
+                                    className={inputCls + ' text-center'} />
+                                <p className="text-[10px] text-gray-400 font-bold text-center mt-1 uppercase tracking-wider">Day</p>
+                            </div>
+                            <div>
+                                <input type="number" value={dobMonth} onChange={(e) => setDobMonth(e.target.value)}
+                                    placeholder="MM" min="1" max="12"
+                                    className={inputCls + ' text-center'} />
+                                <p className="text-[10px] text-gray-400 font-bold text-center mt-1 uppercase tracking-wider">Month</p>
+                            </div>
+                            <div>
+                                <input type="number" value={dobYear} onChange={(e) => setDobYear(e.target.value)}
+                                    placeholder="YYYY" min="1900" max={new Date().getFullYear() - 18}
+                                    className={inputCls + ' text-center'} />
+                                <p className="text-[10px] text-gray-400 font-bold text-center mt-1 uppercase tracking-wider">Year</p>
+                            </div>
+                        </div>
+                        {dobDay && dobMonth && dobYear && dobYear.length === 4 && !dobValid && (
+                            <p className="mt-2 text-xs text-red-500 font-bold">
+                                {parseInt(dobYear) > new Date().getFullYear() - 18
+                                    ? 'You must be at least 18 years old to use Bago.'
+                                    : 'Please enter a valid date of birth.'}
+                            </p>
+                        )}
                     </div>
                 </div>
                 {error && (
@@ -816,15 +913,12 @@ function NameCollectionCard({ firstName, lastName, onFirstNameChange, onLastName
                         <p className="text-xs font-bold">{error}</p>
                     </div>
                 )}
-                <button
-                    onClick={onSave}
-                    disabled={!canSave}
-                    className="w-full bg-[#5845D8] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-3"
-                >
-                    {saving ? <Loader2 className="animate-spin" size={20} /> : <><span>Confirm Name & Continue</span><ArrowRight size={20} /></>}
+                <button onClick={onSave} disabled={!canSave}
+                    className="w-full bg-[#5845D8] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-[#5845D8]/20 hover:bg-[#4838B5] transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-3">
+                    {saving ? <Loader2 className="animate-spin" size={20} /> : <><span>Confirm & Continue</span><ArrowRight size={20} /></>}
                 </button>
                 <p className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest">
-                    Use your legal name exactly as it appears on your ID
+                    These details will be locked after successful verification
                 </p>
             </div>
         </div>
@@ -857,51 +951,6 @@ function ReviewCard({ navigate }) {
                 </p>
                 <button onClick={() => navigate('/dashboard')} className="w-full bg-[#012126] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0a262c] transition-all">
                     Back to Dashboard
-                </button>
-            </div>
-        </div>
-    );
-}
-
-// ─── Prembly SDK widget ───────────────────────────────────────────────────────
-// Shows a tap-to-launch button so mobile browsers don't block the popup.
-// verifyWithIdentity() must be called from a direct user gesture (click/tap).
-function PremblyKycWidget({ widgetKey, widgetId, firstName, lastName, email, userId, onResponse }) {
-    const config = {
-        widget_key:  widgetKey,
-        widget_id:   widgetId,
-        first_name:  firstName,
-        last_name:   lastName,
-        email,
-        metadata:    { user_id: userId },
-        callback:    onResponse,
-    };
-    const verifyWithIdentity = useIdentityPayKYC(config);
-    const [launched, setLaunched] = useState(false);
-
-    const handleLaunch = () => {
-        setLaunched(true);
-        verifyWithIdentity();
-    };
-
-    if (launched) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
-            <div className="bg-white rounded-[32px] p-8 text-center shadow-2xl w-full max-w-sm">
-                <div className="w-16 h-16 bg-[#5845D8]/10 rounded-3xl flex items-center justify-center mx-auto mb-5">
-                    <Shield size={30} className="text-[#5845D8]" />
-                </div>
-                <h2 className="font-black text-xl mb-2 tracking-tight">Ready to Verify</h2>
-                <p className="text-sm text-gray-500 font-medium leading-relaxed mb-7">
-                    Tap the button below to open your secure identity verification session.
-                </p>
-                <button
-                    onClick={handleLaunch}
-                    className="w-full bg-[#5845D8] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-[#5845D8]/25 hover:bg-[#4838B5] active:scale-95 transition-all flex items-center justify-center gap-2"
-                >
-                    <Shield size={16} />
-                    Open Verification
                 </button>
             </div>
         </div>

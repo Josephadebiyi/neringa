@@ -83,6 +83,26 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
       if (notify) sendPushNotification(userId, 'Verification Not Approved', 'This identity is already linked to another Bago account.', { type: 'kyc_duplicate' }).catch(() => {});
       return { status: 'blocked_duplicate', duplicate: true };
     }
+
+    // Write Prembly-verified name and DOB back to profile so it's locked in
+    const vData  = rawPayload?.data || rawPayload?.verification || rawPayload?.response || {};
+    const vFirst = (vData.first_name || vData.firstName || '').trim();
+    const vLast  = (vData.last_name  || vData.lastName  || '').trim();
+    const vDob   = (vData.date_of_birth || vData.dob || vData.dateOfBirth || '').trim();
+    const vName  = [vFirst, vLast].filter(Boolean).join(' ');
+    if (vFirst || vLast || vDob || vName) {
+      await query(
+        `UPDATE public.profiles
+         SET first_name              = CASE WHEN $2 != '' THEN $2 ELSE first_name END,
+             last_name               = CASE WHEN $3 != '' THEN $3 ELSE last_name  END,
+             date_of_birth           = CASE WHEN $4 != '' THEN $4::date ELSE date_of_birth END,
+             verified_full_legal_name = CASE WHEN $5 != '' THEN $5 ELSE verified_full_legal_name END,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [userId, vFirst, vLast, vDob, vName],
+      ).catch(() => {});
+    }
+
     if (notify && userEmail) sendKycApprovedEmail(userEmail, userName).catch(() => {});
     if (notify) sendPushNotification(userId, 'Identity Verified! ✅', 'Your identity has been verified. You now have full access to all Bago features.', { type: 'kyc_approved' }).catch(() => {});
     return { status: 'approved' };
@@ -354,3 +374,41 @@ export const syncExistingPremblyResult = async (req, res) => {
 };
 
 export const isPremblyAvailable = isPremblyConfigured;
+
+// ---------------------------------------------------------------------------
+// Utility: sync a Prembly result for a given userId — callable from admin
+// ---------------------------------------------------------------------------
+export async function syncPremblyForUser(userId, { notify = true } = {}) {
+  const existing = await queryOne(
+    `SELECT kyc_status AS "kycStatus", kyc_verified_data AS "kycVerifiedData" FROM public.profiles WHERE id = $1`,
+    [userId],
+  ).catch(() => null);
+
+  const currentStatus = existing?.kycStatus || 'not_started';
+  if (['approved', 'blocked_duplicate'].includes(currentStatus)) {
+    return { success: true, status: currentStatus, source: 'db' };
+  }
+
+  const verificationRef =
+    existing?.kycVerifiedData?.verificationRef ||
+    existing?.kycVerifiedData?.premblyRef || '';
+
+  if (!verificationRef || !isPremblyConfigured()) {
+    return { success: false, status: currentStatus, message: 'No Prembly session reference found for this user.' };
+  }
+
+  try {
+    const premblyRes = await axios.get(
+      `${PREMBLY_BASE}/verification`,
+      { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
+    );
+    const status = normalizePremblyStatus(premblyRes.data);
+    if (status === 'unknown') {
+      return { success: false, status: currentStatus, message: 'Prembly returned unknown status.', raw: premblyRes.data };
+    }
+    const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify });
+    return { success: true, status: result.status, source: 'prembly_api' };
+  } catch (err) {
+    return { success: false, status: currentStatus, message: err.message };
+  }
+}

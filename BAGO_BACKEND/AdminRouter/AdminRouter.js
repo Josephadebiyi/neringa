@@ -74,6 +74,7 @@ import {
   syncDojahKYCStatus,
   syncDojahKYCByReference,
   syncUnverifiedDojahKYCStatuses,
+  syncPremblyKYCStatus,
 } from '../controllers/AdminControllers/KYCViewController.js';
 import {
   getAllWithdrawals,
@@ -221,6 +222,7 @@ AdminRouter.put("/kyc/users/:userId/status", adminAuthenticated, can('kyc.review
 AdminRouter.post("/kyc/sync-dojah", adminAuthenticated, can('kyc.sync'), audit('admin.kyc.sync.bulk', 'kyc_verification'), syncUnverifiedDojahKYCStatuses);
 AdminRouter.post("/kyc/users/:userId/sync-dojah", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.user', 'profile', 'userId'), syncDojahKYCStatus);
 AdminRouter.post("/kyc/users/:userId/sync-dojah-reference", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.reference', 'profile', 'userId'), syncDojahKYCByReference);
+AdminRouter.post("/kyc/users/:userId/sync-prembly", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.prembly', 'profile', 'userId'), syncPremblyKYCStatus);
 
 // Insurance Settings
 AdminRouter.get("/insurance/settings", adminAuthenticated, getInsuranceSettings);
