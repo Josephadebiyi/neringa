@@ -250,7 +250,7 @@ export async function checkSignupRateLimit(ip) {
 export async function checkKycRateLimit({ userId, deviceFp }) {
   if (!userId) return { limited: false };
 
-  // Per-user: max 5 KYC attempts per day
+  // Per-user: max 10 KYC attempts per day
   const userRow = await queryOne(
     `SELECT kyc_attempt_count, last_kyc_attempt_at FROM public.profiles WHERE id = $1`,
     [userId],
@@ -258,7 +258,7 @@ export async function checkKycRateLimit({ userId, deviceFp }) {
 
   if (userRow?.last_kyc_attempt_at) {
     const hoursSince = (Date.now() - new Date(userRow.last_kyc_attempt_at).getTime()) / 3600000;
-    if (hoursSince < 24 && (userRow.kyc_attempt_count || 0) >= 5) {
+    if (hoursSince < 24 && (userRow.kyc_attempt_count || 0) >= 10) {
       return { limited: true, reason: 'user_kyc_limit', count: userRow.kyc_attempt_count };
     }
   }

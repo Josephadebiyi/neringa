@@ -21,13 +21,13 @@ const PREMBLY_BASE    = 'https://api.prembly.com/identitypass';
 // The Flutter WebView and web iframe both watch for this URL to auto-close.
 const PREMBLY_CALLBACK_URL = `${process.env.BACKEND_URL || process.env.SERVER_URL || 'https://neringa.onrender.com'}/api/bago/kyc/prembly/complete`;
 
-const premblyHeaders = () => ({
-  'app_id':       PREMBLY_APP_ID,
-  'x-api-key':    PREMBLY_API_KEY,
-  'Content-Type': 'application/json',
-});
+const premblyHeaders = () => {
+  const headers = { 'x-api-key': PREMBLY_API_KEY, 'Content-Type': 'application/json' };
+  if (PREMBLY_APP_ID) headers['app_id'] = PREMBLY_APP_ID;
+  return headers;
+};
 
-const isPremblyConfigured = () => !!(PREMBLY_APP_ID && PREMBLY_API_KEY);
+const isPremblyConfigured = () => !!PREMBLY_API_KEY;
 
 // ---------------------------------------------------------------------------
 // Webhook status normalisation
@@ -205,7 +205,7 @@ export const startPremblySession = async (req, res) => {
 // Prembly redirects here after the user finishes (or exits) the form.
 // The Flutter WebView and web iframe watch for this URL to auto-close.
 // ---------------------------------------------------------------------------
-export const premblyComplete = async (req, res) => {
+export const premblyComplete = async (_req, res) => {
   // Return a minimal page that closes itself and posts a message to the opener.
   res.set('Content-Type', 'text/html').send(`<!DOCTYPE html>
 <html>
