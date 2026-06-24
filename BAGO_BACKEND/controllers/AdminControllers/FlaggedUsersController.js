@@ -214,12 +214,15 @@ export const unflagUser = async (req, res) => {
 
     const user = await queryOne(
       `UPDATE public.profiles
-       SET is_flagged  = FALSE,
-           flag_reason = NULL,
-           flag_source = NULL,
-           flagged_at  = NULL,
-           kyc_status  = CASE WHEN kyc_status = 'blocked_duplicate' THEN 'approved' ELSE kyc_status END,
-           updated_at  = NOW()
+       SET is_flagged        = FALSE,
+           flag_reason       = NULL,
+           flag_source       = NULL,
+           flagged_at        = NULL,
+           account_status    = CASE WHEN account_status = 'pending_security_review' THEN 'active' ELSE account_status END,
+           kyc_attempt_count = 0,
+           last_kyc_attempt_at = NULL,
+           kyc_status        = CASE WHEN kyc_status = 'blocked_duplicate' THEN 'approved' ELSE kyc_status END,
+           updated_at        = NOW()
        WHERE id = $1
        RETURNING id, email, first_name AS "firstName", last_name AS "lastName"`,
       [userId],

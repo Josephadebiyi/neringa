@@ -79,6 +79,7 @@ class ApiConstants {
   static const String kycPremblySyncResult = '/api/bago/kyc/prembly/sync-result';
   static const String kycStatus = '/api/bago/kyc/status';
   static const String appConfig = '/api/config/app';
+  static const String kycUpdateLegalName = '/api/bago/kyc/update-legal-name';
   static const String kycManualSubmit = '/api/bago/kyc/manual-submit';
   static const String kycManualStatus = '/api/bago/kyc/manual-status';
 

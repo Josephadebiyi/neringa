@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/app_button.dart';
-import 'kyc_country_step.dart';
+import 'kyc_details_screen.dart';
 
 class KycCountrySelector extends StatefulWidget {
   const KycCountrySelector({super.key, this.fromOnboarding = false});
@@ -22,7 +22,7 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
   void _proceed() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => KycCountryStep(fromOnboarding: widget.fromOnboarding),
+        builder: (_) => KycDetailsScreen(fromOnboarding: widget.fromOnboarding),
       ),
     );
   }
