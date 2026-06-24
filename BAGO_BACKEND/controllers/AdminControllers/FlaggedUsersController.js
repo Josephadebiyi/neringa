@@ -19,7 +19,7 @@ export const getFlaggedUsers = async (req, res) => {
     const offset = (Number(page) - 1) * Number(limit);
 
     const conditions = [
-      `(p.is_flagged = TRUE OR p.kyc_status = 'blocked_duplicate' OR p.banned = TRUE)`,
+      `(p.is_flagged = TRUE OR p.kyc_status = 'blocked_duplicate' OR p.banned = TRUE OR p.account_status = 'pending_security_review')`,
     ];
     const params = [];
     let idx = 1;
@@ -40,17 +40,21 @@ export const getFlaggedUsers = async (req, res) => {
          p.phone,
          p.country,
          p.banned,
-         p.status,
+         p.account_status     AS "accountStatus",
          p.is_flagged         AS "isFlagged",
          p.flag_reason        AS "flagReason",
          p.flag_source        AS "flagSource",
          p.flagged_at         AS "flaggedAt",
+         p.risk_score         AS "riskScore",
+         p.risk_signals       AS "riskSignals",
          p.kyc_status         AS "kycStatus",
          p.kyc_provider       AS "kycProvider",
          p.kyc_failure_reason AS "kycFailureReason",
          p.verified_full_legal_name AS "verifiedFullLegalName",
          p.verified_date_of_birth   AS "verifiedDateOfBirth",
          p.device_fingerprint AS "deviceFingerprint",
+         p.signup_ip          AS "signupIp",
+         p.last_login_ip      AS "lastLoginIp",
          p.image_url          AS "profileImage",
          p.created_at         AS "createdAt"
        FROM public.profiles p
@@ -77,6 +81,102 @@ export const getFlaggedUsers = async (req, res) => {
     });
   } catch (err) {
     console.error('getFlaggedUsers error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /admin/security/user-activity/:userId
+// Full activity trace for a flagged/risky user: security events, linked accounts, recent trips/packages
+export const getUserActivity = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const [profileRow, eventsRow, linkedRow, tripsRow, packagesRow] = await Promise.all([
+      // Profile with all risk data
+      queryOne(
+        `SELECT
+           p.id, p.first_name AS "firstName", p.last_name AS "lastName",
+           p.email, p.phone, p.country,
+           p.banned, p.account_status AS "accountStatus",
+           p.is_flagged AS "isFlagged", p.flag_reason AS "flagReason",
+           p.flag_source AS "flagSource", p.flagged_at AS "flaggedAt",
+           p.risk_score AS "riskScore", p.risk_signals AS "riskSignals",
+           p.kyc_status AS "kycStatus", p.kyc_attempt_count AS "kycAttemptCount",
+           p.last_kyc_attempt_at AS "lastKycAttemptAt",
+           p.device_fingerprint AS "deviceFingerprint",
+           p.signup_ip AS "signupIp", p.last_login_ip AS "lastLoginIp",
+           p.google_sub AS "googleSub",
+           p.created_at AS "createdAt"
+         FROM public.profiles p WHERE p.id = $1`,
+        [userId],
+      ),
+
+      // Last 30 security events
+      query(
+        `SELECT event_type AS "eventType", action, reason_code AS "reasonCode",
+                risk_score AS "riskScore", risk_signals AS "riskSignals",
+                ip_address AS "ipAddress", device_fp AS "deviceFp",
+                metadata, created_at AS "createdAt"
+         FROM public.security_events
+         WHERE user_id = $1
+         ORDER BY created_at DESC LIMIT 30`,
+        [userId],
+      ),
+
+      // Linked accounts (same device / IP / name / phone / Google sub)
+      query(
+        `SELECT id, first_name AS "firstName", last_name AS "lastName",
+                email, banned, account_status AS "accountStatus",
+                kyc_status AS "kycStatus",
+                device_fingerprint AS "deviceFingerprint",
+                signup_ip AS "signupIp", created_at AS "createdAt"
+         FROM public.profiles
+         WHERE id != $1 AND (
+           device_fingerprint = (SELECT device_fingerprint FROM public.profiles WHERE id = $1)
+           OR signup_ip = (SELECT signup_ip FROM public.profiles WHERE id = $1)
+           OR lower(concat_ws(' ', first_name, last_name)) = (SELECT lower(concat_ws(' ', first_name, last_name)) FROM public.profiles WHERE id = $1)
+           OR (phone IS NOT NULL AND phone = (SELECT phone FROM public.profiles WHERE id = $1))
+           OR (google_sub IS NOT NULL AND google_sub = (SELECT google_sub FROM public.profiles WHERE id = $1))
+         )
+         ORDER BY created_at DESC LIMIT 10`,
+        [userId],
+      ),
+
+      // Recent trips posted
+      query(
+        `SELECT id, from_country AS "fromCountry", to_country AS "toCountry",
+                departure_date AS "departureDate", status, created_at AS "createdAt"
+         FROM public.trips
+         WHERE traveler_id = $1
+         ORDER BY created_at DESC LIMIT 10`,
+        [userId],
+      ).catch(() => ({ rows: [] })),
+
+      // Recent packages/orders
+      query(
+        `SELECT id, status, total_amount AS "totalAmount", currency,
+                created_at AS "createdAt"
+         FROM public.shipping_requests
+         WHERE sender_id = $1
+         ORDER BY created_at DESC LIMIT 10`,
+        [userId],
+      ).catch(() => ({ rows: [] })),
+    ]);
+
+    if (!profileRow) return res.status(404).json({ success: false, message: 'User not found' });
+
+    return res.json({
+      success: true,
+      data: {
+        profile:        profileRow,
+        securityEvents: eventsRow.rows,
+        linkedAccounts: linkedRow.rows,
+        trips:          tripsRow.rows,
+        packages:       packagesRow.rows,
+      },
+    });
+  } catch (err) {
+    console.error('getUserActivity error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

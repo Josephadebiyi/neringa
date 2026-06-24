@@ -4,6 +4,8 @@
  */
 
 import { query, queryOne } from '../lib/postgres/db.js';
+import { sendSecurityFlagNotification } from './emailNotifications.js';
+import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 
 // ─── Name validation ──────────────────────────────────────────────────────────
 
@@ -161,8 +163,9 @@ export async function calculateRiskScore({
       [deviceFp, userId || '00000000-0000-0000-0000-000000000000'],
     ).catch(() => null);
     const cnt = parseInt(row?.cnt || 0);
-    if (cnt >= 2) { score += 50; signals.push(`device_used_by_${cnt}_accounts`); }
-    else if (cnt === 1) { score += 25; signals.push('device_shared'); }
+    // Reduced: shared devices are common (family/office). Only flag high count.
+    if (cnt >= 3) { score += 35; signals.push(`device_used_by_${cnt}_accounts`); }
+    else if (cnt >= 1) { score += 10; signals.push('device_shared'); }
   }
 
   // Google OAuth sub already on another account
@@ -183,7 +186,7 @@ export async function calculateRiskScore({
     if (row) { score += 40; signals.push('phone_duplicate'); }
   }
 
-  // IP created 3+ accounts in the past 24 hours
+  // IP created 5+ accounts in the past 24 hours (raised from 3 — hotspots/offices are common)
   if (ip) {
     const row = await queryOne(
       `SELECT COUNT(*) AS cnt FROM public.profiles
@@ -191,7 +194,7 @@ export async function calculateRiskScore({
       [ip],
     ).catch(() => null);
     const cnt = parseInt(row?.cnt || 0);
-    if (cnt >= 3) { score += 35; signals.push(`ip_${cnt}_accounts_24h`); }
+    if (cnt >= 5) { score += 20; signals.push(`ip_${cnt}_accounts_24h`); }
   }
 
   // Fuzzy name match against banned_names (Damerau–Levenshtein via pg_trgm)
@@ -200,16 +203,16 @@ export async function calculateRiskScore({
     const row = await queryOne(
       `SELECT normalized, similarity(normalized, $1) AS sim
        FROM public.banned_names
-       WHERE similarity(normalized, $1) > 0.7
+       WHERE similarity(normalized, $1) > 0.85
        ORDER BY sim DESC LIMIT 1`,
       [normalized],
     ).catch(() => null);
     if (row) { score += 30; signals.push(`name_similar_to_banned:${row.normalized}`); }
   }
 
-  // Suspicious email
+  // Suspicious email (temp mail domains only — removed number/dot scoring, too many false positives)
   const emailScore = emailRiskScore(email || '');
-  if (emailScore > 0) { score += emailScore; signals.push(`email_suspicious:${emailScore}`); }
+  if (emailScore >= 40) { score += emailScore; signals.push(`email_suspicious:${emailScore}`); }
 
   // User has already attempted KYC today (rate limit signal)
   if (userId) {
@@ -220,7 +223,7 @@ export async function calculateRiskScore({
     if (row?.last_kyc_attempt_at) {
       const hoursSince = (Date.now() - new Date(row.last_kyc_attempt_at).getTime()) / 3600000;
       if (hoursSince < 24 && (row.kyc_attempt_count || 0) >= 2) {
-        score += 20; signals.push('kyc_repeated_today');
+        score += 15; signals.push('kyc_repeated_today');
       }
     }
   }
@@ -369,7 +372,7 @@ export async function runPreKycChecks(user, req) {
     };
   }
 
-  // 4. Hard ban checks
+  // 4. Hard ban checks — flag for admin review instead of auto-banning
   const normalizedName = normalizeName(firstName, lastName);
   const hardBans = await checkHardBans({
     ip,
@@ -380,19 +383,34 @@ export async function runPreKycChecks(user, req) {
     email:     user.email,
   });
   if (hardBans.length > 0) {
-    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'block', reasonCode: 'hard_ban', riskSignals: hardBans, ip, deviceFp, userAgent });
-    // Auto-ban the account silently
+    const flagReason = `Auto-flagged: matched ban criteria (${hardBans.join(', ')})`;
+    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'review', reasonCode: 'hard_ban_match', riskSignals: hardBans, ip, deviceFp, userAgent });
     await query(
-      `UPDATE public.profiles SET banned = TRUE, is_flagged = TRUE,
-         flag_reason = 'Auto-banned: matched ban list', flag_source = 'auto_ban',
-         flagged_at = COALESCE(flagged_at, NOW()), updated_at = NOW()
-       WHERE id = $1 AND banned = FALSE`,
-      [user.id],
+      `UPDATE public.profiles
+       SET is_flagged       = TRUE,
+           flag_reason      = $2,
+           flag_source      = 'auto_flag',
+           flagged_at       = COALESCE(flagged_at, NOW()),
+           account_status   = 'pending_security_review',
+           updated_at       = NOW()
+       WHERE id = $1`,
+      [user.id, flagReason],
     ).catch(() => {});
-    return { allowed: false, status: 'blocked', message: BLOCKED_MSG };
+    // Notify admins so they can review rather than the system deciding
+    listActiveAdminEmails().then((emails) => {
+      for (const email of emails) {
+        sendSecurityFlagNotification(email, {
+          userName:  `${firstName} ${lastName}`.trim(),
+          userEmail: user.email,
+          reason:    flagReason,
+          signals:   hardBans,
+        }).catch(() => {});
+      }
+    }).catch(() => {});
+    return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
   }
 
-  // 5. Risk scoring
+  // 5. Risk scoring — raised thresholds to reduce false positives
   const { score, signals } = await calculateRiskScore({
     userId:    user.id,
     ip,
@@ -410,22 +428,49 @@ export async function runPreKycChecks(user, req) {
     [score, JSON.stringify({ score, signals, updatedAt: new Date().toISOString() }), user.id],
   ).catch(() => {});
 
-  if (score >= 70) {
-    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'block', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_high', ip, deviceFp, userAgent });
-    // Escalate to review instead of outright blocking, to avoid false positives
+  // Score ≥ 90: strong indicators (Google sub duplicate, phone duplicate, many device accounts)
+  if (score >= 90) {
+    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'review', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_high', ip, deviceFp, userAgent });
     await query(
-      `UPDATE public.profiles SET account_status = 'pending_security_review', updated_at = NOW() WHERE id = $1 AND account_status = 'active'`,
-      [user.id],
+      `UPDATE public.profiles SET account_status = 'pending_security_review',
+         is_flagged = TRUE, flag_reason = $2, flag_source = 'auto_flag',
+         flagged_at = COALESCE(flagged_at, NOW()), updated_at = NOW()
+       WHERE id = $1 AND account_status = 'active'`,
+      [user.id, `Auto-flagged: high risk score ${score} (${signals.slice(0, 3).join(', ')})`],
     ).catch(() => {});
+    listActiveAdminEmails().then((emails) => {
+      for (const email of emails) {
+        sendSecurityFlagNotification(email, {
+          userName:  `${firstName} ${lastName}`.trim(),
+          userEmail: user.email,
+          reason:    `High risk score: ${score}`,
+          signals,
+        }).catch(() => {});
+      }
+    }).catch(() => {});
     return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
   }
 
-  if (score >= 40) {
+  // Score ≥ 65: elevated but not conclusive — queue for review, don't block KYC immediately
+  if (score >= 65) {
     await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'review', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_medium', ip, deviceFp, userAgent });
     await query(
-      `UPDATE public.profiles SET account_status = 'pending_security_review', updated_at = NOW() WHERE id = $1 AND account_status = 'active'`,
-      [user.id],
+      `UPDATE public.profiles SET account_status = 'pending_security_review',
+         is_flagged = TRUE, flag_reason = $2, flag_source = 'auto_flag',
+         flagged_at = COALESCE(flagged_at, NOW()), updated_at = NOW()
+       WHERE id = $1 AND account_status = 'active'`,
+      [user.id, `Auto-flagged: elevated risk score ${score} (${signals.slice(0, 3).join(', ')})`],
     ).catch(() => {});
+    listActiveAdminEmails().then((emails) => {
+      for (const email of emails) {
+        sendSecurityFlagNotification(email, {
+          userName:  `${firstName} ${lastName}`.trim(),
+          userEmail: user.email,
+          reason:    `Elevated risk score: ${score}`,
+          signals,
+        }).catch(() => {});
+      }
+    }).catch(() => {});
     return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
   }
 

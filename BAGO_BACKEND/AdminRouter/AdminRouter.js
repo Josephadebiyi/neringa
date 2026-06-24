@@ -99,6 +99,7 @@ import {
   getRiskyUsers,
   getLinkedAccounts,
   getSecurityEvents,
+  getUserActivity,
   approveKyc,
   rejectKyc,
   setAccountStatus,
@@ -241,6 +242,7 @@ AdminRouter.post("/users/:userId/ban-with-device", adminAuthenticated, can('user
 AdminRouter.get("/security/risky-users", adminAuthenticated, can('users.manage'), getRiskyUsers);
 AdminRouter.get("/security/linked-accounts/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), getLinkedAccounts);
 AdminRouter.get("/security/events", adminAuthenticated, can('users.manage'), getSecurityEvents);
+AdminRouter.get("/security/user-activity/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), getUserActivity);
 AdminRouter.post("/users/:userId/approve-kyc", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.approve_kyc', 'profile', 'userId'), approveKyc);
 AdminRouter.post("/users/:userId/reject-kyc", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.reject_kyc', 'profile', 'userId'), rejectKyc);
 AdminRouter.post("/users/:userId/set-status", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.set_status', 'profile', 'userId'), setAccountStatus);

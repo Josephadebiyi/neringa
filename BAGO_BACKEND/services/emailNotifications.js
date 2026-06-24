@@ -720,6 +720,40 @@ export async function sendWithdrawalAdminNotification(adminEmail, { userName, us
   }
 }
 
+export async function sendSecurityFlagNotification(adminEmail, { userName, userEmail, reason, signals = [] }) {
+  if (!resend) return false;
+  try {
+    const signalList = signals.length
+      ? `<ul style="margin:12px 0 0; padding-left:20px; font-size:13px; color:#374151; line-height:1.8;">${signals.map((s) => `<li>${s}</li>`).join('')}</ul>`
+      : '';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        The system has automatically flagged a user account for security review. <strong>No action has been taken yet</strong> — please review their activity and decide whether to approve or ban.
+      </p>
+      <div style="background:#fff7ed; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #f97316;">
+        <p style="margin:0 0 12px; font-size:14px; color:#9a3412; font-weight:600;">FLAGGED USER</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Name:</strong> ${userName || 'Unknown'}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Email:</strong> ${userEmail}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Reason:</strong> ${reason}</p>
+        ${signalList ? `<p style="margin:8px 0 0; font-size:14px; color:#374151;"><strong>Signals:</strong></p>${signalList}` : ''}
+      </div>
+      <p style="margin:0; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Log in to the Admin Dashboard → Flagged Users to review this account, see their full activity, and take action.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago Security <admin@sendwithbago.com>',
+      to: adminEmail,
+      subject: `⚠️ Security Flag — ${userName || userEmail} needs review`,
+      html: generateEmailTemplate('User Flagged for Review', content, 'Review User', `${process.env.ADMIN_URL || FRONTEND_URL + '/admin'}/flagged-users`),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send security flag notification:', error);
+    return false;
+  }
+}
+
 /**
  * Send email when trip is declined by admin
  */
