@@ -2,11 +2,14 @@ import 'package:country_picker/country_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
+import '../../../shared/services/api_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_dojah_screen.dart';
+import 'kyc_prembly_screen.dart';
 
 class KycCountryStep extends ConsumerStatefulWidget {
   const KycCountryStep({super.key, this.fromOnboarding = false});
@@ -18,6 +21,7 @@ class KycCountryStep extends ConsumerStatefulWidget {
 
 class _KycCountryStepState extends ConsumerState<KycCountryStep> {
   Country? _selected;
+  bool _proceeding = false;
 
   void _openPicker() {
     showCountryPicker(
@@ -40,19 +44,57 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
     );
   }
 
-  void _proceed() {
+  Future<void> _proceed() async {
+    if (_proceeding) return;
+    setState(() => _proceeding = true);
+
     final user = ref.read(authProvider).user;
     final userId = user?.id ?? '';
     final country = _selected!;
+    final countryCode = country.countryCode.toUpperCase();
 
-    Navigator.of(context).pushReplacement(MaterialPageRoute(
-      builder: (_) => KycDojahScreen(
-        userId: userId,
-        countryCode: country.countryCode.toUpperCase(),
-        countryName: country.name,
-        fromOnboarding: widget.fromOnboarding,
-      ),
-    ));
+    try {
+      final res = await ApiService.instance.get(
+        ApiConstants.kycProvider,
+        queryParameters: { 'country': countryCode },
+      ).timeout(const Duration(seconds: 8));
+
+      final provider = res.data?['provider']?.toString() ?? 'dojah';
+
+      if (!mounted) return;
+      if (provider == 'prembly') {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => KycPremblyScreen(
+            userId: userId,
+            countryCode: countryCode,
+            countryName: country.name,
+            fromOnboarding: widget.fromOnboarding,
+          ),
+        ));
+      } else {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => KycDojahScreen(
+            userId: userId,
+            countryCode: countryCode,
+            countryName: country.name,
+            fromOnboarding: widget.fromOnboarding,
+          ),
+        ));
+      }
+    } catch (_) {
+      // Network error — default to Dojah
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (_) => KycDojahScreen(
+          userId: userId,
+          countryCode: countryCode,
+          countryName: country.name,
+          fromOnboarding: widget.fromOnboarding,
+        ),
+      ));
+    } finally {
+      if (mounted) setState(() => _proceeding = false);
+    }
   }
 
   @override
@@ -160,8 +202,8 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
             padding: EdgeInsets.fromLTRB(
                 24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
             child: AppButton(
-              label: 'Continue',
-              onPressed: _selected != null ? _proceed : null,
+              label: _proceeding ? 'Loading…' : 'Continue',
+              onPressed: (_selected != null && !_proceeding) ? _proceed : null,
             ),
           ),
         ],

@@ -413,7 +413,10 @@ export const syncExistingDojahResult = async (req, res) => {
     const finalStatus = ['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)
       ? result.status
       : currentStatus;
-    const canStartNewSession = !['approved', 'blocked_duplicate', 'pending'].includes(finalStatus);
+    // Only hard-block restart for final positive outcomes.
+    // pending/submitted sessions can be retried — the webhook will still arrive and
+    // update the status when Dojah finishes, even if the user opens a new session.
+    const canStartNewSession = !['approved', 'blocked_duplicate'].includes(finalStatus);
 
     return res.json({
       success: true,
@@ -473,8 +476,13 @@ export const getKycProvider = async (req, res) => {
     return res.status(400).json({ success: false, message: 'country is required' });
   }
 
-  // Dojah handles global documents — route every country through Dojah when keys
-  // are configured. Fall back to manual review only if keys are missing.
+  // Prembly is the primary provider when configured. Dojah is the fallback.
+  const premblyConfigured = !!(process.env.PREMBLY_APP_ID && process.env.PREMBLY_API_KEY);
+  if (premblyConfigured) {
+    return res.json({ success: true, provider: 'prembly', country });
+  }
+
+  // Dojah fallback
   if (!DOJAH_APP_ID || !DOJAH_PUBLIC_KEY) {
     return res.json({ success: true, provider: 'manual', country });
   }

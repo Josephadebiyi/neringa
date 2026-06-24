@@ -5,6 +5,7 @@ String formatFrontendStatus(String? rawStatus) {
     case 'pending_admin_approval':
       return 'Under Review';
     case 'pending':
+    case 'submitted':
     case 'pending_admin_review':
     case 'pending_review':
     case 'admin_review':

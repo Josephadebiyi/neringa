@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     Shield, ChevronLeft, CheckCircle, Clock, AlertCircle,
-    ArrowRight, Loader2, Lock, Globe,
+    ArrowRight, Loader2, Lock, Globe, ExternalLink,
 } from 'lucide-react';
 import Dojah from 'dojah-kyc-sdk-react';
 import { useAuth } from '../AuthContext';
@@ -113,6 +113,8 @@ export default function Verify() {
     const [nameSaving,     setNameSaving]     = useState(false);
 
     const [dojahCreds, setDojahCreds]       = useState(null); // { appId, publicKey, widgetId, userId, referenceId }
+    const [premblyData, setPremblyData]     = useState(null); // { verificationUrl, verificationRef }
+    const premblyWindowRef                  = useRef(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError]                 = useState('');
     const [blockMsg, setBlockMsg]           = useState('');
@@ -147,6 +149,18 @@ export default function Verify() {
 
     // ── Cleanup polling on unmount ─────────────────────────────────────────────
     useEffect(() => () => stopPolling(), []);
+
+    // ── Listen for Prembly callback postMessage ────────────────────────────────
+    useEffect(() => {
+        const onMessage = (e) => {
+            if (e.data?.type === 'prembly_complete') {
+                premblyWindowRef.current?.close();
+                premblyWindowRef.current = null;
+            }
+        };
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, []);
 
     // ── KYC status + pre-check ────────────────────────────────────────────────
     const fetchKycStatus = async () => {
@@ -240,47 +254,60 @@ export default function Verify() {
         try {
             if (!selectedCountry) throw new Error('Please choose your country before starting.');
 
-            // Preflight: check if there's already a final result from a previous session.
-            // Mirrors the Flutter preflight call to /kyc/dojah/sync-existing.
+            // Determine provider
+            let provider = 'dojah';
+            try {
+                const provRes = await api.get('/api/bago/kyc/provider', { params: { country: selectedCountry } });
+                provider = provRes.data?.provider || 'dojah';
+            } catch { /* default to dojah */ }
+
+            if (provider === 'prembly') {
+                // Preflight: check for a final existing result
+                try {
+                    const preflightRes = await api.post('/api/bago/kyc/prembly/sync-existing', {});
+                    const preflightStatus = preflightRes.data?.kycStatus;
+                    if (preflightStatus === 'approved' || preflightStatus === 'blocked_duplicate') {
+                        setKycStatus(preflightStatus);
+                        await refreshUser();
+                        return;
+                    }
+                } catch { /* non-fatal */ }
+
+                const res  = await api.post('/api/bago/kyc/prembly/start', { country: selectedCountry });
+                const { verificationUrl, verificationRef } = res.data || {};
+                if (!verificationUrl) throw new Error('Verification service is not available. Please try again.');
+
+                setPremblyData({ verificationUrl, verificationRef });
+                setStep('verifying');
+                // Open the Prembly-hosted verification page in a new tab — no keys exposed
+                premblyWindowRef.current = window.open(verificationUrl, '_blank', 'noopener');
+                startPolling();
+                return;
+            }
+
+            // ── Dojah flow ────────────────────────────────────────────────────
             try {
                 const preflightRes = await api.post('/api/bago/kyc/dojah/sync-existing', {});
                 const preflightStatus = preflightRes.data?.kycStatus;
-                const canStartNew    = preflightRes.data?.canStartNewSession !== false;
-
                 if (preflightStatus === 'approved' || preflightStatus === 'blocked_duplicate') {
                     setKycStatus(preflightStatus);
                     await refreshUser();
                     return;
                 }
-                if (preflightStatus === 'declined' && canStartNew === false) {
-                    setKycStatus('declined');
-                    return;
-                }
-                if (preflightStatus === 'pending' && !canStartNew) {
-                    setKycStatus('pending');
-                    startPolling();
-                    return;
-                }
-            } catch { /* preflight failure is non-fatal — proceed normally */ }
+            } catch { /* non-fatal */ }
 
             const res  = await api.post('/api/bago/kyc/dojah/start', { country: selectedCountry });
             const data = res.data || {};
-            const appId       = data.appId       || data.appID     || data.app_id;
-            const publicKey   = data.publicKey   || data.public_key;
-            const widgetId    = data.widgetId    || data.widget_id;
+            const appId       = data.appId     || data.appID   || data.app_id;
+            const publicKey   = data.publicKey || data.public_key;
+            const widgetId    = data.widgetId  || data.widget_id;
             const referenceId = data.referenceId || data.reference_id;
             if (!appId || !publicKey || !widgetId) {
                 throw new Error('Verification service is not configured. Please contact support.');
             }
-            // Clear Dojah session cache from both localStorage and sessionStorage
-            // so the widget always opens a brand-new session with the fresh referenceId.
             try {
-                Object.keys(localStorage)
-                    .filter((k) => /dojah/i.test(k))
-                    .forEach((k) => localStorage.removeItem(k));
-                Object.keys(sessionStorage)
-                    .filter((k) => /dojah/i.test(k))
-                    .forEach((k) => sessionStorage.removeItem(k));
+                Object.keys(localStorage).filter((k) => /dojah/i.test(k)).forEach((k) => localStorage.removeItem(k));
+                Object.keys(sessionStorage).filter((k) => /dojah/i.test(k)).forEach((k) => sessionStorage.removeItem(k));
             } catch { /* ignore private-mode errors */ }
             setDojahCreds({ appId, publicKey, widgetId, userId: data.userId, referenceId });
             setStep('verifying');
@@ -462,8 +489,16 @@ export default function Verify() {
                                     />
                                 )}
 
-                                {step === 'verifying' && (
+                                {step === 'verifying' && !premblyData && (
                                     <VerifyingCard />
+                                )}
+
+                                {step === 'verifying' && premblyData && (
+                                    <PremblyVerifyingCard
+                                        onOpenTab={() => {
+                                            premblyWindowRef.current = window.open(premblyData.verificationUrl, '_blank', 'noopener');
+                                        }}
+                                    />
                                 )}
                             </>
                         )}
@@ -822,6 +857,39 @@ function ReviewCard({ navigate }) {
                 </p>
                 <button onClick={() => navigate('/dashboard')} className="w-full bg-[#012126] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0a262c] transition-all">
                     Back to Dashboard
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Prembly verifying card ───────────────────────────────────────────────────
+function PremblyVerifyingCard({ onOpenTab }) {
+    return (
+        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-8 md:p-12 text-center border-b border-gray-50 bg-[#5845D8]/5">
+                <div className="w-16 h-16 bg-white rounded-3xl shadow-md flex items-center justify-center mx-auto mb-4">
+                    <Shield size={30} className="text-[#5845D8]" />
+                </div>
+                <h1 className="text-2xl font-black mb-1 tracking-tight uppercase">Verification in Progress</h1>
+                <p className="text-gray-400 font-bold text-xs uppercase tracking-[2px]">Complete the steps in the verification window</p>
+            </div>
+            <div className="p-8 md:p-12 flex flex-col items-center gap-6">
+                <div className="flex items-start gap-4 p-5 bg-[#5845D8]/5 rounded-3xl border border-[#5845D8]/10 w-full">
+                    <Loader2 className="animate-spin text-[#5845D8] shrink-0 mt-0.5" size={20} />
+                    <p className="text-sm text-gray-600 font-medium leading-relaxed">
+                        A verification window has opened. Complete all steps there — this page will update automatically when you are done.
+                    </p>
+                </div>
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest text-center">
+                    Window didn't open?
+                </p>
+                <button
+                    onClick={onOpenTab}
+                    className="flex items-center gap-2 text-[#5845D8] font-black text-sm uppercase tracking-widest hover:underline"
+                >
+                    <ExternalLink size={16} />
+                    Open Verification Window
                 </button>
             </div>
         </div>

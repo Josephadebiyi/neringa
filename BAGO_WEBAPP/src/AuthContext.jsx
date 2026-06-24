@@ -4,6 +4,27 @@ import api, { clearAuthSession, setSessionExpiredHandler } from './api';
 
 const AuthContext = createContext({});
 
+// Loads the Cuoral support widget once the user is authenticated.
+// Key is fetched from the backend at runtime so it is never in the bundle.
+const loadCuoral = async (userData) => {
+    if (document.querySelector('script[data-cuoral-key]')) return; // already loaded
+    try {
+        const res = await api.get('/api/config/app');
+        const key = res.data?.cuoralKey;
+        if (!key) return;
+        const s = document.createElement('script');
+        s.src = 'https://js.cuoral.com/inline.js';
+        s.defer = true;
+        s.dataset.cuoralKey = key;
+        if (userData?.email) {
+            s.dataset.email = userData.email;
+            s.dataset.first_name = userData.firstName || userData.first_name || '';
+            s.dataset.last_name  = userData.lastName  || userData.last_name  || '';
+        }
+        document.head.appendChild(s);
+    } catch { /* non-fatal — support widget is optional */ }
+};
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -30,6 +51,7 @@ export const AuthProvider = ({ children }) => {
                 setUser(userData);
                 setIsAuthenticated(true);
                 setLoading(false);
+                loadCuoral(userData);
                 return;
             }
         } catch (error) {
@@ -47,6 +69,7 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         setIsAuthenticated(true);
         setLoading(false);
+        loadCuoral(userData);
     };
 
     // Silently refreshes user data without touching auth state on failure

@@ -212,10 +212,9 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
           data: {}).timeout(const Duration(seconds: 12));
       final existingStatus = existing.data?['kycStatus']?.toString() ?? '';
       final canStartNewSession = existing.data?['canStartNewSession'] == true;
-      if (existingStatus == 'approved' ||
-          existingStatus == 'declined' ||
-          existingStatus == 'blocked_duplicate' ||
-          (existingStatus == 'pending' && !canStartNewSession)) {
+      // Only hard-block for final positive outcomes.
+      // declined/pending can restart — the old session webhook will still resolve.
+      if (existingStatus == 'approved' || existingStatus == 'blocked_duplicate') {
         await _finishWithStatus(existingStatus);
         return;
       }

@@ -18,6 +18,7 @@ import { GetDetials } from '../controllers/GetProductDetails.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
 import { createTicket, listMyTickets, getMyTicket, sendUserMessage } from '../controllers/SupportController.js';
 import { getKycProvider, startDojahSession, dojahWebhook, getKycStatus, syncDojahResult, syncExistingDojahResult, kycPreCheck, updateLegalName } from '../controllers/DojahController.js';
+import { startPremblySession, premblyWebhook, syncPremblyResult, syncExistingPremblyResult, premblyComplete } from '../controllers/PremblyController.js';
 import { submitManualKyc, getManualKycStatus } from '../controllers/ManualKycController.js';
 import { myCoverWebhook } from '../controllers/MyCoverWebhookController.js';
 import {
@@ -165,10 +166,15 @@ userRouter.get('/kyc/provider', isAuthenticated, getKycProvider);
 userRouter.get('/kyc/pre-check', isAuthenticated, kycPreCheck);
 userRouter.post('/kyc/update-legal-name', isAuthenticated, updateLegalName);
 userRouter.post('/kyc/dojah/start', isAuthenticated, startDojahSession);
-userRouter.post('/kyc/dojah/webhook', dojahWebhook); // no auth — called by Dojah servers
+userRouter.post('/kyc/dojah/webhook', dojahWebhook);
 userRouter.post('/kyc/dojah/sync-result', isAuthenticated, syncDojahResult);
 userRouter.post('/kyc/dojah/sync-existing', isAuthenticated, syncExistingDojahResult);
-userRouter.get('/kyc/status', isAuthenticated, getKycStatus);  // app polls this after widget onSuccess
+userRouter.post('/kyc/prembly/start', isAuthenticated, startPremblySession);
+userRouter.post('/kyc/prembly/webhook', premblyWebhook); // no auth — called by Prembly servers
+userRouter.post('/kyc/prembly/sync-result', isAuthenticated, syncPremblyResult);
+userRouter.post('/kyc/prembly/sync-existing', isAuthenticated, syncExistingPremblyResult);
+userRouter.get('/kyc/prembly/complete', premblyComplete); // redirect target after Prembly finishes
+userRouter.get('/kyc/status', isAuthenticated, getKycStatus);
 userRouter.get('/insurance/mycover/webhook', (_req, res) => res.status(200).json({ success: true })); // URL verification by MyCover.ai
 userRouter.post('/insurance/mycover/webhook', myCoverWebhook); // event delivery by MyCover.ai servers
 userRouter.post('/kyc/manual-submit', isAuthenticated, submitManualKyc);

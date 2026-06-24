@@ -960,6 +960,15 @@ app.get('/api/config/pricing-config', async (_req, res) => {
   }
 });
 
+// ✅ App config — returns public widget keys for authenticated clients.
+// Keys are served at runtime so they are never bundled into frontend code.
+app.get('/api/config/app', isAuthenticated, (_req, res) => {
+  res.json({
+    success: true,
+    cuoralKey: process.env.CUORAL_PUBLIC_KEY || '',
+  });
+});
+
 // ✅ IP-based location and currency detection
 app.get('/api/location/detect', async (req, res) => {
   try {

@@ -75,7 +75,10 @@ class ApiConstants {
   static const String kycDojahSyncResult = '/api/bago/kyc/dojah/sync-result';
   static const String kycDojahSyncExisting =
       '/api/bago/kyc/dojah/sync-existing';
+  static const String kycPremblyStart = '/api/bago/kyc/prembly/start';
+  static const String kycPremblySyncResult = '/api/bago/kyc/prembly/sync-result';
   static const String kycStatus = '/api/bago/kyc/status';
+  static const String appConfig = '/api/config/app';
   static const String kycManualSubmit = '/api/bago/kyc/manual-submit';
   static const String kycManualStatus = '/api/bago/kyc/manual-status';
 
