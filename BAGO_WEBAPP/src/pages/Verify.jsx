@@ -863,7 +863,9 @@ function ReviewCard({ navigate }) {
     );
 }
 
-// ─── Prembly SDK widget — auto-opens on mount ─────────────────────────────────
+// ─── Prembly SDK widget ───────────────────────────────────────────────────────
+// Shows a tap-to-launch button so mobile browsers don't block the popup.
+// verifyWithIdentity() must be called from a direct user gesture (click/tap).
 function PremblyKycWidget({ widgetKey, widgetId, firstName, lastName, email, userId, onResponse }) {
     const config = {
         widget_key:  widgetKey,
@@ -875,8 +877,35 @@ function PremblyKycWidget({ widgetKey, widgetId, firstName, lastName, email, use
         callback:    onResponse,
     };
     const verifyWithIdentity = useIdentityPayKYC(config);
-    useEffect(() => { verifyWithIdentity(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-    return null;
+    const [launched, setLaunched] = useState(false);
+
+    const handleLaunch = () => {
+        setLaunched(true);
+        verifyWithIdentity();
+    };
+
+    if (launched) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+            <div className="bg-white rounded-[32px] p-8 text-center shadow-2xl w-full max-w-sm">
+                <div className="w-16 h-16 bg-[#5845D8]/10 rounded-3xl flex items-center justify-center mx-auto mb-5">
+                    <Shield size={30} className="text-[#5845D8]" />
+                </div>
+                <h2 className="font-black text-xl mb-2 tracking-tight">Ready to Verify</h2>
+                <p className="text-sm text-gray-500 font-medium leading-relaxed mb-7">
+                    Tap the button below to open your secure identity verification session.
+                </p>
+                <button
+                    onClick={handleLaunch}
+                    className="w-full bg-[#5845D8] text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-[#5845D8]/25 hover:bg-[#4838B5] active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                    <Shield size={16} />
+                    Open Verification
+                </button>
+            </div>
+        </div>
+    );
 }
 
 // ─── Hard block gate ──────────────────────────────────────────────────────────
