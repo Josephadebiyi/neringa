@@ -1220,6 +1220,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.6.0"
+  prembly_identity_kyc:
+    dependency: "direct main"
+    description:
+      name: prembly_identity_kyc
+      sha256: "8cbe2602c39781100293da1cb41fc59b539c78f505fc8f6d28966581e826a1e5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
   printing:
     dependency: "direct main"
     description:
@@ -1729,6 +1737,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.15.1"
+  webview_flutter_web:
+    dependency: transitive
+    description:
+      name: webview_flutter_web
+      sha256: "18a7ccc1c31dd9a5c759a1b7217a2a1e04bd8f65712714a4070bfac19a23ca9e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.3+4"
   webview_flutter_wkwebview:
     dependency: transitive
     description:

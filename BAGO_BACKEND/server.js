@@ -965,7 +965,9 @@ app.get('/api/config/pricing-config', async (_req, res) => {
 app.get('/api/config/app', isAuthenticated, (_req, res) => {
   res.json({
     success: true,
-    cuoralKey: process.env.CUORAL_PUBLIC_KEY || '',
+    cuoralKey:         process.env.CUORAL_PUBLIC_KEY    || '',
+    premblyWidgetKey:  process.env.PREMBLY_WIDGET_KEY   || '',
+    premblyWidgetId:   process.env.PREMBLY_CONFIG_ID    || '',
   });
 });
 

@@ -1,10 +1,9 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:prembly_identity_kyc/prembly_identity_kyc.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -32,17 +31,11 @@ class KycPremblyScreen extends ConsumerStatefulWidget {
 }
 
 class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
-  bool _loading = true;
   bool _hasError = false;
   String? _errorMessage;
-  String? _verificationUrl;
-  String? _verificationRef;
-  WebViewController? _webController;
-
-  // Polling state
-  Timer? _pollTimer;
-  bool _webviewVisible = false;
   bool _waitingForResult = false;
+
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -58,75 +51,53 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _start() async {
     try {
-      final res = await ApiService.instance.post<Map<String, dynamic>>(
-        ApiConstants.kycPremblyStart,
-        data: { 'country': widget.countryCode },
-      ).timeout(const Duration(seconds: 20));
+      // Fetch widget keys from backend at runtime — never bundled in app
+      final res = await ApiService.instance
+          .get(ApiConstants.appConfig)
+          .timeout(const Duration(seconds: 10));
 
-      final url = res.data?['verificationUrl']?.toString() ?? '';
-      final ref = res.data?['verificationRef']?.toString() ?? '';
+      final widgetKey = res.data?['premblyWidgetKey']?.toString() ?? '';
+      final widgetId  = res.data?['premblyWidgetId']?.toString() ?? '';
 
-      if (url.isEmpty) {
-        setState(() { _hasError = true; _errorMessage = 'Could not start verification. Please try again.'; _loading = false; });
+      if (widgetKey.isEmpty || widgetId.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Verification service is not available right now. Please try again later.';
+        });
         return;
       }
 
-      _verificationUrl = url;
-      _verificationRef = ref;
-      _buildWebView(url);
-      setState(() { _loading = false; _webviewVisible = true; });
+      if (!mounted) return;
+      final user = ref.read(authProvider).user;
+
+      // Launch the Prembly SDK — handles camera, liveness, document capture
+      PremblyIdentityKyc.verify(
+        context: context,
+        options: IdentityKycOptions(
+          widgetKey: widgetKey,
+          widgetId:  widgetId,
+          firstName: user?.firstName ?? '',
+          lastName:  user?.lastName  ?? '',
+          email:     user?.email     ?? '',
+          callback:  _onSdkComplete,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      final msg = e is DioException ? (ApiService.parseError(e) ?? 'Failed to start verification. Please try again.') : 'Failed to start verification. Please try again.';
-      setState(() { _hasError = true; _errorMessage = msg; _loading = false; });
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'Failed to start verification. Please try again.';
+      });
     }
   }
 
-  void _buildWebView(String url) {
-    final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onNavigationRequest: (request) {
-          // Intercept the callback URL Prembly redirects to when done
-          if (request.url.contains('/kyc/prembly/complete') ||
-              request.url.contains('/kyc/prembly/done') ||
-              request.url.contains('prembly_complete')) {
-            _onVerificationFinished();
-            return NavigationDecision.prevent;
-          }
-          return NavigationDecision.navigate;
-        },
-        onPageFinished: (_) {},
-        onWebResourceError: (error) {
-          // Network errors on the verification page — fall through to polling
-        },
-      ))
-      ..addJavaScriptChannel(
-        'PremblyBridge',
-        onMessageReceived: (msg) {
-          if (msg.message.contains('prembly_complete') || msg.message.contains('complete')) {
-            _onVerificationFinished();
-          }
-        },
-      )
-      ..loadRequest(Uri.parse(url));
-
-    _webController = controller;
-  }
-
-  void _onVerificationFinished() {
-    if (_waitingForResult) return;
-    _waitingForResult = true;
-    setState(() { _webviewVisible = false; _waitingForResult = true; });
-    _startPolling();
-  }
-
-  void _startPolling() {
-    if (_pollTimer?.isActive == true) return;
-    // Immediately try to sync, then poll every 4 seconds for up to 3 minutes
+  void _onSdkComplete(dynamic response) {
+    if (!mounted) return;
+    setState(() { _waitingForResult = true; });
+    // Poll backend — webhook may arrive slightly after the SDK callback
     _syncResult();
     _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _syncResult());
-    // Hard stop after 3 minutes
     Timer(const Duration(minutes: 3), () {
       _pollTimer?.cancel();
       if (mounted && _waitingForResult) _finishWithStatus('pending');
@@ -135,21 +106,20 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _syncResult() async {
     try {
-      final res = await ApiService.instance.post(
-        ApiConstants.kycPremblySyncResult,
-        data: { 'verificationRef': _verificationRef ?? '' },
-      ).timeout(const Duration(seconds: 10));
+      final res = await ApiService.instance
+          .post(ApiConstants.kycPremblySyncResult, data: {})
+          .timeout(const Duration(seconds: 10));
 
       final status = res.data?['kycStatus']?.toString() ?? '';
       if (status == 'approved' || status == 'declined' || status == 'blocked_duplicate') {
         _pollTimer?.cancel();
         if (mounted) _finishWithStatus(status);
       }
-      // pending/not_started → keep polling
     } catch (_) {}
   }
 
   Future<void> _finishWithStatus(String finalStatus) async {
+    _waitingForResult = false;
     await ref.read(authProvider.notifier).refreshProfile()
         .timeout(const Duration(seconds: 5)).catchError((_) {});
     if (!mounted) return;
@@ -174,9 +144,12 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
   }
 
   Future<void> _retry() async {
-    setState(() { _hasError = false; _errorMessage = null; _loading = true; _webviewVisible = false; _waitingForResult = false; });
     _pollTimer?.cancel();
-    _webController = null;
+    setState(() {
+      _hasError = false;
+      _errorMessage = null;
+      _waitingForResult = false;
+    });
     _start();
   }
 
@@ -234,19 +207,17 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
           children: [
             CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
             SizedBox(height: 20),
-            Text('Processing your verification…', textAlign: TextAlign.center),
+            Text(
+              'Processing your verification…',
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       );
     }
 
-    if (_loading || _webController == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
-      );
-    }
-
-    // WebView fills the screen
-    return WebViewWidget(controller: _webController!);
+    return const Center(
+      child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
+    );
   }
 }
