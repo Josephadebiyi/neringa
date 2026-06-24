@@ -12,10 +12,11 @@ import { runPreKycChecks } from '../services/securityService.js';
 // WebView/iframe → Prembly fires webhook when done.
 // ---------------------------------------------------------------------------
 
-const PREMBLY_APP_ID  = process.env.PREMBLY_APP_ID;
-const PREMBLY_API_KEY = process.env.PREMBLY_API_KEY;
-const PREMBLY_ENV     = (process.env.PREMBLY_ENVIRONMENT || 'live').toLowerCase();
-const PREMBLY_BASE    = 'https://api.prembly.com/identitypass';
+const PREMBLY_APP_ID   = process.env.PREMBLY_APP_ID;
+const PREMBLY_API_KEY  = process.env.PREMBLY_API_KEY;
+const PREMBLY_CONFIG_ID = process.env.PREMBLY_CONFIG_ID; // Widget config ID from Prembly dashboard
+const PREMBLY_ENV      = (process.env.PREMBLY_ENVIRONMENT || 'live').toLowerCase();
+const PREMBLY_BASE     = 'https://api.prembly.com/identitypass';
 
 // Callback URL Prembly redirects to when the user finishes verification.
 // The Flutter WebView and web iframe both watch for this URL to auto-close.
@@ -145,17 +146,16 @@ export const startPremblySession = async (req, res) => {
 
     // Create the IdentityForm session on Prembly
     const sessionEndpoint = `${PREMBLY_BASE}/verification/widget/${PREMBLY_ENV === 'sandbox' ? 'sandbox' : 'live'}`;
-    const premblyRes = await axios.post(
-      sessionEndpoint,
-      {
-        first_name:       userRow.first_name || undefined,
-        last_name:        userRow.last_name  || undefined,
-        email:            userRow.email      || undefined,
-        user_ref:         verificationRef,
-        callback_url:     PREMBLY_CALLBACK_URL,
-      },
-      { headers: premblyHeaders(), timeout: 15000 },
-    );
+    const sessionBody = {
+      ...(PREMBLY_CONFIG_ID && { config_id: PREMBLY_CONFIG_ID }),
+      first_name:   userRow.first_name || undefined,
+      last_name:    userRow.last_name  || undefined,
+      email:        userRow.email      || undefined,
+      user_ref:     verificationRef,
+      callback_url: PREMBLY_CALLBACK_URL,
+    };
+    console.info('Prembly session request →', sessionEndpoint, JSON.stringify({ ...sessionBody, callback_url: '...' }));
+    const premblyRes = await axios.post(sessionEndpoint, sessionBody, { headers: premblyHeaders(), timeout: 15000 });
 
     const verificationUrl = premblyRes.data?.data?.url || premblyRes.data?.url;
     const premblyRef      = premblyRes.data?.data?.verification_ref || verificationRef;
@@ -194,8 +194,9 @@ export const startPremblySession = async (req, res) => {
       callbackUrl: PREMBLY_CALLBACK_URL,
     });
   } catch (err) {
-    console.error('startPremblySession error:', err?.response?.data || err.message);
-    const msg = err?.response?.data?.message || err?.response?.data?.detail || err.message || 'Failed to start verification';
+    console.error('startPremblySession error:', JSON.stringify(err?.response?.data || err.message));
+    console.error('startPremblySession status:', err?.response?.status);
+    const msg = err?.response?.data?.message || err?.response?.data?.detail || err?.response?.data?.error || err.message || 'Failed to start verification';
     res.status(502).json({ success: false, message: msg });
   }
 };
