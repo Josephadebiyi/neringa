@@ -301,6 +301,8 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  static const _paystackCurrencies = {'NGN', 'GHS', 'KES', 'ZAR'};
+
   // Auto-detect currency from IP — only runs if earning currency is not locked
   Future<void> _applyIpCurrencyIfNeeded(UserModel user) async {
     if (user.earningCurrencyLocked) return;
@@ -310,7 +312,12 @@ class AuthNotifier extends Notifier<AuthState> {
       if (detected.isEmpty) return;
       final current = (user.earningCurrency ?? user.preferredCurrency).toUpperCase().trim();
       if (current == detected) return;
-      await updateCurrency(detected);
+      // Paystack currencies get activateEarning (locks the currency on backend)
+      if (_paystackCurrencies.contains(detected)) {
+        await activateEarning(detected);
+      } else {
+        await updateCurrency(detected);
+      }
     } catch (_) {}
   }
 

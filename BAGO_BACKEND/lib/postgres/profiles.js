@@ -441,6 +441,15 @@ export async function addPushToken(userId, token) {
 }
 
 export async function updatePreferredCurrency(userId, currency, paymentGateway, oldCurrency = null) {
+  const profile = await queryOne(
+    `SELECT earning_currency_locked FROM public.profiles WHERE id = $1`,
+    [userId],
+  );
+  if (profile?.earning_currency_locked) {
+    const err = new Error('Your currency is locked. Contact support to change it.');
+    err.statusCode = 403;
+    throw err;
+  }
   await query(
     `
       update public.profiles
@@ -481,15 +490,18 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
 
 // Updates traveler payout currency. Currency conversion is handled server-side
 // when ledger entries and wallet balances are created or displayed.
+const PAYSTACK_LOCK_CURRENCIES = new Set(['NGN', 'GHS', 'KES', 'ZAR']);
+
 export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
   const upper = currency.toUpperCase();
   const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'stripe';
+  const locked = PAYSTACK_LOCK_CURRENCIES.has(upper);
   await withTransaction(async (client) => {
     await client.query(
-      `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = FALSE,
+      `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = $4,
        preferred_currency = $2, payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
-      [userId, upper, paymentGateway],
+      [userId, upper, paymentGateway, locked],
     );
 
     const walletResult = await client.query(
@@ -550,10 +562,11 @@ export async function adminChangeEarningCurrency(userId, newCurrency, settleBala
         );
       }
     }
+    const locked = PAYSTACK_LOCK_CURRENCIES.has(upper);
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, preferred_currency = $2,
-       payment_gateway = $3, earning_currency_locked = FALSE, updated_at = NOW() WHERE id = $1`,
-      [userId, upper, paymentGateway],
+       payment_gateway = $3, earning_currency_locked = $4, updated_at = NOW() WHERE id = $1`,
+      [userId, upper, paymentGateway, locked],
     );
     await client.query(
       `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,

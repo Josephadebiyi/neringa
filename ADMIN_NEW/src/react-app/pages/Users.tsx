@@ -334,6 +334,12 @@ export default function Users() {
                               )}
                             </div>
                             <div className="text-[10px] font-bold text-gray-400 mt-0.5">{user.email}</div>
+                            {user.phone && (
+                              <div className="text-[10px] font-bold text-gray-400 mt-0.5 flex items-center gap-1">
+                                {user.phone}
+                                {user.phoneVerified && <span className="text-[8px] px-1 py-0.5 bg-green-50 text-green-600 border border-green-100 rounded font-black">✓</span>}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
