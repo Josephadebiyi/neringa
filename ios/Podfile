@@ -47,7 +47,7 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'armv7'
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64 i386'
       # Suppress deprecation-as-error in Braintree ObjC pods
       if target.name.start_with?('Braintree') || target.name == 'BraintreeDropIn' || target.name == 'PayPalDataCollector' || target.name == 'PayPalUI'
         config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
