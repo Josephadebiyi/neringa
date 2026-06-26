@@ -80,6 +80,7 @@ import {
   getAllWithdrawals,
   updateWithdrawalStatus,
   approveWithdrawal,
+  recalculateWalletBalance,
 } from '../controllers/AdminControllers/WithdrawalController.js';
 import {
   requestAdminCredentialChange,
@@ -151,6 +152,7 @@ AdminRouter.get("/getCurrentSetting", adminAuthenticated, getCurrentSetting);
 AdminRouter.put("/banUser/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.ban', 'profile', 'userId'), banUser);
 AdminRouter.put("/updateUser/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.update', 'profile', 'userId'), updateUser);
 AdminRouter.post("/users/:userId/earning-currency", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.earning_currency.set', 'profile', 'userId'), adminSetEarningCurrency);
+AdminRouter.post("/users/:userId/recalculate-balance", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.balance.recalculate', 'wallet_account', 'userId'), recalculateWalletBalance);
 AdminRouter.delete("/deleteUser/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.delete', 'profile', 'userId'), deleteUser);
 AdminRouter.post("/send-promo", adminAuthenticated, can('promos.manage'), audit('admin.promo.send', 'promo'), sendPromoEmail);
 AdminRouter.get("/refunds", adminAuthenticated, can('refunds.manage'), getAllRefunds);

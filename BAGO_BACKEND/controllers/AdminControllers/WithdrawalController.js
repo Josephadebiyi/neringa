@@ -380,6 +380,64 @@ export const updateWithdrawalStatus = async (req, res, next) => {
   }
 };
 
+// ── Admin: recalculate a user's wallet balance from transaction history ──
+export const recalculateWalletBalance = async (req, res, next) => {
+  const { userId } = req.params;
+  try {
+    const result = await withTransaction(async (client) => {
+      const walletResult = await client.query(
+        `SELECT id, available_balance FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
+        [userId],
+      );
+      if (!walletResult.rows[0]) {
+        const err = new Error('Wallet not found for this user.');
+        err.statusCode = 404;
+        throw err;
+      }
+      const wallet = walletResult.rows[0];
+      const oldBalance = Number(wallet.available_balance || 0);
+
+      // Correct balance = completed credits − all non-failed withdrawals
+      // (pending withdrawals were already deducted from available_balance at initiation time)
+      const calcResult = await client.query(
+        `SELECT GREATEST(
+           COALESCE(SUM(amount) FILTER (
+             WHERE type::text IN ('earning','signup_bonus','admin_settlement','credit','release','deposit','escrow_release')
+               AND status::text = 'completed'
+           ), 0)
+           -
+           COALESCE(SUM(amount) FILTER (
+             WHERE type::text IN ('withdrawal','withdraw','payout')
+               AND lower(status::text) NOT IN ('failed','rejected','cancelled','canceled')
+           ), 0),
+           0
+         ) AS correct_balance
+         FROM public.wallet_transactions
+         WHERE user_id = $1`,
+        [userId],
+      );
+      const newBalance = Number(calcResult.rows[0]?.correct_balance || 0);
+
+      await client.query(
+        `UPDATE public.wallet_accounts
+         SET available_balance = $2, updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [wallet.id, newBalance],
+      );
+      return { oldBalance, newBalance };
+    });
+
+    return res.json({
+      success: true,
+      message: 'Balance recalculated from transaction history.',
+      oldBalance: result.oldBalance,
+      newBalance: result.newBalance,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ── Admin: approve a pending_admin_approval withdrawal and call the payout API ──
 export const approveWithdrawal = async (req, res, next) => {
   const { transactionId } = req.params;

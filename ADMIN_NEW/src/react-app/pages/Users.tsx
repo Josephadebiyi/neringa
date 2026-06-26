@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Search,
   RotateCcw,
+  RefreshCw,
   Download,
   ChevronLeft,
   ChevronRight,
@@ -16,7 +17,7 @@ import {
   ShieldAlert,
   Coins,
 } from 'lucide-react';
-import { getUsers, banUser as toggleBan, deleteUser, updateUser, getAdminAuthHeaders } from '../services/api';
+import { getUsers, banUser as toggleBan, deleteUser, updateUser, getAdminAuthHeaders, recalculateUserBalance } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE_URL as ADMIN_API } from '../config/api';
 
@@ -81,6 +82,7 @@ export default function Users() {
   const [adminNote, setAdminNote] = useState('');
   const [currencyLoading, setCurrencyLoading] = useState(false);
   const [currencyError, setCurrencyError] = useState('');
+  const [recalcLoadingId, setRecalcLoadingId] = useState<string | null>(null);
 
   const limit = 20;
 
@@ -122,6 +124,23 @@ export default function Users() {
       if (res.success) fetchUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);
+    }
+  };
+
+  const handleRecalculateBalance = async (userId: string) => {
+    if (!confirm('Recalculate this user\'s wallet balance from transaction history?')) return;
+    setRecalcLoadingId(userId);
+    try {
+      const res = await recalculateUserBalance(userId);
+      if (res?.success) {
+        alert(`Balance updated: ${res.oldBalance} → ${res.newBalance} (${res.newBalance - res.oldBalance >= 0 ? '+' : ''}${(res.newBalance - res.oldBalance).toFixed(2)})`);
+        fetchUsers();
+      }
+    } catch (error) {
+      console.error('Failed to recalculate balance:', error);
+      alert('Failed to recalculate balance. Check console for details.');
+    } finally {
+      setRecalcLoadingId(null);
     }
   };
 
@@ -374,11 +393,19 @@ export default function Users() {
                           </div>
                         </div>
                       </td>
-                      {/* Escrow */}
+                      {/* Wallet / Escrow */}
                       <td className="py-5 px-8">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 rounded-xl font-black text-xs border border-slate-100">
-                          <CreditCard className="w-3 h-3 opacity-30" />
-                          €{(+(user.escrowBalance ?? 0)).toFixed(2)}
+                        <div className="flex flex-col gap-1">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl font-black text-xs border border-emerald-100" title="Available wallet balance">
+                            <CreditCard className="w-3 h-3 opacity-50" />
+                            {user.earningCurrency || '?'} {(+(user.walletBalance ?? 0)).toFixed(2)}
+                          </div>
+                          {(+(user.escrowBalance ?? 0)) > 0 && (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-500 rounded-xl font-black text-xs border border-slate-100" title="Held in escrow">
+                              <Target className="w-3 h-3 opacity-50" />
+                              escrow {(+(user.escrowBalance ?? 0)).toFixed(2)}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="py-5 px-8 text-right">
@@ -416,6 +443,19 @@ export default function Users() {
                               title="Change Wallet Currency (Activated Traveler)"
                             >
                               <Coins className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() => handleRecalculateBalance(user._id)}
+                              disabled={recalcLoadingId === user._id}
+                              className="p-2 bg-emerald-50 text-emerald-500 hover:bg-emerald-100 disabled:opacity-50 rounded-xl transition-all"
+                              title="Recalculate balance from transaction history"
+                            >
+                              {recalcLoadingId === user._id
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : <RefreshCw className="w-4 h-4" />}
                             </button>
                           )}
 
