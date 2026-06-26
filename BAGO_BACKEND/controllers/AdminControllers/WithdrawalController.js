@@ -1,7 +1,7 @@
 import { query, withTransaction } from '../../lib/postgres/db.js';
 import { sendWithdrawalProcessedEmail } from '../../services/emailNotifications.js';
 
-const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected']);
+const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected', 'cancelled']);
 const REFUNDABLE_STATUSES = new Set(['pending', 'pending_admin_approval', 'processing', 'approved']);
 const ALLOWED_WITHDRAWAL_STATUSES = new Set([
   'pending',
@@ -12,6 +12,7 @@ const ALLOWED_WITHDRAWAL_STATUSES = new Set([
   'completed',
   'paid',
   'failed',
+  'cancelled',
 ]);
 
 function parseJsonObject(value) {
