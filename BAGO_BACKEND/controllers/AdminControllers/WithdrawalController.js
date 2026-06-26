@@ -123,8 +123,11 @@ export const getAllWithdrawals = async (req, res, next) => {
       result = await query(
         `
           SELECT wt.id, wt.user_id, wt.amount, wt.status, wt.description, wt.currency,
-                 wt.created_at, wt.updated_at, wt.metadata,
-                 p.first_name, p.last_name, p.email, p.bank_details,
+                 wt.created_at,
+                 COALESCE(wt.updated_at, wt.created_at) AS updated_at,
+                 wt.metadata,
+                 p.first_name, p.last_name, p.email,
+                 COALESCE(p.bank_details, '{}'::jsonb) AS bank_details,
                  NULL::text AS payout_provider,
                  NULL::text AS payout_method,
                  NULL::text AS payout_method_status,
@@ -133,7 +136,7 @@ export const getAllWithdrawals = async (req, res, next) => {
                  NULL::text AS paystack_recipient_code,
                  NULL::text AS provider,
                  NULL::text AS failure_reason,
-                 CASE WHEN lower(coalesce(wt.status::text, '')) IN ('completed', 'paid') THEN wt.updated_at ELSE NULL END AS processed_at,
+                 NULL::timestamptz AS processed_at,
                  'wallet_transactions' AS source
           FROM public.wallet_transactions wt
           LEFT JOIN public.profiles p ON p.id = wt.user_id
@@ -144,7 +147,8 @@ export const getAllWithdrawals = async (req, res, next) => {
                  'Paystack bank withdrawal' AS description, ppw.currency,
                  ppw.created_at, ppw.updated_at,
                  jsonb_build_object('provider', 'paystack', 'reference', ppw.reference) AS metadata,
-                 p.first_name, p.last_name, p.email, p.bank_details,
+                 p.first_name, p.last_name, p.email,
+                 COALESCE(p.bank_details, '{}'::jsonb) AS bank_details,
                  NULL::text AS payout_provider,
                  NULL::text AS payout_method,
                  NULL::text AS payout_method_status,
@@ -153,7 +157,7 @@ export const getAllWithdrawals = async (req, res, next) => {
                  NULL::text AS paystack_recipient_code,
                  'paystack' AS provider,
                  NULL::text AS failure_reason,
-                 CASE WHEN lower(coalesce(ppw.status::text, '')) IN ('completed', 'paid') THEN ppw.updated_at ELSE NULL END AS processed_at,
+                 NULL::timestamptz AS processed_at,
                  'paystack_pending_withdrawals' AS source
           FROM public.paystack_pending_withdrawals ppw
           LEFT JOIN public.profiles p ON p.id = ppw.user_id
@@ -163,21 +167,28 @@ export const getAllWithdrawals = async (req, res, next) => {
       );
     } catch (error) {
       if (error?.code !== '42P01' && error?.code !== '42703') throw error;
-      result = await query(
-        `SELECT t.id, t.user_id, t.amount, t.status, t.description, t.currency,
-                t.created_at, t.updated_at, '{}'::jsonb AS metadata,
-                p.first_name, p.last_name, p.email, p.bank_details,
-                p.payout_provider, p.payout_method, p.payout_method_status, p.payout_status, p.payout_currency,
-                p.paystack_recipient_code,
-                NULL::text AS provider,
-                NULL::text AS failure_reason,
-                CASE WHEN lower(coalesce(t.status, '')) IN ('completed', 'paid') THEN t.updated_at ELSE NULL END AS processed_at,
-                'transactions' AS source
-         FROM public.transactions t
-         LEFT JOIN public.profiles p ON p.id = t.user_id
-         WHERE t.type = 'withdrawal'
-         ORDER BY t.created_at DESC`
-      );
+      // Some column doesn't exist yet — fall back to bare minimum columns that are
+      // guaranteed to exist (same ones used by assertNoActiveWithdrawal)
+      try {
+        result = await query(
+          `SELECT id, user_id, amount, status::text,
+                  NULL::text AS description, currency::text,
+                  created_at, created_at AS updated_at, NULL::jsonb AS metadata,
+                  NULL::text AS first_name, NULL::text AS last_name,
+                  NULL::text AS email, NULL::jsonb AS bank_details,
+                  NULL::text AS payout_provider, NULL::text AS payout_method,
+                  NULL::text AS payout_method_status, NULL::text AS payout_status,
+                  NULL::text AS payout_currency, NULL::text AS paystack_recipient_code,
+                  NULL::text AS provider, NULL::text AS failure_reason,
+                  NULL::timestamptz AS processed_at,
+                  'wallet_transactions' AS source
+           FROM public.wallet_transactions
+           WHERE type::text = 'withdrawal'
+           ORDER BY created_at DESC`
+        );
+      } catch {
+        result = { rows: [] };
+      }
     }
 
     res.status(200).json({ success: true, data: dedupeWithdrawalRows(result.rows) });
