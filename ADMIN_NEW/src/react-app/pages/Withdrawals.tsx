@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Filter, CreditCard, User, Calendar, DollarSign, CheckCircle, XCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
-import { getWithdrawals, updateWithdrawalStatus as updateStatus } from "../services/api";
+import { approveWithdrawal as approveWithdrawalRequest, getWithdrawals, updateWithdrawalStatus as updateStatus } from "../services/api";
 
 // Interface for withdrawal requests from API
 interface WithdrawalRequest {
@@ -62,6 +62,48 @@ function hasPayoutDestination(withdrawal: WithdrawalRequest) {
     details.recipientCode ||
     details.reference,
   );
+}
+
+const PENDING_WITHDRAWAL_STATUSES = new Set(['pending', 'pending_admin_approval', 'approved', 'processing']);
+const APPROVABLE_WITHDRAWAL_STATUSES = new Set(['pending', 'pending_admin_approval']);
+const COMPLETED_WITHDRAWAL_STATUSES = new Set(['completed', 'processed', 'paid']);
+const FAILED_WITHDRAWAL_STATUSES = new Set(['failed', 'rejected', 'cancelled', 'canceled']);
+
+function normalizeStatus(status?: string) {
+  return String(status || '').trim().toLowerCase();
+}
+
+function isPendingWithdrawal(withdrawal: WithdrawalRequest) {
+  return PENDING_WITHDRAWAL_STATUSES.has(normalizeStatus(withdrawal.status));
+}
+
+function isApprovableWithdrawal(withdrawal: WithdrawalRequest) {
+  return APPROVABLE_WITHDRAWAL_STATUSES.has(normalizeStatus(withdrawal.status));
+}
+
+function isCompletedWithdrawal(withdrawal: WithdrawalRequest) {
+  return COMPLETED_WITHDRAWAL_STATUSES.has(normalizeStatus(withdrawal.status));
+}
+
+function isFailedWithdrawal(withdrawal: WithdrawalRequest) {
+  return FAILED_WITHDRAWAL_STATUSES.has(normalizeStatus(withdrawal.status));
+}
+
+function matchesStatusFilter(withdrawal: WithdrawalRequest, filter: string) {
+  if (filter === 'all') return true;
+  if (filter === 'pending') return isPendingWithdrawal(withdrawal);
+  if (filter === 'completed') return isCompletedWithdrawal(withdrawal);
+  if (filter === 'failed') return isFailedWithdrawal(withdrawal);
+  return normalizeStatus(withdrawal.status) === filter;
+}
+
+function getStatusLabel(status?: string) {
+  const normalized = normalizeStatus(status);
+  if (normalized === 'pending_admin_approval') return 'Pending Review';
+  if (normalized === 'processing') return 'Processing';
+  if (normalized === 'paid') return 'Paid';
+  if (normalized === 'processed') return 'Processed';
+  return normalized || 'unknown';
 }
 
 function PayoutDetailsBlock({ withdrawal }: { withdrawal: WithdrawalRequest }) {
@@ -142,13 +184,34 @@ export default function Withdrawals() {
     }
   };
 
+  const handleApproveWithdrawal = async (withdrawal: WithdrawalRequest) => {
+    try {
+      setLoading(true);
+      const needsAdminApproval = normalizeStatus(withdrawal.status) === 'pending_admin_approval';
+      const result = needsAdminApproval
+        ? await approveWithdrawalRequest(withdrawal.id)
+        : await updateStatus(withdrawal.id, 'completed');
+      if (result.success) {
+        await fetchWithdrawals();
+      }
+    } catch (error) {
+      console.error('Failed to approve withdrawal:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBatchApprove = async () => {
-    const pending = withdrawals.filter(w => w.status === 'pending' && hasPayoutDestination(w));
+    const pending = withdrawals.filter(w => isApprovableWithdrawal(w) && hasPayoutDestination(w));
     if (pending.length === 0) return;
     if (!confirm(`Approve all ${pending.length} pending withdrawal request(s)?`)) return;
     try {
       setBatchLoading(true);
-      await Promise.all(pending.map(w => updateStatus(w.id, 'completed')));
+      await Promise.all(pending.map(w => (
+        normalizeStatus(w.status) === 'pending_admin_approval'
+          ? approveWithdrawalRequest(w.id)
+          : updateStatus(w.id, 'completed')
+      )));
       await fetchWithdrawals();
     } catch (error) {
       console.error('Batch approve failed:', error);
@@ -165,41 +228,44 @@ export default function Withdrawals() {
       withdrawal.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payoutSearchText(withdrawal).includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === "all" || withdrawal.status === statusFilter;
+    const matchesStatus = matchesStatusFilter(withdrawal, statusFilter);
 
     return matchesSearch && matchesStatus;
   });
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
+    const normalized = normalizeStatus(status);
+    if (PENDING_WITHDRAWAL_STATUSES.has(normalized)) return 'bg-yellow-100 text-yellow-800';
+    if (COMPLETED_WITHDRAWAL_STATUSES.has(normalized)) return 'bg-green-100 text-green-800';
+    if (FAILED_WITHDRAWAL_STATUSES.has(normalized)) return 'bg-red-100 text-red-800';
+    switch (normalized) {
       case 'approved': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'cancelled': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />;
+    const normalized = normalizeStatus(status);
+    if (PENDING_WITHDRAWAL_STATUSES.has(normalized)) return <Clock className="w-4 h-4 text-yellow-600" />;
+    if (COMPLETED_WITHDRAWAL_STATUSES.has(normalized)) return <CheckCircle className="w-4 h-4 text-green-600" />;
+    if (FAILED_WITHDRAWAL_STATUSES.has(normalized)) return <XCircle className="w-4 h-4 text-red-600" />;
+    switch (normalized) {
       case 'approved': return <CheckCircle className="w-4 h-4 text-blue-600" />;
-      case 'completed': return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'failed': return <XCircle className="w-4 h-4 text-red-600" />;
-      case 'cancelled': return <XCircle className="w-4 h-4 text-gray-600" />;
       default: return <AlertCircle className="w-4 h-4 text-gray-600" />;
     }
   };
 
   const totalPendingAmount = withdrawals
-    .filter(w => w.status === 'pending')
+    .filter(isPendingWithdrawal)
     .reduce((sum, w) => sum + w.amount, 0);
 
   const totalProcessedAmount = withdrawals
-    .filter(w => w.status === 'completed')
+    .filter(isCompletedWithdrawal)
     .reduce((sum, w) => sum + w.amount, 0);
-  const approvablePendingCount = withdrawals.filter(w => w.status === 'pending' && hasPayoutDestination(w)).length;
+  const pendingCount = withdrawals.filter(isPendingWithdrawal).length;
+  const completedCount = withdrawals.filter(isCompletedWithdrawal).length;
+  const failedCount = withdrawals.filter(isFailedWithdrawal).length;
+  const approvablePendingCount = withdrawals.filter(w => isApprovableWithdrawal(w) && hasPayoutDestination(w)).length;
 
   if (loading) {
     return (
@@ -233,7 +299,7 @@ export default function Withdrawals() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-yellow-600">
-            {withdrawals.filter(w => w.status === 'pending').length}
+            {pendingCount}
           </div>
           <div className="text-gray-600 text-sm">Pending Requests</div>
           <div className="text-xs text-gray-500 mt-1">
@@ -248,7 +314,7 @@ export default function Withdrawals() {
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-green-600">
-            {withdrawals.filter(w => w.status === 'processed').length}
+            {completedCount}
           </div>
           <div className="text-gray-600 text-sm">Processed</div>
           <div className="text-xs text-gray-500 mt-1">
@@ -257,7 +323,7 @@ export default function Withdrawals() {
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
           <div className="text-2xl font-bold text-red-600">
-            {withdrawals.filter(w => w.status === 'failed').length}
+            {failedCount}
           </div>
           <div className="text-gray-600 text-sm">Failed</div>
         </div>
@@ -374,7 +440,7 @@ export default function Withdrawals() {
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(withdrawal.status)}
                       <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(withdrawal.status)}`}>
-                        {withdrawal.status}
+                        {getStatusLabel(withdrawal.status)}
                       </span>
                     </div>
                     {withdrawal.failure_reason && (
@@ -409,10 +475,10 @@ export default function Withdrawals() {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex space-x-2">
-                      {withdrawal.status === 'pending' && (
+                      {isApprovableWithdrawal(withdrawal) && (
                         <>
                           <button 
-                            onClick={() => handleUpdateStatus(withdrawal.id, 'completed')}
+                            onClick={() => handleApproveWithdrawal(withdrawal)}
                             disabled={!hasPayoutDestination(withdrawal)}
                             title={!hasPayoutDestination(withdrawal) ? 'Payout destination is missing' : 'Approve withdrawal'}
                             className="text-green-600 hover:text-green-800 text-sm font-medium disabled:cursor-not-allowed disabled:text-gray-300"

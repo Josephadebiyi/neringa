@@ -239,6 +239,12 @@ export async function updateWithdrawalStatus(transactionId: string, status: stri
   });
 }
 
+export async function approveWithdrawal(transactionId: string) {
+  return apiCall(`${ADMIN_API}/withdrawals/${transactionId}/approve`, {
+    method: 'POST',
+  });
+}
+
 // Trips
 export async function getTrips(page = 1, limit = 20) {
   return apiCall(`${ADMIN_API}/admin-trips?page=${page}&limit=${limit}`);

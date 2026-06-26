@@ -1,4 +1,47 @@
 import { query } from '../lib/postgres/db.js';
+import { getWalletByUserId } from '../lib/postgres/profiles.js';
+
+const CREDIT_TRANSACTION_TYPES = new Set([
+  'deposit',
+  'escrow_release',
+  'earning',
+  'admin_settlement',
+  'credit',
+  'release',
+  'signup_bonus',
+  'referral_bonus',
+]);
+
+function getTransactionStatusLabel(status) {
+  const normalized = String(status || 'pending').trim().toLowerCase();
+  if (normalized === 'pending_admin_approval') return 'Pending review';
+  if (normalized === 'processing') return 'Processing';
+  if (normalized === 'completed') return 'Completed';
+  if (normalized === 'processed') return 'Processed';
+  if (normalized === 'paid') return 'Paid';
+  if (normalized === 'failed') return 'Failed';
+  if (normalized === 'rejected') return 'Rejected';
+  if (normalized === 'cancelled' || normalized === 'canceled') return 'Cancelled';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function toBalanceHistoryRow(transaction) {
+  const rawType = String(transaction?.type || '').toLowerCase();
+  const statusLabel = getTransactionStatusLabel(transaction?.status);
+  const description = transaction?.description || rawType.replace(/_/g, ' ') || 'Wallet transaction';
+
+  return {
+    ...transaction,
+    _id: transaction?.id,
+    id: transaction?.id,
+    type: CREDIT_TRANSACTION_TYPES.has(rawType) ? 'deposit' : rawType,
+    amount: Number(transaction?.amount || 0),
+    date: transaction?.created_at || transaction?.createdAt || transaction?.date,
+    description: `${statusLabel} - ${description}`,
+    status: transaction?.status || 'pending',
+    statusLabel,
+  };
+}
 
 export const Profile = async (req, res, next) => {
   try {
@@ -64,6 +107,31 @@ export const Profile = async (req, res, next) => {
       updatedAt: row.updatedAt,
     }));
 
+    const wallet = await getWalletByUserId(userId).catch((error) => {
+      console.warn('Profile wallet history unavailable:', error.message);
+      return null;
+    });
+    const walletHistory = wallet?.transactions || wallet?.history || [];
+    const balanceHistory = walletHistory.map(toBalanceHistoryRow);
+    const findUser = wallet
+      ? {
+          ...user,
+          balance: wallet.balance,
+          walletBalance: wallet.walletBalance ?? wallet.balance,
+          wallet_balance: wallet.wallet_balance ?? wallet.balance,
+          availableBalance: wallet.availableBalance ?? wallet.balance,
+          available_balance: wallet.available_balance ?? wallet.balance,
+          escrowBalance: wallet.escrowBalance,
+          escrow_balance: wallet.escrow_balance ?? wallet.escrowBalance,
+          walletCurrency: wallet.currency || user.walletCurrency,
+          wallet_currency: wallet.currency || user.wallet_currency,
+          currency: wallet.currency || user.currency,
+          balanceHistory,
+          transactions: balanceHistory,
+          history: balanceHistory,
+        }
+      : user;
+
     return res.status(200).json({
       message: findTrips.length === 0
         ? 'User found but no trips yet'
@@ -71,7 +139,7 @@ export const Profile = async (req, res, next) => {
       success: true,
       error: false,
       data: {
-        findUser: user,
+        findUser,
         findTrips,
       },
     });
