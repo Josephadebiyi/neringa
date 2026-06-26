@@ -125,15 +125,19 @@ export const getAllWithdrawals = async (req, res, next) => {
           SELECT wt.id, wt.user_id, wt.amount, wt.status, wt.description, wt.currency,
                  wt.created_at, wt.updated_at, wt.metadata,
                  p.first_name, p.last_name, p.email, p.bank_details,
-                 p.payout_provider, p.payout_method, p.payout_method_status, p.payout_status, p.payout_currency,
-                 p.paystack_recipient_code,
+                 NULL::text AS payout_provider,
+                 NULL::text AS payout_method,
+                 NULL::text AS payout_method_status,
+                 NULL::text AS payout_status,
+                 NULL::text AS payout_currency,
+                 NULL::text AS paystack_recipient_code,
                  NULL::text AS provider,
                  NULL::text AS failure_reason,
                  CASE WHEN lower(coalesce(wt.status::text, '')) IN ('completed', 'paid') THEN wt.updated_at ELSE NULL END AS processed_at,
                  'wallet_transactions' AS source
           FROM public.wallet_transactions wt
           LEFT JOIN public.profiles p ON p.id = wt.user_id
-          WHERE wt.type = 'withdrawal'
+          WHERE wt.type::text = 'withdrawal'
             AND coalesce(wt.metadata ->> 'duplicateCleared', 'false') <> 'true'
           UNION ALL
           SELECT ppw.id, ppw.user_id, ppw.amount, ppw.status,
@@ -141,8 +145,12 @@ export const getAllWithdrawals = async (req, res, next) => {
                  ppw.created_at, ppw.updated_at,
                  jsonb_build_object('provider', 'paystack', 'reference', ppw.reference) AS metadata,
                  p.first_name, p.last_name, p.email, p.bank_details,
-                 p.payout_provider, p.payout_method, p.payout_method_status, p.payout_status, p.payout_currency,
-                 p.paystack_recipient_code,
+                 NULL::text AS payout_provider,
+                 NULL::text AS payout_method,
+                 NULL::text AS payout_method_status,
+                 NULL::text AS payout_status,
+                 NULL::text AS payout_currency,
+                 NULL::text AS paystack_recipient_code,
                  'paystack' AS provider,
                  NULL::text AS failure_reason,
                  CASE WHEN lower(coalesce(ppw.status::text, '')) IN ('completed', 'paid') THEN ppw.updated_at ELSE NULL END AS processed_at,
