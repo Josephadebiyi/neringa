@@ -301,13 +301,16 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  // Auto-detect currency from IP and save it — only runs if user has no earning currency locked
+  // Auto-detect currency from IP — only runs if earning currency is not locked
   Future<void> _applyIpCurrencyIfNeeded(UserModel user) async {
     if (user.earningCurrencyLocked) return;
-    if (user.preferredCurrency.trim().isNotEmpty) return;
     try {
-      final detected = await _service.detectCurrency();
-      if (detected.isNotEmpty) await updateCurrency(detected);
+      final location = await _service.detectLocation();
+      final detected = location['currency'] ?? '';
+      if (detected.isEmpty) return;
+      final current = (user.earningCurrency ?? user.preferredCurrency).toUpperCase().trim();
+      if (current == detected) return;
+      await updateCurrency(detected);
     } catch (_) {}
   }
 

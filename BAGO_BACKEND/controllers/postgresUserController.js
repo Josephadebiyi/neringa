@@ -30,6 +30,7 @@ import {
 import { query, queryOne } from '../lib/postgres/db.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
+import { getLocationData } from '../services/geoLocation.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
 import {
   applyReferralSignupReward,
@@ -418,8 +419,16 @@ export async function verifySignupOtp(req, res) {
 
     // Use pre-hashed password from token (passwordHash field); legacy tokens may have plain password field
     const passwordHash = decoded.passwordHash || await bcrypt.hash(decoded.password, 10);
-    const paymentGateway = getPaymentGateway(decoded.country);
-    const preferredCurrency = getCurrencyByCountry(decoded.country);
+    let preferredCurrency = getCurrencyByCountry(decoded.country);
+    let paymentGateway = getPaymentGateway(decoded.country);
+    // If country wasn't recognized (falls back to USD), use IP geolocation
+    if (preferredCurrency === 'USD' && !decoded.country?.match(/^US$/i) && decoded.country !== 'United States') {
+      const ipLocation = getLocationData(getClientIp(req));
+      if (ipLocation.currency && ipLocation.currency !== 'EUR') {
+        preferredCurrency = ipLocation.currency;
+        paymentGateway = ipLocation.gateway;
+      }
+    }
 
     const newUser = await createProfileWithWallet({
       firstName: decoded.firstName,
@@ -1403,6 +1412,12 @@ export async function activateEarning(req, res, next) {
   } catch (error) {
     next(error);
   }
+}
+
+export function detectLocation(req, res) {
+  const ip = getClientIp(req);
+  const location = getLocationData(ip);
+  res.json({ success: true, ...location });
 }
 
 // Admin-only: settle balance and change earning currency

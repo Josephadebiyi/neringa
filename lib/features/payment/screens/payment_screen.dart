@@ -827,16 +827,6 @@ class _CardCheckoutForm extends StatelessWidget {
           selected: selectedMethod == _CheckoutPaymentMethod.card,
           onTap: () => onSelect(_CheckoutPaymentMethod.card),
         ),
-        const SizedBox(height: 12),
-        _PaymentOptionButton(
-          assetImage: 'assets/images/paypal-symbol.png',
-          label: 'PayPal',
-          subtitle: 'Authorize $amountLabel securely',
-          isLoading: isLoading,
-          color: const Color(0xFF003087),
-          selected: selectedMethod == _CheckoutPaymentMethod.paypal,
-          onTap: () => onSelect(_CheckoutPaymentMethod.paypal),
-        ),
         const SizedBox(height: 24),
         SizedBox(
           height: 58,

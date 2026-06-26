@@ -534,13 +534,17 @@ class AuthService {
     }
   }
 
-  Future<String> detectCurrency() async {
+  Future<Map<String, String>> detectLocation() async {
     try {
-      final res = await _api.get(ApiConstants.detectCurrency);
+      final res = await _api.get(ApiConstants.detectLocation);
       final data = res.data as Map<String, dynamic>;
-      return (data['currency'] as String? ?? 'USD').toUpperCase();
+      return {
+        'currency': (data['currency'] as String? ?? '').toUpperCase(),
+        'countryCode': (data['countryCode'] as String? ?? '').toUpperCase(),
+        'gateway': (data['gateway'] as String? ?? 'stripe').toLowerCase(),
+      };
     } catch (_) {
-      return 'USD';
+      return {};
     }
   }
 
