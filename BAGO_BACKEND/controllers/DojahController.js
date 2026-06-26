@@ -981,17 +981,21 @@ export const updateLegalName = async (req, res) => {
 
     await query(
       `UPDATE public.profiles
-       SET first_name = $2, last_name = $3,
+       SET first_name  = $2,
+           last_name   = $3,
            date_of_birth = COALESCE($4::date, date_of_birth),
-           legal_name_submitted = concat($2, ' ', $3),
-           account_status = CASE
-             WHEN account_status = 'pending_name' THEN 'active'
-             ELSE account_status
-           END,
-           updated_at = NOW()
+           updated_at  = NOW()
        WHERE id = $1`,
       [userId, firstName.trim(), lastName.trim(), dobValue],
     );
+    // Best-effort: clear pending_name status and record submission (columns may not exist on older DBs)
+    query(
+      `UPDATE public.profiles
+       SET legal_name_submitted = concat($2, ' ', $3),
+           account_status = CASE WHEN account_status = 'pending_name' THEN 'active' ELSE account_status END
+       WHERE id = $1`,
+      [userId, firstName.trim(), lastName.trim()],
+    ).catch(() => {});
 
     return res.json({ success: true, message: 'Details updated successfully' });
   } catch (err) {

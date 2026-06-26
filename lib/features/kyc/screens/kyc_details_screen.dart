@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,9 +105,10 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
           builder: (_) => KycCountryStep(fromOnboarding: widget.fromOnboarding),
         ),
       );
+    } on DioException catch (e) {
+      setState(() { _error = ApiService.parseError(e); _saving = false; });
     } catch (e) {
-      final msg = (e is Exception) ? e.toString().replaceFirst('Exception: ', '') : e.toString();
-      setState(() { _error = msg; _saving = false; });
+      setState(() { _error = e.toString(); _saving = false; });
     }
   }
 
