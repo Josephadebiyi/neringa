@@ -122,7 +122,7 @@ export const getAllWithdrawals = async (req, res, next) => {
     try {
       result = await query(
         `
-          SELECT wt.id, wt.user_id, wt.amount, wt.status, wt.description, wt.currency,
+          SELECT wt.id, wt.user_id, wt.amount, wt.status::text, wt.description, wt.currency::text,
                  wt.created_at,
                  COALESCE(wt.updated_at, wt.created_at) AS updated_at,
                  wt.metadata,
@@ -143,8 +143,8 @@ export const getAllWithdrawals = async (req, res, next) => {
           WHERE wt.type::text = 'withdrawal'
             AND coalesce(wt.metadata ->> 'duplicateCleared', 'false') <> 'true'
           UNION ALL
-          SELECT ppw.id, ppw.user_id, ppw.amount, ppw.status,
-                 'Paystack bank withdrawal' AS description, ppw.currency,
+          SELECT ppw.id, ppw.user_id, ppw.amount, ppw.status::text,
+                 'Paystack bank withdrawal' AS description, ppw.currency::text,
                  ppw.created_at, ppw.updated_at,
                  jsonb_build_object('provider', 'paystack', 'reference', ppw.reference) AS metadata,
                  p.first_name, p.last_name, p.email,
