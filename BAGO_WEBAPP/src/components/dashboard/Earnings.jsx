@@ -30,10 +30,37 @@ function getSymbol(currency) {
 }
 
 function transactionTitle(tx, isOut) {
+    if (tx.type === 'withdrawal') return 'Withdrawal Request';
     if (tx.description) return tx.description;
     if (tx.tracking_number) return `Shipment ${tx.tracking_number}`;
     if (tx.trip_number) return `Trip #${tx.trip_number}`;
     return isOut ? 'Payout' : 'Earnings';
+}
+
+function formatTxStatus(status) {
+    switch ((status || '').toLowerCase()) {
+        case 'completed':             return 'Completed';
+        case 'pending':               return 'Pending';
+        case 'pending_admin_approval':
+        case 'pending_admin_review':  return 'Under Review';
+        case 'processing':            return 'Processing';
+        case 'failed':                return 'Failed';
+        case 'rejected':              return 'Rejected';
+        case 'cancelled':
+        case 'canceled':              return 'Cancelled';
+        default: return (status || '').replace(/_/g, ' ');
+    }
+}
+
+function formatTxType(type) {
+    switch ((type || '').toLowerCase()) {
+        case 'withdrawal':     return 'Withdrawal';
+        case 'earning':        return 'Earning';
+        case 'escrow_hold':    return 'Escrow Hold';
+        case 'escrow_release': return 'Escrow Release';
+        case 'refund':         return 'Refund';
+        default: return (type || '').replace(/_/g, ' ');
+    }
 }
 
 function transactionMeta(tx) {
@@ -547,7 +574,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                                     {tx.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                                                 </span>
                                                 <span className="w-1 h-1 bg-gray-200 rounded-full" />
-                                                <span className="text-[8px] text-[#5845D8] font-black uppercase tracking-widest capitalize">{tx.type.replace(/_/g,' ')}</span>
+                                                <span className="text-[8px] text-[#5845D8] font-black uppercase tracking-widest capitalize">{formatTxType(tx.type)}</span>
                                             </div>
                                             {meta && (
                                                 <p className="text-[8px] text-gray-400 font-bold mt-1 max-w-[260px] truncate">
@@ -561,8 +588,11 @@ export default function Earnings({ user, checkAuthStatus }) {
                                             {isOut ? '−' : '+'}{sym}{tx.amount.toLocaleString(undefined,{minimumFractionDigits:2})}
                                         </p>
                                         <p className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${
-                                            tx.status==='completed' ? 'text-emerald-500' : tx.status==='pending' ? 'text-amber-500' : 'text-gray-400'
-                                        }`}>{tx.status}</p>
+                                            tx.status==='completed' ? 'text-emerald-500'
+                                            : tx.status==='failed' || tx.status==='rejected' ? 'text-red-500'
+                                            : tx.status==='pending' || tx.status==='pending_admin_approval' || tx.status==='pending_admin_review' ? 'text-amber-500'
+                                            : 'text-gray-400'
+                                        }`}>{formatTxStatus(tx.status)}</p>
                                     </div>
                                 </div>
                             );
