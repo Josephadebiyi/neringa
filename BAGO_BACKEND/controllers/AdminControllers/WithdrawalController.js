@@ -542,24 +542,23 @@ export const approveWithdrawal = async (req, res, next) => {
       return res.json({ success: true, message: 'Withdrawal approved and payout initiated.' });
 
     } catch (payoutError) {
-      // Payout API failed — restore balance and mark failed
-      await query(
-        `UPDATE public.wallet_accounts
-         SET available_balance = available_balance + $2, updated_at = timezone('utc', now())
-         WHERE id = $1`,
-        [tx.wallet_account_id, amount],
-      ).catch(() => {});
+      // Payout API failed — revert to pending_admin_approval so admin can retry or reject.
+      // Balance is NOT touched here: it was already deducted when the user initiated the withdrawal.
       await query(
         `UPDATE public.wallet_transactions
-         SET status = 'failed',
+         SET status = 'pending_admin_approval',
              metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
              updated_at = timezone('utc', now())
          WHERE id = $1`,
-        [transactionId, { error: payoutError.message, failedAt: new Date().toISOString(), adminId }],
+        [transactionId, {
+          paypalError: { message: payoutError.message, name: payoutError.name || 'PayoutError' },
+          lastFailedAt: new Date().toISOString(),
+          adminId,
+        }],
       ).catch(() => {});
       return res.status(502).json({
         success: false,
-        message: `Payout failed: ${payoutError.message}. Balance has been restored.`,
+        message: `Payout failed: ${payoutError.message}. Withdrawal is back to pending — you can retry or reject it.`,
       });
     }
 

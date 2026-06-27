@@ -151,6 +151,7 @@ export default function Withdrawals() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchWithdrawals();
@@ -171,20 +172,42 @@ export default function Withdrawals() {
   };
 
   const handleUpdateStatus = async (id: string, status: string, failureReason?: string) => {
+    setActionError(null);
     try {
       setLoading(true);
       const result = await updateStatus(id, status, failureReason);
       if (result.success) {
         await fetchWithdrawals();
+      } else {
+        setActionError(result.message || 'Status update failed.');
       }
-    } catch (error) {
-      console.error('Failed to update status:', error);
+    } catch (error: any) {
+      setActionError(error?.message || 'Status update failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkPaidManually = async (withdrawal: WithdrawalRequest) => {
+    if (!confirm(`Mark this ${withdrawal.currency} ${withdrawal.amount} withdrawal as manually paid?\n\nOnly do this if you have already sent the funds to the user outside the app.`)) return;
+    setActionError(null);
+    try {
+      setLoading(true);
+      const result = await updateStatus(withdrawal.id, 'completed', 'Manually paid by admin');
+      if (result.success) {
+        await fetchWithdrawals();
+      } else {
+        setActionError(result.message || 'Failed to mark as paid.');
+      }
+    } catch (error: any) {
+      setActionError(error?.message || 'Failed to mark as paid.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleApproveWithdrawal = async (withdrawal: WithdrawalRequest) => {
+    setActionError(null);
     try {
       setLoading(true);
       const needsAdminApproval = normalizeStatus(withdrawal.status) === 'pending_admin_approval';
@@ -193,9 +216,11 @@ export default function Withdrawals() {
         : await updateStatus(withdrawal.id, 'completed');
       if (result.success) {
         await fetchWithdrawals();
+      } else {
+        setActionError(result.message || 'Approval failed. Check server logs.');
       }
-    } catch (error) {
-      console.error('Failed to approve withdrawal:', error);
+    } catch (error: any) {
+      setActionError(error?.message || 'Approval failed. Check server logs.');
     } finally {
       setLoading(false);
     }
@@ -277,6 +302,17 @@ export default function Withdrawals() {
 
   return (
     <div className="space-y-6">
+      {/* Action error banner */}
+      {actionError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 flex items-start gap-3">
+          <span className="text-red-500 text-lg">⚠</span>
+          <div className="flex-1">
+            <p className="text-red-800 font-semibold text-sm">Approval failed</p>
+            <p className="text-red-700 text-sm mt-0.5">{actionError}</p>
+          </div>
+          <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -477,18 +513,25 @@ export default function Withdrawals() {
                     <div className="flex space-x-2">
                       {isApprovableWithdrawal(withdrawal) && (
                         <>
-                          <button 
+                          <button
                             onClick={() => handleApproveWithdrawal(withdrawal)}
                             disabled={!hasPayoutDestination(withdrawal)}
-                            title={!hasPayoutDestination(withdrawal) ? 'Payout destination is missing' : 'Approve withdrawal'}
+                            title={!hasPayoutDestination(withdrawal) ? 'Payout destination is missing' : 'Approve — send via PayPal/Paystack'}
                             className="text-green-600 hover:text-green-800 text-sm font-medium disabled:cursor-not-allowed disabled:text-gray-300"
                           >
                             Approve
                           </button>
                           <button
+                            onClick={() => handleMarkPaidManually(withdrawal)}
+                            title="Mark as paid manually (already sent outside the app)"
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            Mark Paid
+                          </button>
+                          <button
                             onClick={() => {
                               const reason = prompt('Reason for rejection?');
-                              if (reason) handleUpdateStatus(withdrawal.id, 'failed', reason);
+                              if (reason) handleUpdateStatus(withdrawal.id, 'rejected', reason);
                             }}
                             className="text-red-600 hover:text-red-800 text-sm font-medium"
                           >
