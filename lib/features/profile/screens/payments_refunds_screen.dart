@@ -10,6 +10,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/status_formatter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -147,17 +148,23 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
                   final type = (tx['type'] as String?) ?? '';
                   final isCredit = type == 'earning' || type == 'escrow_release' || type == 'refund';
                   final isEscrow = type == 'escrow_hold';
+                  final isWithdrawal = type == 'withdrawal';
                   final amount = tx['amount'] ?? '';
                   final currency = (tx['currency'] as String?) ?? _currency;
                   final createdAt = (tx['created_at'] as String?) ?? '';
                   final dateLabel = createdAt.length >= 10 ? createdAt.substring(0, 10) : createdAt;
-                  final title = isEscrow ? 'Held in Escrow'
-                      : isCredit ? (type == 'earning' ? 'Shipment Earning'
-                          : type == 'escrow_release' ? 'Escrow Released' : 'Refund')
-                      : (tx['description'] as String?)?.isNotEmpty == true
-                          ? tx['description'] : 'Transaction';
+                  final title = isEscrow
+                      ? 'Held in Escrow'
+                      : isWithdrawal
+                          ? 'Withdrawal Request'
+                          : isCredit
+                              ? (type == 'earning' ? 'Shipment Earning'
+                                  : type == 'escrow_release' ? 'Escrow Released' : 'Refund')
+                              : (tx['description'] as String?)?.isNotEmpty == true
+                                  ? tx['description'] : 'Transaction';
+                  final rawStatus = (tx['status'] as String?) ?? '';
                   final amtStr = '${isCredit ? '+' : isEscrow ? '' : '-'}$currency $amount';
-                  return [dateLabel, title, type, amtStr, (tx['status'] as String?) ?? ''];
+                  return [dateLabel, title, type, amtStr, formatFrontendStatus(rawStatus)];
                 }).toList(),
               ),
             pw.SizedBox(height: 40),
@@ -331,22 +338,48 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
           final type = (tx['type'] as String?) ?? '';
           final isCredit = type == 'earning' || type == 'escrow_release' || type == 'refund';
           final isEscrow = type == 'escrow_hold';
+          final isWithdrawal = type == 'withdrawal';
           final status = (tx['status'] as String?) ?? '';
           final description = (tx['description'] as String?) ?? '';
           final amount = tx['amount'];
           final currency = (tx['currency'] as String?) ?? _currency;
           final createdAt = tx['created_at'] as String? ?? '';
           final dateLabel = createdAt.isNotEmpty ? createdAt.substring(0, 10) : '';
-          Color statusColor = AppColors.gray500;
-          if (isCredit) statusColor = const Color(0xFF059669);
-          if (isEscrow) statusColor = const Color(0xFFD97706);
+
           final title = isEscrow
               ? 'Held in Escrow'
-              : isCredit
-                  ? (type == 'earning' ? 'Shipment Earning' : type == 'escrow_release' ? 'Escrow Released' : 'Refund')
-                  : description.isNotEmpty
-                      ? description
-                      : 'Transaction';
+              : isWithdrawal
+                  ? 'Withdrawal Request'
+                  : isCredit
+                      ? (type == 'earning'
+                          ? 'Shipment Earning'
+                          : type == 'escrow_release'
+                              ? 'Escrow Released'
+                              : 'Refund')
+                      : description.isNotEmpty
+                          ? description
+                          : 'Transaction';
+
+          final friendlyStatus = isEscrow
+              ? 'In Escrow'
+              : formatFrontendStatus(status);
+
+          final Color txColor = isCredit
+              ? const Color(0xFF059669)
+              : isEscrow
+                  ? const Color(0xFFD97706)
+                  : isWithdrawal
+                      ? const Color(0xFFEF4444)
+                      : AppColors.primary;
+
+          final IconData txIcon = isEscrow
+              ? Icons.lock_outline_rounded
+              : isWithdrawal
+                  ? Icons.arrow_upward_rounded
+                  : isCredit
+                      ? Icons.arrow_downward_rounded
+                      : Icons.receipt_long_rounded;
+
           return Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: Colors.white, width: 1.5))),
@@ -354,19 +387,7 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
               Container(
                 width: 44, height: 44,
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                child: Icon(
-                  isEscrow
-                      ? Icons.lock_outline_rounded
-                      : isCredit
-                          ? Icons.arrow_downward_rounded
-                          : Icons.receipt_long_rounded,
-                  color: isEscrow
-                      ? const Color(0xFFD97706)
-                      : isCredit
-                          ? const Color(0xFF059669)
-                          : AppColors.primary,
-                  size: 20,
-                ),
+                child: Icon(txIcon, color: txColor, size: 20),
               ),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -388,8 +409,8 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isEscrow ? 'In Escrow' : status,
-                  style: AppTextStyles.labelSm.copyWith(color: statusColor, fontWeight: FontWeight.w800),
+                  friendlyStatus,
+                  style: AppTextStyles.labelSm.copyWith(color: txColor, fontWeight: FontWeight.w800),
                 ),
               ]),
             ]),
