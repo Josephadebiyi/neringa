@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -296,6 +298,27 @@ class _NotificationPromptHostState
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // If permission was already granted or denied previously, skip our
+      // custom dialog and silently register (or do nothing).
+      if (Platform.isIOS) {
+        final status = await PushNotificationService.instance
+            .notificationAuthorizationStatus();
+        if (status == ApnsAuthStatus.authorized) {
+          PushNotificationService.instance
+              .prepareForSignedInUserSilently()
+              .catchError((_) {});
+          return;
+        }
+        if (status == ApnsAuthStatus.denied) return;
+      }
+
+      // Persist per-user "already asked" flag so we never re-prompt across
+      // cold starts.
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'notif_asked_${user.id}';
+      if (prefs.getBool(key) == true) return;
+
       final router = ref.read(routerProvider);
       if (router.routerDelegate.navigatorKey.currentContext == null) {
         _lastPromptedUserId = null;
@@ -331,6 +354,8 @@ class _NotificationPromptHostState
           ) ??
           false;
       _notificationPromptOpen = false;
+      // Persist that we've asked this user — never show again across cold starts
+      await prefs.setBool(key, true);
 
       if (!mounted || !allow) return;
 

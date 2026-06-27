@@ -54,15 +54,25 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _start() async {
     try {
-      // Request camera + microphone before launching the SDK WebView
-      final statuses = await [Permission.camera, Permission.microphone].request();
+      // Check current camera status first — calling request() on an already-granted
+      // permission can return denied on some devices (e.g. user enabled in Settings
+      // after a previous denial). Only request if not yet granted.
+      var cameraStatus = await Permission.camera.status;
+      if (!cameraStatus.isGranted) {
+        cameraStatus = await Permission.camera.request();
+      }
+      // Microphone: request silently in parallel (best-effort, not blocking)
+      final micStatus = await Permission.microphone.status;
+      if (!micStatus.isGranted) unawaited(Permission.microphone.request());
       if (!mounted) return;
 
-      if (statuses[Permission.camera]?.isGranted != true) {
+      if (!cameraStatus.isGranted) {
         setState(() {
           _hasError = true;
-          _errorMessage = 'Camera access is required for identity verification. '
-              'Please enable it in Settings and try again.';
+          _errorMessage = cameraStatus.isPermanentlyDenied
+              ? 'Camera access was denied. Please go to Settings → Bago → Camera and enable it, then try again.'
+              : 'Camera access is required for identity verification. '
+                  'Please enable it in Settings and try again.';
         });
         return;
       }

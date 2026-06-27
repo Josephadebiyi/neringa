@@ -265,6 +265,11 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
   Widget _dobField(TextEditingController ctrl, String hint, int maxLen) => TextField(
         controller: ctrl,
         keyboardType: TextInputType.number,
+        // Disable autofill — iOS would otherwise inject time/date values from
+        // keychain into these numeric fields, writing garbage like "12:34" into Day.
+        autofillHints: const [],
+        autocorrect: false,
+        enableSuggestions: false,
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
           LengthLimitingTextInputFormatter(maxLen),
