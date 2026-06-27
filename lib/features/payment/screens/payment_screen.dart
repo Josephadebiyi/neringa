@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/services/api_service.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -38,6 +39,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   _CheckoutPaymentMethod _selectedMethod = _CheckoutPaymentMethod.paypal;
   Map<String, dynamic>? _draft;
   String? _initError;
+
+  // AI compliance
+  String _complianceRisk = '';   // 'low' | 'medium' | 'high' | '' (not loaded)
+  String _complianceNotes = '';
+  List<String> _complianceDocs = [];
+  bool _complianceDismissed = false;
 
   bool get _usePaystack {
     if (_draft == null) return false;
@@ -74,6 +81,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         } else {
           await _initPaypal();
         }
+        // Fire compliance check in background — never blocks checkout
+        _fetchCompliance(draft);
       }
     } catch (e) {
       debugPrint('Payment draft load failed: $e');
@@ -110,6 +119,34 @@ class _PaymentScreenState extends State<PaymentScreen> {
             'Payment methods are temporarily unavailable. Please try again.');
       }
     }
+  }
+
+  // ── AI compliance check ───────────────────────────────────────────────────
+
+  Future<void> _fetchCompliance(Map<String, dynamic> draft) async {
+    try {
+      final res = await ApiService.instance.post(
+        ApiConstants.aiComplianceCheck,
+        data: {
+          'category':     draft['category']?.toString()     ?? '',
+          'weight':       draft['weight']                   ?? 0,
+          'fromLocation': draft['fromLocation']?.toString() ?? '',
+          'toLocation':   draft['toLocation']?.toString()   ?? '',
+        },
+      ).timeout(const Duration(seconds: 12));
+      if (!mounted) return;
+      final risk  = res.data?['riskLevel']?.toString()  ?? 'low';
+      final notes = res.data?['notes']?.toString()      ?? '';
+      final docs  = (res.data?['requiredDocs'] as List?)?.cast<String>() ?? [];
+      // Only surface medium/high — low risk has nothing to tell the user
+      if (risk == 'medium' || risk == 'high') {
+        setState(() {
+          _complianceRisk  = risk;
+          _complianceNotes = notes;
+          _complianceDocs  = docs;
+        });
+      }
+    } catch (_) {}
   }
 
   // ── Paystack checkout (African currencies) ────────────────────────────────
@@ -710,6 +747,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ],
 
+          // ── AI compliance banner (medium/high risk only) ─────────────────
+          if (_complianceRisk.isNotEmpty && !_complianceDismissed) ...[
+            const SizedBox(height: 16),
+            _ComplianceBanner(
+              risk: _complianceRisk,
+              notes: _complianceNotes,
+              requiredDocs: _complianceDocs,
+              onDismiss: () => setState(() => _complianceDismissed = true),
+            ),
+          ],
+
           const SizedBox(height: 24),
 
           // ── Payment options ──────────────────────────────────────────────
@@ -1169,6 +1217,92 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── AI Compliance Banner ──────────────────────────────────────────────────────
+
+class _ComplianceBanner extends StatelessWidget {
+  const _ComplianceBanner({
+    required this.risk,
+    required this.notes,
+    required this.requiredDocs,
+    required this.onDismiss,
+  });
+
+  final String risk;
+  final String notes;
+  final List<String> requiredDocs;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final isHigh = risk == 'high';
+    final color = isHigh ? const Color(0xFFDC2626) : const Color(0xFFD97706);
+    final bg    = isHigh ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB);
+    final icon  = isHigh ? Icons.warning_rounded : Icons.info_outline_rounded;
+    final label = isHigh ? 'Customs alert' : 'Customs notice';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: onDismiss,
+                child: Icon(Icons.close_rounded, color: color, size: 18),
+              ),
+            ],
+          ),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              notes,
+              style: TextStyle(color: color, fontSize: 12, height: 1.4),
+            ),
+          ],
+          if (requiredDocs.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            ...requiredDocs.map(
+              (d) => Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('• ', style: TextStyle(color: color, fontSize: 12)),
+                    Expanded(
+                      child: Text(
+                        d,
+                        style: TextStyle(color: color, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

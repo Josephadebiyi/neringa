@@ -65,6 +65,10 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   String _travelMeans = 'airplane';
   int _capacity = 5;
   String _price = '';
+  // AI price suggestion
+  Map<String, dynamic>? _priceSuggestion;
+  bool _priceSuggestionDismissed = false;
+
   File? _travelDocumentFile;
   String? _existingTravelDocument;
   final _picker = ImagePicker();
@@ -509,6 +513,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     }
     if (_step < 8) {
       setState(() => _step++);
+      if (_step == 7 && _from.isNotEmpty && _to.isNotEmpty) _fetchPriceSuggestion();
     } else {
       _publish();
     }
@@ -524,6 +529,22 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         context.go('/trips');
       }
     }
+  }
+
+  Future<void> _fetchPriceSuggestion() async {
+    try {
+      final currency = _lockedCurrency.isNotEmpty ? _lockedCurrency : 'USD';
+      final rating = ref.read(authProvider).user?.rating.toStringAsFixed(1) ?? '0';
+      final res = await ApiService.instance.get(
+        ApiConstants.aiPriceRecommendation,
+        queryParameters: {'from': _from, 'to': _to, 'currency': currency, 'rating': rating},
+      ).timeout(const Duration(seconds: 12));
+      if (!mounted) return;
+      final data = res.data as Map<String, dynamic>?;
+      if (data?['suggestedMin'] != null && data?['suggestedMax'] != null) {
+        setState(() { _priceSuggestion = data; _priceSuggestionDismissed = false; });
+      }
+    } catch (_) {}
   }
 
   Future<void> _publish() async {
@@ -1090,6 +1111,9 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           value: _price,
           currency: currentCurrency,
           onChanged: (v) => setState(() => _price = v),
+          suggestion: _priceSuggestionDismissed ? null : _priceSuggestion,
+          onDismissSuggestion: () => setState(() => _priceSuggestionDismissed = true),
+          onApplySuggestion: (v) => setState(() => _price = v),
         );
       case 8:
         return _ReviewStep(
@@ -2867,10 +2891,19 @@ class _TravelProofStep extends StatelessWidget {
 // Step 6: Price
 // ─────────────────────────────────────────────────────────────────────────────
 class _PriceStep extends StatefulWidget {
-  const _PriceStep(
-      {required this.value, required this.currency, required this.onChanged});
+  const _PriceStep({
+    required this.value,
+    required this.currency,
+    required this.onChanged,
+    this.suggestion,
+    this.onDismissSuggestion,
+    this.onApplySuggestion,
+  });
   final String value, currency;
   final void Function(String) onChanged;
+  final Map<String, dynamic>? suggestion;
+  final VoidCallback? onDismissSuggestion;
+  final void Function(String)? onApplySuggestion;
 
   @override
   State<_PriceStep> createState() => _PriceStepState();
@@ -2885,6 +2918,16 @@ class _PriceStepState extends State<_PriceStep> {
     _ctrl = TextEditingController(text: widget.value);
     _ctrl.selection =
         TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
+  }
+
+  @override
+  void didUpdateWidget(_PriceStep old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value && _ctrl.text != widget.value) {
+      _ctrl.text = widget.value;
+      _ctrl.selection =
+          TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
+    }
   }
 
   @override
@@ -2982,6 +3025,117 @@ class _PriceStepState extends State<_PriceStep> {
                           color: const Color(0xFF92400E), height: 1.4)),
                 ),
               ],
+            ),
+          ),
+          if (widget.suggestion != null &&
+              widget.suggestion!['suggestedMin'] != null) ...[
+            const SizedBox(height: 12),
+            _AiPriceBanner(
+              suggestedMin:
+                  (widget.suggestion!['suggestedMin'] as num).toDouble(),
+              suggestedMax:
+                  (widget.suggestion!['suggestedMax'] as num).toDouble(),
+              currency: currency,
+              reasoning:
+                  widget.suggestion!['reasoning']?.toString() ?? '',
+              onDismiss: widget.onDismissSuggestion,
+              onApply: () {
+                final mid =
+                    ((widget.suggestion!['suggestedMin'] as num) +
+                            (widget.suggestion!['suggestedMax'] as num)) /
+                        2;
+                widget.onApplySuggestion
+                    ?.call(mid.toStringAsFixed(2));
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── AI Price Suggestion Banner ────────────────────────────────────────────────
+
+class _AiPriceBanner extends StatelessWidget {
+  const _AiPriceBanner({
+    required this.suggestedMin,
+    required this.suggestedMax,
+    required this.currency,
+    required this.reasoning,
+    this.onDismiss,
+    this.onApply,
+  });
+
+  final double suggestedMin;
+  final double suggestedMax;
+  final String currency;
+  final String reasoning;
+  final VoidCallback? onDismiss;
+  final VoidCallback? onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryBlue = Color(0xFF2563EB);
+    const bgBlue = Color(0xFFEFF6FF);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: bgBlue,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: primaryBlue.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_rounded,
+                  color: primaryBlue, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'AI suggests $currency ${suggestedMin.toStringAsFixed(0)}–${suggestedMax.toStringAsFixed(0)}/kg',
+                  style: const TextStyle(
+                    color: primaryBlue,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: onDismiss,
+                child: const Icon(Icons.close_rounded,
+                    color: primaryBlue, size: 16),
+              ),
+            ],
+          ),
+          if (reasoning.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              reasoning,
+              style: const TextStyle(
+                  color: primaryBlue, fontSize: 11, height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: onApply,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: primaryBlue,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Apply suggestion',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],

@@ -1,16 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:prembly_identity_kyc/prembly_identity_kyc.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../../core/constants/api_constants.dart';
 
 class KycPremblyScreen extends ConsumerStatefulWidget {
   const KycPremblyScreen({
@@ -51,13 +54,26 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _start() async {
     try {
+      // Request camera + microphone before launching the SDK WebView
+      final statuses = await [Permission.camera, Permission.microphone].request();
+      if (!mounted) return;
+
+      if (statuses[Permission.camera]?.isGranted != true) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Camera access is required for identity verification. '
+              'Please enable it in Settings and try again.';
+        });
+        return;
+      }
+
       // Fetch widget keys from backend at runtime — never bundled in app
       final res = await ApiService.instance
           .get(ApiConstants.appConfig)
           .timeout(const Duration(seconds: 10));
 
       final widgetKey = res.data?['premblyWidgetKey']?.toString() ?? '';
-      final widgetId  = res.data?['premblyWidgetId']?.toString() ?? '';
+      final widgetId  = res.data?['premblyWidgetId']?.toString()  ?? '';
 
       if (widgetKey.isEmpty || widgetId.isEmpty) {
         if (!mounted) return;
@@ -71,18 +87,35 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
       if (!mounted) return;
       final user = ref.read(authProvider).user;
 
-      // Launch the Prembly SDK — handles camera, liveness, document capture
-      PremblyIdentityKyc.verify(
-        context: context,
-        options: IdentityKycOptions(
-          widgetKey: widgetKey,
-          widgetId:  widgetId,
-          firstName: user?.firstName ?? '',
-          lastName:  user?.lastName  ?? '',
-          email:     user?.email     ?? '',
-          callback:  _onSdkComplete,
+      final options = IdentityKycOptions(
+        widgetKey: widgetKey,
+        widgetId:  widgetId,
+        firstName: user?.firstName ?? '',
+        lastName:  user?.lastName  ?? '',
+        email:     user?.email     ?? '',
+        userRef:   widget.userId,
+        // Tells the Prembly widget which country this user is from so it can
+        // skip the internal country-selection step and go straight to capture.
+        metadata:  {'country': widget.countryCode.toUpperCase()},
+        callback:  _onSdkComplete,
+      );
+
+      // Use our local wrapper (not the package's static call) so we can:
+      //  1. Grant camera via setOnPermissionRequest
+      //  2. Await dismissal and detect if the user cancelled (pressed ✕)
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => _PremblySdkPage(options: options),
+          fullscreenDialog: true,
         ),
       );
+
+      if (!mounted) return;
+      // If the callback wasn't fired (_waitingForResult is still false)
+      // the user pressed ✕ without completing — just go back silently.
+      if (!_waitingForResult && !_hasError) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -92,12 +125,13 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
     }
   }
 
-  void _onSdkComplete(dynamic response) {
+  void _onSdkComplete(Map<String, dynamic> response) {
     if (!mounted) return;
-    setState(() { _waitingForResult = true; });
-    // Poll backend — webhook may arrive slightly after the SDK callback
+    setState(() => _waitingForResult = true);
+    // Poll backend — Prembly webhook may arrive slightly after the SDK callback
     _syncResult();
     _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _syncResult());
+    // Safety: if still waiting after 3 min, treat as pending
     Timer(const Duration(minutes: 3), () {
       _pollTimer?.cancel();
       if (mounted && _waitingForResult) _finishWithStatus('pending');
@@ -120,24 +154,28 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _finishWithStatus(String finalStatus) async {
     _waitingForResult = false;
-    await ref.read(authProvider.notifier).refreshProfile()
-        .timeout(const Duration(seconds: 5)).catchError((_) {});
+    await ref
+        .read(authProvider.notifier)
+        .refreshProfile()
+        .timeout(const Duration(seconds: 5))
+        .catchError((_) {});
     if (!mounted) return;
 
     final String message;
     final SnackBarType snackType;
-    if (finalStatus == 'approved') {
-      message = 'Your identity has been verified!';
-      snackType = SnackBarType.success;
-    } else if (finalStatus == 'blocked_duplicate') {
-      message = 'This identity is already linked to another account. Please contact support.';
-      snackType = SnackBarType.error;
-    } else if (finalStatus == 'declined') {
-      message = 'Verification was not approved. Please check your details and try again.';
-      snackType = SnackBarType.error;
-    } else {
-      message = 'Verification submitted. We\'ll update your status shortly.';
-      snackType = SnackBarType.info;
+    switch (finalStatus) {
+      case 'approved':
+        message = 'Your identity has been verified!';
+        snackType = SnackBarType.success;
+      case 'blocked_duplicate':
+        message = 'This identity is already linked to another account. Please contact support.';
+        snackType = SnackBarType.error;
+      case 'declined':
+        message = 'Verification was not approved. Please check your details and try again.';
+        snackType = SnackBarType.error;
+      default:
+        message = 'Verification submitted. We\'ll update your status shortly.';
+        snackType = SnackBarType.info;
     }
     AppSnackBar.show(context, message: message, type: snackType);
     context.go(widget.fromOnboarding ? '/home' : '/profile');
@@ -194,6 +232,14 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
                 style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
                 child: const Text('Try Again'),
               ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => openAppSettings(),
+                child: Text(
+                  'Open Settings',
+                  style: AppTextStyles.labelMd.copyWith(color: AppColors.primary),
+                ),
+              ),
             ],
           ),
         ),
@@ -218,6 +264,102 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
     return const Center(
       child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
+    );
+  }
+}
+
+// ── Local Prembly WebView ─────────────────────────────────────────────────────
+// Replaces PremblyIdentityKyc.verify() so we can:
+//   • Grant camera/mic via setOnPermissionRequest (fixes Android camera block)
+//   • Return a result when dismissed (true = completed, false/null = cancelled)
+class _PremblySdkPage extends StatefulWidget {
+  const _PremblySdkPage({required this.options});
+  final IdentityKycOptions options;
+
+  @override
+  State<_PremblySdkPage> createState() => _PremblySdkPageState();
+}
+
+class _PremblySdkPageState extends State<_PremblySdkPage> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // Grant camera + microphone to the Prembly web widget on Android.
+    // onPermissionRequest must be passed in the constructor (not chainable).
+    _controller = WebViewController(
+      onPermissionRequest: (request) => request.grant(),
+    )
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..addJavaScriptChannel(
+        'FlutterChannel',
+        onMessageReceived: (msg) {
+          try {
+            final Map<String, dynamic> response = jsonDecode(msg.message);
+            widget.options.callback(response);
+          } catch (_) {}
+          // Pop with true so _start() knows the callback fired
+          if (mounted && Navigator.canPop(context)) {
+            Navigator.pop(context, true);
+          }
+        },
+      )
+      ..loadHtmlString(_buildHtml());
+  }
+
+  String _buildHtml() {
+    final optionsJson = jsonEncode(widget.options.toJson());
+    return '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Identity KYC</title>
+  <script src="https://js.prembly.com/v1/inline/widget-v3.js"></script>
+  <style>
+    body { margin: 0; padding: 0; background: white; }
+    #identity-container { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="identity-container"></div>
+  <script>
+    function invokeKYC() {
+      const options = $optionsJson;
+      options.callback = function(response) {
+        FlutterChannel.postMessage(JSON.stringify(response));
+      };
+      if (window.IdentityKYC && typeof window.IdentityKYC.verify === 'function') {
+        window.IdentityKYC.verify(options);
+      } else {
+        FlutterChannel.postMessage(JSON.stringify({ error: "SDK script not loaded" }));
+      }
+    }
+    window.onload = function() { setTimeout(invokeKYC, 100); };
+  </script>
+</body>
+</html>
+''';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.black),
+          // Pop with false — _start() sees !_waitingForResult and navigates back
+          onPressed: () => Navigator.pop(context, false),
+        ),
+        title: Text('Identity Verification', style: AppTextStyles.h3),
+      ),
+      body: SafeArea(child: WebViewWidget(controller: _controller)),
     );
   }
 }

@@ -28,6 +28,7 @@ import {
   verifyPhoneOtp,
   getItemCategories,
 } from '../controllers/SenderOnboardingController.js';
+import { complianceCheck, priceRecommendation, matchScores } from '../controllers/AiController.js';
 import fileUpload from 'express-fileupload';
 
 
@@ -277,5 +278,10 @@ userRouter.get('/item-categories', getItemCategories);
 
 // 🌍 Public Routes (No Auth)
 userRouter.get('/public/track/:trackingNumber', getPublicTrackingByNumber);
+
+// 🤖 AI Features (authenticated)
+userRouter.post('/ai/compliance-check', isAuthenticated, complianceCheck);
+userRouter.get('/ai/price-recommendation', isAuthenticated, priceRecommendation);
+userRouter.post('/ai/match-scores', isAuthenticated, matchScores);
 
 export default userRouter;

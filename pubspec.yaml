@@ -75,6 +75,9 @@ dependencies:
 
   webview_flutter: ^4.13.0
 
+  # Runtime permission requests (camera + microphone for Prembly KYC WebView)
+  permission_handler: ^11.3.1
+
   # URL launcher
   url_launcher: ^6.3.1
 

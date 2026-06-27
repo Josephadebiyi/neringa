@@ -221,4 +221,11 @@ class ApiConstants {
   static const String phoneSendOtp = '/api/bago/phone/send-otp';
   static const String phoneVerifyOtp = '/api/bago/phone/verify';
   static const String itemCategories = '/api/bago/item-categories';
+
+  // ---------------------------------------------------------------------------
+  // AI Features
+  // ---------------------------------------------------------------------------
+  static const String aiComplianceCheck = '/api/bago/ai/compliance-check';
+  static const String aiPriceRecommendation = '/api/bago/ai/price-recommendation';
+  static const String aiMatchScores = '/api/bago/ai/match-scores';
 }
