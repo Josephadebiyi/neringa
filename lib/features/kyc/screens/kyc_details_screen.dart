@@ -38,10 +38,11 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
     final dob = user?.dateOfBirth ?? '';
     if (dob.isNotEmpty) {
       final parts = dob.split('-');
-      if (parts.length == 3) {
+      if (parts.length >= 3) {
         _yearCtrl.text  = parts[0];
         _monthCtrl.text = parts[1].replaceFirst(RegExp('^0'), '');
-        _dayCtrl.text   = parts[2].replaceFirst(RegExp('^0'), '');
+        // Strip any time component — API may return "19T00:00:00.000Z"
+        _dayCtrl.text   = parts[2].split('T')[0].replaceFirst(RegExp('^0'), '');
       }
     }
     for (final c in [_firstNameCtrl, _lastNameCtrl, _dayCtrl, _monthCtrl, _yearCtrl]) {
