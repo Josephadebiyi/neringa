@@ -29,6 +29,7 @@ const premblyHeaders = () => {
 };
 
 const isPremblyConfigured = () => !!PREMBLY_API_KEY;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // ---------------------------------------------------------------------------
 // Webhook status normalisation
@@ -38,18 +39,23 @@ const normalizePremblyStatus = (payload = {}) => {
   const responseCode = String(payload?.response_code || payload?.data?.response_code || '').trim();
   const verStatus    = String(
     payload?.data?.verification_response?.status ||
+    payload?.data?.verification_status ||
     payload?.data?.status ||
+    payload?.data?.result ||
+    payload?.verification_status ||
+    payload?.verificationStatus ||
     payload?.status ||
+    payload?.result ||
     ''
   ).toLowerCase().trim();
 
-  if (responseCode === '00' || ['verified', 'approved', 'success', 'successful', 'completed'].includes(verStatus)) {
+  if (responseCode === '00' || ['verified', 'approved', 'success', 'successful', 'completed', 'complete', 'passed', 'pass', 'accepted'].includes(verStatus)) {
     return 'approved';
   }
-  if (['pending', 'processing', 'under_review', 'manual_review', 'submitted'].includes(verStatus)) {
+  if (['pending', 'processing', 'in_progress', 'under_review', 'manual_review', 'submitted', 'review'].includes(verStatus)) {
     return 'pending';
   }
-  if (['unverified', 'failed', 'declined', 'rejected'].includes(verStatus) || responseCode === '01') {
+  if (['unverified', 'failed', 'failure', 'declined', 'rejected', 'unsuccessful', 'not_approved'].includes(verStatus) || responseCode === '01') {
     return 'declined';
   }
   return 'unknown';
@@ -57,11 +63,68 @@ const normalizePremblyStatus = (payload = {}) => {
 
 const verificationRefFromPayload = (payload = {}) =>
   payload?.verification_ref ||
+  payload?.verificationRef ||
+  payload?.reference_id ||
+  payload?.referenceId ||
   payload?.data?.verification_ref ||
+  payload?.data?.verificationRef ||
+  payload?.data?.reference_id ||
+  payload?.data?.referenceId ||
   payload?.data?.metadata?.verificationRef ||
+  payload?.data?.metadata?.verification_ref ||
   payload?.data?.metadata?.user_ref ||
+  payload?.data?.metadata?.userRef ||
   payload?.user_ref ||
+  payload?.userRef ||
   '';
+
+const callbackPayloadFromBody = (body = {}) => {
+  const candidates = [
+    body?.sdkResponse,
+    body?.response,
+    body?.payload,
+    body?.result,
+    body,
+  ];
+  return candidates.find((candidate) => candidate && typeof candidate === 'object' && !Array.isArray(candidate)) || {};
+};
+
+async function findPremblyUserId(reference = '') {
+  if (!reference) return '';
+
+  const row = await queryOne(
+    `SELECT id FROM public.profiles
+     WHERE kyc_provider = 'prembly'
+       AND kyc_verified_data IS NOT NULL
+       AND (
+         kyc_verified_data->>'verificationRef' = $1
+         OR kyc_verified_data->>'premblyRef' = $1
+         OR kyc_verified_data->>'referenceId' = $1
+         OR kyc_verified_data->>'userRef' = $1
+         OR kyc_verified_data->>'userId' = $1
+         OR kyc_verified_data#>>'{metadata,user_ref}' = $1
+         OR kyc_verified_data#>>'{metadata,userRef}' = $1
+         OR kyc_verified_data#>>'{payload,user_ref}' = $1
+         OR kyc_verified_data#>>'{payload,userRef}' = $1
+         OR kyc_verified_data#>>'{payload,data,metadata,user_ref}' = $1
+         OR kyc_verified_data#>>'{payload,data,metadata,userRef}' = $1
+       )
+     ORDER BY updated_at DESC LIMIT 1`,
+    [reference],
+  ).catch(() => null);
+  if (row?.id) return row.id;
+
+  if (UUID_RE.test(reference)) {
+    const profile = await queryOne(
+      `SELECT id FROM public.profiles WHERE id = $1 LIMIT 1`,
+      [reference],
+    ).catch(() => null);
+    if (profile?.id) return profile.id;
+  }
+
+  const match = reference.match(/^bago-([0-9a-f-]{36})-/i);
+  return match?.[1] || '';
+}
 
 // ---------------------------------------------------------------------------
 // Apply a Prembly result to a user profile — shared by webhook + sync
@@ -74,7 +137,12 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
   const userEmail = userRow?.email;
   const userName  = [userRow?.first_name, userRow?.last_name].filter(Boolean).join(' ') || 'there';
 
-  const stored = { provider: 'prembly', referenceId, payload: rawPayload };
+  const stored = {
+    provider: 'prembly',
+    referenceId,
+    ...(referenceId && { verificationRef: referenceId, premblyRef: referenceId }),
+    payload: rawPayload,
+  };
 
   if (status === 'approved') {
     const approval = await markKycApproved(userId, { provider: 'prembly', kycVerifiedData: stored });
@@ -259,32 +327,13 @@ export const premblyWebhook = async (req, res) => {
       return res.status(200).json({ received: true, note: 'no verification_ref' });
     }
 
-    // Look up the user by the reference stored at session start
-    const row = await queryOne(
-      `SELECT id FROM public.profiles
-       WHERE kyc_provider = 'prembly'
-         AND kyc_verified_data IS NOT NULL
-         AND (
-           kyc_verified_data->>'verificationRef' = $1
-           OR kyc_verified_data->>'premblyRef' = $1
-         )
-       ORDER BY updated_at DESC LIMIT 1`,
-      [verificationRef],
-    ).catch(() => null);
-
-    if (!row?.id) {
-      // Fallback: parse userId from our ref format (bago-{userId}-{uuid})
-      const match = verificationRef.match(/^bago-([0-9a-f-]{36})-/);
-      const userId = match?.[1];
-      if (!userId) {
-        console.warn('Prembly webhook: cannot resolve userId from ref', verificationRef);
-        return res.status(200).json({ received: true, note: 'user not found' });
-      }
-      await applyPremblyResult(userId, status, payload, { referenceId: verificationRef });
-    } else {
-      await applyPremblyResult(row.id, status, payload, { referenceId: verificationRef });
+    const userId = await findPremblyUserId(verificationRef);
+    if (!userId) {
+      console.warn('Prembly webhook: cannot resolve userId from ref', verificationRef);
+      return res.status(200).json({ received: true, note: 'user not found' });
     }
 
+    await applyPremblyResult(userId, status, payload, { referenceId: verificationRef });
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('premblyWebhook error:', err);
@@ -312,10 +361,43 @@ export const syncPremblyResult = async (req, res) => {
       return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
     }
 
+    const callbackPayload = callbackPayloadFromBody(req.body);
+    const callbackRef = verificationRefFromPayload(callbackPayload);
+    const callbackStatus = normalizePremblyStatus(callbackPayload);
+
     const verificationRef =
       existing?.kycVerifiedData?.verificationRef ||
       existing?.kycVerifiedData?.premblyRef ||
-      req.body?.verificationRef || '';
+      existing?.kycVerifiedData?.referenceId ||
+      req.body?.verificationRef ||
+      callbackRef ||
+      '';
+
+    if (callbackStatus !== 'unknown') {
+      const result = await applyPremblyResult(userId, callbackStatus, callbackPayload, { referenceId: verificationRef, notify: false });
+      if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)) {
+        return res.json({ success: true, kycStatus: result.status, source: 'sdk_callback' });
+      }
+    }
+
+    if (callbackRef && !existing?.kycVerifiedData?.verificationRef && !existing?.kycVerifiedData?.premblyRef) {
+      await query(
+        `UPDATE public.profiles
+         SET kyc_provider = 'prembly',
+             kyc_status = CASE WHEN kyc_status IN ('approved','blocked_duplicate','declined') THEN kyc_status ELSE 'pending' END,
+             kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
+               'provider', 'prembly',
+               'verificationRef', $2,
+               'premblyRef', $2,
+               'userRef', $3,
+               'payload', $4,
+               'syncedAt', timezone('utc', now())
+             ),
+             updated_at = NOW()
+         WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
+        [userId, callbackRef, req.body?.userRef || callbackPayload?.user_ref || callbackPayload?.userRef || userId, callbackPayload],
+      ).catch(() => {});
+    }
 
     if (!verificationRef || !isPremblyConfigured()) {
       return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
@@ -391,7 +473,9 @@ export async function syncPremblyForUser(userId, { notify = true } = {}) {
 
   const verificationRef =
     existing?.kycVerifiedData?.verificationRef ||
-    existing?.kycVerifiedData?.premblyRef || '';
+    existing?.kycVerifiedData?.premblyRef ||
+    existing?.kycVerifiedData?.referenceId ||
+    '';
 
   if (!verificationRef || !isPremblyConfigured()) {
     return { success: false, status: currentStatus, message: 'No Prembly session reference found for this user.' };

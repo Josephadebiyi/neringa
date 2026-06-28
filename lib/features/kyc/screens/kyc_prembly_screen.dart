@@ -125,7 +125,7 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
     if (!mounted) return;
     setState(() => _waitingForResult = true);
     // Poll backend — Prembly webhook may arrive slightly after the SDK callback
-    _syncResult();
+    _syncResult(response);
     _pollTimer =
         Timer.periodic(const Duration(seconds: 4), (_) => _syncResult());
     // Safety: if still waiting after 3 min, treat as pending
@@ -135,16 +135,18 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
     });
   }
 
-  Future<void> _syncResult() async {
+  Future<void> _syncResult([Map<String, dynamic>? sdkResponse]) async {
     try {
-      final res = await ApiService.instance.post(
-          ApiConstants.kycPremblySyncResult,
-          data: {}).timeout(const Duration(seconds: 10));
+      final res = await ApiService.instance
+          .post(ApiConstants.kycPremblySyncResult, data: {
+        if (sdkResponse != null) 'sdkResponse': sdkResponse,
+      }).timeout(const Duration(seconds: 10));
 
       final status = res.data?['kycStatus']?.toString() ?? '';
       if (status == 'approved' ||
           status == 'declined' ||
-          status == 'blocked_duplicate') {
+          status == 'blocked_duplicate' ||
+          status == 'pending') {
         _pollTimer?.cancel();
         if (mounted) _finishWithStatus(status);
       }
