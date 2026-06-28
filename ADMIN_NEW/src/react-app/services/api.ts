@@ -154,10 +154,10 @@ export async function syncPremblyKycStatuses() {
   });
 }
 
-export async function syncPremblyKycUser(userId: string) {
+export async function syncPremblyKycUser(userId: string, referenceId?: string) {
   return apiCall(`${ADMIN_API}/kyc/users/${userId}/sync-prembly`, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify(referenceId ? { referenceId } : {}),
   });
 }
 

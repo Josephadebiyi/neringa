@@ -348,6 +348,11 @@ export const syncDojahKYCByReference = async (req, res) => {
 export const syncPremblyKYCStatus = async (req, res) => {
   try {
     const { userId } = req.params;
+    const bodyRef = getPremblyReferenceFromBody(req.body);
+    if (bodyRef) {
+      return syncPremblyKYCByReference(req, res);
+    }
+
     const result = await syncPremblyForUser(userId, { notify: true });
     return res.status(result.success ? 200 : 400).json({
       success: result.success,
@@ -362,18 +367,31 @@ export const syncPremblyKYCStatus = async (req, res) => {
   }
 };
 
+function getPremblyReferenceFromBody(body = {}) {
+  return String(
+    body.referenceId ||
+    body.reference_id ||
+    body.verificationRef ||
+    body.verification_ref ||
+    body.premblyRef ||
+    body.prembly_ref ||
+    body.sessionId ||
+    body.session_id ||
+    '',
+  ).trim();
+}
+
 // POST /admin/kyc/users/:userId/sync-prembly-reference
 // Admin provides a Prembly verification/session reference for a user when webhook delivery was missed.
 export const syncPremblyKYCByReference = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { referenceId } = req.body;
+    const ref = getPremblyReferenceFromBody(req.body);
 
-    if (!referenceId?.trim()) {
+    if (!ref) {
       return res.status(400).json({ success: false, message: 'referenceId is required' });
     }
 
-    const ref = referenceId.trim();
     await query(
       `UPDATE public.profiles
        SET kyc_provider = 'prembly',

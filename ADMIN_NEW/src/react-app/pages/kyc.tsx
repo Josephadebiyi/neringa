@@ -118,8 +118,9 @@ export default function KYCVerificationManager() {
   const handleSyncSinglePremblyUser = async (userId: string) => {
     try {
       setProcessing(true);
-      const result = await syncPremblyKycUser(userId);
+      const result = await syncPremblyKycUser(userId, manualRefId.trim() || undefined);
       setSyncMessage(result?.message || "Prembly status synced");
+      if (manualRefId.trim()) setManualRefId("");
       await fetchKYCData();
       setPreviewKYC(null);
     } catch (error: any) {

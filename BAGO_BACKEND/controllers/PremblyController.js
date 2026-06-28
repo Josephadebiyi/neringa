@@ -918,8 +918,11 @@ export const isPremblyAvailable = isPremblyConfigured;
 // Utility: sync a Prembly result for a given userId — callable from admin
 // ---------------------------------------------------------------------------
 export async function syncPremblyReferenceForUser(userId, verificationRef, { notify = true } = {}) {
-  if (!verificationRef || !isPremblyConfigured()) {
+  if (!verificationRef) {
     return { success: false, status: 'not_started', message: 'No Prembly session reference found for this user.' };
+  }
+  if (!isPremblyConfigured()) {
+    return { success: false, status: 'not_started', message: 'Prembly API key is not configured on the backend.' };
   }
 
   try {
@@ -934,6 +937,25 @@ export async function syncPremblyReferenceForUser(userId, verificationRef, { not
     const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify });
     return { success: true, status: result.status, source: 'prembly_api' };
   } catch (err) {
+    // Checker-widget session IDs live in backend.prembly.com, not identitypass.
+    // If identitypass returned 404, fall back to the checker-widget session lookup.
+    if (err?.response?.status === 404) {
+      try {
+        const checkerSessionBase = PREMBLY_SDK_SESSION_URL.replace(/\/initiate\/?$/, '');
+        const checkerRes = await axios.get(
+          `${checkerSessionBase}/${encodeURIComponent(verificationRef)}/`,
+          { headers: premblyHeaders(), timeout: 12000 },
+        );
+        const status = normalizePremblyStatus(checkerRes.data);
+        if (status !== 'unknown') {
+          const result = await applyPremblyResult(userId, status, checkerRes.data, { referenceId: verificationRef, notify });
+          return { success: true, status: result.status, source: 'checker_widget_api' };
+        }
+      } catch (_) {
+        // fall through to stored webhook lookup
+      }
+    }
+
     await ensurePremblyWebhookEventTable().catch(() => {});
     const storedEvent = await queryOne(
       `SELECT id, raw_payload AS "rawPayload", status
@@ -1045,11 +1067,24 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
     if (!reference || !isPremblyConfigured()) continue;
 
     try {
-      const premblyRes = await axios.get(
-        `${PREMBLY_BASE}/verification`,
-        { params: { verification_ref: reference }, headers: premblyHeaders(), timeout: 12000 },
-      );
-      const status = normalizePremblyStatus(premblyRes.data);
+      let responseData;
+      try {
+        const premblyRes = await axios.get(
+          `${PREMBLY_BASE}/verification`,
+          { params: { verification_ref: reference }, headers: premblyHeaders(), timeout: 12000 },
+        );
+        responseData = premblyRes.data;
+      } catch (identitypassErr) {
+        if (identitypassErr?.response?.status !== 404) throw identitypassErr;
+        // checker-widget session — try the checker-widget sessions API
+        const checkerSessionBase = PREMBLY_SDK_SESSION_URL.replace(/\/initiate\/?$/, '');
+        const checkerRes = await axios.get(
+          `${checkerSessionBase}/${encodeURIComponent(reference)}/`,
+          { headers: premblyHeaders(), timeout: 12000 },
+        );
+        responseData = checkerRes.data;
+      }
+      const status = normalizePremblyStatus(responseData);
       if (status === 'unknown') {
         await query(
           `UPDATE public.prembly_kyc_sessions
@@ -1058,11 +1093,11 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
                raw_payload = $2,
                updated_at = timezone('utc', now())
            WHERE id = $1`,
-          [session.id, premblyRes.data],
+          [session.id, responseData],
         ).catch(() => {});
         continue;
       }
-      const applied = await applyPremblyResult(session.userId, status, premblyRes.data, { referenceId: reference, notify });
+      const applied = await applyPremblyResult(session.userId, status, responseData, { referenceId: reference, notify });
       await query(
         `UPDATE public.prembly_kyc_sessions
          SET status = $2,
@@ -1072,7 +1107,7 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
              completed_at = CASE WHEN $2 IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE completed_at END,
              updated_at = timezone('utc', now())
          WHERE id = $1`,
-        [session.id, applied.status || status, premblyRes.data],
+        [session.id, applied.status || status, responseData],
       ).catch(() => {});
       if (['approved', 'declined', 'blocked_duplicate'].includes(applied.status || status)) summary.updated += 1;
     } catch (err) {
