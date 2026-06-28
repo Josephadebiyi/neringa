@@ -62,6 +62,25 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
       unawaited(Permission.microphone.request());
       if (!mounted) return;
 
+      try {
+        final existing = await ApiService.instance.post(
+            ApiConstants.kycPremblySyncExisting,
+            data: {}).timeout(const Duration(seconds: 10));
+        final existingStatus =
+            existing.data?['kycStatus']?.toString().toLowerCase() ?? '';
+        final canStartNewSession =
+            existing.data?['canStartNewSession'] as bool? ?? true;
+        if (existingStatus == 'approved' ||
+            existingStatus == 'declined' ||
+            existingStatus == 'blocked_duplicate' ||
+            (existingStatus == 'pending' && !canStartNewSession)) {
+          await _finishWithStatus(existingStatus);
+          return;
+        }
+      } catch (_) {
+        // Non-fatal: if the preflight fails, let the SDK attempt continue.
+      }
+
       // Fetch widget keys from backend at runtime — never bundled in app
       final res = await ApiService.instance
           .get(ApiConstants.appConfig)

@@ -42,6 +42,7 @@ const premblyHeaders = () => {
 
 const isPremblyConfigured = () => !!PREMBLY_API_KEY;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+let sessionTableReady;
 
 // ---------------------------------------------------------------------------
 // Webhook status normalisation
@@ -90,6 +91,26 @@ const verificationRefFromPayload = (payload = {}) =>
   payload?.userRef ||
   '';
 
+const sessionIdFromPayload = (payload = {}) =>
+  payload?.session_id ||
+  payload?.sessionId ||
+  payload?.data?.session_id ||
+  payload?.data?.sessionId ||
+  payload?.data?.session?.id ||
+  payload?.session?.id ||
+  '';
+
+const userRefFromPayload = (payload = {}) =>
+  payload?.user_ref ||
+  payload?.userRef ||
+  payload?.data?.user_ref ||
+  payload?.data?.userRef ||
+  payload?.data?.metadata?.user_ref ||
+  payload?.data?.metadata?.userRef ||
+  payload?.metadata?.user_ref ||
+  payload?.metadata?.userRef ||
+  '';
+
 const callbackPayloadFromBody = (body = {}) => {
   const candidates = [
     body?.sdkResponse,
@@ -101,8 +122,139 @@ const callbackPayloadFromBody = (body = {}) => {
   return candidates.find((candidate) => candidate && typeof candidate === 'object' && !Array.isArray(candidate)) || {};
 };
 
+async function ensurePremblySessionTable() {
+  sessionTableReady ||= query(`
+    CREATE TABLE IF NOT EXISTS public.prembly_kyc_sessions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+      verification_ref TEXT,
+      prembly_ref TEXT,
+      session_id TEXT,
+      user_ref TEXT,
+      status TEXT NOT NULL DEFAULT 'started',
+      source TEXT NOT NULL DEFAULT 'backend',
+      verification_url TEXT,
+      raw_payload JSONB,
+      last_error TEXT,
+      last_synced_at TIMESTAMPTZ,
+      completed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
+    );
+    CREATE INDEX IF NOT EXISTS idx_prembly_kyc_sessions_user
+      ON public.prembly_kyc_sessions (user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_prembly_kyc_sessions_active
+      ON public.prembly_kyc_sessions (status, updated_at DESC)
+      WHERE status NOT IN ('approved', 'declined', 'blocked_duplicate');
+    CREATE INDEX IF NOT EXISTS idx_prembly_kyc_sessions_refs
+      ON public.prembly_kyc_sessions (verification_ref, prembly_ref, session_id, user_ref);
+  `).catch((err) => {
+    sessionTableReady = null;
+    throw err;
+  });
+  return sessionTableReady;
+}
+
+async function recordPremblySession({
+  userId,
+  verificationRef = '',
+  premblyRef = '',
+  sessionId = '',
+  userRef = '',
+  status = 'started',
+  source = 'backend',
+  verificationUrl = '',
+  rawPayload = {},
+}) {
+  await ensurePremblySessionTable();
+  const ref = verificationRef || premblyRef || sessionId || userRef;
+  const existing = ref ? await queryOne(
+    `SELECT id FROM public.prembly_kyc_sessions
+     WHERE user_id = $1
+       AND ($2 = ''
+         OR verification_ref = $2
+         OR prembly_ref = $2
+         OR session_id = $2
+         OR user_ref = $2)
+     ORDER BY created_at DESC LIMIT 1`,
+    [userId, ref],
+  ).catch(() => null) : null;
+
+  if (existing?.id) {
+    await query(
+      `UPDATE public.prembly_kyc_sessions
+       SET verification_ref = COALESCE(NULLIF($2, ''), verification_ref),
+           prembly_ref = COALESCE(NULLIF($3, ''), prembly_ref),
+           session_id = COALESCE(NULLIF($4, ''), session_id),
+           user_ref = COALESCE(NULLIF($5, ''), user_ref),
+           status = COALESCE(NULLIF($6, ''), status),
+           source = COALESCE(NULLIF($7, ''), source),
+           verification_url = COALESCE(NULLIF($8, ''), verification_url),
+           raw_payload = COALESCE($9, raw_payload),
+           completed_at = CASE WHEN $6 IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE completed_at END,
+           updated_at = timezone('utc', now())
+       WHERE id = $1`,
+      [existing.id, verificationRef, premblyRef, sessionId, userRef, status, source, verificationUrl, rawPayload],
+    ).catch(() => {});
+    return existing.id;
+  }
+
+  const inserted = await queryOne(
+    `INSERT INTO public.prembly_kyc_sessions
+       (user_id, verification_ref, prembly_ref, session_id, user_ref, status, source, verification_url, raw_payload, completed_at)
+     VALUES ($1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, $7, NULLIF($8, ''), $9,
+             CASE WHEN $6 IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE NULL END)
+     RETURNING id`,
+    [userId, verificationRef, premblyRef, sessionId, userRef, status, source, verificationUrl, rawPayload],
+  ).catch(() => null);
+  return inserted?.id || '';
+}
+
+async function activePremblySessionForUser(userId) {
+  await ensurePremblySessionTable();
+  return queryOne(
+    `SELECT id, verification_ref AS "verificationRef", prembly_ref AS "premblyRef",
+            session_id AS "sessionId", user_ref AS "userRef", status,
+            verification_url AS "verificationUrl", created_at AS "createdAt"
+     FROM public.prembly_kyc_sessions
+     WHERE user_id = $1
+       AND status IN ('started', 'pending', 'processing', 'manual_review')
+       AND created_at > timezone('utc', now()) - INTERVAL '30 minutes'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId],
+  ).catch(() => null);
+}
+
+async function updatePremblySessionStatus(userId, status, rawPayload, { referenceId = '', source = 'sync' } = {}) {
+  const sessionId = sessionIdFromPayload(rawPayload);
+  const userRef = userRefFromPayload(rawPayload);
+  await recordPremblySession({
+    userId,
+    verificationRef: referenceId,
+    premblyRef: referenceId,
+    sessionId,
+    userRef,
+    status,
+    source,
+    rawPayload,
+  }).catch(() => {});
+}
+
 async function findPremblyUserId(reference = '') {
   if (!reference) return '';
+
+  await ensurePremblySessionTable().catch(() => {});
+  const session = await queryOne(
+    `SELECT user_id AS "userId" FROM public.prembly_kyc_sessions
+     WHERE verification_ref = $1
+        OR prembly_ref = $1
+        OR session_id = $1
+        OR user_ref = $1
+     ORDER BY updated_at DESC LIMIT 1`,
+    [reference],
+  ).catch(() => null);
+  if (session?.userId) return session.userId;
 
   const row = await queryOne(
     `SELECT id FROM public.profiles
@@ -153,6 +305,8 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
     provider: 'prembly',
     referenceId,
     ...(referenceId && { verificationRef: referenceId, premblyRef: referenceId }),
+    ...(sessionIdFromPayload(rawPayload) && { sessionId: sessionIdFromPayload(rawPayload) }),
+    ...(userRefFromPayload(rawPayload) && { userRef: userRefFromPayload(rawPayload) }),
     payload: rawPayload,
   };
 
@@ -161,6 +315,7 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
     if (approval?.duplicate) {
       if (notify && userEmail) sendKycDeclinedEmail(userEmail, userName, approval.reason).catch(() => {});
       if (notify) sendPushNotification(userId, 'Verification Not Approved', 'This identity is already linked to another Bago account.', { type: 'kyc_duplicate' }).catch(() => {});
+      await updatePremblySessionStatus(userId, 'blocked_duplicate', rawPayload, { referenceId, source: 'apply_result' });
       return { status: 'blocked_duplicate', duplicate: true };
     }
 
@@ -185,6 +340,7 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
 
     if (notify && userEmail) sendKycApprovedEmail(userEmail, userName).catch(() => {});
     if (notify) sendPushNotification(userId, 'Identity Verified! ✅', 'Your identity has been verified. You now have full access to all Bago features.', { type: 'kyc_approved' }).catch(() => {});
+    await updatePremblySessionStatus(userId, 'approved', rawPayload, { referenceId, source: 'apply_result' });
     return { status: 'approved' };
   }
 
@@ -197,6 +353,7 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
     ).catch(() => {});
     if (notify && userEmail) sendKycSubmittedEmail(userEmail, userName).catch(() => {});
     if (notify) sendPushNotification(userId, 'Verification Under Review ⏳', "Your identity verification is being reviewed. We'll notify you when it's approved.", { type: 'kyc_pending' }).catch(() => {});
+    await updatePremblySessionStatus(userId, 'pending', rawPayload, { referenceId, source: 'apply_result' });
     return { status: 'pending' };
   }
 
@@ -210,6 +367,7 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
     );
     if (notify && userEmail) sendKycDeclinedEmail(userEmail, userName, reason).catch(() => {});
     if (notify) sendPushNotification(userId, 'Verification Not Approved', 'Your identity verification was not approved. Please try again.', { type: 'kyc_declined' }).catch(() => {});
+    await updatePremblySessionStatus(userId, 'declined', rawPayload, { referenceId, source: 'apply_result' });
     return { status: 'declined', reason };
   }
 
@@ -243,6 +401,20 @@ export const startPremblySession = async (req, res) => {
 
     const verificationRef = `bago-${userId}-${crypto.randomUUID()}`;
     const country = (req.body?.country || '').toUpperCase().trim();
+
+    const activeSession = await activePremblySessionForUser(userId);
+    if (activeSession?.verificationUrl) {
+      return res.json({
+        success: true,
+        provider: 'prembly',
+        activeSession: true,
+        kycStatus: 'pending',
+        verificationUrl: activeSession.verificationUrl,
+        verificationRef: activeSession.premblyRef || activeSession.verificationRef || activeSession.sessionId || activeSession.userRef,
+        callbackUrl: PREMBLY_CALLBACK_URL,
+        message: 'A verification session is already active. Please finish that session or wait before starting another.',
+      });
+    }
 
     const widgetId = PREMBLY_WIDGET_ID || PREMBLY_CONFIG_ID;
     if (!widgetId || !PREMBLY_WIDGET_KEY) {
@@ -329,6 +501,18 @@ export const startPremblySession = async (req, res) => {
        WHERE id = $1`,
       [userId, verificationRef, premblyRef, country],
     ).catch(() => {});
+
+    await recordPremblySession({
+      userId,
+      verificationRef,
+      premblyRef,
+      sessionId,
+      userRef: verificationRef,
+      status: 'started',
+      source: 'backend_start',
+      verificationUrl,
+      rawPayload: premblyRes.data,
+    }).catch((err) => console.warn('Prembly session record failed:', err?.message || err));
 
     return res.json({
       success: true,
@@ -465,7 +649,7 @@ export const premblyWebhook = async (req, res) => {
     const payload = req.body;
     console.log('Prembly webhook received:', JSON.stringify(payload).slice(0, 600));
 
-    const verificationRef = verificationRefFromPayload(payload);
+    const verificationRef = verificationRefFromPayload(payload) || sessionIdFromPayload(payload) || userRefFromPayload(payload);
     const status          = normalizePremblyStatus(payload);
 
     if (!verificationRef) {
@@ -479,7 +663,7 @@ export const premblyWebhook = async (req, res) => {
       return res.status(200).json({ received: true, note: 'user not found' });
     }
 
-    await applyPremblyResult(userId, status, payload, { referenceId: verificationRef });
+    await applyPremblyResult(userId, status, payload, { referenceId: verificationRef, notify: true });
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('premblyWebhook error:', err);
@@ -522,7 +706,7 @@ export const syncPremblyResult = async (req, res) => {
       '';
 
     if (callbackStatus !== 'unknown') {
-      const result = await applyPremblyResult(userId, callbackStatus, callbackPayload, { referenceId: verificationRef, notify: false });
+      const result = await applyPremblyResult(userId, callbackStatus, callbackPayload, { referenceId: verificationRef, notify: true });
       if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)) {
         return res.json({ success: true, kycStatus: result.status, source: 'sdk_callback' });
       }
@@ -584,7 +768,7 @@ export const syncPremblyResult = async (req, res) => {
       );
       const status = normalizePremblyStatus(premblyRes.data);
       if (status !== 'unknown') {
-        const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify: false });
+        const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify: true });
         return res.json({ success: true, kycStatus: result.status, source: 'prembly_api' });
       }
     } catch (apiErr) {
@@ -618,6 +802,18 @@ export const syncExistingPremblyResult = async (req, res) => {
     const currentStatus = user.kycStatus || 'not_started';
     if (['approved', 'blocked_duplicate', 'declined'].includes(currentStatus)) {
       return res.json({ success: true, kycStatus: currentStatus, source: 'db', canStartNewSession: currentStatus === 'declined' });
+    }
+
+    const activeSession = await activePremblySessionForUser(userId);
+    if (activeSession) {
+      return res.json({
+        success: true,
+        kycStatus: 'pending',
+        source: 'prembly_session',
+        canStartNewSession: false,
+        activeSession: true,
+        verificationRef: activeSession.premblyRef || activeSession.verificationRef || activeSession.sessionId || activeSession.userRef,
+      });
     }
 
     const canStartNewSession = !['approved', 'blocked_duplicate'].includes(currentStatus);
@@ -668,4 +864,102 @@ export async function syncPremblyForUser(userId, { notify = true } = {}) {
   } catch (err) {
     return { success: false, status: currentStatus, message: err.message };
   }
+}
+
+export async function reconcilePremblySessions({ limit = 25, notify = true } = {}) {
+  await ensurePremblySessionTable();
+  const result = await query(
+    `SELECT s.id, s.user_id AS "userId",
+            COALESCE(s.verification_ref, s.prembly_ref, s.session_id, s.user_ref) AS "reference",
+            s.status
+     FROM public.prembly_kyc_sessions s
+     JOIN public.profiles p ON p.id = s.user_id
+     WHERE s.status IN ('started', 'pending', 'processing', 'manual_review')
+       AND COALESCE(p.kyc_status, 'not_started') NOT IN ('approved', 'blocked_duplicate', 'declined')
+       AND s.updated_at < timezone('utc', now()) - INTERVAL '2 minutes'
+     ORDER BY s.created_at ASC
+     LIMIT $1`,
+    [limit],
+  ).catch(() => ({ rows: [] }));
+
+  const summary = { checked: 0, updated: 0, failed: 0 };
+  for (const session of result.rows || []) {
+    summary.checked += 1;
+    const reference = session.reference;
+    if (!reference || !isPremblyConfigured()) continue;
+
+    try {
+      const premblyRes = await axios.get(
+        `${PREMBLY_BASE}/verification`,
+        { params: { verification_ref: reference }, headers: premblyHeaders(), timeout: 12000 },
+      );
+      const status = normalizePremblyStatus(premblyRes.data);
+      if (status === 'unknown') {
+        await query(
+          `UPDATE public.prembly_kyc_sessions
+           SET last_synced_at = timezone('utc', now()),
+               last_error = 'unknown_status',
+               raw_payload = $2,
+               updated_at = timezone('utc', now())
+           WHERE id = $1`,
+          [session.id, premblyRes.data],
+        ).catch(() => {});
+        continue;
+      }
+      const applied = await applyPremblyResult(session.userId, status, premblyRes.data, { referenceId: reference, notify });
+      await query(
+        `UPDATE public.prembly_kyc_sessions
+         SET status = $2,
+             raw_payload = $3,
+             last_error = NULL,
+             last_synced_at = timezone('utc', now()),
+             completed_at = CASE WHEN $2 IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE completed_at END,
+             updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [session.id, applied.status || status, premblyRes.data],
+      ).catch(() => {});
+      if (['approved', 'declined', 'blocked_duplicate'].includes(applied.status || status)) summary.updated += 1;
+    } catch (err) {
+      summary.failed += 1;
+      await query(
+        `UPDATE public.prembly_kyc_sessions
+         SET last_synced_at = timezone('utc', now()),
+             last_error = $2,
+             updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [session.id, String(err?.response?.data?.message || err.message || err).slice(0, 300)],
+      ).catch(() => {});
+    }
+  }
+  return summary;
+}
+
+export function startPremblySessionReconciler() {
+  const intervalMs = Number(process.env.PREMBLY_RECONCILE_INTERVAL_MS || 5 * 60 * 1000);
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) return;
+  setTimeout(() => reconcilePremblySessions({ notify: true }).catch((err) => {
+    console.error('Prembly initial reconcile failed:', err?.message || err);
+  }), 30 * 1000);
+  setInterval(() => {
+    reconcilePremblySessions({ notify: true }).then((summary) => {
+      if (summary.checked || summary.updated || summary.failed) {
+        console.log('Prembly reconcile summary:', summary);
+      }
+    }).catch((err) => {
+      console.error('Prembly reconcile failed:', err?.message || err);
+    });
+  }, intervalMs);
+}
+
+export async function trackPremblyInlineStart(userId, { source = 'inline_config', rawPayload = {} } = {}) {
+  if (!userId) return;
+  await recordPremblySession({
+    userId,
+    verificationRef: userId,
+    premblyRef: userId,
+    userRef: userId,
+    status: 'started',
+    source,
+    rawPayload,
+  }).catch((err) => console.warn('Prembly inline session track failed:', err?.message || err));
 }

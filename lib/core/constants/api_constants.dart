@@ -76,7 +76,10 @@ class ApiConstants {
   static const String kycDojahSyncExisting =
       '/api/bago/kyc/dojah/sync-existing';
   static const String kycPremblyStart = '/api/bago/kyc/prembly/start';
-  static const String kycPremblySyncResult = '/api/bago/kyc/prembly/sync-result';
+  static const String kycPremblySyncResult =
+      '/api/bago/kyc/prembly/sync-result';
+  static const String kycPremblySyncExisting =
+      '/api/bago/kyc/prembly/sync-existing';
   static const String kycStatus = '/api/bago/kyc/status';
   static const String appConfig = '/api/config/app';
   static const String kycUpdateLegalName = '/api/bago/kyc/update-legal-name';
@@ -129,8 +132,7 @@ class ApiConstants {
   // ---------------------------------------------------------------------------
   static const String walletBalance = '/api/bago/getWallet';
   static const String referral = '/api/bago/referral';
-  static const String withdrawalRequestOtp =
-      '/api/bago/withdrawal/request-otp';
+  static const String withdrawalRequestOtp = '/api/bago/withdrawal/request-otp';
   // Backend: POST /withdrawFunds
   static const String withdrawFunds = '/api/bago/withdrawFunds';
   static const String paymentMethods = '/api/payments/cards';
@@ -226,6 +228,7 @@ class ApiConstants {
   // AI Features
   // ---------------------------------------------------------------------------
   static const String aiComplianceCheck = '/api/bago/ai/compliance-check';
-  static const String aiPriceRecommendation = '/api/bago/ai/price-recommendation';
+  static const String aiPriceRecommendation =
+      '/api/bago/ai/price-recommendation';
   static const String aiMatchScores = '/api/bago/ai/match-scores';
 }

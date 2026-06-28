@@ -22,6 +22,7 @@ import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { getPushProviderStatus, sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
+import { startPremblySessionReconciler, trackPremblyInlineStart } from './controllers/PremblyController.js';
 import {
   authorizePaypalOrder,
   capturePaypalOrder,
@@ -181,6 +182,7 @@ runMigrations();
 ensureSupportTable();
 startEscrowAutoRelease();
 startCurrencyRateSync();
+startPremblySessionReconciler();
 
 // Apple Pay domain verification — must be before all middleware and auth
 app.get('/.well-known/apple-developer-merchantid-domain-association', async (_req, res) => {
@@ -966,6 +968,10 @@ app.get('/api/config/app', isAuthenticated, async (req, res) => {
   const userId = req.user?.id;
   if (userId) {
     try {
+      await trackPremblyInlineStart(userId, {
+        source: 'app_config',
+        rawPayload: { userRef: userId, route: '/api/config/app' },
+      });
       await pgQuery(
         `UPDATE public.profiles
          SET kyc_provider = CASE WHEN kyc_provider IS NULL OR kyc_provider = '' THEN 'prembly' ELSE kyc_provider END,
