@@ -289,6 +289,7 @@ class _PremblySdkPage extends StatefulWidget {
 
 class _PremblySdkPageState extends State<_PremblySdkPage> {
   late final WebViewController _controller;
+  bool _completed = false;
 
   @override
   void initState() {
@@ -300,23 +301,45 @@ class _PremblySdkPageState extends State<_PremblySdkPage> {
     )
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) {
+            final uri = Uri.tryParse(request.url);
+            if (uri != null && uri.path.contains('/kyc/prembly/complete')) {
+              _complete({
+                ...uri.queryParameters,
+                'callbackUrl': request.url,
+                'source': 'prembly_complete_redirect',
+              });
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
       ..addJavaScriptChannel(
         'FlutterChannel',
         onMessageReceived: (msg) {
           try {
             final Map<String, dynamic> response = jsonDecode(msg.message);
-            widget.options.callback(response);
+            _complete(response);
           } catch (_) {}
-          // Pop with true so _start() knows the callback fired
-          if (mounted && Navigator.canPop(context)) {
-            Navigator.pop(context, true);
-          }
         },
       )
       ..loadHtmlString(
         _buildHtml(),
         baseUrl: ApiConstants.baseUrl,
       );
+  }
+
+  void _complete(Map<String, dynamic> response) {
+    if (_completed) return;
+    _completed = true;
+    widget.options.callback(response);
+    // Pop with true so _start() knows the callback fired
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context, true);
+    }
   }
 
   String _buildHtml() {
