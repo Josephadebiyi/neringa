@@ -219,7 +219,7 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader(
     'Permissions-Policy',
-    'geolocation=(), camera=(self "https://app.dojah.io" "https://*.dojah.io"), microphone=(self "https://app.dojah.io" "https://*.dojah.io")',
+    'geolocation=(), camera=(self "https://app.dojah.io" "https://*.dojah.io" "https://sdk-live.prembly.com" "https://*.prembly.com"), microphone=(self "https://app.dojah.io" "https://*.dojah.io" "https://sdk-live.prembly.com" "https://*.prembly.com")',
   );
   next();
 });

@@ -172,6 +172,7 @@ userRouter.post('/kyc/dojah/webhook', dojahWebhook);
 userRouter.post('/kyc/dojah/sync-result', isAuthenticated, syncDojahResult);
 userRouter.post('/kyc/dojah/sync-existing', isAuthenticated, syncExistingDojahResult);
 userRouter.post('/kyc/prembly/start', isAuthenticated, startPremblySession);
+userRouter.get('/kyc/prembly/webhook', (_req, res) => res.status(200).json({ success: true, provider: 'prembly', message: 'Prembly webhook endpoint is ready.' }));
 userRouter.post('/kyc/prembly/webhook', premblyWebhook); // no auth — called by Prembly servers
 userRouter.post('/kyc/prembly/sync-result', isAuthenticated, syncPremblyResult);
 userRouter.post('/kyc/prembly/sync-existing', isAuthenticated, syncExistingPremblyResult);
