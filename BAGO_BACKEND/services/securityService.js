@@ -328,6 +328,11 @@ const REVIEW_MSG =
   'Your account is currently under review. ' +
   'We will notify you by email once the review is complete.';
 
+const REVIEW_COOLDOWN_MINUTES = Number(process.env.KYC_REVIEW_COOLDOWN_MINUTES || 30);
+
+const reviewRetryMessage = (minutes = REVIEW_COOLDOWN_MINUTES) =>
+  `We need a little more time before verification can continue. Please try again in about ${minutes} minutes.`;
+
 /**
  * Run all pre-KYC checks. Returns { allowed, status, message } or throws.
  * `status` is one of: 'allowed' | 'pending_name' | 'pending_security_review' | 'blocked'
@@ -336,20 +341,50 @@ export async function runPreKycChecks(user, req) {
   const ip       = extractIp(req);
   const deviceFp = (req.headers['x-device-fingerprint'] || '').trim() || user.deviceFingerprint;
   const userAgent = (req.headers['user-agent'] || '').slice(0, 300);
+  const profile = await queryOne(
+    `SELECT account_status AS "accountStatus", banned, is_flagged AS "isFlagged",
+            flag_source AS "flagSource", flagged_at AS "flaggedAt"
+     FROM public.profiles WHERE id = $1`,
+    [user.id],
+  ).catch(() => null);
+  const userStatus = profile?.accountStatus || user.accountStatus || user.account_status || 'active';
+  const userBanned = Boolean(profile?.banned ?? user.banned);
+  let releasedAutoReview = false;
 
   // 1. Account status gate
-  const status = user.accountStatus || user.account_status || 'active';
-  if (status === 'banned' || user.banned) {
+  if (userStatus === 'banned' || userBanned) {
     await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'block', reasonCode: 'account_banned', ip, deviceFp, userAgent });
     return { allowed: false, status: 'blocked', message: BLOCKED_MSG };
   }
-  if (status === 'rejected') {
+  if (userStatus === 'rejected') {
     await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'block', reasonCode: 'account_rejected', ip, deviceFp, userAgent });
     return { allowed: false, status: 'blocked', message: BLOCKED_MSG };
   }
-  if (status === 'pending_security_review') {
-    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'block', reasonCode: 'pending_review', ip, deviceFp, userAgent });
-    return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
+  if (userStatus === 'pending_security_review') {
+    const flaggedAt = profile?.flaggedAt ? new Date(profile.flaggedAt) : null;
+    const minutesSinceFlag = flaggedAt ? (Date.now() - flaggedAt.getTime()) / 60000 : 0;
+    const autoFlag = (profile?.flagSource || 'auto_flag') === 'auto_flag';
+    if (autoFlag && minutesSinceFlag >= REVIEW_COOLDOWN_MINUTES) {
+      releasedAutoReview = true;
+      await query(
+        `UPDATE public.profiles
+         SET account_status = 'active',
+             flag_reason = COALESCE(flag_reason, '') || ' | Auto-review cooldown elapsed; KYC retry allowed.',
+             updated_at = NOW()
+         WHERE id = $1 AND account_status = 'pending_security_review' AND banned IS DISTINCT FROM TRUE`,
+        [user.id],
+      ).catch(() => {});
+      await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'allow', reasonCode: 'auto_review_cooldown_elapsed', ip, deviceFp, userAgent });
+    } else {
+      const retryIn = Math.max(1, Math.ceil(REVIEW_COOLDOWN_MINUTES - minutesSinceFlag));
+      await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'cooldown', reasonCode: 'pending_review_cooldown', ip, deviceFp, userAgent, metadata: { retryInMinutes: retryIn } });
+      return {
+        allowed: false,
+        status: 'pending_security_review',
+        message: reviewRetryMessage(retryIn),
+        retryAfterMinutes: retryIn,
+      };
+    }
   }
 
   // 2. Legal name check
@@ -382,9 +417,9 @@ export async function runPreKycChecks(user, req) {
     phone:     user.phone,
     email:     user.email,
   });
-  if (hardBans.length > 0) {
+  if (hardBans.length > 0 && !releasedAutoReview) {
     const flagReason = `Auto-flagged: matched ban criteria (${hardBans.join(', ')})`;
-    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'review', reasonCode: 'hard_ban_match', riskSignals: hardBans, ip, deviceFp, userAgent });
+    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'cooldown', reasonCode: 'hard_ban_match', riskSignals: hardBans, ip, deviceFp, userAgent, metadata: { retryAfterMinutes: REVIEW_COOLDOWN_MINUTES } });
     await query(
       `UPDATE public.profiles
        SET is_flagged       = TRUE,
@@ -407,7 +442,12 @@ export async function runPreKycChecks(user, req) {
         }).catch(() => {});
       }
     }).catch(() => {});
-    return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
+    return {
+      allowed: false,
+      status: 'pending_security_review',
+      message: reviewRetryMessage(),
+      retryAfterMinutes: REVIEW_COOLDOWN_MINUTES,
+    };
   }
 
   // 5. Risk scoring — raised thresholds to reduce false positives
@@ -429,8 +469,8 @@ export async function runPreKycChecks(user, req) {
   ).catch(() => {});
 
   // Score ≥ 90: strong indicators (Google sub duplicate, phone duplicate, many device accounts)
-  if (score >= 90) {
-    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'review', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_high', ip, deviceFp, userAgent });
+  if (score >= 90 && !releasedAutoReview) {
+    await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'cooldown', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_high', ip, deviceFp, userAgent, metadata: { retryAfterMinutes: REVIEW_COOLDOWN_MINUTES } });
     await query(
       `UPDATE public.profiles SET account_status = 'pending_security_review',
          is_flagged = TRUE, flag_reason = $2, flag_source = 'auto_flag',
@@ -448,7 +488,12 @@ export async function runPreKycChecks(user, req) {
         }).catch(() => {});
       }
     }).catch(() => {});
-    return { allowed: false, status: 'pending_security_review', message: REVIEW_MSG };
+    return {
+      allowed: false,
+      status: 'pending_security_review',
+      message: reviewRetryMessage(),
+      retryAfterMinutes: REVIEW_COOLDOWN_MINUTES,
+    };
   }
 
   // Score 65–89: elevated but not conclusive — flag for admin review, allow KYC to proceed
