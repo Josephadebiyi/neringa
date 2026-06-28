@@ -48,6 +48,14 @@ post_install do |installer|
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'armv7'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64 i386'
+      definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+      definitions = [definitions] if definitions.is_a?(String)
+      definitions |= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_MICROPHONE=1',
+      ]
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions
       # Suppress deprecation-as-error in Braintree ObjC pods
       if target.name.start_with?('Braintree') || target.name == 'BraintreeDropIn' || target.name == 'PayPalDataCollector' || target.name == 'PayPalUI'
         config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'

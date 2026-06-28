@@ -54,22 +54,13 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _start() async {
     try {
-      // Request camera permission. On iOS/Android, if already granted this
-      // returns immediately with 'granted'. We only hard-block if permanently
-      // denied — 'denied' alone may be a transient state; the WebView's own
-      // onPermissionRequest handler will grant camera access to the SDK.
-      final cameraStatus = await Permission.camera.request();
+      // Best-effort native prompts only. The Prembly capture runs in a WebView,
+      // and on some iOS builds permission_handler can report permanentlyDenied
+      // even when Settings shows Camera enabled. Do not block here; the WebView
+      // permission delegate below is the source of truth for the widget.
+      unawaited(Permission.camera.request());
       unawaited(Permission.microphone.request());
       if (!mounted) return;
-
-      if (cameraStatus.isPermanentlyDenied) {
-        setState(() {
-          _hasError = true;
-          _errorMessage = 'Camera access is blocked. Please go to '
-              'Settings → Bago → Camera, enable it, then tap Try Again.';
-        });
-        return;
-      }
 
       // Fetch widget keys from backend at runtime — never bundled in app
       final res = await ApiService.instance
@@ -77,13 +68,14 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
           .timeout(const Duration(seconds: 10));
 
       final widgetKey = res.data?['premblyWidgetKey']?.toString() ?? '';
-      final widgetId  = res.data?['premblyWidgetId']?.toString()  ?? '';
+      final widgetId = res.data?['premblyWidgetId']?.toString() ?? '';
 
       if (widgetKey.isEmpty || widgetId.isEmpty) {
         if (!mounted) return;
         setState(() {
           _hasError = true;
-          _errorMessage = 'Verification service is not available right now. Please try again later.';
+          _errorMessage =
+              'Verification service is not available right now. Please try again later.';
         });
         return;
       }
@@ -93,15 +85,15 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
       final options = IdentityKycOptions(
         widgetKey: widgetKey,
-        widgetId:  widgetId,
+        widgetId: widgetId,
         firstName: user?.firstName ?? '',
-        lastName:  user?.lastName  ?? '',
-        email:     user?.email     ?? '',
-        userRef:   widget.userId,
+        lastName: user?.lastName ?? '',
+        email: user?.email ?? '',
+        userRef: widget.userId,
         // Tells the Prembly widget which country this user is from so it can
         // skip the internal country-selection step and go straight to capture.
-        metadata:  {'country': widget.countryCode.toUpperCase()},
-        callback:  _onSdkComplete,
+        metadata: {'country': widget.countryCode.toUpperCase()},
+        callback: _onSdkComplete,
       );
 
       // Use our local wrapper (not the package's static call) so we can:
@@ -134,7 +126,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
     setState(() => _waitingForResult = true);
     // Poll backend — Prembly webhook may arrive slightly after the SDK callback
     _syncResult();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) => _syncResult());
+    _pollTimer =
+        Timer.periodic(const Duration(seconds: 4), (_) => _syncResult());
     // Safety: if still waiting after 3 min, treat as pending
     Timer(const Duration(minutes: 3), () {
       _pollTimer?.cancel();
@@ -144,12 +137,14 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _syncResult() async {
     try {
-      final res = await ApiService.instance
-          .post(ApiConstants.kycPremblySyncResult, data: {})
-          .timeout(const Duration(seconds: 10));
+      final res = await ApiService.instance.post(
+          ApiConstants.kycPremblySyncResult,
+          data: {}).timeout(const Duration(seconds: 10));
 
       final status = res.data?['kycStatus']?.toString() ?? '';
-      if (status == 'approved' || status == 'declined' || status == 'blocked_duplicate') {
+      if (status == 'approved' ||
+          status == 'declined' ||
+          status == 'blocked_duplicate') {
         _pollTimer?.cancel();
         if (mounted) _finishWithStatus(status);
       }
@@ -172,10 +167,12 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
         message = 'Your identity has been verified!';
         snackType = SnackBarType.success;
       case 'blocked_duplicate':
-        message = 'This identity is already linked to another account. Please contact support.';
+        message =
+            'This identity is already linked to another account. Please contact support.';
         snackType = SnackBarType.error;
       case 'declined':
-        message = 'Verification was not approved. Please check your details and try again.';
+        message =
+            'Verification was not approved. Please check your details and try again.';
         snackType = SnackBarType.error;
       default:
         message = 'Verification submitted. We\'ll update your status shortly.';
@@ -203,7 +200,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.black, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new,
+              color: AppColors.black, size: 20),
           onPressed: () {
             _pollTimer?.cancel();
             Navigator.of(context).pop();
@@ -233,7 +231,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _retry,
-                style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                style:
+                    FilledButton.styleFrom(backgroundColor: AppColors.primary),
                 child: const Text('Try Again'),
               ),
               const SizedBox(height: 12),
@@ -241,7 +240,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
                 onPressed: () => openAppSettings(),
                 child: Text(
                   'Open Settings',
-                  style: AppTextStyles.labelMd.copyWith(color: AppColors.primary),
+                  style:
+                      AppTextStyles.labelMd.copyWith(color: AppColors.primary),
                 ),
               ),
             ],
@@ -267,7 +267,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
     }
 
     return const Center(
-      child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
+      child:
+          CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
     );
   }
 }
