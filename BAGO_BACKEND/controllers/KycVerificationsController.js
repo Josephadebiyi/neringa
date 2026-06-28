@@ -144,7 +144,7 @@ export const getAllkyc = async (req, res, next) => {
     const offset = (Number(page) - 1) * Number(limit);
 
     const result = await query(
-      `SELECT id, email, first_name as "firstName", last_name as "lastName",
+      `SELECT id, id as "_id", email, first_name as "firstName", last_name as "lastName",
               phone, image_url as "profileImage", country,
               date_of_birth as "dateOfBirth",
               kyc_status as "kycStatus", kyc_provider as "kycProvider",
@@ -152,6 +152,8 @@ export const getAllkyc = async (req, res, next) => {
               kyc_failure_reason as "kycFailureReason",
               identity_fingerprint as "identityFingerprint",
               kyc_verified_data as "kycVerifiedData",
+              verified_first_name as "verifiedFirstName",
+              verified_last_name as "verifiedLastName",
               verified_full_legal_name as "verifiedFullLegalName",
               verified_date_of_birth as "verifiedDateOfBirth",
               created_at as "createdAt"

@@ -71,10 +71,9 @@ import {
   getUserKYCDetails,
   getKYCStatistics,
   updateKYCStatus,
-  syncDojahKYCStatus,
-  syncDojahKYCByReference,
-  syncUnverifiedDojahKYCStatuses,
   syncPremblyKYCStatus,
+  syncPremblyKYCByReference,
+  syncUnverifiedPremblyKYCStatuses,
 } from '../controllers/AdminControllers/KYCViewController.js';
 import {
   getAllWithdrawals,
@@ -221,10 +220,13 @@ AdminRouter.get("/kyc/users", adminAuthenticated, can('kyc.review'), getAllUsers
 AdminRouter.get("/kyc/users/:userId", adminAuthenticated, can('kyc.review'), validateUuidParam('userId'), getUserKYCDetails);
 AdminRouter.get("/kyc/statistics", adminAuthenticated, can('kyc.review'), getKYCStatistics);
 AdminRouter.put("/kyc/users/:userId/status", adminAuthenticated, can('kyc.review'), validateUuidParam('userId'), audit('admin.kyc.status.update', 'profile', 'userId'), updateKYCStatus);
-AdminRouter.post("/kyc/sync-dojah", adminAuthenticated, can('kyc.sync'), audit('admin.kyc.sync.bulk', 'kyc_verification'), syncUnverifiedDojahKYCStatuses);
-AdminRouter.post("/kyc/users/:userId/sync-dojah", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.user', 'profile', 'userId'), syncDojahKYCStatus);
-AdminRouter.post("/kyc/users/:userId/sync-dojah-reference", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.reference', 'profile', 'userId'), syncDojahKYCByReference);
+AdminRouter.post("/kyc/sync-prembly", adminAuthenticated, can('kyc.sync'), audit('admin.kyc.sync.prembly.bulk', 'kyc_verification'), syncUnverifiedPremblyKYCStatuses);
 AdminRouter.post("/kyc/users/:userId/sync-prembly", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.prembly', 'profile', 'userId'), syncPremblyKYCStatus);
+AdminRouter.post("/kyc/users/:userId/sync-prembly-reference", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.prembly.reference', 'profile', 'userId'), syncPremblyKYCByReference);
+// Backward-compatible aliases for older admin bundles. These now use Prembly.
+AdminRouter.post("/kyc/sync-dojah", adminAuthenticated, can('kyc.sync'), audit('admin.kyc.sync.prembly.bulk.legacy', 'kyc_verification'), syncUnverifiedPremblyKYCStatuses);
+AdminRouter.post("/kyc/users/:userId/sync-dojah", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.prembly.legacy', 'profile', 'userId'), syncPremblyKYCStatus);
+AdminRouter.post("/kyc/users/:userId/sync-dojah-reference", adminAuthenticated, can('kyc.sync'), validateUuidParam('userId'), audit('admin.kyc.sync.prembly.reference.legacy', 'profile', 'userId'), syncPremblyKYCByReference);
 
 // Insurance Settings
 AdminRouter.get("/insurance/settings", adminAuthenticated, getInsuranceSettings);

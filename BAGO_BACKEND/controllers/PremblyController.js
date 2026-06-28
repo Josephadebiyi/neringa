@@ -264,6 +264,8 @@ async function findPremblyUserId(reference = '') {
          kyc_verified_data->>'verificationRef' = $1
          OR kyc_verified_data->>'premblyRef' = $1
          OR kyc_verified_data->>'referenceId' = $1
+         OR kyc_verified_data->>'sessionId' = $1
+         OR kyc_verified_data->>'session_id' = $1
          OR kyc_verified_data->>'userRef' = $1
          OR kyc_verified_data->>'userId' = $1
          OR kyc_verified_data#>>'{metadata,user_ref}' = $1
@@ -829,6 +831,31 @@ export const isPremblyAvailable = isPremblyConfigured;
 // ---------------------------------------------------------------------------
 // Utility: sync a Prembly result for a given userId — callable from admin
 // ---------------------------------------------------------------------------
+export async function syncPremblyReferenceForUser(userId, verificationRef, { notify = true } = {}) {
+  if (!verificationRef || !isPremblyConfigured()) {
+    return { success: false, status: 'not_started', message: 'No Prembly session reference found for this user.' };
+  }
+
+  try {
+    const premblyRes = await axios.get(
+      `${PREMBLY_BASE}/verification`,
+      { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
+    );
+    const status = normalizePremblyStatus(premblyRes.data);
+    if (status === 'unknown') {
+      return { success: false, status: 'unknown', message: 'Prembly returned unknown status.', raw: premblyRes.data };
+    }
+    const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify });
+    return { success: true, status: result.status, source: 'prembly_api' };
+  } catch (err) {
+    return {
+      success: false,
+      status: 'sync_failed',
+      message: String(err?.response?.data?.message || err.message || err),
+    };
+  }
+}
+
 export async function syncPremblyForUser(userId, { notify = true } = {}) {
   const existing = await queryOne(
     `SELECT kyc_status AS "kycStatus", kyc_verified_data AS "kycVerifiedData" FROM public.profiles WHERE id = $1`,
@@ -844,26 +871,31 @@ export async function syncPremblyForUser(userId, { notify = true } = {}) {
     existing?.kycVerifiedData?.verificationRef ||
     existing?.kycVerifiedData?.premblyRef ||
     existing?.kycVerifiedData?.referenceId ||
+    (await queryOne(
+      `SELECT COALESCE(
+                NULLIF(verification_ref, user_id::text),
+                NULLIF(prembly_ref, user_id::text),
+                NULLIF(session_id, user_id::text)
+              ) AS "reference"
+       FROM public.prembly_kyc_sessions
+       WHERE user_id = $1
+         AND COALESCE(
+               NULLIF(verification_ref, user_id::text),
+               NULLIF(prembly_ref, user_id::text),
+               NULLIF(session_id, user_id::text)
+             ) IS NOT NULL
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [userId],
+    ).catch(() => null))?.reference ||
     '';
 
   if (!verificationRef || !isPremblyConfigured()) {
     return { success: false, status: currentStatus, message: 'No Prembly session reference found for this user.' };
   }
 
-  try {
-    const premblyRes = await axios.get(
-      `${PREMBLY_BASE}/verification`,
-      { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
-    );
-    const status = normalizePremblyStatus(premblyRes.data);
-    if (status === 'unknown') {
-      return { success: false, status: currentStatus, message: 'Prembly returned unknown status.', raw: premblyRes.data };
-    }
-    const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify });
-    return { success: true, status: result.status, source: 'prembly_api' };
-  } catch (err) {
-    return { success: false, status: currentStatus, message: err.message };
-  }
+  const result = await syncPremblyReferenceForUser(userId, verificationRef, { notify });
+  return result.success ? result : { ...result, status: currentStatus };
 }
 
 export async function reconcilePremblySessions({ limit = 25, notify = true } = {}) {

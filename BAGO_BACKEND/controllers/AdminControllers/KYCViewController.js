@@ -1,7 +1,7 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { markKycApproved } from '../../lib/postgres/accounts.js';
 import { dojahReferenceFromPayload, syncDojahReferenceForUser } from '../DojahController.js';
-import { syncPremblyForUser } from '../PremblyController.js';
+import { syncPremblyForUser, syncPremblyReferenceForUser } from '../PremblyController.js';
 
 function buildManualApprovalPayload(user = {}) {
   const submission = user.kycVerifiedData || {};
@@ -359,6 +359,99 @@ export const syncPremblyKYCStatus = async (req, res) => {
   } catch (error) {
     console.error('syncPremblyKYCStatus error:', error);
     return res.status(500).json({ success: false, message: 'Failed to sync Prembly status', error: error.message });
+  }
+};
+
+// POST /admin/kyc/users/:userId/sync-prembly-reference
+// Admin provides a Prembly verification/session reference for a user when webhook delivery was missed.
+export const syncPremblyKYCByReference = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { referenceId } = req.body;
+
+    if (!referenceId?.trim()) {
+      return res.status(400).json({ success: false, message: 'referenceId is required' });
+    }
+
+    const ref = referenceId.trim();
+    await query(
+      `UPDATE public.profiles
+       SET kyc_provider = 'prembly',
+           kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
+             'provider', 'prembly',
+             'verificationRef', $2::text,
+             'premblyRef', $2::text,
+             'referenceId', $2::text,
+             'sessionId', $2::text,
+             'session_id', $2::text,
+             'patchedByAdmin', true,
+             'patchedAt', timezone('utc', now())
+           ),
+           updated_at = NOW()
+       WHERE id = $1 AND COALESCE(kyc_status, 'not_started') NOT IN ('approved', 'blocked_duplicate')`,
+      [userId, ref],
+    );
+
+    const result = await syncPremblyReferenceForUser(userId, ref, { notify: true });
+
+    return res.status(result.success ? 200 : 400).json({
+      success: result.success,
+      message: result.success
+        ? `Prembly sync complete: ${result.status}`
+        : result.message,
+      data: { userId, referenceId: ref, ...result },
+    });
+  } catch (error) {
+    console.error('syncPremblyKYCByReference error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to sync Prembly by reference', error: error.message });
+  }
+};
+
+export const syncUnverifiedPremblyKYCStatuses = async (_req, res) => {
+  try {
+    const users = await query(
+      `SELECT p.id,
+              p.email,
+              p.kyc_status as "kycStatus",
+              p.kyc_provider as "kycProvider",
+              p.kyc_verified_data as "kycVerifiedData"
+       FROM public.profiles p
+       WHERE COALESCE(p.kyc_status, 'not_started') NOT IN ('approved', 'blocked_duplicate')
+         AND (
+           p.kyc_provider = 'prembly'
+           OR p.kyc_verified_data->>'provider' = 'prembly'
+           OR p.kyc_verified_data ? 'premblyRef'
+           OR p.kyc_verified_data ? 'verificationRef'
+           OR EXISTS (
+             SELECT 1
+             FROM public.prembly_kyc_sessions s
+             WHERE s.user_id = p.id
+           )
+         )
+       ORDER BY p.updated_at DESC
+       LIMIT 100`,
+    );
+
+    const results = [];
+    for (const user of users.rows) {
+      const result = await syncPremblyForUser(user.id, { notify: true });
+      results.push({ userId: user.id, email: user.email, ...result });
+    }
+
+    const summary = results.reduce((acc, item) => {
+      const key = item.status || (item.success ? 'synced' : 'failed');
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return res.status(200).json({
+      success: true,
+      message: `Synced ${results.length} Prembly KYC records`,
+      data: { summary, results },
+    });
+  } catch (error) {
+    console.error('Error syncing unverified Prembly KYC statuses:', error);
+    return res.status(500).json({ success: false, message: 'Failed to sync Prembly statuses', error: error.message });
   }
 };
 

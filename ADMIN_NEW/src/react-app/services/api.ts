@@ -147,22 +147,22 @@ export async function verifyKyc(userId: string, status: string) {
   });
 }
 
-export async function syncDojahKycStatuses() {
-  return apiCall(`${ADMIN_API}/kyc/sync-dojah`, {
+export async function syncPremblyKycStatuses() {
+  return apiCall(`${ADMIN_API}/kyc/sync-prembly`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
 }
 
-export async function syncDojahKycUser(userId: string) {
-  return apiCall(`${ADMIN_API}/kyc/users/${userId}/sync-dojah`, {
+export async function syncPremblyKycUser(userId: string) {
+  return apiCall(`${ADMIN_API}/kyc/users/${userId}/sync-prembly`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
 }
 
-export async function syncDojahKycByReference(userId: string, referenceId: string) {
-  return apiCall(`${ADMIN_API}/kyc/users/${userId}/sync-dojah-reference`, {
+export async function syncPremblyKycByReference(userId: string, referenceId: string) {
+  return apiCall(`${ADMIN_API}/kyc/users/${userId}/sync-prembly-reference`, {
     method: 'POST',
     body: JSON.stringify({ referenceId }),
   });
