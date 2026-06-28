@@ -737,6 +737,66 @@ export async function voidPaypalAuthorization(req, res) {
 
 export async function paypalWebhook(req, res) {
   await ensurePaypalInfrastructure().catch(() => {});
+  try {
+    const eventType = String(req.body?.event_type || '').toUpperCase();
+    const resource = req.body?.resource || {};
+
+    // Payout batch completed
+    if (eventType === 'PAYMENT.PAYOUTSBATCH.SUCCESS') {
+      const batchId = resource?.batch_header?.payout_batch_id;
+      if (batchId) {
+        await query(
+          `UPDATE public.wallet_transactions
+           SET status = 'completed',
+               metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+               updated_at = timezone('utc', now())
+           WHERE type = 'withdrawal'
+             AND (metadata->>'paypalBatchId' = $1
+               OR metadata->'paypalPayout'->'batch_header'->>'payout_batch_id' = $1)
+             AND status NOT IN ('completed', 'failed', 'rejected', 'cancelled')`,
+          [batchId, { paypalBatchStatus: 'SUCCESS', paypalCompletedAt: new Date().toISOString(), paypalWebhookEvent: eventType }],
+        ).catch((err) => console.error('paypalWebhook update failed:', err.message));
+      }
+    }
+
+    // Individual payout item succeeded
+    if (eventType === 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED') {
+      const batchId = resource?.payout_batch_id;
+      if (batchId) {
+        await query(
+          `UPDATE public.wallet_transactions
+           SET status = 'completed',
+               metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+               updated_at = timezone('utc', now())
+           WHERE type = 'withdrawal'
+             AND (metadata->>'paypalBatchId' = $1
+               OR metadata->'paypalPayout'->'batch_header'->>'payout_batch_id' = $1)
+             AND status NOT IN ('completed', 'failed', 'rejected', 'cancelled')`,
+          [batchId, { paypalBatchStatus: 'SUCCESS', paypalCompletedAt: new Date().toISOString(), paypalWebhookEvent: eventType }],
+        ).catch((err) => console.error('paypalWebhook update failed:', err.message));
+      }
+    }
+
+    // Payout denied or item failed/returned
+    if (['PAYMENT.PAYOUTSBATCH.DENIED', 'PAYMENT.PAYOUTS-ITEM.FAILED', 'PAYMENT.PAYOUTS-ITEM.RETURNED'].includes(eventType)) {
+      const batchId = resource?.payout_batch_id || resource?.batch_header?.payout_batch_id;
+      if (batchId) {
+        await query(
+          `UPDATE public.wallet_transactions
+           SET status = 'failed',
+               metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+               updated_at = timezone('utc', now())
+           WHERE type = 'withdrawal'
+             AND (metadata->>'paypalBatchId' = $1
+               OR metadata->'paypalPayout'->'batch_header'->>'payout_batch_id' = $1)
+             AND status NOT IN ('completed', 'failed', 'rejected', 'cancelled')`,
+          [batchId, { paypalBatchStatus: eventType, paypalFailedAt: new Date().toISOString(), paypalWebhookEvent: eventType }],
+        ).catch((err) => console.error('paypalWebhook update failed:', err.message));
+      }
+    }
+  } catch (err) {
+    console.error('paypalWebhook error:', err.message);
+  }
   res.json({ received: true });
 }
 

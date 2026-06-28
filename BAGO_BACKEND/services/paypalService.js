@@ -165,3 +165,7 @@ export async function voidPaypalAuthorization(authorizationId) {
     body: {},
   });
 }
+
+export async function getPaypalPayoutStatus(payoutBatchId) {
+  return paypalRequest(`/v1/payments/payouts/${encodeURIComponent(payoutBatchId)}`);
+}

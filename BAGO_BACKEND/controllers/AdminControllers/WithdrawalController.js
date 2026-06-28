@@ -500,14 +500,31 @@ export const approveWithdrawal = async (req, res, next) => {
         const paypalEmail = metadata.paypalEmail || bankDetails.paypalEmail || bankDetails.paypal_email;
         if (!paypalEmail) throw new Error('No PayPal email on file for this user.');
         const senderBatchId = metadata.senderBatchId || `BAGO-PAYPAL-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-        const { createPaypalPayout } = await import('../../services/paypalService.js');
+        const { createPaypalPayout, getPaypalPayoutStatus } = await import('../../services/paypalService.js');
         const payout = await createPaypalPayout({ email: paypalEmail, amount, currency, senderBatchId, note: 'Bago wallet withdrawal' });
+        const batchId = payout?.batch_header?.payout_batch_id || payout?.batchHeader?.payoutBatchId || null;
         await query(
           `UPDATE public.wallet_transactions
            SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
            WHERE id = $1`,
-          [transactionId, { paypalPayout: payout, payoutInitiatedAt: new Date().toISOString() }],
+          [transactionId, { paypalPayout: payout, paypalBatchId: batchId, payoutInitiatedAt: new Date().toISOString() }],
         );
+
+        // PayPal often processes payouts immediately — check right away and mark completed if done
+        if (batchId) {
+          try {
+            const batchCheck = await getPaypalPayoutStatus(batchId);
+            const batchStatus = String(batchCheck?.batch_header?.batch_status || '').toUpperCase();
+            if (batchStatus === 'SUCCESS') {
+              await query(
+                `UPDATE public.wallet_transactions
+                 SET status = 'completed', metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
+                 WHERE id = $1`,
+                [transactionId, { paypalBatchStatus: 'SUCCESS', paypalCompletedAt: new Date().toISOString() }],
+              );
+            }
+          } catch (_) { /* non-fatal — webhook or admin sync will catch it */ }
+        }
 
       } else if (provider === 'paystack' || provider === 'bank') {
         const recipientCode = metadata.recipientCode || tx.paystack_recipient_code;
@@ -562,6 +579,52 @@ export const approveWithdrawal = async (req, res, next) => {
       });
     }
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── Admin: fetch real PayPal batch status and update wallet transaction ──
+export const syncPaypalPayoutStatus = async (req, res, next) => {
+  const { transactionId } = req.params;
+  try {
+    const tx = await queryOne(
+      `SELECT id, status, metadata FROM public.wallet_transactions WHERE id = $1 AND type = 'withdrawal'`,
+      [transactionId],
+    );
+    if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found.' });
+
+    const meta = parseJsonObject(tx.metadata);
+    const batchId =
+      meta.paypalBatchId ||
+      meta.paypalPayout?.batch_header?.payout_batch_id ||
+      meta.paypalPayout?.batchHeader?.payoutBatchId ||
+      null;
+
+    if (!batchId) {
+      return res.status(400).json({ success: false, message: 'No PayPal batch ID found for this withdrawal.' });
+    }
+
+    const { getPaypalPayoutStatus } = await import('../../services/paypalService.js');
+    const batchData = await getPaypalPayoutStatus(batchId);
+    const batchStatus = String(batchData?.batch_header?.batch_status || '').toUpperCase();
+
+    let newStatus = tx.status;
+    if (batchStatus === 'SUCCESS') newStatus = 'completed';
+    else if (['DENIED', 'CANCELED'].includes(batchStatus)) newStatus = 'failed';
+
+    if (newStatus !== tx.status) {
+      await query(
+        `UPDATE public.wallet_transactions
+         SET status = $1,
+             metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+             updated_at = timezone('utc', now())
+         WHERE id = $3`,
+        [newStatus, { paypalBatchStatus: batchStatus, paypalSyncedAt: new Date().toISOString() }, transactionId],
+      );
+    }
+
+    return res.json({ success: true, batchStatus, previousStatus: tx.status, newStatus });
   } catch (error) {
     next(error);
   }
