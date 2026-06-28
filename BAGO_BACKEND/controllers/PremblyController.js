@@ -170,12 +170,12 @@ async function recordPremblySession({
   const ref = verificationRef || premblyRef || sessionId || userRef;
   const existing = ref ? await queryOne(
     `SELECT id FROM public.prembly_kyc_sessions
-     WHERE user_id = $1
-       AND ($2 = ''
-         OR verification_ref = $2
-         OR prembly_ref = $2
-         OR session_id = $2
-         OR user_ref = $2)
+     WHERE user_id = $1::uuid
+       AND ($2::text = ''
+         OR verification_ref = $2::text
+         OR prembly_ref = $2::text
+         OR session_id = $2::text
+         OR user_ref = $2::text)
      ORDER BY created_at DESC LIMIT 1`,
     [userId, ref],
   ).catch(() => null) : null;
@@ -183,17 +183,17 @@ async function recordPremblySession({
   if (existing?.id) {
     await query(
       `UPDATE public.prembly_kyc_sessions
-       SET verification_ref = COALESCE(NULLIF($2, ''), verification_ref),
-           prembly_ref = COALESCE(NULLIF($3, ''), prembly_ref),
-           session_id = COALESCE(NULLIF($4, ''), session_id),
-           user_ref = COALESCE(NULLIF($5, ''), user_ref),
-           status = COALESCE(NULLIF($6, ''), status),
-           source = COALESCE(NULLIF($7, ''), source),
-           verification_url = COALESCE(NULLIF($8, ''), verification_url),
-           raw_payload = COALESCE($9, raw_payload),
-           completed_at = CASE WHEN $6 IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE completed_at END,
+       SET verification_ref = COALESCE(NULLIF($2::text, ''), verification_ref),
+           prembly_ref = COALESCE(NULLIF($3::text, ''), prembly_ref),
+           session_id = COALESCE(NULLIF($4::text, ''), session_id),
+           user_ref = COALESCE(NULLIF($5::text, ''), user_ref),
+           status = COALESCE(NULLIF($6::text, ''), status),
+           source = COALESCE(NULLIF($7::text, ''), source),
+           verification_url = COALESCE(NULLIF($8::text, ''), verification_url),
+           raw_payload = COALESCE($9::jsonb, raw_payload),
+           completed_at = CASE WHEN $6::text IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE completed_at END,
            updated_at = timezone('utc', now())
-       WHERE id = $1`,
+       WHERE id = $1::uuid`,
       [existing.id, verificationRef, premblyRef, sessionId, userRef, status, source, verificationUrl, rawPayload],
     ).catch(() => {});
     return existing.id;
@@ -202,8 +202,8 @@ async function recordPremblySession({
   const inserted = await queryOne(
     `INSERT INTO public.prembly_kyc_sessions
        (user_id, verification_ref, prembly_ref, session_id, user_ref, status, source, verification_url, raw_payload, completed_at)
-     VALUES ($1, NULLIF($2, ''), NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), $6, $7, NULLIF($8, ''), $9,
-             CASE WHEN $6 IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE NULL END)
+     VALUES ($1::uuid, NULLIF($2::text, ''), NULLIF($3::text, ''), NULLIF($4::text, ''), NULLIF($5::text, ''), $6::text, $7::text, NULLIF($8::text, ''), $9::jsonb,
+             CASE WHEN $6::text IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE NULL END)
      RETURNING id`,
     [userId, verificationRef, premblyRef, sessionId, userRef, status, source, verificationUrl, rawPayload],
   ).catch(() => null);

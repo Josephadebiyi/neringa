@@ -979,8 +979,8 @@ app.get('/api/config/app', isAuthenticated, async (req, res) => {
                WHEN kyc_status IN ('approved','blocked_duplicate') THEN kyc_verified_data
                ELSE COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
                  'provider', 'prembly',
-                 'userRef', $2,
-                 'userId', $2,
+                 'userRef', $2::text,
+                 'userId', $2::text,
                  'startedAt', COALESCE(kyc_verified_data->>'startedAt', timezone('utc', now())::text)
                )
              END,
