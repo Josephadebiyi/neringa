@@ -219,10 +219,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(Icons.schedule_rounded, color: Color(0xFF1B24FF), size: 34),
+                  child: Icon(Icons.schedule_rounded, color: AppColors.primary, size: 34),
                 ),
                 const SizedBox(height: 18),
                 const Text(
@@ -249,7 +249,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1B24FF),
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
