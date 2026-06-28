@@ -649,6 +649,12 @@ schema('/api/paystack/withdraw', {
   strings: ['currency', 'otp'],
   max: { amount: 20, currency: 3, otp: 12 },
 });
+schema('/api/paystack/transfer-approval', {
+  allowed: ['reference', 'transfer_reference', 'transferReference', 'event', 'data'],
+  objects: ['data'],
+  strings: ['reference', 'transfer_reference', 'transferReference', 'event'],
+  max: { reference: 80, transfer_reference: 80, transferReference: 80, event: 80 },
+});
 schema('/api/payments/create-intent', {
   allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
   required: ['amount', 'currency'],
@@ -829,6 +835,7 @@ import {
   resolvePaystackAccount,
   getPaystackCountries,
   paystackWebhook,
+  paystackTransferApproval,
 } from './controllers/PaystackController.js';
 
 // ✅ IP Geolocation Service
@@ -881,6 +888,7 @@ app.get('/api/paystack/banks', getPaystackBanks);
 app.get('/api/paystack/resolve', resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
+app.post('/api/paystack/transfer-approval', paystackTransferApproval); // Called by Paystack transfer approvals
 
 // ✅ PayPal active checkout flow. Customers pay first, then Bago holds the
 // captured funds in escrow until the shipment is completed.

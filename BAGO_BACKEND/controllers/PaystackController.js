@@ -642,6 +642,69 @@ export const paystackWebhook = async (req, res) => {
   }
 };
 
+/**
+ * Paystack Transfer Approval URL
+ * Paystack calls this before sending a transfer when transfer approvals are enabled.
+ * We approve only Bago-created pending withdrawal references.
+ */
+export const paystackTransferApproval = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const data = body.data || body;
+    const reference = String(
+      data.reference ||
+      data.transfer_reference ||
+      data.transferReference ||
+      body.reference ||
+      '',
+    ).trim();
+
+    if (!reference) {
+      console.warn('Paystack transfer approval missing reference:', JSON.stringify(body).slice(0, 500));
+      return res.status(200).json({
+        status: false,
+        approved: false,
+        message: 'Missing transfer reference',
+      });
+    }
+
+    const pending = await queryOne(
+      `SELECT reference
+       FROM public.paystack_pending_withdrawals
+       WHERE reference = $1 AND status = 'pending'
+       LIMIT 1`,
+      [reference],
+    );
+
+    const walletTx = pending ? null : await queryOne(
+      `SELECT id
+       FROM public.wallet_transactions
+       WHERE type = 'withdrawal'
+         AND metadata->>'reference' = $1
+         AND status IN ('processing', 'pending_admin_approval')
+       LIMIT 1`,
+      [reference],
+    );
+
+    const approved = Boolean(pending || walletTx);
+    console.log(`Paystack transfer approval ${approved ? 'approved' : 'rejected'}: ${reference}`);
+
+    return res.status(200).json({
+      status: approved,
+      approved,
+      approve: approved,
+      message: approved ? 'Transfer approved' : 'Unknown or non-pending Bago withdrawal',
+    });
+  } catch (error) {
+    console.error('Paystack transfer approval error:', error);
+    return res.status(200).json({
+      status: false,
+      approved: false,
+      message: 'Transfer approval failed',
+    });
+  }
+};
+
 async function handleSuccessfulPayment(data) {
   const { reference, metadata } = data;
 
