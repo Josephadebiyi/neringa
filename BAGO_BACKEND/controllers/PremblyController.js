@@ -374,21 +374,84 @@ export const premblyComplete = async (req, res) => {
   const frontendUrl = process.env.FRONTEND_URL || process.env.WEBAPP_URL || 'https://sendwithbago.com';
   const payloadJson = JSON.stringify(payload).replace(/</g, '\\u003c');
   const returnUrl = `${frontendUrl.replace(/\/$/, '')}/verify?prembly=complete`;
-  // Return a minimal page that closes itself and posts a message to the opener.
+  // Return a completion page that redirects embedded web flows and still gives
+  // users an obvious manual path back if browser iframe rules block the script.
   res.set('Content-Type', 'text/html').send(`<!DOCTYPE html>
 <html>
-<head><title>Verification Complete</title></head>
+<head>
+  <title>Verification Complete</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="4;url=${returnUrl.replace(/"/g, '&quot;')}" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #ffffff;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+    main {
+      width: min(420px, 100%);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(24px, 7vw, 34px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0 0 24px;
+      color: #4b5563;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 22px;
+      border-radius: 8px;
+      background: #5845D8;
+      color: #ffffff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    small {
+      display: block;
+      margin-top: 16px;
+      color: #6b7280;
+    }
+  </style>
+</head>
 <body>
+<main>
+  <h1>Verification Complete</h1>
+  <p>Return to Bago to see your verification status.</p>
+  <a id="return-link" href="${returnUrl.replace(/"/g, '&quot;')}" target="_top" rel="noopener">Go back to Bago</a>
+  <small>Redirecting automatically...</small>
+</main>
 <script>
   var payload = ${payloadJson};
+  var returnUrl = ${JSON.stringify(returnUrl)};
+  function goBackToBago() {
+    try { window.top.location.href = returnUrl; return; } catch(e) {}
+    try { window.parent.location.href = returnUrl; return; } catch(e) {}
+    window.location.href = returnUrl;
+  }
   try { window.opener && window.opener.postMessage({ type: 'prembly_complete', payload: payload }, '*'); } catch(e) {}
   try { window.parent && window.parent !== window && window.parent.postMessage({ type: 'prembly_complete', payload: payload }, '*'); } catch(e) {}
+  try { document.getElementById('return-link').addEventListener('click', goBackToBago); } catch(e) {}
   setTimeout(function() {
-    try { if (window.top && window.top !== window) window.top.location.href = ${JSON.stringify(returnUrl)}; } catch(e) {}
+    goBackToBago();
     try { window.close(); } catch(e) {}
-  }, 800);
+  }, 1200);
 </script>
-<p style="font-family:sans-serif;text-align:center;margin-top:40px;">Verification complete. You can close this window.</p>
 </body>
 </html>`);
 };
