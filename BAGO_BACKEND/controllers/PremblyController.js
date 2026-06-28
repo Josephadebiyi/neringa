@@ -870,12 +870,21 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
   await ensurePremblySessionTable();
   const result = await query(
     `SELECT s.id, s.user_id AS "userId",
-            COALESCE(s.verification_ref, s.prembly_ref, s.session_id, s.user_ref) AS "reference",
+            COALESCE(
+              NULLIF(s.verification_ref, s.user_id::text),
+              NULLIF(s.prembly_ref, s.user_id::text),
+              NULLIF(s.session_id, s.user_id::text)
+            ) AS "reference",
             s.status
      FROM public.prembly_kyc_sessions s
      JOIN public.profiles p ON p.id = s.user_id
      WHERE s.status IN ('started', 'pending', 'processing', 'manual_review')
        AND COALESCE(p.kyc_status, 'not_started') NOT IN ('approved', 'blocked_duplicate', 'declined')
+       AND COALESCE(
+             NULLIF(s.verification_ref, s.user_id::text),
+             NULLIF(s.prembly_ref, s.user_id::text),
+             NULLIF(s.session_id, s.user_id::text)
+           ) IS NOT NULL
        AND s.updated_at < timezone('utc', now()) - INTERVAL '2 minutes'
      ORDER BY s.created_at ASC
      LIMIT $1`,
@@ -955,8 +964,6 @@ export async function trackPremblyInlineStart(userId, { source = 'inline_config'
   if (!userId) return;
   await recordPremblySession({
     userId,
-    verificationRef: userId,
-    premblyRef: userId,
     userRef: userId,
     status: 'started',
     source,
