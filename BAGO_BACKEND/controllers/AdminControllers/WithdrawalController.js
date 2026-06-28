@@ -29,7 +29,7 @@ function parseJsonObject(value) {
 function normalizeWithdrawalRow(row) {
   const metadata = parseJsonObject(row.metadata);
   const bankDetails = parseJsonObject(row.bank_details);
-  const paypalError = metadata.paypalError || null;
+  const paypalError = metadata.paypalError || metadata.payoutError || null;
   const paypalPayout = metadata.paypalPayout || null;
   const provider =
     metadata.provider ||
@@ -38,7 +38,7 @@ function normalizeWithdrawalRow(row) {
     row.payout_method ||
     (bankDetails.paypalEmail || bankDetails.paypal_email ? 'paypal' : null) ||
     (bankDetails.recipientCode || bankDetails.accountNumber || row.paystack_recipient_code ? 'paystack' : null) ||
-    (paypalError || paypalPayout ? 'paypal' : row.provider || null);
+    (paypalPayout ? 'paypal' : row.provider || null);
   const failureReason =
     row.failure_reason ||
     metadata.failure_reason ||
@@ -568,7 +568,7 @@ export const approveWithdrawal = async (req, res, next) => {
              updated_at = timezone('utc', now())
          WHERE id = $1`,
         [transactionId, {
-          paypalError: { message: payoutError.message, name: payoutError.name || 'PayoutError' },
+          payoutError: { message: payoutError.message, name: payoutError.name || 'PayoutError', provider: provider || 'unknown' },
           lastFailedAt: new Date().toISOString(),
           adminId,
         }],
