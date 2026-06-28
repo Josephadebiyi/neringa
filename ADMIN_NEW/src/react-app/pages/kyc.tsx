@@ -18,6 +18,7 @@ interface KycVerifiedData {
 
 interface UserData {
   isVerified: boolean;
+  id?: string;
   _id: string;
   firstName: string;
   lastName: string;
@@ -131,6 +132,7 @@ export default function KYCVerificationManager() {
   const handleSyncByReference = async (userId: string) => {
     const ref = manualRefId.trim();
     if (!ref) { alert("Paste the Prembly reference or session ID first"); return; }
+    if (!userId) { alert("Could not find the selected user's profile ID. Refresh admin and try again."); return; }
     if (!confirm(`Sync Prembly result for reference/session ID:\n${ref}`)) return;
     try {
       setProcessing(true);
@@ -187,6 +189,8 @@ export default function KYCVerificationManager() {
 
   const documentLabel = (value?: string | null) =>
     value ? value.replaceAll("_", " ") : "Not provided";
+
+  const userIdFor = (user: UserData) => user._id || user.id || "";
 
   if (loading) {
     return (
@@ -249,7 +253,7 @@ export default function KYCVerificationManager() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {kycItems.map((item) => (
-            <div key={item.user._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <div key={userIdFor(item.user)} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <div className="mb-3">
                 {item.user.profileImage ? (
                   <img
@@ -299,7 +303,7 @@ export default function KYCVerificationManager() {
 
                   {isManualReview(item) && (
                     <button
-                      onClick={() => handleVerification(item.user._id, "approved")}
+                      onClick={() => handleVerification(userIdFor(item.user), "approved")}
                       disabled={processing}
                       className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50"
                       title="Approve manual KYC"
@@ -310,7 +314,7 @@ export default function KYCVerificationManager() {
 
                   {(item.user.kycStatus === "pending" || item.user.kycStatus === "manual_review") && (
                     <button
-                      onClick={() => handleVerification(item.user._id, "declined")}
+                      onClick={() => handleVerification(userIdFor(item.user), "declined")}
                       disabled={processing}
                       className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50"
                     >
@@ -479,7 +483,7 @@ export default function KYCVerificationManager() {
                       className="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                     />
                     <button
-                      onClick={() => handleSyncByReference(previewKYC.user._id)}
+                      onClick={() => handleSyncByReference(userIdFor(previewKYC.user))}
                       disabled={processing || !manualRefId.trim()}
                       className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1"
                     >
@@ -493,7 +497,7 @@ export default function KYCVerificationManager() {
               <div className="flex gap-3">
                 {previewKYC.user.kycProvider !== "manual" && previewKYC.user.kycStatus !== "approved" && previewKYC.user.kycStatus !== "blocked_duplicate" && (
                   <button
-                    onClick={() => handleSyncSinglePremblyUser(previewKYC.user._id)}
+                    onClick={() => handleSyncSinglePremblyUser(userIdFor(previewKYC.user))}
                     disabled={processing}
                     className="bg-[#5240E8] hover:bg-[#4030C8] disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
                   >
@@ -503,7 +507,7 @@ export default function KYCVerificationManager() {
                 )}
                 {isManualReview(previewKYC) && (
                   <button
-                    onClick={() => handleVerification(previewKYC.user._id, "approved")}
+                    onClick={() => handleVerification(userIdFor(previewKYC.user), "approved")}
                     disabled={processing}
                     className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
                   >
@@ -513,7 +517,7 @@ export default function KYCVerificationManager() {
                 )}
                 {(previewKYC.user.kycStatus === "pending" || previewKYC.user.kycStatus === "manual_review") && (
                   <button
-                    onClick={() => handleVerification(previewKYC.user._id, "declined")}
+                    onClick={() => handleVerification(userIdFor(previewKYC.user), "declined")}
                     disabled={processing}
                     className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
                   >
