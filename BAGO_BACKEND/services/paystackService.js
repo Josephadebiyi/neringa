@@ -11,6 +11,23 @@ dotenv.config();
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 
+function paystackError(error, fallbackMessage) {
+  const providerStatus = error.response?.status || null;
+  const providerData = error.response?.data || null;
+  const providerMessage =
+    providerData?.message ||
+    providerData?.data?.message ||
+    providerData?.error ||
+    error.message ||
+    fallbackMessage;
+  const wrapped = new Error(providerMessage || fallbackMessage);
+  wrapped.code = 'PAYSTACK_ERROR';
+  wrapped.statusCode = providerStatus && providerStatus < 500 ? 400 : 502;
+  wrapped.providerStatus = providerStatus;
+  wrapped.providerData = providerData;
+  return wrapped;
+}
+
 /**
  * Initialize a payment transaction
  * @param {Object} params - Payment parameters
@@ -191,8 +208,14 @@ export async function initiateTransfer({ amount, recipientCode, currency = 'NGN'
 
     throw new Error(response.data.message || 'Transfer failed');
   } catch (error) {
-    console.error('❌ Paystack transfer error:', error.response?.data || error.message);
-    throw error;
+    console.error('❌ Paystack transfer error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    const wrapped = paystackError(error, 'Paystack transfer failed');
+    wrapped.code = 'PAYSTACK_TRANSFER_FAILED';
+    throw wrapped;
   }
 }
 

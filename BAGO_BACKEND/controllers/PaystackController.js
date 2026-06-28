@@ -463,12 +463,29 @@ export const withdrawFundsPaystack = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
-    const result = await initiateTransfer({
-      amount: withdrawalAmount,
-      recipientCode: profile.paystack_recipient_code,
-      reference,
-      reason: 'Bago wallet withdrawal',
-    });
+    let result;
+    try {
+      result = await initiateTransfer({
+        amount: withdrawalAmount,
+        recipientCode: profile.paystack_recipient_code,
+        reference,
+        reason: 'Bago wallet withdrawal',
+      });
+    } catch (transferError) {
+      await pgQuery(
+        `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+        [user.id, withdrawalAmount],
+      ).catch((refundError) => {
+        console.error('Paystack withdrawal refund after transfer error failed:', refundError);
+      });
+      return res.status(transferError.statusCode || 502).json({
+        success: false,
+        code: transferError.code || 'PAYSTACK_TRANSFER_FAILED',
+        message: transferError.message || 'Paystack transfer failed',
+        providerStatus: transferError.providerStatus || null,
+        providerData: transferError.providerData || null,
+      });
+    }
 
     if (!result.success) {
       await pgQuery(
