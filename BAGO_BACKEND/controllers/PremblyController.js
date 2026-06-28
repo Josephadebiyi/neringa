@@ -695,16 +695,20 @@ export const syncPremblyResult = async (req, res) => {
 
     const callbackPayload = callbackPayloadFromBody(req.body);
     const callbackRef = verificationRefFromPayload(callbackPayload);
+    const callbackSessionId = sessionIdFromPayload(callbackPayload);
     const callbackStatus = normalizePremblyStatus(callbackPayload);
     const hasCallbackPayload = Object.keys(callbackPayload || {}).length > 0;
     const callbackError = callbackPayload?.error || callbackPayload?.message;
+    const callbackLookupRef = callbackRef || callbackSessionId;
 
     const verificationRef =
       existing?.kycVerifiedData?.verificationRef ||
       existing?.kycVerifiedData?.premblyRef ||
       existing?.kycVerifiedData?.referenceId ||
+      existing?.kycVerifiedData?.sessionId ||
+      existing?.kycVerifiedData?.session_id ||
       req.body?.verificationRef ||
-      callbackRef ||
+      callbackLookupRef ||
       '';
 
     if (callbackStatus !== 'unknown') {
@@ -714,22 +718,31 @@ export const syncPremblyResult = async (req, res) => {
       }
     }
 
-    if (callbackRef && !existing?.kycVerifiedData?.verificationRef && !existing?.kycVerifiedData?.premblyRef) {
+    if (callbackLookupRef && !existing?.kycVerifiedData?.verificationRef && !existing?.kycVerifiedData?.premblyRef) {
       await query(
         `UPDATE public.profiles
          SET kyc_provider = 'prembly',
              kyc_status = CASE WHEN kyc_status IN ('approved','blocked_duplicate','declined') THEN kyc_status ELSE 'pending' END,
              kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
                'provider', 'prembly',
-               'verificationRef', $2,
-               'premblyRef', $2,
-               'userRef', $3,
-               'payload', $4,
+               'verificationRef', $2::text,
+               'premblyRef', $2::text,
+               'referenceId', $2::text,
+               'sessionId', NULLIF($3::text, ''),
+               'session_id', NULLIF($3::text, ''),
+               'userRef', $4::text,
+               'payload', $5::jsonb,
                'syncedAt', timezone('utc', now())
              ),
              updated_at = NOW()
          WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
-        [userId, callbackRef, req.body?.userRef || callbackPayload?.user_ref || callbackPayload?.userRef || userId, callbackPayload],
+        [
+          userId,
+          callbackLookupRef,
+          callbackSessionId,
+          req.body?.userRef || callbackPayload?.user_ref || callbackPayload?.userRef || userId,
+          callbackPayload,
+        ],
       ).catch(() => {});
     }
 
