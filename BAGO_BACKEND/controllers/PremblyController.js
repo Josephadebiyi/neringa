@@ -43,6 +43,7 @@ const premblyHeaders = () => {
 const isPremblyConfigured = () => !!PREMBLY_API_KEY;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let sessionTableReady;
+let webhookEventTableReady;
 
 // ---------------------------------------------------------------------------
 // Webhook status normalisation
@@ -153,6 +154,52 @@ async function ensurePremblySessionTable() {
     throw err;
   });
   return sessionTableReady;
+}
+
+async function ensurePremblyWebhookEventTable() {
+  webhookEventTableReady ||= query(`
+    CREATE TABLE IF NOT EXISTS public.prembly_webhook_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      reference_id TEXT,
+      session_id TEXT,
+      user_ref TEXT,
+      user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+      status TEXT,
+      handled BOOLEAN NOT NULL DEFAULT false,
+      raw_payload JSONB,
+      last_error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
+    );
+    CREATE INDEX IF NOT EXISTS idx_prembly_webhook_events_refs
+      ON public.prembly_webhook_events (reference_id, session_id, user_ref, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_prembly_webhook_events_unhandled
+      ON public.prembly_webhook_events (handled, updated_at DESC)
+      WHERE handled = false;
+  `).catch((err) => {
+    webhookEventTableReady = null;
+    throw err;
+  });
+  return webhookEventTableReady;
+}
+
+async function recordPremblyWebhookEvent({
+  referenceId = '',
+  sessionId = '',
+  userRef = '',
+  userId = null,
+  status = 'unknown',
+  handled = false,
+  rawPayload = {},
+  lastError = '',
+}) {
+  await ensurePremblyWebhookEventTable();
+  await query(
+    `INSERT INTO public.prembly_webhook_events
+       (reference_id, session_id, user_ref, user_id, status, handled, raw_payload, last_error)
+     VALUES (NULLIF($1::text, ''), NULLIF($2::text, ''), NULLIF($3::text, ''), $4::uuid, NULLIF($5::text, ''), $6::boolean, $7::jsonb, NULLIF($8::text, ''))`,
+    [referenceId, sessionId, userRef, userId, status, handled, rawPayload, lastError],
+  ).catch((err) => console.warn('Prembly webhook event store failed:', err?.message || err));
 }
 
 async function recordPremblySession({
@@ -651,20 +698,46 @@ export const premblyWebhook = async (req, res) => {
     const payload = req.body;
     console.log('Prembly webhook received:', JSON.stringify(payload).slice(0, 600));
 
-    const verificationRef = verificationRefFromPayload(payload) || sessionIdFromPayload(payload) || userRefFromPayload(payload);
+    const payloadVerificationRef = verificationRefFromPayload(payload);
+    const payloadSessionId = sessionIdFromPayload(payload);
+    const payloadUserRef = userRefFromPayload(payload);
+    const verificationRef = payloadVerificationRef || payloadSessionId || payloadUserRef;
     const status          = normalizePremblyStatus(payload);
 
     if (!verificationRef) {
       console.warn('Prembly webhook: no verification_ref in payload');
+      await recordPremblyWebhookEvent({
+        status,
+        rawPayload: payload,
+        lastError: 'no_reference',
+      });
       return res.status(200).json({ received: true, note: 'no verification_ref' });
     }
 
     const userId = await findPremblyUserId(verificationRef);
     if (!userId) {
       console.warn('Prembly webhook: cannot resolve userId from ref', verificationRef);
-      return res.status(200).json({ received: true, note: 'user not found' });
+      await recordPremblyWebhookEvent({
+        referenceId: payloadVerificationRef || verificationRef,
+        sessionId: payloadSessionId,
+        userRef: payloadUserRef,
+        status,
+        handled: false,
+        rawPayload: payload,
+        lastError: 'user_not_found',
+      });
+      return res.status(200).json({ received: true, queued: true, note: 'user not found' });
     }
 
+    await recordPremblyWebhookEvent({
+      referenceId: payloadVerificationRef || verificationRef,
+      sessionId: payloadSessionId,
+      userRef: payloadUserRef,
+      userId,
+      status,
+      handled: true,
+      rawPayload: payload,
+    });
     await applyPremblyResult(userId, status, payload, { referenceId: verificationRef, notify: true });
     return res.status(200).json({ received: true });
   } catch (err) {
@@ -861,6 +934,35 @@ export async function syncPremblyReferenceForUser(userId, verificationRef, { not
     const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify });
     return { success: true, status: result.status, source: 'prembly_api' };
   } catch (err) {
+    await ensurePremblyWebhookEventTable().catch(() => {});
+    const storedEvent = await queryOne(
+      `SELECT id, raw_payload AS "rawPayload", status
+       FROM public.prembly_webhook_events
+       WHERE reference_id = $1::text
+          OR session_id = $1::text
+          OR user_ref = $1::text
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [verificationRef],
+    ).catch(() => null);
+
+    if (storedEvent?.rawPayload) {
+      const storedStatus = normalizePremblyStatus(storedEvent.rawPayload);
+      if (storedStatus !== 'unknown') {
+        const result = await applyPremblyResult(userId, storedStatus, storedEvent.rawPayload, { referenceId: verificationRef, notify });
+        await query(
+          `UPDATE public.prembly_webhook_events
+           SET user_id = $2::uuid,
+               handled = true,
+               last_error = NULL,
+               updated_at = timezone('utc', now())
+           WHERE id = $1::uuid`,
+          [storedEvent.id, userId],
+        ).catch(() => {});
+        return { success: true, status: result.status, source: 'stored_webhook' };
+      }
+    }
+
     return {
       success: false,
       status: 'sync_failed',
