@@ -19,6 +19,12 @@ const PREMBLY_WIDGET_ID = process.env.PREMBLY_WIDGET_ID;
 const PREMBLY_WIDGET_KEY = process.env.PREMBLY_WIDGET_KEY;
 const PREMBLY_ENV      = (process.env.PREMBLY_ENVIRONMENT || 'live').toLowerCase();
 const PREMBLY_BASE     = 'https://api.prembly.com/identitypass';
+const PREMBLY_SDK_SESSION_URL =
+  process.env.PREMBLY_SDK_SESSION_URL ||
+  'https://backend.prembly.com/api/v1/checker-widget/sdk/sessions/initiate/';
+const PREMBLY_SDK_LIVE_URL =
+  process.env.PREMBLY_SDK_LIVE_URL ||
+  'https://sdk-live.prembly.com/';
 
 // Callback URL Prembly redirects to when the user finishes verification.
 // The Flutter WebView and web iframe both watch for this URL to auto-close.
@@ -238,23 +244,47 @@ export const startPremblySession = async (req, res) => {
     const verificationRef = `bago-${userId}-${crypto.randomUUID()}`;
     const country = (req.body?.country || '').toUpperCase().trim();
 
-    // Create the IdentityForm session on Prembly
-    const sessionEndpoint = `${PREMBLY_BASE}/verification/widget/${PREMBLY_ENV === 'sandbox' ? 'sandbox' : 'live'}`;
     const widgetId = PREMBLY_WIDGET_ID || PREMBLY_CONFIG_ID;
+    if (!widgetId || !PREMBLY_WIDGET_KEY) {
+      return res.status(503).json({
+        success: false,
+        message: 'Identity verification widget is not configured. Please contact support.',
+      });
+    }
+
+    // Create the same SDK session Prembly's inline widget creates, then return
+    // the hosted SDK URL for web iframe usage.
+    const sessionEndpoint = PREMBLY_SDK_SESSION_URL;
     const sessionBody = {
-      ...(PREMBLY_CONFIG_ID && { config_id: PREMBLY_CONFIG_ID }),
-      ...(widgetId && { widget_id: widgetId }),
-      ...(PREMBLY_WIDGET_KEY && { widget_key: PREMBLY_WIDGET_KEY }),
+      widget_id:    widgetId,
+      widget_key:   PREMBLY_WIDGET_KEY,
       first_name:   userRow.first_name || undefined,
       last_name:    userRow.last_name  || undefined,
       email:        userRow.email      || undefined,
-      user_ref:     verificationRef,
-      callback_url: PREMBLY_CALLBACK_URL,
+      phone:        req.body?.phone || undefined,
+      metadata:     {
+        user_ref: verificationRef,
+        userId,
+        country,
+        callback_url: PREMBLY_CALLBACK_URL,
+      },
     };
-    console.info('Prembly session request →', sessionEndpoint, JSON.stringify({ ...sessionBody, callback_url: '...' }));
-    const premblyRes = await axios.post(sessionEndpoint, sessionBody, { headers: premblyHeaders(), timeout: 15000 });
+    console.info('Prembly SDK session request →', sessionEndpoint, JSON.stringify({ ...sessionBody, widget_key: '***' }));
+    const premblyRes = await axios.post(sessionEndpoint, sessionBody, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
 
+    const sessionId =
+      premblyRes.data?.data?.session_id ||
+      premblyRes.data?.session_id ||
+      premblyRes.data?.data?.sessionId ||
+      premblyRes.data?.sessionId;
+    const hostedSdkUrl = sessionId
+      ? `${PREMBLY_SDK_LIVE_URL.replace(/\/$/, '')}/?session=${encodeURIComponent(sessionId)}`
+      : '';
     const verificationUrl =
+      hostedSdkUrl ||
       premblyRes.data?.data?.url ||
       premblyRes.data?.data?.verification_url ||
       premblyRes.data?.data?.widget_url ||
