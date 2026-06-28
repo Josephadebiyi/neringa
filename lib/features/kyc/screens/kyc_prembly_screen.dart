@@ -313,7 +313,10 @@ class _PremblySdkPageState extends State<_PremblySdkPage> {
           }
         },
       )
-      ..loadHtmlString(_buildHtml());
+      ..loadHtmlString(
+        _buildHtml(),
+        baseUrl: ApiConstants.baseUrl,
+      );
   }
 
   String _buildHtml() {
@@ -334,6 +337,18 @@ class _PremblySdkPageState extends State<_PremblySdkPage> {
 <body>
   <div id="identity-container"></div>
   <script>
+    (function() {
+      const originalCreateElement = document.createElement.bind(document);
+      document.createElement = function(tagName) {
+        const element = originalCreateElement(tagName);
+        if (String(tagName).toLowerCase() === 'iframe') {
+          element.setAttribute('allow', 'camera; microphone; clipboard-read; clipboard-write; fullscreen');
+          element.setAttribute('allowfullscreen', 'true');
+        }
+        return element;
+      };
+    })();
+
     function invokeKYC() {
       const options = $optionsJson;
       options.callback = function(response) {

@@ -154,13 +154,16 @@ export default function Verify() {
 
     // ── Prembly iframe message + visibility sync ───────────────────────────────
     useEffect(() => {
-        const BACKEND = import.meta.env.VITE_API_URL || '';
+        const backendOrigin = (() => {
+            try { return new URL(api.defaults.baseURL || window.location.origin).origin; }
+            catch { return ''; }
+        })();
         const onMessage = (e) => {
             // Only accept messages from our own backend origin or same origin
             const origin = e.origin || '';
-            if (BACKEND && !origin.startsWith(BACKEND) && origin !== window.location.origin) return;
+            if (backendOrigin && origin !== backendOrigin && origin !== window.location.origin) return;
             if (e.data?.type === 'prembly_complete') {
-                handlePremblyComplete();
+                handlePremblyComplete(e.data?.payload || {});
             }
         };
         window.addEventListener('message', onMessage);
@@ -388,12 +391,14 @@ export default function Verify() {
     };
 
     // ── Prembly iframe completion handler (called on postMessage or visibilitychange)
-    const handlePremblyComplete = async () => {
+    const handlePremblyComplete = async (payload = {}) => {
         setPremblyUrl(null);
         setStep('status');
         setKycStatus('pending');
         try {
-            const syncRes = await api.post('/api/bago/kyc/prembly/sync-result', {});
+            const syncRes = await api.post('/api/bago/kyc/prembly/sync-result', {
+                payload,
+            });
             const synced  = normalizeKycStatus(syncRes.data?.kycStatus);
             setKycStatus(synced);
             if (['approved', 'declined', 'blocked_duplicate'].includes(synced)) {

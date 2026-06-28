@@ -350,16 +350,43 @@ export const startPremblySession = async (req, res) => {
 // Prembly redirects here after the user finishes (or exits) the form.
 // The Flutter WebView and web iframe watch for this URL to auto-close.
 // ---------------------------------------------------------------------------
-export const premblyComplete = async (_req, res) => {
+export const premblyComplete = async (req, res) => {
+  const payload = {
+    ...(req.query || {}),
+    ...(req.body || {}),
+  };
+  const verificationRef = verificationRefFromPayload(payload);
+  const status = normalizePremblyStatus(payload);
+
+  if (verificationRef && status !== 'unknown') {
+    try {
+      const userId = await findPremblyUserId(verificationRef);
+      if (userId) {
+        await applyPremblyResult(userId, status, payload, { referenceId: verificationRef, notify: true });
+      } else {
+        console.warn('Prembly complete: cannot resolve userId from ref', verificationRef);
+      }
+    } catch (err) {
+      console.error('premblyComplete apply result error:', err?.message || err);
+    }
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL || process.env.WEBAPP_URL || 'https://sendwithbago.com';
+  const payloadJson = JSON.stringify(payload).replace(/</g, '\\u003c');
+  const returnUrl = `${frontendUrl.replace(/\/$/, '')}/verify?prembly=complete`;
   // Return a minimal page that closes itself and posts a message to the opener.
   res.set('Content-Type', 'text/html').send(`<!DOCTYPE html>
 <html>
 <head><title>Verification Complete</title></head>
 <body>
 <script>
-  try { window.opener && window.opener.postMessage({ type: 'prembly_complete' }, '*'); } catch(e) {}
-  try { window.parent && window.parent !== window && window.parent.postMessage({ type: 'prembly_complete' }, '*'); } catch(e) {}
-  setTimeout(() => { try { window.close(); } catch(e) {} }, 500);
+  var payload = ${payloadJson};
+  try { window.opener && window.opener.postMessage({ type: 'prembly_complete', payload: payload }, '*'); } catch(e) {}
+  try { window.parent && window.parent !== window && window.parent.postMessage({ type: 'prembly_complete', payload: payload }, '*'); } catch(e) {}
+  setTimeout(function() {
+    try { if (window.top && window.top !== window) window.top.location.href = ${JSON.stringify(returnUrl)}; } catch(e) {}
+    try { window.close(); } catch(e) {}
+  }, 800);
 </script>
 <p style="font-family:sans-serif;text-align:center;margin-top:40px;">Verification complete. You can close this window.</p>
 </body>
