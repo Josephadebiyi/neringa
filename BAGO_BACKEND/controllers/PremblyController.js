@@ -530,7 +530,9 @@ export const startPremblySession = async (req, res) => {
       return res.status(502).json({ success: false, message: 'Could not create a verification session. Please try again.' });
     }
 
-    // Store the reference so the webhook can find this user later
+    // Store the reference so the webhook and result-sync can find this user later.
+    // sessionId is the checker-widget session ID — stored so the fallback lookup
+    // (backend.prembly.com/…/sessions/<id>/) can find it when identitypass returns 404.
     await query(
       `UPDATE public.profiles
        SET kyc_provider    = 'prembly',
@@ -541,6 +543,8 @@ export const startPremblySession = async (req, res) => {
                'provider', 'prembly',
                'verificationRef', $2,
                'premblyRef', $3,
+               'sessionId', NULLIF($5::text, ''),
+               'session_id', NULLIF($5::text, ''),
                'userId', $1,
                'country', $4,
                'startedAt', timezone('utc', now())
@@ -548,7 +552,7 @@ export const startPremblySession = async (req, res) => {
            END,
            updated_at = NOW()
        WHERE id = $1`,
-      [userId, verificationRef, premblyRef, country],
+      [userId, verificationRef, premblyRef, country, sessionId || ''],
     ).catch(() => {});
 
     await recordPremblySession({
@@ -784,6 +788,13 @@ export const syncPremblyResult = async (req, res) => {
       callbackLookupRef ||
       '';
 
+    // checker-widget session_id (Prembly's UUID) may differ from our verificationRef UUID
+    const checkerWidgetSessionId =
+      existing?.kycVerifiedData?.sessionId ||
+      existing?.kycVerifiedData?.session_id ||
+      callbackSessionId ||
+      '';
+
     if (callbackStatus !== 'unknown') {
       const result = await applyPremblyResult(userId, callbackStatus, callbackPayload, { referenceId: verificationRef, notify: true });
       if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)) {
@@ -848,16 +859,32 @@ export const syncPremblyResult = async (req, res) => {
       return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
     }
 
-    // Fetch result from Prembly
+    // Fetch result from Prembly — try identitypass first, then checker-widget
     try {
-      const premblyRes = await axios.get(
-        `${PREMBLY_BASE}/verification`,
-        { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
-      );
-      const status = normalizePremblyStatus(premblyRes.data);
+      let responseData;
+      let source = 'prembly_api';
+      try {
+        const premblyRes = await axios.get(
+          `${PREMBLY_BASE}/verification`,
+          { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
+        );
+        responseData = premblyRes.data;
+      } catch (identitypassErr) {
+        if (identitypassErr?.response?.status !== 404) throw identitypassErr;
+        // Checker-widget session — look up via backend.prembly.com using Prembly's session_id
+        const lookupId = checkerWidgetSessionId || verificationRef;
+        const checkerSessionBase = PREMBLY_SDK_SESSION_URL.replace(/\/initiate\/?$/, '');
+        const checkerRes = await axios.get(
+          `${checkerSessionBase}/${encodeURIComponent(lookupId)}/`,
+          { headers: premblyHeaders(), timeout: 12000 },
+        );
+        responseData = checkerRes.data;
+        source = 'checker_widget_api';
+      }
+      const status = normalizePremblyStatus(responseData);
       if (status !== 'unknown') {
-        const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify: true });
-        return res.json({ success: true, kycStatus: result.status, source: 'prembly_api' });
+        const result = await applyPremblyResult(userId, status, responseData, { referenceId: verificationRef, notify: true });
+        return res.json({ success: true, kycStatus: result.status, source });
       }
     } catch (apiErr) {
       console.log('Prembly sync API call failed (webhook fallback active):', apiErr.message);
