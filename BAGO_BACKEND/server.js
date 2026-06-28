@@ -962,12 +962,36 @@ app.get('/api/config/pricing-config', async (_req, res) => {
 
 // ✅ App config — returns public widget keys for authenticated clients.
 // Keys are served at runtime so they are never bundled into frontend code.
-app.get('/api/config/app', isAuthenticated, (_req, res) => {
+app.get('/api/config/app', isAuthenticated, async (req, res) => {
+  const userId = req.user?.id;
+  if (userId) {
+    try {
+      await pgQuery(
+        `UPDATE public.profiles
+         SET kyc_provider = CASE WHEN kyc_provider IS NULL OR kyc_provider = '' THEN 'prembly' ELSE kyc_provider END,
+             kyc_verified_data = CASE
+               WHEN kyc_status IN ('approved','blocked_duplicate') THEN kyc_verified_data
+               ELSE COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
+                 'provider', 'prembly',
+                 'userRef', $2,
+                 'userId', $2,
+                 'startedAt', COALESCE(kyc_verified_data->>'startedAt', timezone('utc', now())::text)
+               )
+             END,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [userId, userId],
+      );
+    } catch (err) {
+      console.warn('Prembly config preflight store failed:', err?.message || err);
+    }
+  }
+
   res.json({
     success: true,
     cuoralKey:         process.env.CUORAL_PUBLIC_KEY    || '',
     premblyWidgetKey:  process.env.PREMBLY_WIDGET_KEY   || '',
-    premblyWidgetId:   process.env.PREMBLY_CONFIG_ID    || '',
+    premblyWidgetId:   process.env.PREMBLY_WIDGET_ID    || process.env.PREMBLY_CONFIG_ID || '',
   });
 });
 

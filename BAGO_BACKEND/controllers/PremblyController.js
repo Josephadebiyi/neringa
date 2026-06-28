@@ -15,6 +15,8 @@ import { runPreKycChecks } from '../services/securityService.js';
 const PREMBLY_APP_ID   = process.env.PREMBLY_APP_ID;
 const PREMBLY_API_KEY  = process.env.PREMBLY_API_KEY;
 const PREMBLY_CONFIG_ID = process.env.PREMBLY_CONFIG_ID; // Widget config ID from Prembly dashboard
+const PREMBLY_WIDGET_ID = process.env.PREMBLY_WIDGET_ID;
+const PREMBLY_WIDGET_KEY = process.env.PREMBLY_WIDGET_KEY;
 const PREMBLY_ENV      = (process.env.PREMBLY_ENVIRONMENT || 'live').toLowerCase();
 const PREMBLY_BASE     = 'https://api.prembly.com/identitypass';
 
@@ -24,7 +26,11 @@ const PREMBLY_CALLBACK_URL = `${process.env.BACKEND_URL || process.env.SERVER_UR
 
 const premblyHeaders = () => {
   const headers = { 'x-api-key': PREMBLY_API_KEY, 'Content-Type': 'application/json' };
-  if (PREMBLY_APP_ID) headers['app_id'] = PREMBLY_APP_ID;
+  if (PREMBLY_APP_ID) {
+    headers['app_id'] = PREMBLY_APP_ID;
+    headers['app-id'] = PREMBLY_APP_ID;
+    headers['x-app-id'] = PREMBLY_APP_ID;
+  }
   return headers;
 };
 
@@ -234,8 +240,11 @@ export const startPremblySession = async (req, res) => {
 
     // Create the IdentityForm session on Prembly
     const sessionEndpoint = `${PREMBLY_BASE}/verification/widget/${PREMBLY_ENV === 'sandbox' ? 'sandbox' : 'live'}`;
+    const widgetId = PREMBLY_WIDGET_ID || PREMBLY_CONFIG_ID;
     const sessionBody = {
       ...(PREMBLY_CONFIG_ID && { config_id: PREMBLY_CONFIG_ID }),
+      ...(widgetId && { widget_id: widgetId }),
+      ...(PREMBLY_WIDGET_KEY && { widget_key: PREMBLY_WIDGET_KEY }),
       first_name:   userRow.first_name || undefined,
       last_name:    userRow.last_name  || undefined,
       email:        userRow.email      || undefined,
@@ -245,8 +254,25 @@ export const startPremblySession = async (req, res) => {
     console.info('Prembly session request →', sessionEndpoint, JSON.stringify({ ...sessionBody, callback_url: '...' }));
     const premblyRes = await axios.post(sessionEndpoint, sessionBody, { headers: premblyHeaders(), timeout: 15000 });
 
-    const verificationUrl = premblyRes.data?.data?.url || premblyRes.data?.url;
-    const premblyRef      = premblyRes.data?.data?.verification_ref || verificationRef;
+    const verificationUrl =
+      premblyRes.data?.data?.url ||
+      premblyRes.data?.data?.verification_url ||
+      premblyRes.data?.data?.widget_url ||
+      premblyRes.data?.data?.redirect_url ||
+      premblyRes.data?.data?.link ||
+      premblyRes.data?.url ||
+      premblyRes.data?.verification_url ||
+      premblyRes.data?.widget_url ||
+      premblyRes.data?.redirect_url ||
+      premblyRes.data?.link;
+    const premblyRef =
+      premblyRes.data?.data?.verification_ref ||
+      premblyRes.data?.data?.verificationRef ||
+      premblyRes.data?.data?.reference_id ||
+      premblyRes.data?.verification_ref ||
+      premblyRes.data?.verificationRef ||
+      premblyRes.data?.reference_id ||
+      verificationRef;
 
     if (!verificationUrl) {
       console.error('Prembly did not return a verification URL:', JSON.stringify(premblyRes.data).slice(0, 500));
@@ -364,6 +390,8 @@ export const syncPremblyResult = async (req, res) => {
     const callbackPayload = callbackPayloadFromBody(req.body);
     const callbackRef = verificationRefFromPayload(callbackPayload);
     const callbackStatus = normalizePremblyStatus(callbackPayload);
+    const hasCallbackPayload = Object.keys(callbackPayload || {}).length > 0;
+    const callbackError = callbackPayload?.error || callbackPayload?.message;
 
     const verificationRef =
       existing?.kycVerifiedData?.verificationRef ||
@@ -397,6 +425,31 @@ export const syncPremblyResult = async (req, res) => {
          WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
         [userId, callbackRef, req.body?.userRef || callbackPayload?.user_ref || callbackPayload?.userRef || userId, callbackPayload],
       ).catch(() => {});
+    }
+
+    if (!verificationRef && !['approved', 'blocked_duplicate', 'declined'].includes(currentStatus)) {
+      await query(
+        `UPDATE public.profiles
+         SET kyc_provider = 'prembly',
+             kyc_status = 'pending',
+             kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
+               'provider', 'prembly',
+               'userRef', $2,
+               'userId', $2,
+               'payload', $3,
+               'lastSyncNote', $4,
+               'syncedAt', timezone('utc', now())
+             ),
+             updated_at = NOW()
+         WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate', 'declined')`,
+        [
+          userId,
+          userId,
+          hasCallbackPayload ? callbackPayload : {},
+          callbackError ? String(callbackError).slice(0, 200) : 'prembly_sync_without_reference',
+        ],
+      ).catch(() => {});
+      return res.json({ success: true, kycStatus: 'pending', source: callbackError ? 'sdk_callback_error' : 'db_no_reference' });
     }
 
     if (!verificationRef || !isPremblyConfigured()) {
