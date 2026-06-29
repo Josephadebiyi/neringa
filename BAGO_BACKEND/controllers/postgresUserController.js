@@ -30,7 +30,7 @@ import {
 import { query, queryOne } from '../lib/postgres/db.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
-import { getLocationData } from '../services/geoLocation.js';
+import { getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
 import {
   applyReferralSignupReward,
@@ -74,9 +74,7 @@ function getAllowedAppleAudiences() {
 }
 
 function getClientIp(req) {
-  const xff = req.headers['x-forwarded-for'];
-  if (xff) return xff.split(',')[0].trim().replace(/^::ffff:/, '');
-  return (req.socket?.remoteAddress || req.ip || '').replace(/^::ffff:/, '');
+  return getClientIpFromRequest(req) || '';
 }
 
 async function checkDeviceFingerprint(req) {
@@ -423,8 +421,8 @@ export async function verifySignupOtp(req, res) {
     let paymentGateway = getPaymentGateway(decoded.country);
     // If country wasn't recognized (falls back to USD), use IP geolocation
     if (preferredCurrency === 'USD' && !decoded.country?.match(/^US$/i) && decoded.country !== 'United States') {
-      const ipLocation = getLocationData(getClientIp(req));
-      if (ipLocation.currency && ipLocation.currency !== 'EUR') {
+      const ipLocation = getLocationDataFromRequest(req);
+      if (ipLocation.currency) {
         preferredCurrency = ipLocation.currency;
         paymentGateway = ipLocation.gateway;
       }
@@ -1415,8 +1413,7 @@ export async function activateEarning(req, res, next) {
 }
 
 export function detectLocation(req, res) {
-  const ip = getClientIp(req);
-  const location = getLocationData(ip);
+  const location = getLocationDataFromRequest(req);
   res.json({ success: true, ...location });
 }
 
