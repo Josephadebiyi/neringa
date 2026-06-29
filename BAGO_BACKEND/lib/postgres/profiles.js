@@ -209,7 +209,7 @@ export async function findProfileByEmail(email) {
 
 export async function findProfileByReferralCode(referralCode) {
   await ensureEarningCurrencyColumns();
-  const row = await queryOne(`${baseSelect} where p.referral_code = $1`, [referralCode]);
+  const row = await queryOne(`${baseSelect} where upper(p.referral_code) = upper($1)`, [referralCode]);
   return normalizeProfileRow(row);
 }
 

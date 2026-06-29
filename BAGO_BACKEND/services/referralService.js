@@ -20,39 +20,49 @@ const REFERRAL_FALLBACK_RATES = {
 
 async function ensureReferralInfrastructure(clientOrQuery = null) {
   const exec = clientOrQuery?.query ? (sql, params) => clientOrQuery.query(sql, params) : query;
-  await exec(`
-    ALTER TABLE public.profiles
-      ADD COLUMN IF NOT EXISTS referral_code TEXT,
-      ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-      ADD COLUMN IF NOT EXISTS has_used_referral_discount BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-  await exec(`
-    CREATE INDEX IF NOT EXISTS profiles_referral_code_idx
-      ON public.profiles (upper(referral_code))
-      WHERE referral_code IS NOT NULL
-  `);
-  await exec(`
-    CREATE INDEX IF NOT EXISTS profiles_referred_by_idx
-      ON public.profiles (referred_by)
-      WHERE referred_by IS NOT NULL
-  `);
-  await exec(`
-    CREATE TABLE IF NOT EXISTS public.referral_rewards (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      referrer_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-      referred_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-      request_id UUID NULL REFERENCES public.shipment_requests(id) ON DELETE SET NULL,
-      trigger TEXT NOT NULL,
-      amount_base NUMERIC(14,4) NOT NULL DEFAULT 0,
-      base_currency TEXT NOT NULL DEFAULT 'NGN',
-      referrer_amount NUMERIC(14,4) NOT NULL DEFAULT 0,
-      referrer_currency TEXT NOT NULL DEFAULT 'USD',
-      referred_amount NUMERIC(14,4) NOT NULL DEFAULT 0,
-      referred_currency TEXT NOT NULL DEFAULT 'USD',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
-      UNIQUE (referrer_id, referred_id, trigger)
-    )
-  `);
+  const statements = [
+    `
+      ALTER TABLE public.profiles
+        ADD COLUMN IF NOT EXISTS referral_code TEXT,
+        ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS has_used_referral_discount BOOLEAN NOT NULL DEFAULT FALSE
+    `,
+    `
+      CREATE INDEX IF NOT EXISTS profiles_referral_code_idx
+        ON public.profiles (upper(referral_code))
+        WHERE referral_code IS NOT NULL
+    `,
+    `
+      CREATE INDEX IF NOT EXISTS profiles_referred_by_idx
+        ON public.profiles (referred_by)
+        WHERE referred_by IS NOT NULL
+    `,
+    `
+      CREATE TABLE IF NOT EXISTS public.referral_rewards (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        referrer_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+        referred_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+        request_id UUID NULL,
+        trigger TEXT NOT NULL,
+        amount_base NUMERIC(14,4) NOT NULL DEFAULT 0,
+        base_currency TEXT NOT NULL DEFAULT 'NGN',
+        referrer_amount NUMERIC(14,4) NOT NULL DEFAULT 0,
+        referrer_currency TEXT NOT NULL DEFAULT 'USD',
+        referred_amount NUMERIC(14,4) NOT NULL DEFAULT 0,
+        referred_currency TEXT NOT NULL DEFAULT 'USD',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+        UNIQUE (referrer_id, referred_id, trigger)
+      )
+    `,
+  ];
+
+  for (const statement of statements) {
+    try {
+      await exec(statement);
+    } catch (error) {
+      console.warn(`Referral infrastructure statement failed: ${error.message}`);
+    }
+  }
 }
 
 function normalizeReferralCode(value = '') {
@@ -85,6 +95,15 @@ async function ensureUserReferralCode(userId) {
     [userId, code],
   );
   return updated?.referral_code || code;
+}
+
+async function ensureUserReferralCodeSafe(userId) {
+  try {
+    return await ensureUserReferralCode(userId);
+  } catch (error) {
+    console.error(`Referral code load failed for user ${userId}:`, error.message);
+    return '';
+  }
 }
 
 async function getWallet(client, userId) {
@@ -224,8 +243,8 @@ async function rewardPair({ referrerId, referredId, trigger, requestId = null, a
 
     const referrerCurrency = (referrerWallet.currency || 'USD').toUpperCase();
     const referredCurrency = (referredWallet.currency || 'USD').toUpperCase();
-    const referrerAmount = await convertCurrency(amountBase, baseCurrency, referrerCurrency);
-    const referredAmount = await convertCurrency(amountBase, baseCurrency, referredCurrency);
+    const referrerAmount = await safeConvertRewardAmount(amountBase, baseCurrency, referrerCurrency);
+    const referredAmount = await safeConvertRewardAmount(amountBase, baseCurrency, referredCurrency);
 
     const reward = await client.query(
       `
@@ -265,11 +284,17 @@ async function rewardPair({ referrerId, referredId, trigger, requestId = null, a
 }
 
 export async function getReferralSummary(userId) {
-  const code = await ensureUserReferralCode(userId);
-  const settings = await getAppSettings();
+  const code = await ensureUserReferralCodeSafe(userId);
+  const settings = await getAppSettings().catch((error) => {
+    console.warn(`Referral settings load failed: ${error.message}`);
+    return {};
+  });
   await ensureReferralInfrastructure();
 
-  const walletCurrency = await getWalletCurrency(userId);
+  const walletCurrency = await getWalletCurrency(userId).catch((error) => {
+    console.warn(`Referral wallet currency load failed for user ${userId}: ${error.message}`);
+    return 'USD';
+  });
   const welcomeBonusBase = positiveSetting(settings.referralWelcomeBonusNgn, 2000);
   const shipmentBonusBase = positiveSetting(settings.referralShipmentBonusUsd, 2);
   const shipmentThresholdBase = positiveSetting(settings.referralShipmentThresholdUsd, 50);
@@ -281,44 +306,52 @@ export async function getReferralSummary(userId) {
   const thresholdDisplay = referralDisplayAmount(shipmentThresholdAmount, walletCurrency, shipmentThresholdBase, 'USD');
 
   const referred = await query(
-    `
-      SELECT
-        p.id,
-        p.first_name,
-        p.last_name,
-        p.email,
-        p.created_at,
-        EXISTS (
-          SELECT 1 FROM public.referral_rewards rr
-          WHERE rr.referrer_id = $1 AND rr.referred_id = p.id AND rr.trigger = 'welcome'
-        ) AS signup_completed,
-        EXISTS (
-          SELECT 1 FROM public.referral_rewards rr
-          WHERE rr.referrer_id = $1 AND rr.referred_id = p.id AND rr.trigger = 'shipment_over_threshold'
-        ) AS shipment_completed,
-        COALESCE((
-          SELECT SUM(rr.referrer_amount)
-          FROM public.referral_rewards rr
-          WHERE rr.referrer_id = $1 AND rr.referred_id = p.id
-        ), 0) AS referrer_earned
-      FROM public.profiles p
-      WHERE p.referred_by = $1
-      ORDER BY created_at DESC
-      LIMIT 50
-    `,
-    [userId],
-  );
+      `
+        SELECT
+          p.id,
+          p.first_name,
+          p.last_name,
+          p.email,
+          p.created_at,
+          EXISTS (
+            SELECT 1 FROM public.referral_rewards rr
+            WHERE rr.referrer_id = $1 AND rr.referred_id = p.id AND rr.trigger = 'welcome'
+          ) AS signup_completed,
+          EXISTS (
+            SELECT 1 FROM public.referral_rewards rr
+            WHERE rr.referrer_id = $1 AND rr.referred_id = p.id AND rr.trigger = 'shipment_over_threshold'
+          ) AS shipment_completed,
+          COALESCE((
+            SELECT SUM(rr.referrer_amount)
+            FROM public.referral_rewards rr
+            WHERE rr.referrer_id = $1 AND rr.referred_id = p.id
+          ), 0) AS referrer_earned
+        FROM public.profiles p
+        WHERE p.referred_by = $1
+        ORDER BY created_at DESC
+        LIMIT 50
+      `,
+      [userId],
+    )
+    .catch((error) => {
+      console.warn(`Referral referred-users query failed for user ${userId}: ${error.message}`);
+      return { rows: [] };
+    });
 
   const rewards = await query(
-    `
-      SELECT *
-      FROM public.referral_rewards
-      WHERE referrer_id = $1 OR referred_id = $1
-      ORDER BY created_at DESC
-      LIMIT 100
-    `,
-    [userId],
-  );
+      `
+        SELECT *
+        FROM public.referral_rewards
+        WHERE referrer_id = $1 OR referred_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100
+      `,
+      [userId],
+    )
+    .catch((error) => {
+      console.warn(`Referral rewards query failed for user ${userId}: ${error.message}`);
+      return { rows: [] };
+    });
 
   const displayRewards = [];
   let totalEarnedAmount = 0;
@@ -429,6 +462,7 @@ export async function applyReferralShipmentReward({ senderId, requestId, amount,
 export async function resolveReferralCode(referralCode) {
   const code = normalizeReferralCode(referralCode);
   if (!code) return null;
+  await ensureReferralInfrastructure();
   return queryOne(
     `SELECT id FROM public.profiles WHERE upper(referral_code) = upper($1) LIMIT 1`,
     [code],
