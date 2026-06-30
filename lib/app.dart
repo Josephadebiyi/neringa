@@ -39,11 +39,161 @@ class BagoApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       builder: (context, child) => _SecurityGateHost(
-        child: _NotificationPromptHost(
-          child: child ?? const SizedBox.shrink(),
+        child: _CurrencyLocationPromptHost(
+          child: _NotificationPromptHost(
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
       ),
     );
+  }
+}
+
+class _CurrencyLocationPromptHost extends ConsumerStatefulWidget {
+  const _CurrencyLocationPromptHost({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_CurrencyLocationPromptHost> createState() =>
+      _CurrencyLocationPromptHostState();
+}
+
+class _CurrencyLocationPromptHostState
+    extends ConsumerState<_CurrencyLocationPromptHost> {
+  bool _promptOpen = false;
+  String? _lastScheduledKey;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      final user = next.user;
+      if (user == null) {
+        _lastScheduledKey = null;
+        return;
+      }
+      _scheduleCurrencyLocationPrompt(user);
+    });
+
+    return widget.child;
+  }
+
+  void _scheduleCurrencyLocationPrompt(UserModel user) {
+    if (_promptOpen) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _promptOpen) return;
+
+      final router = ref.read(routerProvider);
+      final dialogContext = router.routerDelegate.navigatorKey.currentContext;
+      if (dialogContext == null) return;
+
+      final location =
+          await ref.read(authProvider.notifier).detectLocation().catchError(
+                (_) => <String, String>{},
+              );
+      if (!mounted) return;
+
+      final currency = (location['currency'] ?? '').trim().toUpperCase();
+      final country = (location['country'] ?? '').trim();
+      final countryCode = (location['countryCode'] ?? '').trim().toUpperCase();
+      final confidence = (location['confidence'] ?? '').trim().toLowerCase();
+      if (currency.isEmpty || countryCode.isEmpty || confidence == 'none') {
+        return;
+      }
+
+      final currentCurrency = _currentCurrency(user);
+      final currentCountry = (user.country ?? '').trim().toLowerCase();
+      final detectedCountry = country.toLowerCase();
+      final sameCurrency = currentCurrency == currency;
+      final sameCountry = detectedCountry.isNotEmpty &&
+          currentCountry.isNotEmpty &&
+          currentCountry == detectedCountry;
+
+      final promptKey =
+          'currency_location_prompt_v3_${user.id}_${countryCode}_$currency';
+      if (_lastScheduledKey == promptKey) return;
+      _lastScheduledKey = promptKey;
+
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(promptKey) == true) return;
+      if (!dialogContext.mounted) return;
+
+      _promptOpen = true;
+      final accept = await showDialog<bool>(
+            context: dialogContext,
+            barrierDismissible: false,
+            builder: (alertContext) => AlertDialog(
+              title: const Text('Confirm your country'),
+              content: Text(
+                sameCurrency && sameCountry
+                    ? 'We detected $countryCode as your current location. Confirm this so Bago keeps using $currency for your wallet.'
+                    : 'We detected ${country.isNotEmpty ? country : countryCode}. Bago will use $currency for your wallet and payments. If this looks right, confirm it.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(alertContext).pop(false),
+                  child: const Text('Not now'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(alertContext).pop(true),
+                  child: Text('Use $currency'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      _promptOpen = false;
+
+      if (!mounted) return;
+      if (!accept) {
+        await prefs.setBool(promptKey, true);
+        return;
+      }
+
+      try {
+        await ref.read(authProvider.notifier).confirmDetectedLocationCurrency(
+              currency: currency,
+              country: country.isNotEmpty ? country : countryCode,
+            );
+        await prefs.setBool(promptKey, true);
+        if (!mounted) return;
+        final snackContext = router.routerDelegate.navigatorKey.currentContext;
+        final messenger = snackContext == null || !snackContext.mounted
+            ? null
+            : ScaffoldMessenger.maybeOf(snackContext);
+        messenger?.showSnackBar(
+          SnackBar(content: Text('Wallet currency set to $currency.')),
+        );
+      } catch (_) {
+        if (!mounted) return;
+        final snackContext = router.routerDelegate.navigatorKey.currentContext;
+        final messenger = snackContext == null || !snackContext.mounted
+            ? null
+            : ScaffoldMessenger.maybeOf(snackContext);
+        messenger?.showSnackBar(
+          const SnackBar(
+            content:
+                Text('Could not update wallet currency. Please try again.'),
+          ),
+        );
+        _lastScheduledKey = null;
+      }
+    });
+  }
+
+  String _currentCurrency(UserModel user) {
+    final values = [
+      user.walletCurrency,
+      user.earningCurrency,
+      user.preferredCurrency,
+      user.currency,
+    ];
+    for (final value in values) {
+      final normalized = value?.trim().toUpperCase() ?? '';
+      if (normalized.isNotEmpty) return normalized;
+    }
+    return 'USD';
   }
 }
 

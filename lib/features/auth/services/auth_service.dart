@@ -108,7 +108,8 @@ class AuthService {
           'country': country,
           'currency': currency ?? _currencyForCountry(country),
           if (accountType != null) 'accountType': accountType,
-          if (companyName != null && companyName.isNotEmpty) 'companyName': companyName.trim(),
+          if (companyName != null && companyName.isNotEmpty)
+            'companyName': companyName.trim(),
         },
       );
       final data = res.data as Map<String, dynamic>;
@@ -541,7 +542,10 @@ class AuthService {
       return {
         'currency': (data['currency'] as String? ?? '').toUpperCase(),
         'countryCode': (data['countryCode'] as String? ?? '').toUpperCase(),
+        'country': (data['country'] as String? ?? '').trim(),
         'gateway': (data['gateway'] as String? ?? 'stripe').toLowerCase(),
+        'source': (data['source'] as String? ?? '').trim(),
+        'confidence': (data['confidence'] as String? ?? '').trim(),
       };
     } catch (_) {
       return {};

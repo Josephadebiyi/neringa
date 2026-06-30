@@ -102,7 +102,6 @@ class AuthNotifier extends Notifier<AuthState> {
             .catchError((e) {
           debugPrint('Push notification prep failed: $e');
         });
-        _applyIpCurrencyIfNeeded(cachedUser).catchError((_) {});
         // Background: validate token with server and refresh profile silently.
         _refreshSessionInBackground().catchError((_) {});
       }
@@ -136,8 +135,9 @@ class AuthNotifier extends Notifier<AuthState> {
       final result = await _service.login(email: email, password: password);
       state = state.copyWith(user: result.user, isLoading: false);
       _connectRealtime(result.user.id);
-      _applyIpCurrencyIfNeeded(result.user).catchError((_) {});
-      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
+      PushNotificationService.instance
+          .refreshAfterAuthChange()
+          .catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -200,8 +200,9 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      _applyIpCurrencyIfNeeded(user).catchError((_) {});
-      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
+      PushNotificationService.instance
+          .refreshAfterAuthChange()
+          .catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -237,8 +238,9 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await _service.googleSignIn();
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      _applyIpCurrencyIfNeeded(user).catchError((_) {});
-      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
+      PushNotificationService.instance
+          .refreshAfterAuthChange()
+          .catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -253,8 +255,9 @@ class AuthNotifier extends Notifier<AuthState> {
       final user = await _service.appleSignIn();
       state = state.copyWith(user: user, isLoading: false);
       _connectRealtime(user.id);
-      _applyIpCurrencyIfNeeded(user).catchError((_) {});
-      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
+      PushNotificationService.instance
+          .refreshAfterAuthChange()
+          .catchError((_) {});
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -269,7 +272,9 @@ class AuthNotifier extends Notifier<AuthState> {
     final user = await _service.restoreSession();
     if (user != null) {
       state = state.copyWith(user: user);
-      PushNotificationService.instance.refreshAfterAuthChange().catchError((_) {});
+      PushNotificationService.instance
+          .refreshAfterAuthChange()
+          .catchError((_) {});
       return true;
     }
     return false;
@@ -301,24 +306,21 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  static const _paystackCurrencies = {'NGN', 'GHS', 'KES', 'ZAR'};
+  Future<Map<String, String>> detectLocation() => _service.detectLocation();
 
-  // Auto-detect currency from IP — only runs if earning currency is not locked
-  Future<void> _applyIpCurrencyIfNeeded(UserModel user) async {
-    if (user.earningCurrencyLocked) return;
-    try {
-      final location = await _service.detectLocation();
-      final detected = location['currency'] ?? '';
-      if (detected.isEmpty) return;
-      final current = (user.earningCurrency ?? user.preferredCurrency).toUpperCase().trim();
-      if (current == detected) return;
-      // Paystack currencies get activateEarning (locks the currency on backend)
-      if (_paystackCurrencies.contains(detected)) {
-        await activateEarning(detected);
-      } else {
-        await updateCurrency(detected);
-      }
-    } catch (_) {}
+  Future<void> confirmDetectedLocationCurrency({
+    required String currency,
+    String? country,
+  }) async {
+    final updates = <String, dynamic>{};
+    final normalizedCountry = country?.trim();
+    if (normalizedCountry != null && normalizedCountry.isNotEmpty) {
+      updates['country'] = normalizedCountry;
+    }
+    if (updates.isNotEmpty) {
+      await updateProfile(updates);
+    }
+    await activateEarning(currency);
   }
 
   Future<void> updateCurrency(String currency) async {
