@@ -1,350 +1,343 @@
-import { useState, useRef } from 'react';
-import {
-    Send,
-    Users,
-    ShieldCheck,
-    ShieldAlert,
-    Loader2,
-    ArrowLeft,
-    X,
-    Upload,
-    Plus
-} from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { ADMIN_API, sendPromoEmail, getAdminAuthHeaders } from '../services/api';
+import React, { useState, useMemo, useCallback } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Send, Users, ShieldCheck, ShieldAlert, Loader2, RefreshCw } from 'lucide-react';
+import { ProductLaunchEmail, NewsletterEmail, PromoEmailTemplate } from '../emails/BagoEmailTemplates';
+import { productLaunchDefault, newsletterDefault, promoDefault } from '../emails/bagoEmailContent';
+import { sendPromoEmail } from '../services/api';
+
+// ── Content helpers ───────────────────────────────────────────────────────────
+
+function setIn(obj: any, path: (string | number)[], val: any): any {
+  if (!path.length) return val;
+  const [head, ...rest] = path;
+  const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+  clone[head as any] = setIn(obj[head], rest, val);
+  return clone;
+}
+
+function humanize(k: string | number) {
+  return String(k)
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (c) => c.toUpperCase())
+    .trim();
+}
+
+function wrapHtml(body: string, subject: string, preheader: string) {
+  return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <title>${subject.replace(/[&<>"]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] ?? c))}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; padding: 0; background: #E9E7E0; -webkit-font-smoothing: antialiased; }
+    img { -ms-interpolation-mode: bicubic; }
+    a { text-decoration: none; }
+    @media (max-width: 620px) { .bago-wrap { padding: 16px !important; } }
+  </style>
+</head>
+<body>
+  ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</div>` : ''}
+  <div class="bago-wrap" style="padding:32px 16px;background:#E9E7E0;">${body}</div>
+</body>
+</html>`;
+}
+
+// ── Field editor components ───────────────────────────────────────────────────
+
+const SKIP_KEYS = new Set(['brand', 'logo', 'footer', 'footerLinks']);
+
+interface FieldsProps {
+  value: any;
+  path: (string | number)[];
+  onChange: (path: (string | number)[], val: any) => void;
+}
+
+function Fields({ value, path, onChange }: FieldsProps) {
+  if (Array.isArray(value)) {
+    return (
+      <>
+        {value.map((item, i) => (
+          <div key={i} style={{ border: '1px solid #F0EEE8', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#9A9EA8', marginBottom: 8 }}>
+              {humanize(path[path.length - 1])} #{i + 1}
+            </div>
+            <Fields value={item} path={[...path, i]} onChange={onChange} />
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  if (value && typeof value === 'object') {
+    return (
+      <>
+        {Object.entries(value).map(([k, v]) => {
+          if (SKIP_KEYS.has(k)) return null;
+          return <Fields key={k} value={v} path={[...path, k]} onChange={onChange} />;
+        })}
+      </>
+    );
+  }
+
+  const label = path[path.length - 1];
+  const isImg = /image|logo|hero/i.test(String(label));
+  const isUrl = /url/i.test(String(label)) && !isImg;
+  const long = String(value).length > 60;
+
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        {humanize(label)}
+      </span>
+      {isImg ? (
+        <ImageField value={value as string} onChange={(v) => onChange(path, v)} />
+      ) : long ? (
+        <textarea
+          value={value as string}
+          rows={3}
+          onChange={(e) => onChange(path, e.target.value)}
+          className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5C4BFD]/20 focus:border-[#5C4BFD] resize-none"
+        />
+      ) : (
+        <input
+          value={value as string}
+          type={isUrl ? 'url' : 'text'}
+          onChange={(e) => onChange(path, e.target.value)}
+          className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5C4BFD]/20 focus:border-[#5C4BFD]"
+        />
+      )}
+    </label>
+  );
+}
+
+function ImageField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="https://… (hosted image URL)"
+        className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5C4BFD]/20 focus:border-[#5C4BFD]"
+      />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {value && (
+          <img
+            src={value}
+            alt=""
+            style={{ width: 64, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid #E5E7EB' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        )}
+        <label className="text-xs font-semibold text-[#5C4BFD] cursor-pointer hover:underline">
+          Upload…
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const r = new FileReader();
+              r.onload = () => onChange(r.result as string);
+              r.readAsDataURL(f);
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+// ── Template config ───────────────────────────────────────────────────────────
+
+const TEMPLATES = {
+  productLaunch: {
+    label: 'Product launch',
+    Component: ProductLaunchEmail,
+    default: productLaunchDefault,
+    subject: (c: any) => c.heading || 'Bago update',
+  },
+  newsletter: {
+    label: 'Newsletter',
+    Component: NewsletterEmail,
+    default: newsletterDefault,
+    subject: (c: any) => c.issueTitle || 'The Bago Brief',
+  },
+  promo: {
+    label: 'Send & Earn promo',
+    Component: PromoEmailTemplate,
+    default: promoDefault,
+    subject: (c: any) => [c.offerHeading?.[0], c.offerHeading?.[1]].filter(Boolean).join(' ') || 'Special offer from Bago',
+  },
+} as const;
+
+type TemplateKey = keyof typeof TEMPLATES;
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function PromoEmail() {
-    const [subject, setSubject] = useState('');
-    const [body, setBody] = useState('');
-    const [targetGroup, setTargetGroup] = useState<'all' | 'verified' | 'unverified'>('all');
-    const [bodyImages, setBodyImages] = useState<string[]>([]);
-    const [attachments, setAttachments] = useState<{ name: string, url: string }[]>([]);
-    const [uploading, setUploading] = useState<'body' | 'attachment' | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const bodyImageInputRef = useRef<HTMLInputElement>(null);
-    const attachmentInputRef = useRef<HTMLInputElement>(null);
-    const navigate = useNavigate();
+  const [active, setActive] = useState<TemplateKey>('productLaunch');
+  const [data, setData] = useState({
+    productLaunch: productLaunchDefault,
+    newsletter: newsletterDefault,
+    promo: promoDefault,
+  });
+  const [targetGroup, setTargetGroup] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'body' | 'attachment') => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+  const { Component, subject: getSubject } = TEMPLATES[active];
+  const content = data[active];
 
-        if (type === 'body' && bodyImages.length >= 2) return;
+  const onChange = useCallback((path: (string | number)[], val: any) => {
+    setData((d) => ({ ...d, [active]: setIn(d[active], path.slice(1), val) }));
+  }, [active]);
 
-        setUploading(type);
-        const formData = new FormData();
-        formData.append('file', file);
+  const resetTemplate = () => {
+    setData((d) => ({ ...d, [active]: TEMPLATES[active].default }));
+  };
 
-        try {
-            const response = await fetch(`${ADMIN_API}/upload`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: getAdminAuthHeaders(),
-                body: formData
-            });
+  const handleSend = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const preheader = (content as any).preheader || (content as any).intro || (content as any).offerSub || '';
+      const bodyMarkup = renderToStaticMarkup(
+        React.createElement(Component as any, { content })
+      );
+      const html = wrapHtml(bodyMarkup, getSubject(content), preheader);
 
-            const data = await response.json();
-            if (data.success) {
-                if (type === 'body') {
-                    setBodyImages([...bodyImages, data.url]);
-                } else {
-                    setAttachments([...attachments, { name: file.name, url: data.url }]);
-                }
-            } else {
-                throw new Error(data.message || 'Upload failed');
-            }
-        } catch (err: any) {
-            setMessage({ type: 'error', text: `Upload Error: ${err.message}` });
-        } finally {
-            setUploading(null);
-        }
-    };
+      const result = await sendPromoEmail({
+        subject: getSubject(content),
+        html,
+        targetGroup,
+      });
 
-    const removeBodyImage = (index: number) => {
-        setBodyImages(bodyImages.filter((_, i) => i !== index));
-    };
+      if (result?.success) {
+        setMessage({ type: 'success', text: `Dispatched successfully!` });
+      } else {
+        throw new Error(result?.message || 'Failed to send');
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const removeAttachment = (index: number) => {
-        setAttachments(attachments.filter((_, i) => i !== index));
-    };
+  return (
+    <div className="flex h-[calc(100vh-112px)] -m-6 overflow-hidden">
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage(null);
+      {/* ── Left: editor panel ─────────────────────────────────────── */}
+      <aside className="w-[380px] flex-none flex flex-col bg-white border-r border-gray-100 overflow-hidden">
 
-        try {
-            const result = await sendPromoEmail({
-                subject,
-                body,
-                targetGroup,
-                images: bodyImages,
-                fileAttachments: attachments
-            });
+        {/* Header */}
+        <div className="flex-none px-5 pt-5 pb-4 border-b border-gray-100">
+          <h1 className="text-lg font-black text-gray-900 tracking-tight">Promo Engine</h1>
+          <p className="text-xs text-gray-400 font-medium mt-0.5">Edit, preview and dispatch email broadcasts</p>
 
-            if (result.success) {
-                setMessage({ type: 'success', text: `Successfully sent to targeted users!` });
-                setSubject('');
-                setBody('');
-                setBodyImages([]);
-                setAttachments([]);
-            } else {
-                throw new Error(result.message || 'Failed to send emails');
-            }
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={() => navigate('/dashboard')}
-                    className="p-2.5 bg-white rounded-xl border border-gray-100 shadow-sm hover:bg-gray-50 text-gray-600 transition-all"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                    <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-[#1e2749] to-[#5240E8]">
-                        Promo Engine
-                    </h1>
-                    <p className="text-gray-500 font-medium">Draft and dispatch promotional broadcasts</p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Form Side */}
-                <div className="premium-card p-8">
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {message && (
-                            <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in fade-in duration-300 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'
-                                }`}>
-                                {message.type === 'success' ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
-                                <p className="text-sm font-bold">{message.text}</p>
-                            </div>
-                        )}
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Audience</label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    { id: 'all', label: 'All Users', icon: Users },
-                                    { id: 'verified', label: 'Verified', icon: ShieldCheck },
-                                    { id: 'unverified', label: 'Unverified', icon: ShieldAlert },
-                                ].map((group) => (
-                                    <button
-                                        key={group.id}
-                                        type="button"
-                                        onClick={() => setTargetGroup(group.id as any)}
-                                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2 ${targetGroup === group.id
-                                            ? 'border-[#5240E8] bg-[#5240E8]/5 text-[#5240E8]'
-                                            : 'border-gray-50 bg-gray-50/50 text-gray-400 hover:border-gray-100'
-                                            }`}
-                                    >
-                                        <group.icon className="w-5 h-5" />
-                                        <span className="text-[10px] font-black uppercase tracking-tighter">{group.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject Line</label>
-                            <input
-                                type="text"
-                                value={subject}
-                                onChange={(e) => setSubject(e.target.value)}
-                                placeholder="Exciting updates from Bago Logistics!"
-                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-[#5240E8]/10 focus:border-[#5240E8] outline-none transition-all font-bold placeholder:text-gray-300"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Message Body</label>
-                            <textarea
-                                value={body}
-                                onChange={(e) => setBody(e.target.value)}
-                                placeholder="Type your promotional message here..."
-                                rows={6}
-                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-[#5240E8]/10 focus:border-[#5240E8] outline-none transition-all font-medium placeholder:text-gray-300 resize-none"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Body Media (Max 2)</label>
-                                <p className="text-[9px] text-gray-400 mb-2 italic">These will be embedded into the message body.</p>
-                                <input
-                                    type="file"
-                                    ref={bodyImageInputRef}
-                                    onChange={(e) => handleFileUpload(e, 'body')}
-                                    accept="image/*"
-                                    className="hidden"
-                                />
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    {bodyImages.map((img, i) => (
-                                        <div key={i} className="relative aspect-video rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-                                            <img src={img} alt="Preview" className="w-full h-full object-contain" />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeBodyImage(i)}
-                                                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black text-white rounded-full transition-all"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-
-                                    {bodyImages.length < 2 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => bodyImageInputRef.current?.click()}
-                                            disabled={uploading !== null}
-                                            className="aspect-video rounded-xl border-2 border-dashed border-gray-100 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-[#5240E8] hover:text-[#5240E8] transition-all bg-gray-50/50"
-                                        >
-                                            {uploading === 'body' ? (
-                                                <Loader2 className="w-6 h-6 animate-spin text-[#5240E8]" />
-                                            ) : (
-                                                <>
-                                                    <Upload className="w-5 h-5" />
-                                                    <span className="text-[9px] font-black uppercase tracking-widest">Add Body Media</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-50">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Attachments (Files)</label>
-                                <p className="text-[9px] text-gray-400 mb-2 italic">These will show as downloadable files at the bottom.</p>
-                                <input
-                                    type="file"
-                                    ref={attachmentInputRef}
-                                    onChange={(e) => handleFileUpload(e, 'attachment')}
-                                    className="hidden"
-                                />
-
-                                <div className="space-y-2">
-                                    {attachments.map((file, i) => (
-                                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-white p-2 rounded-lg shadow-sm">
-                                                    <Upload className="w-4 h-4 text-[#5240E8]" />
-                                                </div>
-                                                <span className="text-xs font-bold text-gray-600 truncate max-w-[150px]">{file.name}</span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeAttachment(i)}
-                                                className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-
-                                    <button
-                                        type="button"
-                                        onClick={() => attachmentInputRef.current?.click()}
-                                        disabled={uploading !== null}
-                                        className="w-full p-4 rounded-xl border-2 border-dashed border-gray-100 flex items-center justify-center gap-3 text-gray-400 hover:border-[#5240E8] hover:text-[#5240E8] transition-all bg-gray-50/50"
-                                    >
-                                        {uploading === 'attachment' ? (
-                                            <Loader2 className="w-5 h-5 animate-spin text-[#5240E8]" />
-                                        ) : (
-                                            <>
-                                                <Plus className="w-4 h-4" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">Attach Document</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-5 bg-[#5240E8] hover:bg-[#4030C8] text-white rounded-[22px] font-black text-sm uppercase tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-[#5240E8]/20 flex items-center justify-center gap-3 disabled:opacity-50"
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    <span>Sending Broadcast...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Send className="w-5 h-5" />
-                                    <span>Dispatch Promo</span>
-                                </>
-                            )}
-                        </button>
-                    </form>
-                </div>
-
-                {/* Preview Side */}
-                <div className="hidden lg:flex flex-col">
-                    <div className="p-4 bg-slate-900 rounded-t-[32px] border-x border-t border-slate-800 flex items-center gap-3">
-                        <div className="flex gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
-                            <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                        </div>
-                        <div className="bg-slate-800 rounded-lg px-3 py-1 text-[10px] text-slate-400 font-bold flex-1 text-center">
-                            Email Preview: {subject || 'Subject Line'}
-                        </div>
-                    </div>
-
-                    <div className="flex-1 bg-gray-100 p-8 rounded-b-[32px] border-x border-b border-gray-200 overflow-y-auto max-h-[700px]">
-                        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-sm overflow-hidden pb-8">
-                            <div className="bg-[#5240E8] p-6 text-center">
-                                <img src="https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png" alt="Bago" width="100" className="mx-auto" />
-                            </div>
-                            <div className="p-8">
-                                <div className="text-sm font-medium text-slate-700 whitespace-pre-wrap leading-relaxed">
-                                    {body || 'Your promotional message will appear here...'}
-                                </div>
-                                {bodyImages.map((img, i) => (
-                                    <div key={i} className="mt-6 rounded-xl overflow-hidden shadow-sm border border-gray-100">
-                                        <img src={img} alt="Promo" className="w-full h-auto" />
-                                    </div>
-                                ))}
-                                <div className="text-center mt-8">
-                                    <button className="px-8 py-3 bg-[#5240E8] text-white rounded-xl font-bold text-sm">
-                                        Explore Bago
-                                    </button>
-                                </div>
-                            </div>
-
-                            {attachments.length > 0 && (
-                                <div className="px-8 mt-4">
-                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Attached Files</div>
-                                    <div className="space-y-2">
-                                        {attachments.map((file, i) => (
-                                            <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
-                                                <Upload className="w-3 h-3 text-gray-400" />
-                                                <span className="text-[10px] font-bold text-gray-600 truncate">{file.name}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="mt-12 p-6 bg-gray-50 text-center border-t border-gray-100">
-                                <p className="text-[10px] text-gray-400">© 2024 Bago Logistics Terminal. All rights reserved.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          {/* Template selector */}
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {(Object.keys(TEMPLATES) as TemplateKey[]).map((key) => (
+              <button
+                key={key}
+                onClick={() => { setActive(key); setMessage(null); }}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${
+                  active === key
+                    ? 'bg-[#5C4BFD] border-[#5C4BFD] text-white'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                {TEMPLATES[key].label}
+              </button>
+            ))}
+            <button
+              onClick={resetTemplate}
+              title="Reset to defaults"
+              className="ml-auto p-1.5 rounded-full border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-    );
+
+        {/* Scrollable fields */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <Fields value={content} path={[active]} onChange={onChange} />
+        </div>
+
+        {/* Bottom: audience + send */}
+        <div className="flex-none px-5 py-4 border-t border-gray-100 space-y-3">
+          {message && (
+            <div className={`px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-semibold ${
+              message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
+            }`}>
+              {message.type === 'success' ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+              {message.text}
+            </div>
+          )}
+
+          <div>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Target Audience</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { id: 'all', label: 'All Users', Icon: Users },
+                { id: 'verified', label: 'Verified', Icon: ShieldCheck },
+                { id: 'unverified', label: 'Unverified', Icon: ShieldAlert },
+              ] as const).map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setTargetGroup(id)}
+                  className={`flex flex-col items-center py-2.5 px-2 rounded-xl border-2 text-[10px] font-black uppercase tracking-tight gap-1.5 transition-all ${
+                    targetGroup === id
+                      ? 'border-[#5C4BFD] bg-[#5C4BFD]/5 text-[#5C4BFD]'
+                      : 'border-gray-100 text-gray-400 hover:border-gray-200'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={handleSend}
+            disabled={loading}
+            className="w-full py-3.5 bg-[#5C4BFD] hover:bg-[#4B3CE8] disabled:opacity-50 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5C4BFD]/25"
+          >
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</> : <><Send className="w-4 h-4" /> Dispatch</>}
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Right: live email preview ──────────────────────────────── */}
+      <main className="flex-1 overflow-y-auto bg-[#E9E7E0]">
+        {/* Fake browser chrome */}
+        <div className="sticky top-0 z-10 bg-[#2A2D35] px-4 py-2.5 flex items-center gap-3">
+          <div className="flex gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+          </div>
+          <div className="flex-1 bg-[#1C1F26] rounded-md px-3 py-1 text-[11px] text-gray-400 font-mono text-center truncate">
+            {TEMPLATES[active].label} · {getSubject(content)}
+          </div>
+        </div>
+
+        <div className="p-8">
+          <div style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}>
+            {active === 'productLaunch' && <ProductLaunchEmail content={data.productLaunch} />}
+            {active === 'newsletter' && <NewsletterEmail content={data.newsletter} />}
+            {active === 'promo' && <PromoEmailTemplate content={data.promo} />}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 }

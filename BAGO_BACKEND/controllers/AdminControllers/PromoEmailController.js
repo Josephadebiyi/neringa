@@ -1,13 +1,17 @@
 import { query } from '../../lib/postgres/db.js';
 import { resend } from '../../services/resendClient.js';
 import fetch from 'node-fetch';
+import { isPromoTemplateId, renderPromoEmailTemplate } from '../../services/promoEmailTemplates.js';
 
 export const sendPromoEmail = async (req, res, next) => {
-  const { subject, body, targetGroup, images, fileAttachments } = req.body;
+  const { subject, body, html: preRenderedHtml, targetGroup, images, fileAttachments, templateId } = req.body;
 
   try {
-    if (!subject || !body) {
-      return res.status(400).json({ success: false, message: 'Subject and body are required' });
+    if (!subject) {
+      return res.status(400).json({ success: false, message: 'Subject is required' });
+    }
+    if (!preRenderedHtml && !body && !isPromoTemplateId(templateId)) {
+      return res.status(400).json({ success: false, message: 'Email body or template is required' });
     }
 
     let whereClause = '';
@@ -56,7 +60,11 @@ export const sendPromoEmail = async (req, res, next) => {
       }
     }
 
-    const htmlTemplate = `<!DOCTYPE html><html><head><style>
+    const htmlTemplate = preRenderedHtml
+      ? preRenderedHtml
+      : isPromoTemplateId(templateId)
+      ? renderPromoEmailTemplate({ templateId, subject, body, images })
+      : `<!DOCTYPE html><html><head><style>
       body{font-family:Arial,sans-serif;line-height:1.6;color:#1e293b;background:#f8fafc;margin:0;padding:0;}
       .container{max-width:600px;margin:40px auto;background:white;border-radius:24px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.05);}
       .header{background:#5240E8;background:linear-gradient(90deg,#5240E8 0%,#3B28C9 100%);padding:30px;text-align:center;}
