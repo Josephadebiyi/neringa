@@ -19,6 +19,7 @@ import {
     Bell,
     Search,
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 
 const TAB_LABELS = {
@@ -35,6 +36,7 @@ const TAB_LABELS = {
 
 export default function Dashboard() {
     const { user, loading, isAuthenticated, logout, checkAuthStatus, refreshUser } = useAuth();
+    const { setCurrency } = useLanguage();
     const navigate = useNavigate();
     const [kycStatus, setKycStatus] = useState('not_started');
     const [activeTab, setActiveTab] = useState('overview');
@@ -96,6 +98,14 @@ export default function Dashboard() {
             fetchUserStats();
         }
     }, [loading, isAuthenticated, user, navigate]);
+
+    // Sync display currency from user's wallet profile — overrides IP/localStorage guesses
+    useEffect(() => {
+        const profileCurrency = user?.walletCurrency || user?.wallet_currency || user?.preferredCurrency || user?.preferred_currency;
+        if (profileCurrency) {
+            setCurrency(profileCurrency.toUpperCase());
+        }
+    }, [user?.walletCurrency, user?.wallet_currency, user?.preferredCurrency, user?.preferred_currency, setCurrency]);
 
     const fetchUserStats = async () => {
         try {

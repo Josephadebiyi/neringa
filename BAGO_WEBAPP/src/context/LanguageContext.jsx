@@ -1445,19 +1445,14 @@ export function LanguageProvider({ children }) {
     }, [currency]);
 
     useEffect(() => {
+        if (_hadStoredCurrency) return;
         const detectFromIp = async () => {
-            if (_hadStoredLanguage && _hadStoredCurrency) return;
             try {
-                const response = await fetch('https://ipapi.co/json/');
+                // Use our own backend — avoids ipapi.co rate limits and works for all regions
+                const response = await fetch('/api/bago/detect-location');
                 const data = await response.json();
-                if (!_hadStoredCurrency && data.currency) {
+                if (data.currency) {
                     setCurrency(data.currency);
-                }
-                if (!_hadStoredLanguage && data.languages) {
-                    const langCode = data.languages.split(',')[0].split('-')[0].toLowerCase();
-                    if (languages.find(l => l.code === langCode)) {
-                        setCurrentLanguage(langCode);
-                    }
                 }
             } catch (e) {}
         };
