@@ -747,7 +747,10 @@ export default function SendPackage() {
                             {/* Pending Paystack — mobile */}
                             {pendingPayment && (
                                 <div className="lg:hidden bg-amber-50 border border-amber-100 rounded-[20px] p-5">
-                                    <p className="text-xs font-black text-amber-800 mb-3">Complete payment in the Paystack tab, then verify here.</p>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <img src="/paystack-mark.png" alt="Paystack" className="h-5 w-auto shrink-0" />
+                                        <p className="text-xs font-black text-amber-800">Complete payment in the Paystack tab, then verify here.</p>
+                                    </div>
                                     <div className="flex gap-3">
                                         <a href={pendingPayment.authorizationUrl} target="_blank" rel="noreferrer"
                                             className="flex-1 py-3 bg-white border border-amber-200 text-amber-700 rounded-[14px] text-[10px] font-black uppercase tracking-widest text-center">
@@ -833,7 +836,10 @@ export default function SendPackage() {
                                 {/* Pending Paystack — desktop */}
                                 {pendingPayment && (
                                     <div className="bg-amber-50 border border-amber-100 rounded-[18px] p-4">
-                                        <p className="text-xs font-black text-amber-800 mb-3">Complete payment in the Paystack tab, then verify here.</p>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <img src="/paystack-mark.png" alt="Paystack" className="h-5 w-auto shrink-0" />
+                                            <p className="text-xs font-black text-amber-800">Complete payment in the Paystack tab, then verify here.</p>
+                                        </div>
                                         <div className="flex gap-2">
                                             <a href={pendingPayment.authorizationUrl} target="_blank" rel="noreferrer"
                                                 className="flex-1 py-2.5 bg-white border border-amber-200 text-amber-700 rounded-[12px] text-[9px] font-black uppercase tracking-widest text-center">

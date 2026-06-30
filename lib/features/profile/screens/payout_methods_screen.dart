@@ -399,7 +399,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           const SizedBox(height: 28),
           if (_usesPaystack) ...[
             _PayoutChoiceTile(
-              icon: Icons.account_balance_rounded,
+              assetImage: 'assets/images/paystack-mark.png',
               title: payoutState.isActive
                   ? 'Bank account connected'
                   : 'Bank account',
@@ -683,6 +683,7 @@ class _PayoutChoiceTile extends StatelessWidget {
     required this.enabled,
     required this.onTap,
     this.icon,
+    this.assetImage,
     this.paypal = false,
   });
 
@@ -691,6 +692,7 @@ class _PayoutChoiceTile extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
   final IconData? icon;
+  final String? assetImage;
   final bool paypal;
 
   @override
@@ -704,14 +706,21 @@ class _PayoutChoiceTile extends StatelessWidget {
           children: [
             SizedBox(
               width: 42,
-              child: paypal
+              child: assetImage != null
                   ? Image.asset(
-                      'assets/images/paypal-symbol.png',
+                      assetImage!,
                       width: 34,
                       height: 34,
                       fit: BoxFit.contain,
                     )
-                  : Icon(icon, color: AppColors.gray500, size: 27),
+                  : paypal
+                      ? Image.asset(
+                          'assets/images/paypal-symbol.png',
+                          width: 34,
+                          height: 34,
+                          fit: BoxFit.contain,
+                        )
+                      : Icon(icon, color: AppColors.gray500, size: 27),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1068,7 +1077,15 @@ class _MethodPanel extends StatelessWidget {
               color: AppColors.primarySoft,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: AppColors.primary),
+            child: usesPaystack
+                ? Padding(
+                    padding: const EdgeInsets.all(9),
+                    child: Image.asset(
+                      'assets/images/paystack-mark.png',
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                : Icon(icon, color: AppColors.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1174,11 +1191,8 @@ class _PrimaryActionPanel extends StatelessWidget {
             : state.isIncomplete
                 ? 'Continue Stripe Express setup'
                 : 'Set up Stripe Express';
-    final primaryIcon = usesPaystack
-        ? Icons.account_balance_rounded
-        : state.isActive
-            ? Icons.refresh_rounded
-            : Icons.bolt_rounded;
+    final primaryIcon =
+        state.isActive ? Icons.refresh_rounded : Icons.bolt_rounded;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1198,7 +1212,14 @@ class _PrimaryActionPanel extends StatelessWidget {
           ],
           AppButton(
             label: primaryLabel,
-            icon: Icon(primaryIcon, size: 18),
+            icon: usesPaystack
+                ? Image.asset(
+                    'assets/images/paystack-mark.png',
+                    width: 18,
+                    height: 18,
+                    fit: BoxFit.contain,
+                  )
+                : Icon(primaryIcon, size: 18),
             isLoading: saving,
             onPressed: usesPaystack
                 ? onSetupPaystack

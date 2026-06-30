@@ -765,7 +765,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             if (_usePaystack) ...[
               // Paystack — African currencies (NGN / GHS / KES / ZAR)
               _PaymentOptionButton(
-                icon: Icons.payment_rounded,
+                assetImage: 'assets/images/paystack-mark.png',
                 label: 'Pay with Paystack',
                 subtitle: 'Cards, bank transfer & mobile money',
                 isLoading: _isProcessing,

@@ -86,12 +86,7 @@ function PayPalLogo({ size = 20 }) {
 }
 
 function PaystackLogo({ size = 20 }) {
-    return (
-        <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="40" height="40" rx="10" fill="#00C3F7"/>
-            <path d="M12 10h10c4.418 0 8 3.134 8 7s-3.582 7-8 7H16v6h-4V10zm4 10h6c2.209 0 4-1.343 4-3s-1.791-3-4-3h-6v6z" fill="white"/>
-        </svg>
-    );
+    return <img src="/paystack-mark.png" alt="Paystack" style={{ height: size, width: 'auto' }} />;
 }
 
 export default function Earnings({ user, checkAuthStatus }) {

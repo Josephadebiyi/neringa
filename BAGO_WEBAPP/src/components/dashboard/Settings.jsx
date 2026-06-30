@@ -792,6 +792,7 @@ export default function Settings({ user, checkAuthStatus }) {
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
                                 <h4 className="flex items-center gap-2 text-[10px] font-black text-[#111827] mb-4 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
+                                    <img src="/paystack-mark.png" alt="Paystack" className="h-5 w-auto shrink-0" />
                                     Bank Transfer ({preferredCurrency})
                                 </h4>
                                 {hasBankPayout && (
