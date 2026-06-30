@@ -43,6 +43,30 @@ const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH
 const DOJAH_VERIFICATION_URL = 'https://api.dojah.io/api/v1/kyc/verification';
 const DOJAH_LEGACY_EASYONBOARD_URL = 'https://api.dojah.io/api/v1/kyc/easyonboard';
 
+const COUNTRY_CURRENCY_MAP = {
+  NG: 'NGN', GH: 'GHS', KE: 'KES', ZA: 'ZAR', UG: 'UGX', TZ: 'TZS', RW: 'RWF',
+  ET: 'ETB', EG: 'EGP', MA: 'MAD', SN: 'XOF', CI: 'XOF', CM: 'XAF',
+  US: 'USD', CA: 'CAD', BR: 'BRL', MX: 'MXN',
+  GB: 'GBP', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK', PL: 'PLN',
+  CZ: 'CZK', HU: 'HUF', RO: 'RON',
+  FR: 'EUR', DE: 'EUR', ES: 'EUR', IT: 'EUR', NL: 'EUR', BE: 'EUR',
+  PT: 'EUR', AT: 'EUR', FI: 'EUR', IE: 'EUR', GR: 'EUR', LU: 'EUR',
+  SK: 'EUR', SI: 'EUR', EE: 'EUR', LV: 'EUR', LT: 'EUR',
+  AU: 'AUD', NZ: 'NZD', JP: 'JPY', CN: 'CNY', IN: 'INR', SG: 'SGD',
+  HK: 'HKD', AE: 'AED', SA: 'SAR', QA: 'QAR',
+};
+
+const normalizeCountryCode = (value = '') => {
+  const code = String(value || '').trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : '';
+};
+
+const currencyForCountry = (countryCode = '', fallback = 'USD') =>
+  COUNTRY_CURRENCY_MAP[normalizeCountryCode(countryCode)] || fallback;
+
+const paymentGatewayForCountry = (countryCode = '') =>
+  DOJAH_COUNTRIES.has(normalizeCountryCode(countryCode)) ? 'paystack' : 'stripe';
+
 const dojahAuthHeaders = () => ({ AppId: DOJAH_APP_ID, Authorization: DOJAH_SECRET });
 
 const fetchDojahVerificationByReference = async (referenceId) => {
@@ -956,7 +980,7 @@ export const updateLegalName = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false });
 
-    const { firstName, lastName, dateOfBirth } = req.body;
+    const { firstName, lastName, dateOfBirth, country, countryCode, currency } = req.body;
     const { validateLegalName } = await import('../services/securityService.js');
 
     const nameCheck = validateLegalName(`${firstName || ''} ${lastName || ''}`.trim());
@@ -979,15 +1003,47 @@ export const updateLegalName = async (req, res) => {
       dobValue = dob.toISOString().split('T')[0]; // YYYY-MM-DD
     }
 
+    const normalizedCountry = normalizeCountryCode(countryCode || country);
+    if (!normalizedCountry) {
+      return res.status(400).json({ success: false, message: 'Please choose your country before continuing.' });
+    }
+    const requestedCurrency = String(currency || '').trim().toUpperCase();
+    const walletCurrency = currencyForCountry(
+      normalizedCountry,
+      /^[A-Z]{3}$/.test(requestedCurrency) ? requestedCurrency : 'USD',
+    );
+    const paymentGateway = paymentGatewayForCountry(normalizedCountry);
+
     await query(
       `UPDATE public.profiles
        SET first_name  = $2,
            last_name   = $3,
            date_of_birth = COALESCE($4::date, date_of_birth),
+           country = $5,
+           preferred_currency = $6,
+           payment_gateway = $7,
            updated_at  = NOW()
        WHERE id = $1`,
-      [userId, firstName.trim(), lastName.trim(), dobValue],
+      [userId, firstName.trim(), lastName.trim(), dobValue, normalizedCountry, walletCurrency, paymentGateway],
     );
+
+    const wallet = await queryOne(
+      `SELECT id, available_balance, escrow_balance FROM public.wallet_accounts WHERE user_id = $1`,
+      [userId],
+    );
+    if (!wallet) {
+      await query(
+        `INSERT INTO public.wallet_accounts (user_id, available_balance, escrow_balance, currency)
+         VALUES ($1, 0, 0, $2)`,
+        [userId, walletCurrency],
+      );
+    } else if (Number(wallet.available_balance || 0) === 0 && Number(wallet.escrow_balance || 0) === 0) {
+      await query(
+        `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
+        [userId, walletCurrency],
+      );
+    }
+
     // Best-effort: clear pending_name status and record submission (columns may not exist on older DBs)
     query(
       `UPDATE public.profiles
@@ -997,9 +1053,15 @@ export const updateLegalName = async (req, res) => {
       [userId, firstName.trim(), lastName.trim()],
     ).catch(() => {});
 
-    return res.json({ success: true, message: 'Details updated successfully' });
+    return res.json({
+      success: true,
+      message: 'Details updated successfully',
+      country: normalizedCountry,
+      currency: walletCurrency,
+      paymentGateway,
+    });
   } catch (err) {
     console.error('updateLegalName error:', err);
-    return res.status(500).json({ success: false, message: 'Failed to update name' });
+    return res.status(500).json({ success: false, message: 'Failed to update details' });
   }
 };

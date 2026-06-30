@@ -141,10 +141,6 @@ const Navbar = () => {
                     )}
                 </div>
 
-                {/* Mobile Hamburger */}
-                <button onClick={() => setShowMobileMenu(true)} className="md:hidden flex items-center p-2 rounded-xl bg-gray-50 text-[#012126]">
-                    <Menu size={24} />
-                </button>
             </div>
 
             {/* Mobile Side Sheet */}
@@ -179,7 +175,7 @@ const Navbar = () => {
                                     ].map((item) => (
                                         <button key={item.path}
                                             onClick={() => item.path === '/post-trip' ? handlePostTrip() : (navigate(item.path), setShowMobileMenu(false))}
-                                            className={`w-full py-3.5 text-lg font-black flex items-center gap-4 hover:opacity-70 transition-opacity ${item.purple ? 'text-[#5845D8]' : 'text-[#012126]'}`}
+                                            className={`w-full py-3.5 text-lg font-extrabold flex items-center gap-4 hover:opacity-70 transition-opacity ${item.purple ? 'text-[#5845D8]' : 'text-[#012126]'}`}
                                         >
                                             {item.icon}
                                             <span>{item.label}</span>
@@ -187,7 +183,7 @@ const Navbar = () => {
                                     ))}
                                 </div>
                                 <div className="pt-6 border-t border-gray-100">
-                                    <p className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-4">Language</p>
+                                    <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">Language</p>
                                     <select value={currentLanguage} onChange={(e) => setLanguage(e.target.value)}
                                         className="w-full p-3.5 rounded-2xl border border-gray-100 bg-gray-50 text-[#012126] font-bold text-sm outline-none">
                                         {languages.map((lang) => (
@@ -196,11 +192,11 @@ const Navbar = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-[2px] text-gray-400 mb-4">Currency</p>
+                                    <p className="text-[10px] font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">Currency</p>
                                     <div className="flex flex-wrap gap-2">
                                         {currencies.map((c) => (
                                             <button key={c} onClick={() => { setCurrency(c); setShowMobileMenu(false); }}
-                                                className={`px-3 py-2 rounded-xl border text-xs font-black transition-all ${currency === c ? 'border-[#5845D8] bg-[#5845D8] text-white' : 'border-gray-100 bg-gray-50 text-[#012126]'}`}>
+                                                className={`px-3 py-2 rounded-xl border text-xs font-extrabold transition-all ${currency === c ? 'border-[#5845D8] bg-[#5845D8] text-white' : 'border-gray-100 bg-gray-50 text-[#012126]'}`}>
                                                 {c}
                                             </button>
                                         ))}
@@ -217,13 +213,13 @@ const Navbar = () => {
                                             <div><p className="font-bold text-[#012126] text-sm">{user?.firstName} {user?.lastName}</p></div>
                                         </div>
                                         <Link to="/dashboard" onClick={() => setShowMobileMenu(false)}
-                                            className="w-full block text-center py-3.5 bg-[#5845D8] text-white rounded-2xl font-black shadow-lg">
+                                            className="w-full block text-center py-3.5 bg-[#5845D8] text-white rounded-2xl font-extrabold shadow-lg">
                                             Go to Dashboard
                                         </Link>
                                     </div>
                                 ) : (
                                     <Link to="/login" onClick={() => setShowMobileMenu(false)}
-                                        className="w-full block text-center py-3.5 bg-[#5845D8] text-white rounded-2xl font-black shadow-lg">
+                                        className="w-full block text-center py-3.5 bg-[#5845D8] text-white rounded-2xl font-extrabold shadow-lg">
                                         Log In / Register
                                     </Link>
                                 )}
@@ -321,25 +317,25 @@ const HeroSection = () => {
                         <div className="flex">
                             {[1, 2, 3, 4, 5].map(i => <Star key={i} size={18} className="fill-[#FFB800] text-[#FFB800]" />)}
                         </div>
-                        <span className="text-sm font-black text-gray-500">4.9 Store Rating</span>
+                        <span className="text-sm font-extrabold text-gray-500">4.9 Store Rating</span>
                     </div>
-                    <h1 className="max-w-3xl text-5xl font-black leading-[0.94] tracking-tight text-[#171B22] md:text-6xl lg:text-7xl">
+                    <h1 className="max-w-3xl text-4xl font-extrabold leading-[0.96] text-[#171B22] sm:text-5xl md:text-6xl lg:text-7xl">
                         Send packages. Earn from trips.
                     </h1>
-                    <p className="mt-7 max-w-xl text-lg font-semibold leading-relaxed text-gray-500">
+                    <p className="mt-6 max-w-xl text-base font-semibold leading-relaxed text-gray-500 md:text-lg">
                         Bago lets people ship items through verified travelers already going that way. Senders get protection. Travelers get paid for space they already have.
                     </p>
                     <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                         <button
                             onClick={() => navigate('/search')}
-                            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#171B22] px-7 py-4 text-sm font-black text-white shadow-[0_18px_45px_rgba(23,27,34,0.16)] transition hover:bg-[#5845D8]"
+                            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#171B22] px-7 py-4 text-sm font-extrabold text-white shadow-[0_18px_45px_rgba(23,27,34,0.16)] transition hover:bg-[#5845D8]"
                         >
                             <Search size={18} strokeWidth={3} />
                             Send a package
                         </button>
                         <button
                             onClick={() => goToPostTripWhenVerified({ navigate, isAuthenticated, user })}
-                            className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-7 py-4 text-sm font-black text-[#171B22] transition hover:border-[#5845D8] hover:text-[#5845D8]"
+                            className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-7 py-4 text-sm font-extrabold text-[#171B22] transition hover:border-[#5845D8] hover:text-[#5845D8]"
                         >
                             <Plane size={18} strokeWidth={3} />
                             Earn as a traveler
@@ -350,15 +346,15 @@ const HeroSection = () => {
                         <GooglePlayBadge />
                     </div>
                     <div className="mt-8 flex flex-wrap gap-5">
-                        <span className="text-sm font-black text-gray-500">Escrow protected</span>
-                        <span className="text-sm font-black text-gray-500">Insurance available</span>
-                        <span className="text-sm font-black text-gray-500">Open-box policy</span>
+                        <span className="text-sm font-extrabold text-gray-500">Escrow protected</span>
+                        <span className="text-sm font-extrabold text-gray-500">Insurance available</span>
+                        <span className="text-sm font-extrabold text-gray-500">Open-box policy</span>
                     </div>
                 </div>
 
                 <div className="rounded-[32px] bg-[#F6F7FA] p-2 shadow-[0_28px_90px_rgba(23,27,34,0.08)] ring-1 ring-gray-100">
                     <div className="rounded-[28px] bg-white p-5 md:p-7">
-                        <div className="grid grid-cols-2 rounded-full bg-[#EEEFF3] p-1.5 text-center text-sm font-black text-gray-500">
+                        <div className="grid grid-cols-2 rounded-full bg-[#EEEFF3] p-1.5 text-center text-sm font-extrabold text-gray-500">
                             {[
                                 ['send', 'Send'],
                                 ['earn', 'Earn'],
@@ -389,7 +385,7 @@ const HeroSection = () => {
                                 styles={customStyles}
                             />
                             <label className="block rounded-2xl bg-[#F7F7F8] px-5 py-4">
-                                <span className="mb-2 block text-xs font-black uppercase tracking-widest text-gray-400">Date</span>
+                                <span className="mb-2 block text-xs font-extrabold uppercase tracking-widest text-gray-400">Date</span>
                                 <div className="flex items-center gap-3">
                                     <Calendar size={18} className="text-[#5845D8]" />
                                     <input
@@ -397,13 +393,13 @@ const HeroSection = () => {
                                         value={date}
                                         onChange={(e) => setDate(e.target.value)}
                                         min={new Date().toISOString().split('T')[0]}
-                                        className="w-full bg-transparent text-sm font-black text-[#171B22] outline-none"
+                                        className="w-full bg-transparent text-sm font-extrabold text-[#171B22] outline-none"
                                     />
                                 </div>
                             </label>
                             <button
                                 type="submit"
-                                className="flex w-full items-center justify-center gap-3 rounded-full bg-[#171B22] py-5 text-sm font-black text-white transition hover:bg-[#5845D8]"
+                                className="flex w-full items-center justify-center gap-3 rounded-full bg-[#171B22] py-5 text-sm font-extrabold text-white transition hover:bg-[#5845D8]"
                             >
                                 {mode === 'earn' ? 'Post your trip' : 'Find a traveler'}
                                 <ArrowRight size={18} />
@@ -421,7 +417,7 @@ const HeroSection = () => {
 
 const HeroLocationField = ({ label, value, onChange, placeholder, styles }) => (
     <div className="rounded-2xl bg-[#F7F7F8] px-5 py-4">
-        <p className="mb-2 text-xs font-black uppercase tracking-widest text-gray-400">{label}</p>
+        <p className="mb-2 text-xs font-extrabold uppercase tracking-widest text-gray-400">{label}</p>
         <div className="flex items-center gap-3 rounded-full bg-[#ECEEF3] px-3 py-2">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
                 <span className="text-[21px] leading-none">{value?.flag || '🌍'}</span>
@@ -481,7 +477,7 @@ const TrustStrip = () => {
                             <item.icon size={20} />
                         </div>
                         <div>
-                            <p className="text-sm font-black text-[#012126]">{item.title}</p>
+                            <p className="text-sm font-extrabold text-[#012126]">{item.title}</p>
                             <p className="mt-1 text-xs font-bold text-gray-400">{item.desc}</p>
                         </div>
                     </div>
@@ -517,7 +513,7 @@ const RotatingImagePanel = ({ images = SLIDESHOW_IMAGES, badge = 'Bago', overlay
                     onError={(e) => { e.currentTarget.src = '/assets/bago-app-preview.png'; }}
                 />
             ))}
-            <div className="absolute left-6 top-6 rounded-full bg-white px-5 py-3 text-sm font-black text-[#171B22] shadow-lg">
+            <div className="absolute left-6 top-6 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-[#171B22] shadow-lg">
                 {badge}
             </div>
             <div className="absolute right-6 top-6 flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#171B22] shadow-lg">
@@ -548,13 +544,13 @@ const AppRouteCard = ({ className = '' }) => (
                 <Bus size={21} />
             </div>
             <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest text-amber-600">Trip #0004 · Pending</p>
-                <p className="mt-1 text-base font-black text-[#171B22]">EUR 1/kg</p>
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-600">Trip #0004 · Pending</p>
+                <p className="mt-1 text-base font-extrabold text-[#171B22]">EUR 1/kg</p>
             </div>
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <div>
-                <p className="text-2xl font-black text-[#171B22]">LAG</p>
+                <p className="text-2xl font-extrabold text-[#171B22]">LAG</p>
                 <p className="text-xs font-bold text-gray-400">Lagos</p>
             </div>
             <div className="flex items-center gap-2 text-[#5845D8]">
@@ -565,13 +561,13 @@ const AppRouteCard = ({ className = '' }) => (
                 <span className="h-2 w-2 rounded-full border-2 border-gray-300" />
             </div>
             <div className="text-right">
-                <p className="text-2xl font-black text-[#171B22]">IBA</p>
+                <p className="text-2xl font-extrabold text-[#171B22]">IBA</p>
                 <p className="text-xs font-bold text-gray-400">Ibadan</p>
             </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2 border-t border-dashed border-gray-200 pt-3">
-            <span className="rounded-full bg-[#F5F6F8] px-3 py-2 text-xs font-black text-gray-600">6kg free</span>
-            <span className="rounded-full bg-[#F5F6F8] px-3 py-2 text-xs font-black text-gray-600">0kg booked</span>
+            <span className="rounded-full bg-[#F5F6F8] px-3 py-2 text-xs font-extrabold text-gray-600">6kg free</span>
+            <span className="rounded-full bg-[#F5F6F8] px-3 py-2 text-xs font-extrabold text-gray-600">0kg booked</span>
         </div>
     </div>
 );
@@ -813,8 +809,8 @@ const HowItWorksSection = () => {
         <section className="bg-[#F8F6F3] px-6 py-24 md:px-12">
             <div className="mx-auto max-w-[1200px]">
                 <div className="mb-12 max-w-2xl">
-                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-[#5845D8]">How Bago works</span>
-                    <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-tight text-[#012126] md:text-5xl">
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#5845D8]">How Bago works</span>
+                    <h2 className="mt-4 text-3xl font-extrabold leading-[1.04] text-[#012126] md:text-5xl">
                         A shipping flow that feels simple from both sides.
                     </h2>
                 </div>
@@ -825,9 +821,9 @@ const HowItWorksSection = () => {
                                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#012126] text-white">
                                     <step.icon size={22} />
                                 </div>
-                                <span className="text-5xl font-black leading-none text-[#012126]/8">0{index + 1}</span>
+                                <span className="text-5xl font-extrabold leading-none text-[#012126]/8">0{index + 1}</span>
                             </div>
-                            <h3 className="text-xl font-black leading-tight text-[#012126]">{step.title}</h3>
+                            <h3 className="text-xl font-extrabold leading-tight text-[#012126]">{step.title}</h3>
                             <p className="mt-4 text-sm font-medium leading-relaxed text-gray-500">{step.desc}</p>
                         </div>
                     ))}
@@ -844,8 +840,8 @@ const EarnMoneySection = () => {
         <section className="bg-white px-6 py-24 md:px-12">
             <div className="mx-auto grid max-w-[1240px] items-center gap-14 lg:grid-cols-2">
                 <div>
-                    <span className="text-sm font-black text-gray-400">Earn with Bago</span>
-                    <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-tight text-[#171B22] md:text-5xl lg:text-6xl">
+                    <span className="text-sm font-extrabold text-gray-400">Earn with Bago</span>
+                    <h2 className="mt-4 text-3xl font-extrabold leading-[1.04] text-[#171B22] md:text-5xl lg:text-6xl">
                         Make money from trips you already planned.
                     </h2>
                     <p className="mt-7 max-w-xl text-lg font-semibold leading-relaxed text-gray-500">
@@ -858,14 +854,14 @@ const EarnMoneySection = () => {
                             ['Get paid', 'After delivery'],
                         ].map(([title, desc]) => (
                             <div key={title} className="rounded-2xl bg-[#F5F6F8] p-4">
-                                <p className="text-sm font-black text-[#171B22]">{title}</p>
+                                <p className="text-sm font-extrabold text-[#171B22]">{title}</p>
                                 <p className="mt-1 text-xs font-bold text-gray-400">{desc}</p>
                             </div>
                         ))}
                     </div>
                     <button
                         onClick={() => goToPostTripWhenVerified({ navigate, isAuthenticated, user })}
-                        className="mt-9 inline-flex items-center gap-3 rounded-full bg-[#171B22] px-7 py-4 text-sm font-black text-white transition hover:bg-[#5845D8]"
+                        className="mt-9 inline-flex items-center gap-3 rounded-full bg-[#171B22] px-7 py-4 text-sm font-extrabold text-white transition hover:bg-[#5845D8]"
                     >
                         Post a trip
                         <ArrowRight size={18} />
@@ -882,8 +878,8 @@ const EarnMoneySection = () => {
                         <>
                             <AppRouteCard className="absolute bottom-7 left-7 w-[390px] max-w-[calc(100%-56px)] hidden md:block" />
                             <div className="absolute right-6 top-24 rounded-[22px] bg-white/95 px-5 py-4 shadow-2xl backdrop-blur">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Can earn</p>
-                                <p className="mt-1 text-3xl font-black text-[#171B22]">£42</p>
+                                <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Can earn</p>
+                                <p className="mt-1 text-3xl font-extrabold text-[#171B22]">£42</p>
                             </div>
                         </>
                     }
@@ -930,12 +926,12 @@ const ProtectionPolicySection = () => {
                         ]}
                         overlay={
                             <div className="absolute bottom-8 left-6 w-[270px] rounded-[22px] bg-white/95 p-4 shadow-2xl backdrop-blur hidden md:block">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Protection status</p>
+                                <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Protection status</p>
                                 <div className="mt-3 space-y-2">
                                     {['Declared value saved', 'Open-box check complete', 'Escrow payment protected'].map((item) => (
                                         <div key={item} className="flex items-center gap-3">
                                             <CheckCircle size={16} className="text-[#5845D8]" />
-                                            <span className="text-xs font-black text-[#171B22]">{item}</span>
+                                            <span className="text-xs font-extrabold text-[#171B22]">{item}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -943,9 +939,9 @@ const ProtectionPolicySection = () => {
                         }
                     />
                     <div>
-                        <span className="text-sm font-black text-gray-400">Protection before pickup</span>
-                        <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-tight text-[#171B22] md:text-5xl lg:text-6xl">
-                            Clear rules for loss, damage, and open-box checks.
+                        <span className="text-sm font-extrabold text-gray-400">Protection before pickup</span>
+                        <h2 className="mt-4 text-3xl font-extrabold leading-[1.04] text-[#171B22] md:text-5xl lg:text-6xl">
+                            Protected from pickup to delivery.
                         </h2>
                         <p className="mt-7 max-w-xl text-lg font-semibold leading-relaxed text-gray-500">
                             Bago is not just matching people. It protects the transaction with declared item value, inspection rules, escrow, AI-assisted compliance checks, and support if something goes wrong.
@@ -957,7 +953,7 @@ const ProtectionPolicySection = () => {
                                         <policy.icon size={21} />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-black text-[#171B22]">{policy.title}</h3>
+                                        <h3 className="text-base font-extrabold text-[#171B22]">{policy.title}</h3>
                                         <p className="mt-1 text-sm font-medium leading-relaxed text-gray-500">{policy.desc}</p>
                                     </div>
                                 </div>
@@ -968,8 +964,8 @@ const ProtectionPolicySection = () => {
 
                 <div className="grid items-center gap-14 lg:grid-cols-[0.95fr_1.05fr]">
                     <div>
-                        <span className="text-sm font-black text-gray-400">Payouts after delivery</span>
-                        <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-tight text-[#171B22] md:text-5xl">
+                        <span className="text-sm font-extrabold text-gray-400">Payouts after delivery</span>
+                        <h2 className="mt-4 text-3xl font-extrabold leading-[1.04] text-[#171B22] md:text-5xl">
                             Travelers know where their money is going.
                         </h2>
                         <p className="mt-7 max-w-xl text-lg font-semibold leading-relaxed text-gray-500">
@@ -982,7 +978,7 @@ const ProtectionPolicySection = () => {
                                 ['Get paid', 'Status visible'],
                             ].map(([title, desc]) => (
                                 <div key={title} className="rounded-2xl bg-white p-4">
-                                    <p className="text-sm font-black text-[#171B22]">{title}</p>
+                                    <p className="text-sm font-extrabold text-[#171B22]">{title}</p>
                                     <p className="mt-1 text-xs font-bold text-gray-400">{desc}</p>
                                 </div>
                             ))}
@@ -997,8 +993,8 @@ const ProtectionPolicySection = () => {
                         ]}
                         overlay={
                             <div className="absolute bottom-8 right-6 hidden max-w-[270px] rounded-[22px] bg-white/95 p-4 shadow-2xl backdrop-blur md:block">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Global payouts</p>
-                                <p className="mt-2 text-xl font-black leading-tight text-[#171B22]">We pay out in all currencies.</p>
+                                <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-400">Global payouts</p>
+                                <p className="mt-2 text-xl font-extrabold leading-tight text-[#171B22]">We pay out in all currencies.</p>
                                 <p className="mt-2 text-xs font-bold leading-relaxed text-gray-400">Travelers can see payout status and supported local options in their account.</p>
                             </div>
                         }
@@ -1021,8 +1017,8 @@ const TransparentPricingSection = () => {
         <section className="bg-white px-6 py-24 md:px-12">
             <div className="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
                 <div>
-                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-[#5845D8]">Transparent pricing</span>
-                    <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-tight text-[#012126] md:text-5xl">
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#5845D8]">Transparent pricing</span>
+                    <h2 className="mt-4 text-3xl font-extrabold leading-[1.04] text-[#012126] md:text-5xl">
                         See the cost before you commit.
                     </h2>
                     <p className="mt-6 max-w-xl text-base font-medium leading-relaxed text-gray-500">
@@ -1030,7 +1026,7 @@ const TransparentPricingSection = () => {
                     </p>
                     <div className="mt-8 flex flex-wrap gap-3">
                         {['No hidden fees', 'Escrow release', 'Clear traveler payout'].map((label) => (
-                            <span key={label} className="rounded-full border border-[#5845D8]/15 bg-[#5845D8]/8 px-4 py-2 text-xs font-black text-[#5845D8]">
+                            <span key={label} className="rounded-full border border-[#5845D8]/15 bg-[#5845D8]/8 px-4 py-2 text-xs font-extrabold text-[#5845D8]">
                                 {label}
                             </span>
                         ))}
@@ -1041,8 +1037,8 @@ const TransparentPricingSection = () => {
                     <div className="rounded-[22px] border border-white/10 bg-white/[0.06] p-6">
                         <div className="mb-7 flex items-center justify-between">
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">Sample checkout</p>
-                                <h3 className="mt-2 text-2xl font-black">Bago estimate</h3>
+                                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-white/45">Sample checkout</p>
+                                <h3 className="mt-2 text-2xl font-extrabold">Bago estimate</h3>
                             </div>
                             <Calculator className="text-[#8B7DFF]" size={30} />
                         </div>
@@ -1050,14 +1046,14 @@ const TransparentPricingSection = () => {
                             {rows.map(([label, value]) => (
                                 <div key={label} className="flex items-center justify-between rounded-2xl bg-white/[0.06] px-4 py-3">
                                     <span className="text-sm font-bold text-white/55">{label}</span>
-                                    <span className="text-sm font-black text-white">{value}</span>
+                                    <span className="text-sm font-extrabold text-white">{value}</span>
                                 </div>
                             ))}
                         </div>
                         <div className="mt-4 rounded-2xl bg-white px-4 py-4 text-[#012126]">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-black">Total today</span>
-                                <span className="text-3xl font-black tracking-tight">£42.50</span>
+                                <span className="text-sm font-extrabold">Total today</span>
+                                <span className="text-3xl font-extrabold tracking-tight">£42.50</span>
                             </div>
                             <p className="mt-2 text-xs font-bold text-gray-400">Held securely until delivery is confirmed.</p>
                         </div>
@@ -1092,14 +1088,14 @@ const TestimonialsSection = () => {
             <div className="mx-auto max-w-[1200px]">
                 <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
                     <div className="max-w-2xl">
-                        <span className="text-[11px] font-black uppercase tracking-[0.22em] text-[#5845D8]">Community proof</span>
-                        <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-tight text-[#012126] md:text-5xl">
+                        <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#5845D8]">Community proof</span>
+                        <h2 className="mt-4 text-3xl font-extrabold leading-[1.04] text-[#012126] md:text-5xl">
                             Built for senders and travelers.
                         </h2>
                     </div>
                     <div className="flex items-center gap-2">
                         {[1, 2, 3, 4, 5].map(i => <Star key={i} size={18} className="fill-[#FFB800] text-[#FFB800]" />)}
-                        <span className="ml-2 text-sm font-black text-[#012126]">4.9 rated</span>
+                        <span className="ml-2 text-sm font-extrabold text-[#012126]">4.9 rated</span>
                     </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
@@ -1107,11 +1103,11 @@ const TestimonialsSection = () => {
                         <div key={review.name} className="rounded-[24px] border border-gray-100 bg-white p-7 shadow-[0_18px_50px_rgba(1,33,38,0.05)]">
                             <p className="text-base font-bold leading-relaxed text-[#012126]">“{review.quote}”</p>
                             <div className="mt-8 flex items-center gap-3">
-                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#5845D8] text-sm font-black text-white">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#5845D8] text-sm font-extrabold text-white">
                                     {review.name.charAt(0)}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-black text-[#012126]">{review.name}</p>
+                                    <p className="text-sm font-extrabold text-[#012126]">{review.name}</p>
                                     <p className="text-xs font-bold text-gray-400">{review.meta}</p>
                                 </div>
                             </div>
@@ -1144,11 +1140,11 @@ const FeaturesSection = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr]">
                     <div className="p-8 md:p-10 lg:p-12 bg-[#012126] text-white flex flex-col justify-between min-h-[360px]">
                         <div>
-                            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white/70">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-white/70">
                                 <ShieldCheck size={13} />
                                 Trust built in
                             </span>
-                            <h2 className="mt-6 text-4xl md:text-5xl font-black leading-[0.95] tracking-tight">
+                            <h2 className="mt-6 text-3xl md:text-5xl font-extrabold leading-[1.02]">
                                 Ship with people, keep the process clear.
                             </h2>
                             <p className="mt-5 max-w-sm text-sm md:text-base font-medium leading-relaxed text-white/65">
@@ -1163,8 +1159,8 @@ const FeaturesSection = () => {
                                 ['Live', 'updates'],
                             ].map(([value, label]) => (
                                 <div key={value} className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
-                                    <p className="text-sm font-black leading-none">{value}</p>
-                                    <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-white/45">{label}</p>
+                                    <p className="text-sm font-extrabold leading-none">{value}</p>
+                                    <p className="mt-1 text-[9px] font-extrabold uppercase tracking-widest text-white/45">{label}</p>
                                 </div>
                             ))}
                         </div>
@@ -1181,7 +1177,7 @@ const FeaturesSection = () => {
                                 <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#5845D8]/8 text-[#5845D8] group-hover:bg-[#5845D8] group-hover:text-white transition-colors">
                                     <f.icon size={21} strokeWidth={2.1} />
                                 </div>
-                                <h3 className="text-base font-black text-[#012126] tracking-tight">{f.title}</h3>
+                                <h3 className="text-base font-extrabold text-[#012126] tracking-tight">{f.title}</h3>
                                 <p className="mt-2 text-sm font-medium leading-relaxed text-[#6B7280]">{f.desc}</p>
                             </div>
                         ))}
@@ -1204,8 +1200,8 @@ const TripTypeSection = () => {
         <section className="bg-white px-6 py-24 md:px-12">
             <div className="mx-auto max-w-[1200px]">
                 <div className="mb-10 max-w-2xl">
-                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-[#5845D8]">Choose your side</span>
-                    <h2 className="mt-4 text-4xl font-black leading-[1.02] tracking-tight text-[#012126] md:text-5xl">
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#5845D8]">Choose your side</span>
+                    <h2 className="mt-4 text-3xl font-extrabold leading-[1.04] text-[#012126] md:text-5xl">
                         Send something, or earn from a trip you already planned.
                     </h2>
                 </div>
@@ -1237,9 +1233,9 @@ const TripTypeSection = () => {
                             </div>
                             <ArrowRight size={22} className="text-[#5845D8] transition group-hover:translate-x-1 group-hover:text-white" />
                         </div>
-                        <h3 className="text-3xl font-black tracking-tight text-[#012126] group-hover:text-white">{item.label}</h3>
+                        <h3 className="text-3xl font-extrabold tracking-tight text-[#012126] group-hover:text-white">{item.label}</h3>
                         <p className="mt-4 max-w-md text-sm font-medium leading-relaxed text-gray-500 group-hover:text-white/62">{item.desc}</p>
-                        <div className="mt-8 inline-flex items-center gap-2 text-sm font-black text-[#5845D8] group-hover:text-white">
+                        <div className="mt-8 inline-flex items-center gap-2 text-sm font-extrabold text-[#5845D8] group-hover:text-white">
                             {item.cta}
                             <ArrowRight size={16} />
                         </div>
@@ -1274,7 +1270,7 @@ const FAQSection = () => {
                     <span className="inline-block px-4 py-1.5 bg-white/10 text-white/50 border border-white/20 rounded-full text-[11px] font-bold uppercase tracking-widest mb-8">
                         FAQs
                     </span>
-                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-[1.02] tracking-tight mb-0">
+                    <h2 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white leading-[1.04] mb-0">
                         {(() => {
                             const part1 = t('answersHeader') || 'Here are Answers Related to';
                             const part2 = t('bagoService') || 'Bago Service';
@@ -1291,12 +1287,12 @@ const FAQSection = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent z-10" />
                         <img src="/assets/bago-market-community.jpg" alt="Bago community market" className="w-full h-full object-cover" />
                         <div className="absolute bottom-8 left-8 z-20 max-w-xs">
-                            <h3 className="text-2xl font-black text-white mb-5 leading-tight">
+                            <h3 className="text-2xl font-extrabold text-white mb-5 leading-tight">
                                 {t('joinRailsTitle') || 'Join us in building the rails for global shipping.'}
                             </h3>
                             <button
                                 onClick={() => navigate('/signup')}
-                                className="px-7 py-3.5 bg-[#5845D8] text-white font-black rounded-full shadow-lg hover:scale-105 hover:bg-[#4838B5] transition-all text-sm">
+                                className="px-7 py-3.5 bg-[#5845D8] text-white font-extrabold rounded-full shadow-lg hover:scale-105 hover:bg-[#4838B5] transition-all text-sm">
                                 {t('getStartedBtn') || 'Get started for free'}
                             </button>
                         </div>
@@ -1387,7 +1383,7 @@ const AppSection = () => (
                 <div className="flex flex-col justify-center px-10 md:px-16 py-14">
                     <h2 className="text-[42px] md:text-[52px] text-white font-light leading-[1.12] tracking-tight mb-7">
                         Every delivery is a story.<br />
-                        <strong className="font-black">What is yours?</strong>
+                        <strong className="font-extrabold">What is yours?</strong>
                     </h2>
                     <p className="text-white/55 text-[13.5px] leading-relaxed mb-5 max-w-[360px]">
                         When it comes to international package delivery, every shipment becomes more than a transaction — it is a chance to send care and connection to the people and places that matter most.
@@ -1429,10 +1425,10 @@ const CommunityCTA = () => {
                 <div className="absolute inset-0 bg-[#012126]/72" />
             </div>
             <div className="relative z-10 max-w-4xl px-6 text-center">
-                <span className="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-white/70">
+                <span className="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-extrabold uppercase tracking-widest text-white/70">
                     Ready when you are
                 </span>
-                <h2 className="text-4xl font-black tracking-tight text-white md:text-5xl lg:text-6xl leading-[1.02]">
+                <h2 className="text-3xl font-extrabold text-white md:text-5xl lg:text-6xl leading-[1.04]">
                     Send smarter across borders.
                 </h2>
                 <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-relaxed text-white/68">
@@ -1440,11 +1436,11 @@ const CommunityCTA = () => {
                 </p>
                 <div className="mt-10 flex flex-col md:flex-row gap-4 justify-center">
                     <button onClick={() => navigate('/search')}
-                        className="px-9 py-4 bg-[#5845D8] text-white font-black rounded-full text-sm hover:bg-[#4838B5] transition-all min-w-[210px] shadow-lg">
+                        className="px-9 py-4 bg-[#5845D8] text-white font-extrabold rounded-full text-sm hover:bg-[#4838B5] transition-all min-w-[210px] shadow-lg">
                         {t('sendWithBago') || 'Send with Bago'}
                     </button>
                     <button onClick={() => goToPostTripWhenVerified({ navigate, isAuthenticated, user })}
-                        className="px-9 py-4 border border-white/20 bg-white/10 text-white font-black rounded-full text-sm hover:bg-white/15 transition-all min-w-[210px]">
+                        className="px-9 py-4 border border-white/20 bg-white/10 text-white font-extrabold rounded-full text-sm hover:bg-white/15 transition-all min-w-[210px]">
                         {t('travelWithBago') || 'Travel with Bago'}
                     </button>
                 </div>
@@ -1468,7 +1464,7 @@ const TrackingSection = () => {
                 </div>
                 {/* text */}
                 <div className="w-full md:w-7/12">
-                    <h2 className="text-4xl md:text-5xl font-bold text-[#012126] leading-tight tracking-tight mb-6">
+                    <h2 className="text-3xl md:text-5xl font-bold text-[#012126] leading-tight mb-6">
                         {t('realTimeTrackingTitle') || <>Real-time tracking.<br />Total peace of<br />mind.</>}
                     </h2>
                     <p className="text-[#6B7280] text-base font-medium leading-relaxed mb-8 max-w-md">
@@ -1494,7 +1490,7 @@ const CarSection = () => {
         <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-16">
             <div className="flex flex-col-reverse md:flex-row items-center gap-16">
                 <div className="w-full md:w-1/2">
-                    <h2 className="text-4xl md:text-5xl font-black text-[#012126] mb-8">
+                    <h2 className="text-3xl md:text-5xl font-extrabold text-[#012126] mb-8">
                         {t('testimonialTitle') || 'Only on Bago...'}
                     </h2>
                     <p className="text-[#012126] text-xl font-medium leading-relaxed mb-6 italic">
@@ -1557,7 +1553,7 @@ const PromoBar = () => {
     return (
         <section className="px-6 md:px-12 max-w-[1200px] mx-auto py-6">
             <div className="bg-[#012126] rounded-2xl p-8 md:p-10 text-center">
-                <h2 className="text-4xl md:text-5xl font-black text-white mb-3 tracking-tight leading-[1.02]">
+                <h2 className="text-3xl md:text-5xl font-extrabold text-white mb-3 leading-[1.04]">
                     {(() => {
                         const title = t('promoTitle') || 'Earn from your travels.';
                         const words = title.split(' ');

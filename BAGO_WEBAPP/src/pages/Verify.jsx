@@ -52,6 +52,21 @@ const normalizeCountryCode = (value) => {
     return byName?.code || '';
 };
 
+const COUNTRY_CURRENCY = {
+    NG: 'NGN', GH: 'GHS', KE: 'KES', ZA: 'ZAR', UG: 'UGX', TZ: 'TZS', RW: 'RWF',
+    ET: 'ETB', EG: 'EGP', MA: 'MAD', SN: 'XOF', CI: 'XOF', CM: 'XAF',
+    US: 'USD', CA: 'CAD', BR: 'BRL', MX: 'MXN',
+    GB: 'GBP', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK', PL: 'PLN',
+    CZ: 'CZK', HU: 'HUF', RO: 'RON',
+    FR: 'EUR', DE: 'EUR', ES: 'EUR', IT: 'EUR', NL: 'EUR', BE: 'EUR',
+    PT: 'EUR', AT: 'EUR', FI: 'EUR', IE: 'EUR', GR: 'EUR', LU: 'EUR',
+    SK: 'EUR', SI: 'EUR', EE: 'EUR', LV: 'EUR', LT: 'EUR',
+    AU: 'AUD', NZ: 'NZD', JP: 'JPY', CN: 'CNY', IN: 'INR', SG: 'SGD',
+    HK: 'HKD', AE: 'AED', SA: 'SAR', QA: 'QAR',
+};
+
+const currencyForCountry = (code) => COUNTRY_CURRENCY[normalizeCountryCode(code)] || 'USD';
+
 // ─── Status normaliser ────────────────────────────────────────────────────────
 
 const normalizeKycStatus = (raw) => {
@@ -230,11 +245,16 @@ export default function Verify() {
         setNameSaving(true);
         setError('');
         try {
+            const countryCode = normalizeCountryCode(selectedCountry);
             await api.post('/api/bago/kyc/update-legal-name', {
                 firstName:   legalFirstName.trim(),
                 lastName:    legalLastName.trim(),
                 dateOfBirth: legalDob || undefined,
+                country:     countryCode || undefined,
+                countryCode: countryCode || undefined,
+                currency:    countryCode ? currencyForCountry(countryCode) : undefined,
             });
+            await refreshUser?.();
             setStep('consent');
         } catch (err) {
             setError(err.response?.data?.message || 'Could not save details. Please try again.');
@@ -499,9 +519,12 @@ export default function Verify() {
                         firstName={legalFirstName}
                         lastName={legalLastName}
                         dob={legalDob}
+                        country={selectedCountry}
+                        countries={KYC_COUNTRIES}
                         onFirstNameChange={setLegalFirstName}
                         onLastNameChange={setLegalLastName}
                         onDobChange={setLegalDob}
+                        onCountryChange={setSelectedCountry}
                         saving={nameSaving}
                         error={error}
                         onSave={handleSaveLegalName}
@@ -517,7 +540,7 @@ export default function Verify() {
                 )}
 
                 {/* ── Normal KYC flow (only shown when not in a security gate step) ── */}
-                {!['name', 'review', 'blocked'].includes(step) && (
+                {!['details', 'name', 'review', 'blocked'].includes(step) && (
                     <>
                         {/* Status screens (approved / pending) */}
                         {kycStatus === 'approved' && (
@@ -819,7 +842,20 @@ function PendingCard({ navigate, onResubmit }) {
 }
 
 // ─── Name collection gate ─────────────────────────────────────────────────────
-function DetailsCard({ firstName, lastName, dob, onFirstNameChange, onLastNameChange, onDobChange, saving, error, onSave }) {
+function DetailsCard({
+    firstName,
+    lastName,
+    dob,
+    country,
+    countries = [],
+    onFirstNameChange,
+    onLastNameChange,
+    onDobChange,
+    onCountryChange,
+    saving,
+    error,
+    onSave,
+}) {
     // DOB as three separate controlled fields
     const [dobDay,   setDobDay]   = useState(dob ? dob.split('-')[2] || '' : '');
     const [dobMonth, setDobMonth] = useState(dob ? dob.split('-')[1] || '' : '');
@@ -854,7 +890,10 @@ function DetailsCard({ firstName, lastName, dob, onFirstNameChange, onLastNameCh
         } catch { return false; }
     })();
 
-    const canSave = firstName.trim().length >= 2 && lastName.trim().length >= 2 && dobValid && !saving;
+    const normalizedCountry = normalizeCountryCode(country);
+    const selectedCountry = countries.find((c) => c.code === normalizedCountry);
+    const selectedCurrency = normalizedCountry ? currencyForCountry(normalizedCountry) : '';
+    const canSave = firstName.trim().length >= 2 && lastName.trim().length >= 2 && dobValid && normalizedCountry && !saving;
     const inputCls = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm font-bold text-[#111827] outline-none focus:border-[#5845D8] focus:ring-4 focus:ring-[#5845D8]/10';
 
     return (
@@ -868,7 +907,7 @@ function DetailsCard({ firstName, lastName, dob, onFirstNameChange, onLastNameCh
             </div>
             <div className="p-8 md:p-12 space-y-6">
                 <p className="text-sm text-gray-600 font-medium leading-relaxed">
-                    Enter your full legal name and date of birth exactly as they appear on your ID. This information will be used to verify your identity and cannot be changed after verification.
+                    Enter your full legal name, date of birth, and country exactly as they should appear for verification. Bago uses the country to set your wallet currency before KYC starts.
                 </p>
                 <div className="space-y-4">
                     <div>
@@ -910,6 +949,30 @@ function DetailsCard({ firstName, lastName, dob, onFirstNameChange, onLastNameCh
                                     : 'Please enter a valid date of birth.'}
                             </p>
                         )}
+                    </div>
+                    <div>
+                        <label className="block font-black text-xs uppercase tracking-wider text-gray-700 mb-2">Country</label>
+                        <div className="relative">
+                            <select
+                                value={normalizedCountry}
+                                onChange={(e) => onCountryChange(e.target.value)}
+                                autoComplete="country"
+                                className={`${inputCls} appearance-none pr-12`}
+                            >
+                                <option value="">Choose your country</option>
+                                {countries.map((item) => (
+                                    <option key={item.code} value={item.code}>
+                                        {item.flag} {item.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <Globe size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#5845D8]" />
+                        </div>
+                        <div className="mt-3 rounded-2xl bg-[#5845D8]/5 border border-[#5845D8]/10 px-4 py-3 text-xs font-bold text-[#5845D8]">
+                            {selectedCountry
+                                ? `${selectedCountry.flag} ${selectedCountry.name} will use ${selectedCurrency} for your Bago wallet.`
+                                : 'Choose your country so Bago can lock in the right wallet currency before KYC.'}
+                        </div>
                     </div>
                 </div>
                 {error && (
