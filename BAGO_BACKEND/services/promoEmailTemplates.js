@@ -1,6 +1,5 @@
 const BRAND = '#5C4DFF';
-const LOGO = 'https://sendwithbago.com/logo.png';
-const FALLBACK_LOGO = 'https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png';
+const LOGO = 'https://res.cloudinary.com/dmito8es3/image/upload/c_fit,w_240/v1761919738/Bago_New_2_gh1gmn.png';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
 
 const footer = {
@@ -42,7 +41,7 @@ export function renderPromoEmailTemplate({ templateId, subject, body, images = [
   const content = {
     brand: BRAND,
     logo: LOGO,
-    fallbackLogo: FALLBACK_LOGO,
+    fallbackLogo: LOGO,
     subject: subject || template.subject,
     body: body || template.body,
     heroImage: images?.[0] || template.image,

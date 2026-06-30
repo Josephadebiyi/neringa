@@ -52,12 +52,13 @@ FROM wallet_refunds
 WHERE wa.id = wallet_refunds.wallet_id;
 
 WITH duplicate_paystack_withdrawals AS (
-  SELECT id, user_id, amount
+  SELECT id, user_id, amount, currency
   FROM (
     SELECT
       id,
       user_id,
       amount,
+      currency,
       row_number() OVER (
         PARTITION BY
           user_id,
@@ -78,18 +79,30 @@ cancelled_paystack_withdrawals AS (
       updated_at = timezone('utc', now())
   FROM duplicate_paystack_withdrawals d
   WHERE ppw.id = d.id
-  RETURNING d.user_id, d.amount
+  RETURNING d.user_id, d.amount, d.currency
 ),
 profile_refunds AS (
-  SELECT user_id, sum(amount) AS amount
+  SELECT
+    user_id,
+    coalesce(nullif(currency, ''), 'USD') AS currency,
+    sum(amount) AS amount
   FROM cancelled_paystack_withdrawals
-  GROUP BY user_id
+  GROUP BY user_id, coalesce(nullif(currency, ''), 'USD')
+),
+created_wallets AS (
+  INSERT INTO public.wallet_accounts (user_id, available_balance, escrow_balance, currency)
+  SELECT pr.user_id, 0, 0, pr.currency
+  FROM profile_refunds pr
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.wallet_accounts existing WHERE existing.user_id = pr.user_id
+  )
+  RETURNING user_id
 )
-UPDATE public.profiles p
-SET available_balance = p.available_balance + profile_refunds.amount,
+UPDATE public.wallet_accounts wa
+SET available_balance = wa.available_balance + profile_refunds.amount,
     updated_at = timezone('utc', now())
 FROM profile_refunds
-WHERE p.id = profile_refunds.user_id;
+WHERE wa.user_id = profile_refunds.user_id;
 
 UPDATE public.shipment_requests sr
 SET status = 'cancelled',
