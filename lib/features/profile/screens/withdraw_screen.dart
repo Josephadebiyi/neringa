@@ -210,7 +210,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 12),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -222,7 +223,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Icon(Icons.schedule_rounded, color: AppColors.primary, size: 34),
+                  child: Icon(Icons.schedule_rounded,
+                      color: AppColors.primary, size: 34),
                 ),
                 const SizedBox(height: 18),
                 const Text(
@@ -233,13 +235,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Your withdrawal of $currency ${amount.toStringAsFixed(2)} is under review. Once approved by our team, the funds will be sent to your payout account.',
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280), height: 1.5),
+                  style: const TextStyle(
+                      fontSize: 14, color: Color(0xFF6B7280), height: 1.5),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 6),
                 const Text(
                   'You can track the status in your transaction history.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
+                  style: TextStyle(
+                      fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -250,11 +254,17 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  onPressed: () { Navigator.of(ctx).pop(); if (mounted) context.pop(); },
-                  child: const Text('Got it', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    if (mounted) context.pop();
+                  },
+                  child: const Text('Got it',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w800)),
                 ),
               ),
             ],
@@ -608,7 +618,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 child: ElevatedButton(
                   onPressed: canWithdraw ? _withdraw : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1B24FF),
+                    backgroundColor: AppColors.primary,
                     disabledBackgroundColor: AppColors.gray200,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),

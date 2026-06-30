@@ -435,7 +435,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 <PaystackLogo size={24} />
                             </div>
                         ) : (
-                            <div className="w-10 h-7 bg-[#003087]/5 rounded-lg flex items-center justify-center shrink-0">
+                            <div className="w-10 h-7 bg-[#5C4BFD]/6 rounded-lg flex items-center justify-center shrink-0">
                                 <PayPalLogo size={18} />
                             </div>
                         )}
