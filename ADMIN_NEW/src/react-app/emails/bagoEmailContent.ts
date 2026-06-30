@@ -1,5 +1,5 @@
 export const BRAND = '#5C4DFF';
-export const LOGO = 'https://sendwithbago.com/logo.png';
+export const LOGO = 'https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png';
 
 const footer = {
   tagline: 'Peer-to-peer delivery, powered by people already going your way.',
