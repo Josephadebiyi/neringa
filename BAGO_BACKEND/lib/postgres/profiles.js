@@ -723,9 +723,20 @@ export async function getWalletByUserId(userId) {
   } catch (error) {
     console.warn('Wallet ledger totals unavailable, using wallet transaction totals only:', error.message);
   }
-  const combinedHistory = [...historyRows, ...ledgerRows].sort((a, b) =>
-    new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-  );
+  const USER_STATUS_MAP = {
+    pending_admin_approval: 'under_review',
+    pending_admin_review:   'under_review',
+    pending_purchase:       'processing',
+    pending_earning:        'pending',
+    not_selected:           'pending',
+  };
+
+  const combinedHistory = [...historyRows, ...ledgerRows]
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .map(row => ({
+      ...row,
+      status: USER_STATUS_MAP[String(row.status || '').toLowerCase()] || row.status,
+    }));
   const balance = Number(wallet.available_balance || 0);
   const escrowBalance = Number(wallet.escrow_balance || 0);
 

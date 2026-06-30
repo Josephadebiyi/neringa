@@ -52,7 +52,18 @@ export const locationOptions = [..._cityOptions, ..._countryOptions];
 // Renders each option row inside the dropdown
 export const formatCityOptionLabel = ({ flag, city, country, type }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
-        <span style={{ fontSize: 18, lineHeight: 1 }}>{flag || '📍'}</span>
+        <span style={{
+            width: 30,
+            height: 30,
+            borderRadius: 999,
+            background: '#F1EEFF',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 17,
+            lineHeight: 1,
+            flexShrink: 0,
+        }}>{flag || '📍'}</span>
         <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#012126', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {type === 'country' ? `All cities in ${country}` : city}
