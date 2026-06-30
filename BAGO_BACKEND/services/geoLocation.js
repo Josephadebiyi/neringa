@@ -2,6 +2,10 @@ import geoip from 'geoip-lite';
 
 const PAYSTACK_CURRENCIES = new Set(['NGN', 'GHS', 'KES', 'ZAR']);
 const UNKNOWN_COUNTRY_VALUES = new Set(['', 'XX', 'T1', 'A1', 'A2', 'O1']);
+const countryNameFormatter =
+  typeof Intl !== 'undefined' && Intl.DisplayNames
+    ? new Intl.DisplayNames(['en'], { type: 'region' })
+    : null;
 
 // ISO-3166-1 alpha-2 → currency code
 const ISO_TO_CURRENCY = {
@@ -52,6 +56,12 @@ export function getCountryFromIp(ip) {
 export function getCurrencyForCountryCode(countryCode) {
   if (!countryCode) return null;
   return ISO_TO_CURRENCY[String(countryCode).toUpperCase()] || null;
+}
+
+export function getCountryNameForCode(countryCode) {
+  const code = normalizeCountryCode(countryCode);
+  if (!code) return null;
+  return countryNameFormatter?.of(code) || code;
 }
 
 export function getGatewayForCurrency(currency) {
@@ -127,6 +137,7 @@ export function getLocationData(ip) {
   const gateway = currency ? getGatewayForCurrency(currency) : null;
   return {
     countryCode,
+    country: getCountryNameForCode(countryCode),
     currency,
     gateway,
     ip: ip || null,
@@ -142,6 +153,7 @@ export function getLocationDataFromRequest(req) {
     const currency = getCurrencyForCountryCode(headerCountryCode);
     return {
       countryCode: headerCountryCode,
+      country: getCountryNameForCode(headerCountryCode),
       currency,
       gateway: currency ? getGatewayForCurrency(currency) : null,
       ip,

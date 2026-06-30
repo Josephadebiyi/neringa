@@ -17,9 +17,8 @@ import {
   ShieldAlert,
   Coins,
 } from 'lucide-react';
-import { getUsers, banUser as toggleBan, deleteUser, updateUser, getAdminAuthHeaders, recalculateUserBalance } from '../services/api';
+import { getUsers, banUser as toggleBan, deleteUser, updateUser, recalculateUserBalance, adminSetWalletCurrency } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { API_BASE_URL as ADMIN_API } from '../config/api';
 
 interface User {
   _id: string;
@@ -44,6 +43,7 @@ interface User {
   verifiedFullLegalName?: string | null;
   verifiedDateOfBirth?: string | null;
   earningCurrency?: string;
+  walletCurrency?: string;
   earningCurrencyLocked?: boolean;
   walletBalance?: number;
   phoneVerified?: boolean;
@@ -146,7 +146,7 @@ export default function Users() {
 
   const handleOpenCurrencyModal = (user: User) => {
     setCurrencyUser(user);
-    setNewCurrency(user.earningCurrency || '');
+    setNewCurrency(user.walletCurrency || user.earningCurrency || '');
     setSettleBalance(false);
     setAdminNote('');
     setCurrencyError('');
@@ -159,22 +159,7 @@ export default function Users() {
     setCurrencyLoading(true);
     setCurrencyError('');
     try {
-      const res = await fetch(`${ADMIN_API}/users/${currencyUser._id}/earning-currency`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
-        body: JSON.stringify({ newCurrency, settleBalance, adminNote }),
-      });
-      if (!res.ok) {
-        let message = `HTTP ${res.status}`;
-        try {
-          const data = await res.json();
-          message = data.message || message;
-        } catch {
-          const text = await res.text().catch(() => '');
-          if (text) message = text;
-        }
-        throw new Error(message);
-      }
+      await adminSetWalletCurrency(currencyUser._id, newCurrency, settleBalance, adminNote);
       setCurrencyModalOpen(false);
       fetchUsers();
     } catch (err: any) {
@@ -404,7 +389,7 @@ export default function Users() {
                         <div className="flex flex-col gap-1">
                           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl font-black text-xs border border-emerald-100" title="Available wallet balance">
                             <CreditCard className="w-3 h-3 opacity-50" />
-                            {user.earningCurrency || '?'} {(+(user.walletBalance ?? 0)).toFixed(2)}
+                            {user.walletCurrency || user.earningCurrency || '?'} {(+(user.walletBalance ?? 0)).toFixed(2)}
                           </div>
                           {(+(user.escrowBalance ?? 0)) > 0 && (
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-500 rounded-xl font-black text-xs border border-slate-100" title="Held in escrow">
@@ -442,11 +427,11 @@ export default function Users() {
                             )}
                           </button>
 
-                          {isSuperAdmin && user.earningCurrencyLocked && (
+                          {isSuperAdmin && (
                             <button
                               onClick={() => handleOpenCurrencyModal(user)}
                               className="p-2 bg-indigo-50 text-indigo-500 hover:bg-indigo-100 rounded-xl transition-all"
-                              title="Change Wallet Currency (Activated Traveler)"
+                              title="Change Wallet Currency"
                             >
                               <Coins className="w-4 h-4" />
                             </button>
@@ -506,16 +491,16 @@ export default function Users() {
         </div>
       </div>
 
-      {/* Earning Currency Modal */}
+      {/* Wallet Currency Modal */}
       {currencyModalOpen && currencyUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCurrencyModalOpen(false)} />
           <div className="relative w-full max-w-md bg-white rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-8 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-black text-[#1e2749]">Change Earning Currency</h3>
+                <h3 className="text-xl font-black text-[#1e2749]">Change Wallet Currency</h3>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">
-                  {currencyUser.firstName} {currencyUser.lastName} · current: <span className="text-indigo-600">{currencyUser.earningCurrency || '—'}</span>
+                  {currencyUser.firstName} {currencyUser.lastName} · current: <span className="text-indigo-600">{currencyUser.walletCurrency || currencyUser.earningCurrency || '—'}</span>
                   {currencyUser.walletBalance != null && <span className="ml-2">· balance: {currencyUser.walletBalance}</span>}
                 </p>
               </div>
@@ -525,7 +510,7 @@ export default function Users() {
             </div>
             <form onSubmit={handleChangeCurrency} className="p-8 space-y-5">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">New Earning Currency</label>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">New Wallet Currency</label>
                 <select
                   value={newCurrency}
                   onChange={e => setNewCurrency(e.target.value)}

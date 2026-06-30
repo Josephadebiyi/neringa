@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
+import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
 
 const AFRICAN_PAYOUT_CURRENCIES = new Set([
   'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
@@ -872,6 +873,8 @@ export async function createOrUpdateAppleProfile({
   firstName,
   lastName,
   country = 'United States',
+  preferredCurrency = null,
+  paymentGateway = null,
   signupSource = 'ios',
 }) {
   // Lookup by Apple sub first (handles subsequent sign-ins where email is absent)
@@ -915,8 +918,8 @@ export async function createOrUpdateAppleProfile({
 
   // Create new user
   const fallbackPassword = await bcrypt.hash(Math.random().toString(36).slice(-20), 10);
-  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'stripe';
-  const preferredCurrency = country === 'Nigeria' ? 'NGN' : 'USD';
+  const resolvedCurrency = (preferredCurrency || getCurrencyByCountry(country) || 'USD').toUpperCase();
+  const resolvedGateway = paymentGateway || getPaymentGateway(country);
 
   const user = await createProfileWithWallet({
     firstName: firstName || 'User',
@@ -926,8 +929,8 @@ export async function createOrUpdateAppleProfile({
     passwordHash: fallbackPassword,
     country,
     dateOfBirth: '2000-01-01',
-    paymentGateway,
-    preferredCurrency,
+    paymentGateway: resolvedGateway,
+    preferredCurrency: resolvedCurrency,
     signupMethod: 'apple',
     signupSource,
     emailVerified: true,
@@ -947,6 +950,8 @@ export async function createOrUpdateGoogleProfile({
   lastName,
   imageUrl,
   country = 'United States',
+  preferredCurrency = null,
+  paymentGateway = null,
   referralCode = null,
   promoCode = null,
   signupSource = 'app',
@@ -993,8 +998,8 @@ export async function createOrUpdateGoogleProfile({
   }
 
   const fallbackPassword = await bcrypt.hash(Math.random().toString(36).slice(-20), 10);
-  const paymentGateway = country === 'Nigeria' ? 'paystack' : 'stripe';
-  const preferredCurrency = country === 'Nigeria' ? 'NGN' : 'USD';
+  const resolvedCurrency = (preferredCurrency || getCurrencyByCountry(country) || 'USD').toUpperCase();
+  const resolvedGateway = paymentGateway || getPaymentGateway(country);
 
   const user = await createProfileWithWallet({
     firstName,
@@ -1005,8 +1010,8 @@ export async function createOrUpdateGoogleProfile({
     referredBy,
     country,
     dateOfBirth: '2000-01-01',
-    paymentGateway,
-    preferredCurrency,
+    paymentGateway: resolvedGateway,
+    preferredCurrency: resolvedCurrency,
     signupMethod: 'google',
     signupSource,
     emailVerified: true,

@@ -28,6 +28,7 @@ function normalizeUser(row) {
     balance: Number(row.available_balance || 0),
     walletBalance: Number(row.available_balance || 0),
     escrowBalance: Number(row.escrow_balance || 0),
+    walletCurrency: row.wallet_currency || row.earning_currency || null,
     earningCurrency: row.earning_currency || null,
     earningCurrencyLocked: row.earning_currency_locked ?? false,
     // Derived: senders need phone verification, travelers need full KYC
@@ -102,6 +103,7 @@ export const GetAllUsers = async (req, res, next) => {
           p.updated_at,
           p.earning_currency,
           p.earning_currency_locked,
+          w.currency as wallet_currency,
           w.available_balance,
           w.escrow_balance
         from public.profiles p

@@ -30,7 +30,7 @@ import {
 import { query, queryOne } from '../lib/postgres/db.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
-import { getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
+import { getCountryNameForCode, getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
 import {
   applyReferralSignupReward,
@@ -812,6 +812,13 @@ export async function googleAuth(req, res) {
     }
 
     const googlePlatform = req.headers['x-platform'] || 'app';
+    const googleLocation = getLocationDataFromRequest(req);
+    const googleCountry =
+      country ||
+      googleLocation.country ||
+      getCountryNameForCode(googleLocation.countryCode) ||
+      googleLocation.countryCode ||
+      'United States';
     const { user, isNewUser } = await createOrUpdateGoogleProfile({
       email: email.toLowerCase(),
       firstName: givenName || '',
@@ -819,7 +826,9 @@ export async function googleAuth(req, res) {
       imageUrl: picture || null,
       referralCode: referralCode || null,
       promoCode: promoCode || null,
-      country: country || 'United States',
+      country: googleCountry,
+      preferredCurrency: googleLocation.currency || null,
+      paymentGateway: googleLocation.gateway || null,
       signupSource: ['ios', 'android', 'web'].includes(googlePlatform) ? googlePlatform : 'app',
     });
 
@@ -934,7 +943,7 @@ async function verifyAppleIdentityToken(identityToken) {
 
 export async function appleAuth(req, res) {
   try {
-    const { identityToken, firstName, lastName, email } = req.body;
+    const { identityToken, firstName, lastName, email, country } = req.body;
 
     if (!identityToken) {
       return res.status(400).json({ success: false, message: 'identityToken is required' });
@@ -956,11 +965,21 @@ export async function appleAuth(req, res) {
     }
 
     const applePlatform = req.headers['x-platform'] || 'ios';
+    const appleLocation = getLocationDataFromRequest(req);
+    const appleCountry =
+      country ||
+      appleLocation.country ||
+      getCountryNameForCode(appleLocation.countryCode) ||
+      appleLocation.countryCode ||
+      'United States';
     const { user, isNewUser } = await createOrUpdateAppleProfile({
       appleSub,
       email: resolvedEmail,
       firstName: firstName || null,
       lastName: lastName || null,
+      country: appleCountry,
+      preferredCurrency: appleLocation.currency || null,
+      paymentGateway: appleLocation.gateway || null,
       signupSource: ['ios', 'android', 'web'].includes(applePlatform) ? applePlatform : 'ios',
     });
 
