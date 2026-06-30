@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Send, Users, ShieldCheck, ShieldAlert, Loader2, RefreshCw } from 'lucide-react';
+import { Send, Users, ShieldCheck, ShieldAlert, Loader2, RefreshCw, ImageIcon, X } from 'lucide-react';
 import { ProductLaunchEmail, NewsletterEmail, PromoEmailTemplate } from '../emails/BagoEmailTemplates';
 import { productLaunchDefault, newsletterDefault, promoDefault } from '../emails/bagoEmailContent';
-import { sendPromoEmail } from '../services/api';
+import { sendPromoEmail, ADMIN_API, getAdminAuthHeaders } from '../services/api';
 
 // ── Content helpers ───────────────────────────────────────────────────────────
 
@@ -116,39 +116,91 @@ function Fields({ value, path, onChange }: FieldsProps) {
 }
 
 function ImageField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    setError('');
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`${ADMIN_API}/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAdminAuthHeaders(),
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        onChange(data.url);
+      } else {
+        throw new Error(data.message || 'Upload failed');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="flex flex-col gap-2">
+      {/* URL input */}
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="https://… (hosted image URL)"
+        onChange={(e) => { onChange(e.target.value); setError(''); }}
+        placeholder="https://… or upload below"
         className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5C4BFD]/20 focus:border-[#5C4BFD]"
       />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {value && (
-          <img
-            src={value}
-            alt=""
-            style={{ width: 64, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid #E5E7EB' }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
+
+      {/* Preview + upload controls */}
+      <div className="flex items-center gap-3">
+        {/* Thumbnail */}
+        {value ? (
+          <div className="relative group flex-none">
+            <img
+              src={value}
+              alt=""
+              className="w-16 h-11 object-cover rounded-lg border border-gray-200"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full items-center justify-center hidden group-hover:flex"
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="w-16 h-11 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center flex-none">
+            <ImageIcon className="w-4 h-4 text-gray-300" />
+          </div>
         )}
-        <label className="text-xs font-semibold text-[#5C4BFD] cursor-pointer hover:underline">
-          Upload…
+
+        {/* Upload button */}
+        <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
+          uploading
+            ? 'border-gray-200 text-gray-400 pointer-events-none'
+            : 'border-[#5C4BFD]/30 text-[#5C4BFD] hover:bg-[#5C4BFD]/5'
+        }`}>
+          {uploading ? (
+            <><Loader2 className="w-3 h-3 animate-spin" /> Uploading…</>
+          ) : (
+            <><ImageIcon className="w-3 h-3" /> Upload image</>
+          )}
           <input
             type="file"
             accept="image/*"
             hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const r = new FileReader();
-              r.onload = () => onChange(r.result as string);
-              r.readAsDataURL(f);
-            }}
+            disabled={uploading}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
           />
         </label>
       </div>
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   );
 }
