@@ -14,7 +14,7 @@ import { getAppSettings } from '../controllers/AdminControllers/setting.js';
 import { sendNotification, getPushHistory } from '../controllers/AdminControllers/NotificationController.js';
 import { Adminlogout } from '../controllers/AdminControllers/AdminLogin.js';
 import { sendPromoEmail } from '../controllers/AdminControllers/PromoEmailController.js';
-import { getInsuranceSettings, updateInsuranceSettings } from '../controllers/InsuranceController.js';
+import { getInsuranceSettings, updateInsuranceSettings, getInsuredShipments } from '../controllers/InsuranceController.js';
 import {
   createRoute,
   getAllRoutes,
@@ -232,6 +232,7 @@ AdminRouter.post("/kyc/users/:userId/sync-dojah-reference", adminAuthenticated, 
 // Insurance Settings
 AdminRouter.get("/insurance/settings", adminAuthenticated, getInsuranceSettings);
 AdminRouter.put("/insurance/settings", adminAuthenticated, can('insurance.manage'), audit('admin.insurance.settings.update', 'insurance_settings'), updateInsuranceSettings);
+AdminRouter.get("/insurance/shipments", adminAuthenticated, getInsuredShipments);
 
 // Withdrawal / Payout Management
 AdminRouter.get("/withdrawals", adminAuthenticated, can('finance.withdrawals.manage'), getAllWithdrawals);

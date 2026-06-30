@@ -1,4 +1,4 @@
-import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
+import { query as pgQuery, queryOne, query } from '../lib/postgres/db.js';
 import fetch from 'node-fetch';
 
 const DEFAULT_SETTINGS = {
@@ -118,5 +118,128 @@ export const updateInsuranceSettings = async (req, res) => {
   } catch (error) {
     console.error('Error updating insurance settings:', error);
     return res.status(500).json({ success: false, message: 'Failed to update insurance settings', error: error.message });
+  }
+};
+
+// List all shipments where user opted into insurance
+export const getInsuredShipments = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 100 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    const conditions = [`sr.insurance = true`];
+    const params = [];
+    if (status && status !== 'all') {
+      params.push(status);
+      conditions.push(`sr.insurance_status = $${params.length}`);
+    }
+
+    const where = conditions.join(' AND ');
+
+    const rows = await query(
+      `SELECT
+         sr.id,
+         sr.tracking_number,
+         sr.created_at,
+         sr.status AS shipment_status,
+         sr.insurance_status,
+         sr.insurance_cost,
+         sr.currency,
+         sr.amount,
+         sr.insurance_policy_id,
+         sr.insurance_policy_data,
+         sr.insurance_error,
+         sr.insurance_purchased_at,
+         -- package details
+         pkg.description        AS item_description,
+         pkg.category           AS item_category,
+         pkg.package_weight     AS item_weight,
+         pkg.value              AS declared_value,
+         pkg.from_city          AS from_city,
+         pkg.to_city            AS to_city,
+         pkg.from_country       AS from_country,
+         pkg.to_country         AS to_country,
+         pkg.pickup_address     AS pickup_address,
+         pkg.delivery_address   AS delivery_address,
+         pkg.receiver_name,
+         pkg.receiver_phone,
+         pkg.receiver_email,
+         -- sender
+         sender.id              AS sender_id,
+         sender.first_name      AS sender_first_name,
+         sender.last_name       AS sender_last_name,
+         sender.email           AS sender_email,
+         sender.phone           AS sender_phone,
+         -- traveler
+         traveler.id            AS traveler_id,
+         traveler.first_name    AS traveler_first_name,
+         traveler.last_name     AS traveler_last_name,
+         traveler.email         AS traveler_email,
+         traveler.phone         AS traveler_phone
+       FROM public.shipment_requests sr
+       LEFT JOIN public.packages pkg       ON pkg.id = sr.package_id
+       LEFT JOIN public.profiles  sender   ON sender.id  = sr.sender_id
+       LEFT JOIN public.profiles  traveler ON traveler.id = sr.traveler_id
+       WHERE ${where}
+       ORDER BY sr.created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, Number(limit), offset],
+    );
+
+    const countRow = await queryOne(
+      `SELECT COUNT(*)::int AS total FROM public.shipment_requests sr WHERE ${where}`,
+      params,
+    );
+
+    const data = rows.rows.map((r) => ({
+      id: r.id,
+      trackingNumber: r.tracking_number,
+      createdAt: r.created_at,
+      shipmentStatus: r.shipment_status,
+      insuranceStatus: r.insurance_status,
+      insuranceCost: r.insurance_cost,
+      currency: r.currency,
+      amount: r.amount,
+      policyId: r.insurance_policy_id,
+      policyData: r.insurance_policy_data,
+      insuranceError: r.insurance_error,
+      purchasedAt: r.insurance_purchased_at,
+      item: {
+        description: r.item_description,
+        category: r.item_category,
+        weight: r.item_weight,
+        declaredValue: r.declared_value,
+      },
+      route: {
+        fromCity: r.from_city,
+        toCity: r.to_city,
+        fromCountry: r.from_country,
+        toCountry: r.to_country,
+        pickupAddress: r.pickup_address,
+        deliveryAddress: r.delivery_address,
+      },
+      receiver: {
+        name: r.receiver_name,
+        phone: r.receiver_phone,
+        email: r.receiver_email,
+      },
+      sender: {
+        id: r.sender_id,
+        name: [r.sender_first_name, r.sender_last_name].filter(Boolean).join(' '),
+        email: r.sender_email,
+        phone: r.sender_phone,
+      },
+      traveler: {
+        id: r.traveler_id,
+        name: [r.traveler_first_name, r.traveler_last_name].filter(Boolean).join(' '),
+        email: r.traveler_email,
+        phone: r.traveler_phone,
+      },
+    }));
+
+    return res.json({ success: true, data, total: countRow?.total || 0, page: Number(page), limit: Number(limit) });
+  } catch (error) {
+    console.error('Error fetching insured shipments:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch insured shipments', error: error.message });
   }
 };

@@ -453,6 +453,11 @@ export async function getInsuranceSettings() {
   return apiCall(`${ADMIN_API}/insurance/settings`);
 }
 
+export async function getInsuredShipments(status?: string) {
+  const qs = status && status !== 'all' ? `?status=${status}` : '';
+  return apiCall(`${ADMIN_API}/insurance/shipments${qs}`);
+}
+
 export async function updateInsuranceSettings(data: any) {
   return apiCall(`${ADMIN_API}/insurance/settings`, {
     method: 'PUT',
