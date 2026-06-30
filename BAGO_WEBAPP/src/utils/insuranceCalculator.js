@@ -149,27 +149,39 @@ export function calculateInsurance(itemValue, currencyCode = 'USD', exchangeRate
 }
 
 /**
- * Fetch exchange rates from API
- * @param {string} baseCurrency - Base currency (default: USD)
- * @returns {Promise<Object>} - Exchange rates object
+ * Fetch exchange rates via our backend (which applies markup, caching, and Claude fallback).
+ * Falls back to exchangerate-api.com only if our backend is unreachable.
+ * @returns {Promise<Object>} - Exchange rates object (base USD)
  */
-export async function fetchExchangeRates(baseCurrency = 'USD') {
+export async function fetchExchangeRates() {
+  // Try our own backend first — it has markup, DB cache, and Claude fallback
   try {
-    const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${baseCurrency}`);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    const response = await fetch('/api/currency/rates');
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.rates && Object.keys(data.rates).length > 0) {
+        return data.rates;
+      }
     }
+  } catch (_) {}
 
+  // Backend unreachable — try the external API directly as last resort
+  try {
+    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-
-    if (!data || !data.rates) {
-      throw new Error('Invalid exchange rate data received');
-    }
-
-    return data.rates;
+    if (data?.rates) return data.rates;
   } catch (error) {
     console.error('❌ Failed to fetch exchange rates:', error.message);
-    throw error;
   }
+
+  // Hardcoded fallback so insurance calc never shows ₦0 or errors
+  return {
+    USD: 1, EUR: 0.92, GBP: 0.78, NGN: 1580, GHS: 15.5,
+    KES: 130, ZAR: 18.5, CAD: 1.36, AUD: 1.55, JPY: 155,
+    CNY: 7.25, INR: 83.5, BRL: 5.05, MXN: 17.2, CHF: 0.91,
+    SEK: 10.5, NOK: 10.6, DKK: 6.9, SGD: 1.35, HKD: 7.82,
+    AED: 3.67, SAR: 3.75, QAR: 3.64, KWD: 0.31, PKR: 278,
+    RWF: 1300, UGX: 3700, TZS: 2600, XOF: 603, XAF: 603, EGP: 47,
+  };
 }

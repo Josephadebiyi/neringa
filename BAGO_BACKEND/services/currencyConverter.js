@@ -5,70 +5,93 @@ import { DEFAULT_COMMISSION_RATE, getFullPricingConfig, calculateAllInclusivePri
 const CACHE_DURATION = 10 * 60 * 1000;
 const PLATFORM_COMMISSION_RATE = DEFAULT_COMMISSION_RATE;
 
+// Applied to all rates returned to clients — a 0.5% buffer so displayed conversions
+// never under-deliver value to the platform when FX moves between quote and settlement.
+const FX_DISPLAY_MARKUP = 1.005;
+
 const FALLBACK_RATES = {
-  USD: 1,
-  EUR: 0.92,
-  GBP: 0.78,
-  NGN: 1500,
-  GHS: 15.0,
-  KES: 130,
-  ZAR: 18.5,
-  CAD: 1.35,
-  AUD: 1.5,
+  USD: 1,    EUR: 0.92,  GBP: 0.78,  NGN: 1580,  GHS: 15.5,
+  KES: 130,  ZAR: 18.5,  CAD: 1.36,  AUD: 1.55,  JPY: 155,
+  CNY: 7.25, INR: 83.5,  BRL: 5.05,  MXN: 17.2,  CHF: 0.91,
+  SEK: 10.5, NOK: 10.6,  DKK: 6.9,   SGD: 1.35,  HKD: 7.82,
+  AED: 3.67, SAR: 3.75,  QAR: 3.64,  KWD: 0.31,  PKR: 278,
+  BDT: 110,  LKR: 310,   EGP: 47,    MAD: 10.1,  TND: 3.1,
+  RWF: 1300, UGX: 3700,  TZS: 2600,  XOF: 603,   XAF: 603,
+  ETB: 57,   MZN: 63,    ZMW: 25,    GMD: 67,
 };
 
-export async function fetchAndCacheRates() {
+async function getRatesFromClaude() {
   try {
-    console.log('🔄 Fetching fresh exchange rates...');
-    const apis = [
-      { name: 'exchangerate-api.com', url: 'https://api.exchangerate-api.com/v4/latest/USD', parseResponse: (data) => data.rates },
-      { name: 'frankfurter.app', url: 'https://api.frankfurter.app/latest?from=USD', parseResponse: (data) => data.rates },
-      { name: 'exchangerate.host (backup)', url: 'https://api.exchangerate.host/latest?base=USD', parseResponse: (data) => data.rates },
-    ];
-
-    let rates = null;
-    let successApi = null;
-
-    for (const api of apis) {
-      try {
-        console.log(`   Trying ${api.name}...`);
-        const response = await fetch(api.url);
-        if (!response.ok) continue;
-        const data = await response.json();
-        rates = api.parseResponse(data);
-        if (rates && Object.keys(rates).length > 0) {
-          successApi = api.name;
-          break;
-        }
-      } catch (apiError) {
-        console.warn(`   ${api.name} failed:`, apiError.message);
-      }
+    const { askClaude, isAiEnabled } = await import('./aiService.js');
+    if (!isAiEnabled()) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const text = await askClaude({
+      system: 'You are a financial data assistant. Return ONLY a valid JSON object with no explanation, markdown, or code fences.',
+      messages: [{
+        role: 'user',
+        content: `Provide approximate USD exchange rates as of ${today} for: NGN, GHS, KES, ZAR, EUR, GBP, CAD, AUD, JPY, CNY, INR, BRL, MXN, CHF, SEK, NOK, DKK, SGD, HKD, AED, SAR, QAR, KWD, PKR, BDT, LKR, EGP, MAD, TND, RWF, UGX, TZS, XOF, XAF, ETB, MZN, ZMW. Return ONLY a JSON object like: {"NGN": 1580, "EUR": 0.92, "GHS": 15.5, ...}`,
+      }],
+      model: 'claude-haiku-4-5-20251001',
+      maxTokens: 700,
+    });
+    const json = text.trim().replace(/^```json?\s*/i, '').replace(/\s*```$/i, '');
+    const parsed = JSON.parse(json);
+    if (typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length > 5) {
+      console.log('✅ Got exchange rates from Claude AI fallback');
+      return parsed;
     }
+  } catch (e) {
+    console.warn('⚠️ Claude AI rate fallback failed:', e.message);
+  }
+  return null;
+}
 
-    if (!rates) {
-      throw new Error('All exchange rate APIs failed');
-    }
-
+async function upsertRatesCache(rates) {
+  try {
     await queryOne(
-      `
-        insert into public.exchange_rates (base_currency, rates, last_updated, updated_at)
-        values ('USD', $1, timezone('utc', now()), timezone('utc', now()))
-        on conflict (base_currency)
-        do update set
-          rates = excluded.rates,
-          last_updated = excluded.last_updated,
-          updated_at = excluded.updated_at
-        returning rates
-      `,
+      `insert into public.exchange_rates (base_currency, rates, last_updated, updated_at)
+       values ('USD', $1, timezone('utc', now()), timezone('utc', now()))
+       on conflict (base_currency)
+       do update set rates = excluded.rates, last_updated = excluded.last_updated, updated_at = excluded.updated_at
+       returning rates`,
       [rates],
     );
+  } catch {}
+}
 
-    console.log(`✅ Successfully fetched rates from ${successApi}`);
-    return rates;
-  } catch (error) {
-    console.error('❌ Failed to fetch exchange rates:', error);
-    throw error;
+export async function fetchAndCacheRates() {
+  console.log('🔄 Fetching fresh exchange rates...');
+  const apis = [
+    { name: 'exchangerate-api.com', url: 'https://api.exchangerate-api.com/v4/latest/USD', parseResponse: (data) => data.rates },
+    { name: 'frankfurter.app', url: 'https://api.frankfurter.app/latest?from=USD', parseResponse: (data) => ({ ...data.rates, USD: 1 }) },
+    { name: 'exchangerate.host', url: 'https://api.exchangerate.host/latest?base=USD', parseResponse: (data) => data.rates },
+  ];
+
+  for (const api of apis) {
+    try {
+      console.log(`   Trying ${api.name}...`);
+      const response = await fetch(api.url, { timeout: 8000 });
+      if (!response.ok) continue;
+      const data = await response.json();
+      const rates = api.parseResponse(data);
+      if (rates && Object.keys(rates).length > 0) {
+        await upsertRatesCache(rates);
+        console.log(`✅ Fetched rates from ${api.name}`);
+        return rates;
+      }
+    } catch (apiError) {
+      console.warn(`   ${api.name} failed:`, apiError.message);
+    }
   }
+
+  // All external APIs failed — ask Claude for best-estimate rates
+  const claudeRates = await getRatesFromClaude();
+  if (claudeRates) {
+    await upsertRatesCache(claudeRates);
+    return claudeRates;
+  }
+
+  throw new Error('All exchange rate sources failed including Claude fallback');
 }
 
 async function getAdminRates() {
@@ -97,23 +120,21 @@ async function getCachedRates() {
   const adminRates = await getAdminRates();
   if (adminRates) return adminRates;
 
-  // No admin rates set — fall back to live API rates cached in exchange_rates table.
+  // Fresh DB cache?
   try {
     const cached = await queryOne(
-      `
-        select rates, last_updated
-        from public.exchange_rates
-        where base_currency = 'USD'
-      `,
+      `select rates, last_updated from public.exchange_rates where base_currency = 'USD'`,
     );
-
     if (cached?.rates && cached?.last_updated && (Date.now() - new Date(cached.last_updated).getTime()) < CACHE_DURATION) {
       return cached.rates;
     }
+  } catch {}
 
+  // Cache stale or empty — try live APIs then Claude
+  try {
     return await fetchAndCacheRates();
   } catch (error) {
-    console.warn('⚠️ Cache fetch failed, returning fallback rates:', error.message);
+    console.warn('⚠️ All rate sources failed, using hardcoded fallback rates');
     return FALLBACK_RATES;
   }
 }
@@ -126,8 +147,7 @@ export async function convertCurrency(amount, fromCurrency, toCurrency) {
 
     if (fromCurrency === toCurrency) return Number(amount);
 
-    const hardFallback = { NGN: 1500, GHS: 15.0, KES: 130, UGX: 3700, TZS: 2600, ZAR: 18.5, RWF: 1300 };
-    const effectiveRates = { ...hardFallback, ...rates };
+    const effectiveRates = { ...FALLBACK_RATES, ...rates };
 
     if (!effectiveRates[fromCurrency] && fromCurrency !== 'USD') {
       throw new Error(`Currency ${fromCurrency} not supported`);
@@ -140,7 +160,10 @@ export async function convertCurrency(amount, fromCurrency, toCurrency) {
     const toRate = toCurrency === 'USD' ? 1 : effectiveRates[toCurrency];
     if (!fromRate || fromRate <= 0) throw new Error(`Invalid exchange rate for ${fromCurrency}`);
     if (!toRate || toRate <= 0) throw new Error(`Invalid exchange rate for ${toCurrency}`);
-    return Number(((Number(amount) * toRate) / fromRate).toFixed(4));
+
+    const raw = (Number(amount) * toRate) / fromRate;
+    // Apply 0.5% display markup so conversions always cover FX slippage
+    return Number((raw * FX_DISPLAY_MARKUP).toFixed(4));
   } catch (error) {
     console.error('❌ Currency conversion error:', error);
     throw error;
@@ -184,7 +207,11 @@ export function choosePaymentProcessor(currency) {
 }
 
 export async function getAllRates() {
-  const rates = await getCachedRates();
+  const raw = await getCachedRates();
+  // Apply 0.5% display markup to every rate returned to clients
+  const rates = Object.fromEntries(
+    Object.entries({ ...FALLBACK_RATES, ...raw }).map(([k, v]) => [k, Number((v * FX_DISPLAY_MARKUP).toFixed(6))]),
+  );
   return {
     baseCurrency: 'USD',
     rates,
