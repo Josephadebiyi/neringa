@@ -1614,11 +1614,11 @@ export async function adminCorrectWalletBalance(req, res, next) {
     );
     await query(
       `INSERT INTO public.wallet_transactions (wallet_id, user_id, type, amount, currency, status, description, metadata)
-       VALUES ($1, $2, 'admin_correction', $3, $4, 'completed', $5, $6)`,
+       VALUES ($1, $2, 'admin_settlement', $3, $4, 'completed', $5, $6)`,
       [
         wallet.id, userId, amount, upper,
         reason || 'Admin manual balance correction',
-        JSON.stringify({ adminAction: true, reason }),
+        JSON.stringify({ adminAction: 'wallet_correction', reason }),
       ],
     );
     return res.status(200).json({
