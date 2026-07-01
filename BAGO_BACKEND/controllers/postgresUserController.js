@@ -130,7 +130,22 @@ async function updateLastLoginIp(userId, ip) {
   ).catch(() => {});
 }
 
-function buildUserResponse(user) {
+async function buildUserResponse(user) {
+  let wallet = null;
+  if (user?.id) {
+    wallet = await getWalletByUserId(user.id).catch((error) => {
+      console.warn('User wallet display formatting unavailable:', error.message);
+      return null;
+    });
+  }
+
+  const walletCurrency = wallet?.walletCurrency || wallet?.wallet_currency || user.walletCurrency || user.preferredCurrency || 'USD';
+  const displayCurrency = wallet?.displayCurrency || wallet?.display_currency || user.preferredCurrency || walletCurrency;
+  const rawBalance = Number(wallet?.balance ?? wallet?.walletBalance ?? user.balance ?? 0);
+  const rawEscrowBalance = Number(wallet?.escrowBalance ?? user.escrowBalance ?? 0);
+  const displayBalance = Number(wallet?.walletDisplayBalance ?? wallet?.displayBalance ?? rawBalance);
+  const displayEscrowBalance = Number(wallet?.escrowDisplayBalance ?? wallet?.displayEscrowBalance ?? rawEscrowBalance);
+
   return {
     id: user.id,
     _id: user.id,
@@ -144,7 +159,7 @@ function buildUserResponse(user) {
     kycStatus: user.kycStatus,
     isKycCompleted: user.kycStatus === 'approved',
     paymentGateway: user.paymentGateway,
-    preferredCurrency: user.preferredCurrency || user.walletCurrency || 'USD',
+    preferredCurrency: user.preferredCurrency || displayCurrency || walletCurrency || 'USD',
     earningCurrency: user.earningCurrency || user.preferredCurrency || user.walletCurrency || null,
     earning_currency: user.earningCurrency || user.preferredCurrency || user.walletCurrency || null,
     earningCurrencyLocked: user.earningCurrencyLocked ?? false,
@@ -153,12 +168,39 @@ function buildUserResponse(user) {
     phoneVerified: user.phoneVerified ?? false,
     selectedAvatar: user.selectedAvatar,
     pushTokens: user.pushTokens,
-    walletBalance: Number(user.balance || 0),
-    wallet_balance: Number(user.balance || 0),
-    escrowBalance: Number(user.escrowBalance || 0),
-    escrow_balance: Number(user.escrowBalance || 0),
-    walletCurrency: user.walletCurrency || user.preferredCurrency || 'USD',
-    wallet_currency: user.walletCurrency || user.preferredCurrency || 'USD',
+    walletBalance: displayBalance,
+    wallet_balance: displayBalance,
+    availableBalance: displayBalance,
+    available_balance: displayBalance,
+    escrowBalance: displayEscrowBalance,
+    escrow_balance: displayEscrowBalance,
+    rawBalance,
+    raw_balance: rawBalance,
+    rawWalletBalance: rawBalance,
+    raw_wallet_balance: rawBalance,
+    rawEscrowBalance,
+    raw_escrow_balance: rawEscrowBalance,
+    walletCurrency,
+    wallet_currency: walletCurrency,
+    displayCurrency,
+    display_currency: displayCurrency,
+    walletDisplayCurrency: displayCurrency,
+    wallet_display_currency: displayCurrency,
+    walletDisplayBalance: displayBalance,
+    wallet_display_balance: displayBalance,
+    displayBalance,
+    display_balance: displayBalance,
+    escrowDisplayBalance: displayEscrowBalance,
+    escrow_display_balance: displayEscrowBalance,
+    displayConversionStatus: wallet?.displayConversionStatus || wallet?.display_conversion_status || 'unavailable',
+    display_conversion_status: wallet?.display_conversion_status || wallet?.displayConversionStatus || 'unavailable',
+    displayConversionRate: wallet?.displayConversionRate || wallet?.display_conversion_rate || null,
+    display_conversion_rate: wallet?.display_conversion_rate || wallet?.displayConversionRate || null,
+    displayConversionSource: wallet?.displayConversionSource || wallet?.display_conversion_source || null,
+    display_conversion_source: wallet?.display_conversion_source || wallet?.displayConversionSource || null,
+    displayConversionTimestamp: wallet?.displayConversionTimestamp || wallet?.display_conversion_timestamp || null,
+    display_conversion_timestamp: wallet?.display_conversion_timestamp || wallet?.displayConversionTimestamp || null,
+    currency: displayCurrency,
     stripeVerified: user.stripeVerified ?? false,
     stripe_verified: user.stripeVerified ?? false,
     stripeConnectAccountId: user.stripeConnectAccountId || user.stripeAccountId || null,
@@ -480,7 +522,7 @@ export async function verifySignupOtp(req, res) {
       message: 'Account verified successfully!',
       token: accessToken,
       refreshToken,
-      user: buildUserResponse(newUser),
+      user: await buildUserResponse(newUser),
     });
   } catch (error) {
     console.error('verifySignupOtp error:', error);
@@ -698,7 +740,7 @@ export async function signIn(req, res) {
       message: 'Sign-in successful',
       token: accessToken,
       refreshToken,
-      user: buildUserResponse(user),
+      user: await buildUserResponse(user),
     });
   } catch (error) {
     console.error('signIn error:', error);
@@ -712,7 +754,7 @@ export async function getUser(req, res) {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.status(200).json({ success: true, user: buildUserResponse(user) });
+    res.status(200).json({ success: true, user: await buildUserResponse(user) });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -887,7 +929,7 @@ export async function googleAuth(req, res) {
       isNewUser,
       token: userAccessToken,
       refreshToken: userRefreshToken,
-      user: buildUserResponse(user),
+      user: await buildUserResponse(user),
     });
   } catch (error) {
     console.error('googleAuth error:', error);
@@ -1016,7 +1058,7 @@ export async function appleAuth(req, res) {
       isNewUser,
       token: accessToken,
       refreshToken,
-      user: buildUserResponse(user),
+      user: await buildUserResponse(user),
     });
   } catch (error) {
     console.error('appleAuth error:', error);
@@ -1224,6 +1266,16 @@ export async function getWallet(req, res) {
       escrowBalance: wallet.escrowBalance,
       escrow_balance: wallet.escrow_balance ?? wallet.escrowBalance,
       currency: wallet.currency,
+      rawBalance: wallet.balance,
+      raw_balance: wallet.balance,
+      rawWalletBalance: wallet.walletBalance ?? wallet.balance,
+      raw_wallet_balance: wallet.wallet_balance ?? wallet.balance,
+      rawAvailableBalance: wallet.availableBalance ?? wallet.balance,
+      raw_available_balance: wallet.available_balance ?? wallet.balance,
+      rawEscrowBalance: wallet.escrowBalance,
+      raw_escrow_balance: wallet.escrow_balance ?? wallet.escrowBalance,
+      rawCurrency: wallet.currency,
+      raw_currency: wallet.currency,
       walletCurrency: wallet.walletCurrency || wallet.currency,
       wallet_currency: wallet.wallet_currency || wallet.currency,
       displayCurrency: wallet.displayCurrency || wallet.currency,
@@ -1242,6 +1294,12 @@ export async function getWallet(req, res) {
       escrow_display_balance: wallet.escrow_display_balance ?? wallet.display_escrow_balance ?? wallet.escrowBalance,
       displayConversionStatus: wallet.displayConversionStatus,
       display_conversion_status: wallet.display_conversion_status,
+      displayConversionRate: wallet.displayConversionRate,
+      display_conversion_rate: wallet.display_conversion_rate,
+      displayConversionSource: wallet.displayConversionSource,
+      display_conversion_source: wallet.display_conversion_source,
+      displayConversionTimestamp: wallet.displayConversionTimestamp,
+      display_conversion_timestamp: wallet.display_conversion_timestamp,
       allTimeReceived: wallet.allTimeReceived,
       allTimeExpenses: wallet.allTimeExpenses,
       heldEarnings: wallet.heldEarnings,
@@ -1256,6 +1314,16 @@ export async function getWallet(req, res) {
         escrowBalance: wallet.escrowBalance,
         escrow_balance: wallet.escrow_balance ?? wallet.escrowBalance,
         currency: wallet.currency,
+        rawBalance: wallet.balance,
+        raw_balance: wallet.balance,
+        rawWalletBalance: wallet.walletBalance ?? wallet.balance,
+        raw_wallet_balance: wallet.wallet_balance ?? wallet.balance,
+        rawAvailableBalance: wallet.availableBalance ?? wallet.balance,
+        raw_available_balance: wallet.available_balance ?? wallet.balance,
+        rawEscrowBalance: wallet.escrowBalance,
+        raw_escrow_balance: wallet.escrow_balance ?? wallet.escrowBalance,
+        rawCurrency: wallet.currency,
+        raw_currency: wallet.currency,
         walletCurrency: wallet.walletCurrency || wallet.currency,
         wallet_currency: wallet.wallet_currency || wallet.currency,
         displayCurrency: wallet.displayCurrency || wallet.currency,
@@ -1274,6 +1342,12 @@ export async function getWallet(req, res) {
         escrow_display_balance: wallet.escrow_display_balance ?? wallet.display_escrow_balance ?? wallet.escrowBalance,
         displayConversionStatus: wallet.displayConversionStatus,
         display_conversion_status: wallet.display_conversion_status,
+        displayConversionRate: wallet.displayConversionRate,
+        display_conversion_rate: wallet.display_conversion_rate,
+        displayConversionSource: wallet.displayConversionSource,
+        display_conversion_source: wallet.display_conversion_source,
+        displayConversionTimestamp: wallet.displayConversionTimestamp,
+        display_conversion_timestamp: wallet.display_conversion_timestamp,
         allTimeReceived: wallet.allTimeReceived,
         allTimeExpenses: wallet.allTimeExpenses,
         heldEarnings: wallet.heldEarnings,
@@ -1479,7 +1553,7 @@ export async function editCurrency(req, res, next) {
     return res.status(200).json({
       message: 'Payout currency updated.',
       success: true,
-      user: buildUserResponse(updatedProfile),
+      user: await buildUserResponse(updatedProfile),
     });
   } catch (error) {
     next(error);
@@ -1496,7 +1570,7 @@ export async function activateEarning(req, res, next) {
     res.status(200).json({
       message: 'Payout currency updated.',
       success: true,
-      user: buildUserResponse(updatedProfile),
+      user: await buildUserResponse(updatedProfile),
     });
   } catch (error) {
     next(error);
@@ -1568,7 +1642,7 @@ export async function adminSetEarningCurrency(req, res, next) {
     res.status(200).json({
       message: `Earning currency changed to ${newCurrency.toUpperCase()}${settleBalance ? ' (balance settled)' : ''}.`,
       success: true,
-      user: buildUserResponse(updatedProfile),
+      user: await buildUserResponse(updatedProfile),
     });
   } catch (error) {
     next(error);

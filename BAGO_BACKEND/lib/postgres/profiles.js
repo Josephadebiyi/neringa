@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 
 import { query, queryOne, withTransaction } from './db.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
-import { convertCurrency } from '../../services/currencyConverter.js';
+import { CurrencyService } from '../../services/currencyConverter.js';
 
 const AFRICAN_PAYOUT_CURRENCIES = new Set([
   'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
@@ -11,6 +11,82 @@ const AFRICAN_PAYOUT_CURRENCIES = new Set([
   'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
   'ZWL',
 ]);
+
+function roundDisplayMoney(amount) {
+  return Number(Number(amount || 0).toFixed(2));
+}
+
+async function convertDisplayAmount(amount, fromCurrency, toCurrency) {
+  const from = String(fromCurrency || '').toUpperCase();
+  const to = String(toCurrency || '').toUpperCase();
+  const numericAmount = Number(amount || 0);
+  if (!from || !to || from === to) {
+    return {
+      amount: roundDisplayMoney(numericAmount),
+      currency: from || to || 'USD',
+      rate: 1,
+      source: 'same_currency',
+      timestamp: new Date().toISOString(),
+      status: 'same_currency',
+    };
+  }
+  const rate = await CurrencyService.getExchangeRate(from, to);
+  return {
+    amount: roundDisplayMoney(numericAmount * Number(rate.rate || 0)),
+    currency: to,
+    rate: Number(rate.rate),
+    source: rate.source,
+    timestamp: rate.timestamp,
+    expiresAt: rate.expiresAt,
+    status: 'converted',
+  };
+}
+
+async function decorateWalletHistoryRow(row, displayCurrency, statusMap) {
+  const rawCurrency = String(row.currency || displayCurrency || 'USD').toUpperCase();
+  const rawAmount = Number(row.amount || 0);
+  let display = {
+    amount: roundDisplayMoney(rawAmount),
+    currency: rawCurrency,
+    rate: 1,
+    source: 'same_currency',
+    timestamp: new Date().toISOString(),
+    status: 'same_currency',
+  };
+
+  try {
+    display = await convertDisplayAmount(rawAmount, rawCurrency, displayCurrency || rawCurrency);
+  } catch (error) {
+    display = {
+      ...display,
+      status: 'unavailable',
+      error: error.message,
+    };
+  }
+
+  return {
+    ...row,
+    amount: rawAmount,
+    currency: rawCurrency,
+    rawAmount,
+    raw_amount: rawAmount,
+    rawCurrency,
+    raw_currency: rawCurrency,
+    displayAmount: display.amount,
+    display_amount: display.amount,
+    displayCurrency: display.currency,
+    display_currency: display.currency,
+    displayConversionRate: display.rate,
+    display_conversion_rate: display.rate,
+    displayConversionSource: display.source,
+    display_conversion_source: display.source,
+    displayConversionTimestamp: display.timestamp,
+    display_conversion_timestamp: display.timestamp,
+    displayConversionStatus: display.status,
+    display_conversion_status: display.status,
+    status: statusMap[String(row.status || '').toLowerCase()] || row.status,
+  };
+}
 
 // Ensure earning_currency columns exist — runs once at startup, not lazily
 let _earningCurrencyEnsured = false;
@@ -694,12 +770,6 @@ export async function getWalletByUserId(userId) {
     not_selected:           'pending',
   };
 
-  const combinedHistory = [...historyRows, ...ledgerRows]
-    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-    .map(row => ({
-      ...row,
-      status: USER_STATUS_MAP[String(row.status || '').toLowerCase()] || row.status,
-    }));
   const balance = Number(wallet.available_balance || 0);
   const escrowBalance = Number(wallet.escrow_balance || 0);
   const walletCurrency = String(wallet.currency || wallet.earning_currency || wallet.preferred_currency || 'USD').toUpperCase();
@@ -708,13 +778,21 @@ export async function getWalletByUserId(userId) {
   let displayBalance = balance;
   let displayEscrowBalance = escrowBalance;
   let displayConversionStatus = 'same_currency';
+  let displayConversionRate = 1;
+  let displayConversionSource = 'same_currency';
+  let displayConversionTimestamp = new Date().toISOString();
 
   if (requestedDisplayCurrency && requestedDisplayCurrency !== walletCurrency) {
     try {
-      displayBalance = Number((await convertCurrency(balance, walletCurrency, requestedDisplayCurrency)).toFixed(2));
-      displayEscrowBalance = Number((await convertCurrency(escrowBalance, walletCurrency, requestedDisplayCurrency)).toFixed(2));
+      const balanceDisplay = await convertDisplayAmount(balance, walletCurrency, requestedDisplayCurrency);
+      const escrowDisplay = await convertDisplayAmount(escrowBalance, walletCurrency, requestedDisplayCurrency);
+      displayBalance = balanceDisplay.amount;
+      displayEscrowBalance = escrowDisplay.amount;
       displayCurrency = requestedDisplayCurrency;
       displayConversionStatus = 'converted';
+      displayConversionRate = balanceDisplay.rate;
+      displayConversionSource = balanceDisplay.source;
+      displayConversionTimestamp = balanceDisplay.timestamp;
     } catch (error) {
       console.warn(
         `Wallet display conversion unavailable for user ${userId}: ${walletCurrency}->${requestedDisplayCurrency}:`,
@@ -723,6 +801,11 @@ export async function getWalletByUserId(userId) {
       displayConversionStatus = 'unavailable';
     }
   }
+  const combinedHistory = await Promise.all(
+    [...historyRows, ...ledgerRows]
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+      .map(row => decorateWalletHistoryRow(row, displayCurrency, USER_STATUS_MAP)),
+  );
 
   return {
     ...wallet,
@@ -752,6 +835,12 @@ export async function getWalletByUserId(userId) {
     escrow_display_balance: displayEscrowBalance,
     displayConversionStatus,
     display_conversion_status: displayConversionStatus,
+    displayConversionRate,
+    display_conversion_rate: displayConversionRate,
+    displayConversionSource,
+    display_conversion_source: displayConversionSource,
+    displayConversionTimestamp,
+    display_conversion_timestamp: displayConversionTimestamp,
     allTimeReceived: Math.max(
       Number(totals?.all_time_received || 0),
       Number(ledgerTotals?.released_earnings || 0),

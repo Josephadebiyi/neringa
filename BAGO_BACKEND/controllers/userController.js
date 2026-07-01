@@ -6,7 +6,7 @@ import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail, sendWithdrawalAdminNotification } from '../services/emailNotifications.js';
 import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { convertCurrency } from '../services/currencyConverter.js';
-import { updatePreferredCurrency, findProfileById } from '../lib/postgres/profiles.js';
+import { updatePreferredCurrency, findProfileById, getWalletByUserId } from '../lib/postgres/profiles.js';
 import { initiateTransfer } from '../services/paystackService.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 
@@ -222,6 +222,16 @@ export const edit = async (req, res, next) => {
 
     // Re-fetch full profile so wallet balance/currency reflect the conversion
     const updatedProfile = await findProfileById(userId);
+    const wallet = await getWalletByUserId(userId).catch((error) => {
+      console.warn('updateProfile wallet display formatting unavailable:', error.message);
+      return null;
+    });
+    const displayBalance = wallet?.walletDisplayBalance ?? wallet?.displayBalance ?? updatedProfile?.walletBalance ?? updatedProfile?.balance ?? 0;
+    const displayCurrency = wallet?.walletDisplayCurrency ?? wallet?.displayCurrency ?? row.preferred_currency;
+    const displayEscrowBalance = wallet?.escrowDisplayBalance ?? wallet?.displayEscrowBalance ?? updatedProfile?.escrowBalance ?? 0;
+    const rawBalance = wallet?.walletBalance ?? wallet?.balance ?? updatedProfile?.walletBalance ?? updatedProfile?.balance ?? 0;
+    const rawEscrowBalance = wallet?.escrowBalance ?? updatedProfile?.escrowBalance ?? 0;
+    const walletCurrency = wallet?.walletCurrency || wallet?.currency || row.preferred_currency;
 
     return res.status(200).json({
       status: 'success',
@@ -238,10 +248,27 @@ export const edit = async (req, res, next) => {
         bankDetails: row.bank_details,
         image: row.image_url,
         selectedAvatar: row.selected_avatar,
-        walletBalance: updatedProfile?.walletBalance ?? updatedProfile?.balance ?? 0,
-        wallet_balance: updatedProfile?.walletBalance ?? updatedProfile?.balance ?? 0,
-        walletCurrency: updatedProfile?.walletCurrency || row.preferred_currency,
-        wallet_currency: updatedProfile?.walletCurrency || row.preferred_currency,
+        walletBalance: displayBalance,
+        wallet_balance: displayBalance,
+        availableBalance: displayBalance,
+        available_balance: displayBalance,
+        escrowBalance: displayEscrowBalance,
+        escrow_balance: displayEscrowBalance,
+        rawWalletBalance: rawBalance,
+        raw_wallet_balance: rawBalance,
+        rawEscrowBalance: rawEscrowBalance,
+        raw_escrow_balance: rawEscrowBalance,
+        walletCurrency,
+        wallet_currency: walletCurrency,
+        displayCurrency,
+        display_currency: displayCurrency,
+        walletDisplayCurrency: displayCurrency,
+        wallet_display_currency: displayCurrency,
+        walletDisplayBalance: displayBalance,
+        wallet_display_balance: displayBalance,
+        escrowDisplayBalance: displayEscrowBalance,
+        escrow_display_balance: displayEscrowBalance,
+        currency: displayCurrency,
       },
     });
   } catch (error) {
