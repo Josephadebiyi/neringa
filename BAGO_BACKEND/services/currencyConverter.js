@@ -61,6 +61,15 @@ async function upsertRatesCache(rates) {
 
 export async function fetchAndCacheRates() {
   console.log('🔄 Fetching fresh exchange rates...');
+
+  // Tier 1: Claude AI — reliable, always available when API key is set
+  const claudeRates = await getRatesFromClaude();
+  if (claudeRates) {
+    await upsertRatesCache(claudeRates);
+    return claudeRates;
+  }
+
+  // Tier 2: External APIs — fallback if Claude is unavailable
   const apis = [
     { name: 'exchangerate-api.com', url: 'https://api.exchangerate-api.com/v4/latest/USD', parseResponse: (data) => data.rates },
     { name: 'frankfurter.app', url: 'https://api.frankfurter.app/latest?from=USD', parseResponse: (data) => ({ ...data.rates, USD: 1 }) },
@@ -84,14 +93,7 @@ export async function fetchAndCacheRates() {
     }
   }
 
-  // All external APIs failed — ask Claude for best-estimate rates
-  const claudeRates = await getRatesFromClaude();
-  if (claudeRates) {
-    await upsertRatesCache(claudeRates);
-    return claudeRates;
-  }
-
-  throw new Error('All exchange rate sources failed including Claude fallback');
+  throw new Error('All exchange rate sources failed');
 }
 
 async function getAdminRates() {
