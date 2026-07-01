@@ -21,6 +21,53 @@ class UserCurrencyHelper {
     return DeviceCurrencyHelper.resolve();
   }
 
+  static String walletDisplayCurrency(UserModel? user) {
+    final display = user?.walletDisplayCurrency?.trim() ?? '';
+    if (display.isNotEmpty) return display.toUpperCase();
+
+    final preferred = user?.preferredCurrency.trim() ?? '';
+    if (preferred.isNotEmpty) return preferred.toUpperCase();
+
+    final wallet = user?.walletCurrency.trim() ?? '';
+    if (wallet.isNotEmpty) return wallet.toUpperCase();
+
+    return resolve(user);
+  }
+
+  static double walletDisplayBalance(UserModel? user) {
+    final displayCurrency = walletDisplayCurrency(user);
+    final displayBalance = user?.walletDisplayBalance;
+    if (displayBalance != null) return displayBalance;
+
+    return convertWalletBalance(
+      balance: user?.walletBalance ?? 0,
+      walletCurrency: (user?.walletCurrency.trim().isNotEmpty ?? false)
+          ? user!.walletCurrency
+          : displayCurrency,
+      viewerCurrency: displayCurrency,
+    );
+  }
+
+  static double escrowDisplayBalance(UserModel? user) {
+    final displayCurrency = walletDisplayCurrency(user);
+    final displayBalance = user?.escrowDisplayBalance;
+    if (displayBalance != null) return displayBalance;
+
+    return convertWalletBalance(
+      balance: user?.escrowBalance ?? 0,
+      walletCurrency: (user?.walletCurrency.trim().isNotEmpty ?? false)
+          ? user!.walletCurrency
+          : displayCurrency,
+      viewerCurrency: displayCurrency,
+    );
+  }
+
+  static String walletSettlementCurrency(UserModel? user) {
+    final wallet = user?.walletCurrency.trim() ?? '';
+    if (wallet.isNotEmpty) return wallet.toUpperCase();
+    return resolve(user);
+  }
+
   /// Converts wallet balance from wallet's base currency to viewer's preferred currency.
   /// Returns the converted amount, or original amount if conversion not possible.
   static double convertWalletBalance({

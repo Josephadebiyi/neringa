@@ -24,6 +24,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   final _amountCtrl = TextEditingController();
   double _balance = 0;
   double _escrowBalance = 0;
+  String? _walletCurrency;
   bool _balanceLoading = true;
   bool _submitting = false;
 
@@ -44,6 +45,24 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       if (parsed != null) return parsed;
     }
     return 0;
+  }
+
+  String? _stringFrom(Map<String, dynamic>? data, List<String> keys) {
+    for (final key in keys) {
+      final parts = key.split('.');
+      dynamic value = data;
+      for (final part in parts) {
+        if (value is Map) {
+          value = value[part];
+        } else {
+          value = null;
+          break;
+        }
+      }
+      final text = value?.toString().trim();
+      if (text != null && text.isNotEmpty) return text;
+    }
+    return null;
   }
 
   double _profileBalance() => ref.read(authProvider).user?.walletBalance ?? 0;
@@ -139,6 +158,14 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           _escrowBalance = parsedEscrowBalance > 0
               ? parsedEscrowBalance
               : fallbackEscrowBalance;
+          _walletCurrency = _stringFrom(data, const [
+            'walletCurrency',
+            'wallet_currency',
+            'currency',
+            'data.walletCurrency',
+            'data.wallet_currency',
+            'data.currency',
+          ]);
           _balanceLoading = false;
         });
       }
@@ -154,7 +181,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   }
 
   Future<void> _withdraw() async {
-    final currency = UserCurrencyHelper.resolve(ref.read(authProvider).user);
+    final currency = (_walletCurrency?.trim().isNotEmpty ?? false)
+        ? _walletCurrency!.trim().toUpperCase()
+        : UserCurrencyHelper.walletSettlementCurrency(
+            ref.read(authProvider).user);
     final amount = double.tryParse(_amountCtrl.text) ?? 0;
     final minimumAmount =
         CurrencyConversionHelper.minimumWithdrawalForCurrency(currency);
@@ -419,7 +449,9 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = (_walletCurrency?.trim().isNotEmpty ?? false)
+        ? _walletCurrency!.trim().toUpperCase()
+        : UserCurrencyHelper.walletSettlementCurrency(user);
     if (currency.isEmpty) {
       return Scaffold(
         backgroundColor: AppColors.white,

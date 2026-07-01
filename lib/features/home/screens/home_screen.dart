@@ -94,8 +94,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final data = res.data as Map<String, dynamic>?;
       if (!mounted) return;
       setState(() {
-        _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
-        _liveEscrowCurrency = data?['currency']?.toString() ?? '';
+        _liveEscrow = (data?['escrowDisplayBalance'] as num?)?.toDouble() ??
+            (data?['escrow_display_balance'] as num?)?.toDouble() ??
+            (data?['displayEscrowBalance'] as num?)?.toDouble() ??
+            (data?['display_escrow_balance'] as num?)?.toDouble() ??
+            (data?['escrowBalance'] as num?)?.toDouble() ??
+            0;
+        _liveEscrowCurrency = (data?['walletDisplayCurrency'] ??
+                    data?['wallet_display_currency'] ??
+                    data?['displayCurrency'] ??
+                    data?['display_currency'] ??
+                    data?['currency'])
+                ?.toString() ??
+            '';
       });
     } on DioException {
       return;
@@ -312,13 +323,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   // ── Hero ────────────────────────────────────────────────
                   isCarrier
                       ? _CarrierHero(
-                          balance: UserCurrencyHelper.convertWalletBalance(
-                            balance: user?.walletBalance ?? 0,
-                            walletCurrency: user?.walletCurrency ?? 'USD',
-                            viewerCurrency: UserCurrencyHelper.resolve(user),
-                          ),
+                          balance:
+                              UserCurrencyHelper.walletDisplayBalance(user),
                           pendingEarnings: carrierEarnings,
-                          currency: UserCurrencyHelper.resolve(user),
+                          currency:
+                              UserCurrencyHelper.walletDisplayCurrency(user),
                           onPostTrip: () => context.push('/post-trip'),
                           onWithdraw: () => context.push('/profile/withdraw'),
                           onRefresh: _refreshWallet,

@@ -19,9 +19,12 @@ class UserModel {
   final String? kycStatus;
   final double walletBalance;
   final double escrowBalance;
+  final double? walletDisplayBalance;
+  final double? escrowDisplayBalance;
   final String currency;
   final String preferredCurrency;
   final String walletCurrency;
+  final String? walletDisplayCurrency;
   final String? bio;
   final double rating;
   final int ratingCount;
@@ -58,9 +61,12 @@ class UserModel {
     this.kycStatus,
     this.walletBalance = 0.0,
     this.escrowBalance = 0.0,
+    this.walletDisplayBalance,
+    this.escrowDisplayBalance,
     this.currency = '',
     this.preferredCurrency = '',
-    this.walletCurrency = 'USD',
+    this.walletCurrency = '',
+    this.walletDisplayCurrency,
     this.bio,
     this.rating = 0.0,
     this.ratingCount = 0,
@@ -155,8 +161,11 @@ class UserModel {
     String? kycStatus,
     double? walletBalance,
     double? escrowBalance,
+    double? walletDisplayBalance,
+    double? escrowDisplayBalance,
     String? currency,
     String? preferredCurrency,
+    String? walletDisplayCurrency,
     String? bio,
     double? rating,
     int? ratingCount,
@@ -194,9 +203,13 @@ class UserModel {
       kycStatus: kycStatus ?? this.kycStatus,
       walletBalance: walletBalance ?? this.walletBalance,
       escrowBalance: escrowBalance ?? this.escrowBalance,
+      walletDisplayBalance: walletDisplayBalance ?? this.walletDisplayBalance,
+      escrowDisplayBalance: escrowDisplayBalance ?? this.escrowDisplayBalance,
       currency: currency ?? this.currency,
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
       walletCurrency: walletCurrency ?? this.walletCurrency,
+      walletDisplayCurrency:
+          walletDisplayCurrency ?? this.walletDisplayCurrency,
       bio: bio ?? this.bio,
       rating: rating ?? this.rating,
       ratingCount: ratingCount ?? this.ratingCount,
@@ -248,13 +261,34 @@ class UserModel {
             json, ['wallet_balance', 'walletBalance']),
         escrowBalance: JsonParser.parseDoubleFirst(
             json, ['escrow_balance', 'escrowBalance']),
+        walletDisplayBalance: _optionalDoubleFirst(json, [
+          'wallet_display_balance',
+          'walletDisplayBalance',
+          'available_display_balance',
+          'availableDisplayBalance',
+          'display_balance',
+          'displayBalance',
+        ]),
+        escrowDisplayBalance: _optionalDoubleFirst(json, [
+          'escrow_display_balance',
+          'escrowDisplayBalance',
+          'display_escrow_balance',
+          'displayEscrowBalance',
+        ]),
         currency: json['currency']?.toString() ??
             json['preferredCurrency']?.toString() ??
             json['preferred_currency']?.toString() ??
             '',
         walletCurrency: json['walletCurrency']?.toString() ??
             json['wallet_currency']?.toString() ??
-            'USD',
+            json['currency']?.toString() ??
+            json['preferredCurrency']?.toString() ??
+            json['preferred_currency']?.toString() ??
+            '',
+        walletDisplayCurrency: json['walletDisplayCurrency']?.toString() ??
+            json['wallet_display_currency']?.toString() ??
+            json['displayCurrency']?.toString() ??
+            json['display_currency']?.toString(),
         bio: json['bio']?.toString(),
         rating: JsonParser.parseDouble(json, 'rating'),
         ratingCount:
@@ -313,7 +347,11 @@ class UserModel {
         'kyc_status': kycStatus,
         'wallet_balance': walletBalance,
         'escrow_balance': escrowBalance,
+        'wallet_display_balance': walletDisplayBalance,
+        'escrow_display_balance': escrowDisplayBalance,
         'currency': currency,
+        'wallet_currency': walletCurrency,
+        'wallet_display_currency': walletDisplayCurrency,
         'preferredCurrency':
             preferredCurrency.isNotEmpty ? preferredCurrency : currency,
         'bio': bio,
@@ -348,6 +386,18 @@ class UserModel {
       default:
         return 'sender';
     }
+  }
+
+  static double? _optionalDoubleFirst(
+      Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final v = json[key];
+      if (v == null) continue;
+      if (v is num) return v.toDouble();
+      final parsed = double.tryParse(v.toString());
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   static String? _paypalEmailFromJson(Map<String, dynamic> json) {

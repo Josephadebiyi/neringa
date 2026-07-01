@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 
 import { query, queryOne, withTransaction } from './db.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
+import { convertCurrency } from '../../services/currencyConverter.js';
 
 const AFRICAN_PAYOUT_CURRENCIES = new Set([
   'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
@@ -532,9 +533,19 @@ export async function adminChangeEarningCurrency(userId, newCurrency, settleBala
 export async function getWalletByUserId(userId) {
   let wallet = await queryOne(
     `
-      select id, user_id, available_balance, escrow_balance, currency, created_at, updated_at
-      from public.wallet_accounts
-      where user_id = $1
+      select
+        w.id,
+        w.user_id,
+        w.available_balance,
+        w.escrow_balance,
+        w.currency,
+        w.created_at,
+        w.updated_at,
+        p.preferred_currency,
+        p.earning_currency
+      from public.wallet_accounts w
+      left join public.profiles p on p.id = w.user_id
+      where w.user_id = $1
     `,
     [userId],
   );
@@ -691,9 +702,33 @@ export async function getWalletByUserId(userId) {
     }));
   const balance = Number(wallet.available_balance || 0);
   const escrowBalance = Number(wallet.escrow_balance || 0);
+  const walletCurrency = String(wallet.currency || wallet.earning_currency || wallet.preferred_currency || 'USD').toUpperCase();
+  const requestedDisplayCurrency = String(wallet.preferred_currency || walletCurrency).toUpperCase();
+  let displayCurrency = walletCurrency;
+  let displayBalance = balance;
+  let displayEscrowBalance = escrowBalance;
+  let displayConversionStatus = 'same_currency';
+
+  if (requestedDisplayCurrency && requestedDisplayCurrency !== walletCurrency) {
+    try {
+      displayBalance = Number((await convertCurrency(balance, walletCurrency, requestedDisplayCurrency)).toFixed(2));
+      displayEscrowBalance = Number((await convertCurrency(escrowBalance, walletCurrency, requestedDisplayCurrency)).toFixed(2));
+      displayCurrency = requestedDisplayCurrency;
+      displayConversionStatus = 'converted';
+    } catch (error) {
+      console.warn(
+        `Wallet display conversion unavailable for user ${userId}: ${walletCurrency}->${requestedDisplayCurrency}:`,
+        error.message,
+      );
+      displayConversionStatus = 'unavailable';
+    }
+  }
 
   return {
     ...wallet,
+    currency: walletCurrency,
+    walletCurrency,
+    wallet_currency: walletCurrency,
     balance,
     walletBalance: balance,
     wallet_balance: balance,
@@ -701,6 +736,22 @@ export async function getWalletByUserId(userId) {
     available_balance: balance,
     escrowBalance,
     escrow_balance: escrowBalance,
+    displayCurrency,
+    display_currency: displayCurrency,
+    walletDisplayCurrency: displayCurrency,
+    wallet_display_currency: displayCurrency,
+    displayBalance,
+    display_balance: displayBalance,
+    walletDisplayBalance: displayBalance,
+    wallet_display_balance: displayBalance,
+    availableDisplayBalance: displayBalance,
+    available_display_balance: displayBalance,
+    displayEscrowBalance,
+    display_escrow_balance: displayEscrowBalance,
+    escrowDisplayBalance: displayEscrowBalance,
+    escrow_display_balance: displayEscrowBalance,
+    displayConversionStatus,
+    display_conversion_status: displayConversionStatus,
     allTimeReceived: Math.max(
       Number(totals?.all_time_received || 0),
       Number(ledgerTotals?.released_earnings || 0),

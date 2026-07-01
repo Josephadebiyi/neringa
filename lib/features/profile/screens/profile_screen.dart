@@ -666,7 +666,9 @@ class _WalletCard extends ConsumerStatefulWidget {
 }
 
 class _WalletCardState extends ConsumerState<_WalletCard> {
+  double? _liveAvailable;
   double? _liveEscrow;
+  String? _liveDisplayCurrency;
   bool _refreshing = false;
 
   @override
@@ -683,10 +685,38 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
       final data = res.data as Map<String, dynamic>?;
       if (mounted) {
         setState(() {
-          _liveEscrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
+          _liveAvailable = _numFrom(data, const [
+            'availableDisplayBalance',
+            'available_display_balance',
+            'walletDisplayBalance',
+            'wallet_display_balance',
+            'displayBalance',
+            'display_balance'
+          ]);
+          _liveEscrow = _numFrom(data, const [
+            'escrowDisplayBalance',
+            'escrow_display_balance',
+            'displayEscrowBalance',
+            'display_escrow_balance'
+          ]);
+          _liveDisplayCurrency = (data?['walletDisplayCurrency'] ??
+                  data?['wallet_display_currency'] ??
+                  data?['displayCurrency'] ??
+                  data?['display_currency'])
+              ?.toString();
         });
       }
     } catch (_) {}
+  }
+
+  double? _numFrom(Map<String, dynamic>? data, List<String> keys) {
+    for (final key in keys) {
+      final value = data?[key];
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   Future<void> _refreshWallet() async {
@@ -701,13 +731,12 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final displayCurrency = UserCurrencyHelper.resolve(user);
-    final available = UserCurrencyHelper.convertWalletBalance(
-      balance: user?.walletBalance ?? 0,
-      walletCurrency: user?.walletCurrency ?? 'USD',
-      viewerCurrency: displayCurrency,
-    );
-    final escrow = _liveEscrow ?? 0;
+    final displayCurrency = (_liveDisplayCurrency?.trim().isNotEmpty ?? false)
+        ? _liveDisplayCurrency!.trim().toUpperCase()
+        : UserCurrencyHelper.walletDisplayCurrency(user);
+    final available =
+        _liveAvailable ?? UserCurrencyHelper.walletDisplayBalance(user);
+    final escrow = _liveEscrow ?? UserCurrencyHelper.escrowDisplayBalance(user);
     final total = available + escrow;
 
     return Container(
