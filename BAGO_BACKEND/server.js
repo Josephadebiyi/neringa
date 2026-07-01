@@ -570,10 +570,10 @@ schema('/api/bago/signin', {
   max: { email: 254, password: 256 },
 });
 schema('/api/bago/signup', {
-  allowed: ['email', 'password', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
+  allowed: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
   required: ['email', 'password'],
-  strings: ['email', 'password', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
-  max: { email: 254, password: 256, firstName: 80, lastName: 80, fullName: 160, phone: 40, country: 80, currency: 3, referralCode: 32, role: 24 },
+  strings: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
+  max: { email: 254, password: 256, confirmPassword: 256, firstName: 80, lastName: 80, fullName: 160, phone: 40, country: 80, currency: 3, referralCode: 32, role: 24 },
 });
 schema('/api/Adminbaggo/AdminLogin', {
   allowed: ['email', 'userName', 'username', 'password'],
