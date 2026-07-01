@@ -29,6 +29,7 @@ import BannersPage from "./pages/Banners"
 import ProfilePage from "./pages/Profile"
 import ItemCategoriesPage from "./pages/ItemCategories"
 import FlaggedUsersPage from "./pages/FlaggedUsers"
+import InsurancePage from "./pages/Insurance"
 
 export default function App() {
   return (
@@ -284,6 +285,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <ItemCategoriesPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/insurance"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <InsurancePage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

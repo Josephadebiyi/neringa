@@ -31,6 +31,7 @@ import {
   ImagePlay,
   Package,
   UserX,
+  ShieldCheck,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -55,6 +56,7 @@ const allNavItems: NavItemDef[] = [
   { icon: Plane,           label: "Listed Trips",       path: "/trips",            roles: ["SUPER_ADMIN"] },
   { icon: IdCard,          label: "KYC Management",     path: "/kyc",              roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
   { icon: ClipboardList,   label: "Orders",             path: "/orders",           roles: ["SUPER_ADMIN", "SUPPORT_ADMIN"] },
+  { icon: ShieldCheck,     label: "Insurance",          path: "/insurance",        roles: ["SUPER_ADMIN"] },
   { icon: MapPin,          label: "Tracking",           path: "/tracking",         roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
   { icon: Bell,            label: "Promo Engine",       path: "/promo-email",      roles: ["SUPER_ADMIN"] },
   { icon: Ticket,          label: "Promo Codes",        path: "/promo-codes",      roles: ["SUPER_ADMIN"] },

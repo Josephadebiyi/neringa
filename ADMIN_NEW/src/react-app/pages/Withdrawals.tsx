@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Filter, CreditCard, User, Calendar, DollarSign, CheckCircle, XCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
-import { approveWithdrawal as approveWithdrawalRequest, getWithdrawals, updateWithdrawalStatus as updateStatus } from "../services/api";
+import { approveWithdrawal as approveWithdrawalRequest, getWithdrawals, updateWithdrawalStatus as updateStatus, syncPaypalWithdrawal } from "../services/api";
 
 // Interface for withdrawal requests from API
 interface WithdrawalRequest {
@@ -226,6 +226,23 @@ export default function Withdrawals() {
     }
   };
 
+  const handleSyncPaypal = async (withdrawal: WithdrawalRequest) => {
+    setActionError(null);
+    try {
+      setLoading(true);
+      const result = await syncPaypalWithdrawal(withdrawal.id);
+      if (result.success) {
+        await fetchWithdrawals();
+      } else {
+        setActionError(result.message || 'Sync failed.');
+      }
+    } catch (error: any) {
+      setActionError(error?.message || 'Sync failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBatchApprove = async () => {
     const pending = withdrawals.filter(w => isApprovableWithdrawal(w) && hasPayoutDestination(w));
     if (pending.length === 0) return;
@@ -264,7 +281,7 @@ export default function Withdrawals() {
     if (COMPLETED_WITHDRAWAL_STATUSES.has(normalized)) return 'bg-green-100 text-green-800';
     if (FAILED_WITHDRAWAL_STATUSES.has(normalized)) return 'bg-red-100 text-red-800';
     switch (normalized) {
-      case 'approved': return 'bg-blue-100 text-blue-800';
+      case 'approved': return 'bg-[#5C4BFD]/10 text-[#4335E0]';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -275,7 +292,7 @@ export default function Withdrawals() {
     if (COMPLETED_WITHDRAWAL_STATUSES.has(normalized)) return <CheckCircle className="w-4 h-4 text-green-600" />;
     if (FAILED_WITHDRAWAL_STATUSES.has(normalized)) return <XCircle className="w-4 h-4 text-red-600" />;
     switch (normalized) {
-      case 'approved': return <CheckCircle className="w-4 h-4 text-blue-600" />;
+      case 'approved': return <CheckCircle className="w-4 h-4 text-[#5C4BFD]" />;
       default: return <AlertCircle className="w-4 h-4 text-gray-600" />;
     }
   };
@@ -295,7 +312,7 @@ export default function Withdrawals() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5C4BFD]"></div>
       </div>
     );
   }
@@ -343,7 +360,7 @@ export default function Withdrawals() {
           </div>
         </div>
         <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-blue-600">
+          <div className="text-2xl font-bold text-[#5C4BFD]">
             {withdrawals.filter(w => w.status === 'approved').length}
           </div>
           <div className="text-gray-600 text-sm">Approved</div>
@@ -375,13 +392,13 @@ export default function Withdrawals() {
               placeholder="Search by user name, email, or payment method..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5C4BFD]/25 focus:border-[#5C4BFD]"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5C4BFD]/25 focus:border-[#5C4BFD]"
           >
             <option value="all">All Status</option>
             {['pending', 'completed', 'failed'].map(status => (
@@ -431,10 +448,10 @@ export default function Withdrawals() {
                     </div>
                   </td>
                   <td className="py-4 px-4">
-                    <div className="flex items-center space-x-2">
-                      <DollarSign className="w-4 h-4 text-green-600" />
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs font-bold text-green-700 uppercase">{withdrawal.currency || 'USD'}</span>
                       <span className="text-lg font-semibold text-gray-900">
-                        {(+(withdrawal.amount ?? 0)).toLocaleString()}
+                        {(+(withdrawal.amount ?? 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </td>
@@ -458,13 +475,13 @@ export default function Withdrawals() {
                           </div>
                         )}
                         {withdrawal.paypalStatus && (
-                          <div className="rounded bg-blue-50 px-2 py-1 font-medium text-blue-700">
+                          <div className="rounded bg-[#5C4BFD]/10 px-2 py-1 font-medium text-[#4335E0]">
                             PayPal status: {withdrawal.paypalStatus}
                           </div>
                         )}
                         {withdrawal.paypalErrorMessage && (
                           <div className="rounded bg-red-50 px-2 py-1 font-medium text-red-700">
-                            PayPal error: {withdrawal.paypalErrorMessage}
+                            Transfer error: {withdrawal.paypalErrorMessage}
                             {withdrawal.paypalDebugId ? ` (${withdrawal.paypalDebugId})` : ''}
                           </div>
                         )}
@@ -524,7 +541,7 @@ export default function Withdrawals() {
                           <button
                             onClick={() => handleMarkPaidManually(withdrawal)}
                             title="Mark as paid manually (already sent outside the app)"
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            className="text-[#5C4BFD] hover:text-[#4335E0] text-sm font-medium"
                           >
                             Mark Paid
                           </button>
@@ -538,6 +555,16 @@ export default function Withdrawals() {
                             Reject
                           </button>
                         </>
+                      )}
+                      {(withdrawal.provider === 'paypal' || withdrawal.payoutDetails?.provider === 'paypal') &&
+                        normalizeStatus(withdrawal.status) === 'processing' && (
+                        <button
+                          onClick={() => handleSyncPaypal(withdrawal)}
+                          title="Fetch latest status from PayPal"
+                          className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                        >
+                          Sync PayPal
+                        </button>
                       )}
                       <button className="text-gray-600 hover:text-gray-800 text-sm font-medium">
                         View Details
