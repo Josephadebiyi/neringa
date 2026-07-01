@@ -21,7 +21,7 @@ import {
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { mergePaidDuplicateRequest } from './postgresRequestController.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
-import { convertCurrency } from '../services/currencyConverter.js';
+import { CurrencyService, convertCurrency } from '../services/currencyConverter.js';
 import { sendWithdrawalProcessedEmail, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 import { Resend } from 'resend';
@@ -46,6 +46,71 @@ function otpHashMatches(storedHash, otp) {
   const calculatedHash = hashOtp(otp);
   if (!storedHash || storedHash.length !== calculatedHash.length) return false;
   return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculatedHash));
+}
+
+function paystackMinorAmount(majorAmount, currency) {
+  return CurrencyService.majorToMinor(Number(majorAmount || 0), currency || 'NGN');
+}
+
+async function reconcilePaystackPayment({ reference, providerAmountMinor, providerCurrency, requestId = null, metadata = {} }) {
+  const event = await queryOne(
+    `select payload from public.payment_events
+     where provider = 'paystack'
+       and event_type = 'payment_initialized'
+       and provider_reference = $1
+     limit 1`,
+    [reference],
+  );
+  const expectedCurrency = CurrencyService.normalizeCurrency(event?.payload?.currency || metadata?.currency || providerCurrency || 'NGN');
+  const expectedMajorAmount = event?.payload?.amount ?? metadata?.amount;
+  const expectedAmountMinor = paystackMinorAmount(expectedMajorAmount, expectedCurrency);
+  const normalizedProviderCurrency = CurrencyService.normalizeCurrency(providerCurrency || expectedCurrency);
+
+  const ok = expectedAmountMinor > 0 &&
+    expectedAmountMinor === Number(providerAmountMinor) &&
+    expectedCurrency === normalizedProviderCurrency;
+
+  await pgQuery(
+    `
+      insert into public.payment_events (
+        provider, event_type, provider_reference, request_id, payload,
+        expected_amount_minor, expected_currency, provider_amount_minor,
+        provider_currency, reconciliation_status, reconciliation_error
+      )
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      on conflict (provider, event_type, provider_reference) do update
+      set payload = excluded.payload,
+          expected_amount_minor = excluded.expected_amount_minor,
+          expected_currency = excluded.expected_currency,
+          provider_amount_minor = excluded.provider_amount_minor,
+          provider_currency = excluded.provider_currency,
+          reconciliation_status = excluded.reconciliation_status,
+          reconciliation_error = excluded.reconciliation_error,
+          updated_at = timezone('utc', now())
+    `,
+    [
+      'paystack',
+      'payment_reconciled',
+      reference,
+      requestId,
+      { reference },
+      expectedAmountMinor,
+      expectedCurrency,
+      Number(providerAmountMinor),
+      normalizedProviderCurrency,
+      ok ? 'matched' : 'mismatch',
+      ok ? null : `Expected ${expectedCurrency} ${expectedAmountMinor}; got ${normalizedProviderCurrency} ${providerAmountMinor}`,
+    ],
+  ).catch((eventError) => {
+    console.error('Failed to persist Paystack reconciliation event:', eventError);
+  });
+
+  if (!ok) {
+    const err = new Error('Payment amount or currency did not match the Bago checkout quote.');
+    err.statusCode = 409;
+    err.code = 'PAYMENT_RECONCILIATION_FAILED';
+    throw err;
+  }
 }
 
 /**
@@ -186,6 +251,13 @@ export const verifyPaystackPayment = async (req, res) => {
 
     if (result.success && result.data.metadata?.requestId) {
       const requestId = result.data.metadata.requestId;
+      await reconcilePaystackPayment({
+        reference,
+        providerAmountMinor: paystackMinorAmount(result.data.amount, result.data.currency),
+        providerCurrency: result.data.currency,
+        requestId,
+        metadata: result.data.metadata || {},
+      });
 
       const updatedRequest = await queryOne(
         `UPDATE public.shipment_requests
@@ -418,7 +490,7 @@ export const verifyBankOTP = async (req, res) => {
  */
 export const withdrawFundsPaystack = async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, currency } = req.body;
     const user = req.user;
 
     const withdrawalAmount = Number(amount);
@@ -427,9 +499,21 @@ export const withdrawFundsPaystack = async (req, res) => {
     }
 
     const profile = await queryOne(
-      `SELECT available_balance, paystack_recipient_code, kyc_status, email, first_name, last_name FROM public.profiles WHERE id = $1`,
+      `SELECT p.paystack_recipient_code, p.kyc_status, p.email, p.first_name, p.last_name,
+              wa.id as wallet_id, wa.available_balance, wa.currency
+       FROM public.profiles p
+       JOIN public.wallet_accounts wa on wa.user_id = p.id
+       WHERE p.id = $1`,
       [user.id]
     );
+    const walletCurrency = CurrencyService.normalizeCurrency(profile?.currency || currency || 'NGN');
+    const requestedCurrency = currency ? CurrencyService.normalizeCurrency(currency) : walletCurrency;
+    if (requestedCurrency !== walletCurrency) {
+      return res.status(400).json({ success: false, message: `Withdraw in your wallet currency (${walletCurrency}).` });
+    }
+    if (!['NGN', 'GHS', 'KES', 'ZAR'].includes(walletCurrency)) {
+      return res.status(400).json({ success: false, message: `${walletCurrency} bank withdrawals are not supported by Paystack.` });
+    }
 
     const kycStatus = String(profile?.kyc_status || '').trim().toLowerCase();
     const hasPassedKyc = ['approved', 'verified', 'completed'].includes(kycStatus);
@@ -453,15 +537,29 @@ export const withdrawFundsPaystack = async (req, res) => {
     const reference = `BAGO-WD-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     const debit = await queryOne(
-      `UPDATE public.profiles
+      `UPDATE public.wallet_accounts
        SET available_balance = available_balance - $2, updated_at = NOW()
-       WHERE id = $1 AND available_balance >= $2
+       WHERE user_id = $1 AND currency = $3 AND available_balance >= $2
        RETURNING available_balance`,
-      [user.id, withdrawalAmount],
+      [user.id, withdrawalAmount, walletCurrency],
     );
     if (!debit) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
+
+    await pgQuery(
+      `INSERT INTO public.wallet_transactions
+        (wallet_id, user_id, type, amount, currency, status, description, metadata)
+       VALUES ($1, $2, 'withdrawal', $3, $4, 'processing', $5, $6)`,
+      [
+        profile.wallet_id,
+        user.id,
+        withdrawalAmount,
+        walletCurrency,
+        'Paystack bank withdrawal',
+        { provider: 'paystack', reference },
+      ],
+    ).catch(() => {});
 
     let result;
     try {
@@ -470,10 +568,11 @@ export const withdrawFundsPaystack = async (req, res) => {
         recipientCode: profile.paystack_recipient_code,
         reference,
         reason: 'Bago wallet withdrawal',
+        currency: walletCurrency,
       });
     } catch (transferError) {
       await pgQuery(
-        `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+        `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
         [user.id, withdrawalAmount],
       ).catch((refundError) => {
         console.error('Paystack withdrawal refund after transfer error failed:', refundError);
@@ -489,7 +588,7 @@ export const withdrawFundsPaystack = async (req, res) => {
 
     if (!result.success) {
       await pgQuery(
-        `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+        `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
         [user.id, withdrawalAmount],
       );
       return res.status(400).json({ success: false, message: result.message || 'Transfer failed' });
@@ -499,14 +598,14 @@ export const withdrawFundsPaystack = async (req, res) => {
     await pgQuery(
       `INSERT INTO public.paystack_pending_withdrawals (user_id, reference, amount, currency)
        VALUES ($1, $2, $3, $4) ON CONFLICT (reference) DO NOTHING`,
-      [user.id, reference, withdrawalAmount, 'NGN'],
+      [user.id, reference, withdrawalAmount, walletCurrency],
     ).catch(() => {}); // non-fatal: balance was already debited successfully
     await sendWithdrawalSubmittedEmail(
       profile.email || user.email,
       [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim(),
       {
         amount: withdrawalAmount,
-        currency: 'NGN',
+        currency: walletCurrency,
         reference,
         method: 'bank account',
       },
@@ -707,6 +806,16 @@ export const paystackTransferApproval = async (req, res) => {
 
 async function handleSuccessfulPayment(data) {
   const { reference, metadata } = data;
+  const providerAmountMinor = Number(data?.amount || 0);
+  const providerCurrency = data?.currency || metadata?.currency || 'NGN';
+
+  await reconcilePaystackPayment({
+    reference,
+    providerAmountMinor,
+    providerCurrency,
+    requestId: metadata?.requestId || null,
+    metadata,
+  });
 
   if (!metadata?.requestId) {
     await finalizePaystackShipmentFromMetadata(data);
@@ -1012,7 +1121,7 @@ async function handleFailedTransfer(data) {
     const userFaultPattern = /invalid account|account not found|invalid recipient|recipient not found|account number|no such account|dormant account/i;
     const isUserFault = userFaultPattern.test(failureReason);
 
-    // Stripe/non-Paystack withdrawal path: wallet_transactions record exists
+    // Wallet transaction path: restore the same wallet account that was debited.
     const tx = await queryOne(
       `SELECT user_id, amount, currency FROM public.wallet_transactions
        WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
@@ -1050,7 +1159,7 @@ async function handleFailedTransfer(data) {
         ),
       ]);
     } else {
-      // Paystack (African currency) withdrawal path: balance lives in profiles
+      // Legacy pending row path: restore wallet account for the user.
       const ppw = await queryOne(
         `UPDATE public.paystack_pending_withdrawals
          SET status = 'failed', updated_at = NOW()
@@ -1060,7 +1169,7 @@ async function handleFailedTransfer(data) {
       );
       if (ppw) {
         await pgQuery(
-          `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+          `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
           [ppw.user_id, ppw.amount]
         );
         const displayAmount = `${ppw.currency} ${Number(ppw.amount).toFixed(2)}`;
@@ -1094,7 +1203,7 @@ async function handleReversedTransfer(data) {
   try {
     const { reference } = data;
 
-    // Stripe/non-Paystack withdrawal path
+    // Wallet transaction path
     const tx = await queryOne(
       `SELECT user_id, amount, currency FROM public.wallet_transactions
        WHERE type = 'withdrawal' AND metadata->>'reference' = $1 LIMIT 1`,
@@ -1126,7 +1235,7 @@ async function handleReversedTransfer(data) {
         ),
       ]);
     } else {
-      // Paystack (African currency) withdrawal path
+      // Legacy pending row path
       const ppw = await queryOne(
         `UPDATE public.paystack_pending_withdrawals
          SET status = 'failed', updated_at = NOW()
@@ -1136,7 +1245,7 @@ async function handleReversedTransfer(data) {
       );
       if (ppw) {
         await pgQuery(
-          `UPDATE public.profiles SET available_balance = available_balance + $2, updated_at = NOW() WHERE id = $1`,
+          `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
           [ppw.user_id, ppw.amount]
         );
         const displayAmount = `${ppw.currency} ${Number(ppw.amount).toFixed(2)}`;

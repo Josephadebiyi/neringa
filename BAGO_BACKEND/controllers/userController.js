@@ -216,7 +216,7 @@ export const edit = async (req, res, next) => {
     // Convert wallet balance when currency changes
     if (updateKeys.includes('preferredCurrency') && updates.preferredCurrency) {
       const newCurrency = updates.preferredCurrency.toUpperCase();
-      const paymentGateway = PAYSTACK_PAYOUT_CURRENCIES.includes(newCurrency) ? 'paystack' : 'stripe';
+      const paymentGateway = PAYSTACK_PAYOUT_CURRENCIES.includes(newCurrency) ? 'paystack' : 'paypal';
       await updatePreferredCurrency(userId, newCurrency, paymentGateway, oldPreferredCurrency);
     }
 
@@ -303,7 +303,7 @@ export const addFunds = async (req, res) => {
 
 const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
 const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 2);
-const STRIPE_CONNECT_WITHDRAWAL_FEE = 0;
+const PAYPAL_WITHDRAWAL_FEE = 0;
 const PAYSTACK_WITHDRAWAL_FEE_NGN = 200;
 const PAYSTACK_PAYOUT_CURRENCIES = [
   'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
@@ -314,7 +314,7 @@ const PAYSTACK_PAYOUT_CURRENCIES = [
 ];
 
 function payoutMethodForCurrency(currency = 'USD') {
-  return PAYSTACK_PAYOUT_CURRENCIES.includes(String(currency).toUpperCase()) ? 'bank' : 'stripe';
+  return PAYSTACK_PAYOUT_CURRENCIES.includes(String(currency).toUpperCase()) ? 'bank' : 'paypal';
 }
 
 export const withdrawFunds = async (req, res) => {
@@ -330,8 +330,6 @@ export const withdrawFunds = async (req, res) => {
       `SELECT
           p.payout_currency,
           p.payout_status,
-          p.stripe_connect_account_id,
-          p.stripe_onboarding_complete,
           p.paystack_recipient_code,
           p.email,
           p.first_name,
@@ -350,13 +348,13 @@ export const withdrawFunds = async (req, res) => {
     const walletCurrency = String(account.currency || 'USD').toUpperCase();
     const selectedMethod = method || payoutMethodForCurrency(walletCurrency);
 
-    if (!['stripe', 'bank'].includes(selectedMethod)) {
-      return res.status(400).json({ success: false, message: "Specify payout method: 'stripe' or 'bank'" });
+    if (!['paypal', 'bank'].includes(selectedMethod)) {
+      return res.status(400).json({ success: false, message: "Specify payout method: 'paypal' or 'bank'" });
     }
     if (selectedMethod !== payoutMethodForCurrency(walletCurrency)) {
       return res.status(400).json({
         success: false,
-        message: `${walletCurrency} withdrawals use ${payoutMethodForCurrency(walletCurrency) === 'bank' ? 'bank/Paystack' : 'Stripe Connect'}.`,
+        message: `${walletCurrency} withdrawals use ${payoutMethodForCurrency(walletCurrency) === 'bank' ? 'bank/Paystack' : 'PayPal'}.`,
       });
     }
 
@@ -368,13 +366,6 @@ export const withdrawFunds = async (req, res) => {
       });
     }
 
-    if (selectedMethod === 'stripe') {
-      return res.status(410).json({
-        success: false,
-        message: 'Use /api/payouts/withdraw for Stripe Connect withdrawals.',
-        code: 'STRIPE_WITHDRAWAL_ENDPOINT_REQUIRED',
-      });
-    }
     if (selectedMethod === 'bank' && !account.paystack_recipient_code) {
       return res.status(400).json({ success: false, message: 'Add and verify a bank account before withdrawing.' });
     }
@@ -383,7 +374,7 @@ export const withdrawFunds = async (req, res) => {
       ? Number((walletCurrency === 'NGN'
           ? PAYSTACK_WITHDRAWAL_FEE_NGN
           : await convertCurrency(PAYSTACK_WITHDRAWAL_FEE_NGN, 'NGN', walletCurrency)).toFixed(2))
-      : STRIPE_CONNECT_WITHDRAWAL_FEE;
+      : PAYPAL_WITHDRAWAL_FEE;
     const payoutAmount = Number((Number(amount) - withdrawalFee).toFixed(2));
     if (payoutAmount <= 0) {
       return res.status(400).json({
@@ -446,17 +437,17 @@ export const withdrawFunds = async (req, res) => {
        VALUES ($1, $2, 'withdrawal', $3, $4, 'pending_admin_approval', $5, $6)`,
       [
         account.wallet_id, userId, amount, walletCurrency,
-        `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'Stripe Connect'}`,
+        `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'PayPal'}`,
         JSON.stringify({
           method: selectedMethod,
-          provider: selectedMethod === 'bank' ? 'paystack' : 'stripe',
+          provider: selectedMethod === 'bank' ? 'paystack' : 'paypal',
           amountUsd,
           reference,
           requestedAmount: Number(amount),
           withdrawalFee,
           payoutAmount,
           feeCurrency: walletCurrency,
-          feeRule: selectedMethod === 'bank' ? 'paystack_ngn_200' : 'stripe_connect',
+          feeRule: selectedMethod === 'bank' ? 'paystack_ngn_200' : 'paypal',
           recipientCode: account.paystack_recipient_code,
         }),
       ]
@@ -470,7 +461,7 @@ export const withdrawFunds = async (req, res) => {
         amount: Number(amount),
         currency: walletCurrency,
         reference,
-        method: selectedMethod === 'bank' ? 'bank account' : 'Stripe Connect',
+        method: selectedMethod === 'bank' ? 'bank account' : 'PayPal',
       },
     ).catch(() => {});
 
@@ -482,7 +473,7 @@ export const withdrawFunds = async (req, res) => {
           userEmail: account.email,
           amount: Number(amount),
           currency: walletCurrency,
-          method: selectedMethod === 'bank' ? 'Bank Transfer (Paystack)' : 'Stripe Connect',
+          method: selectedMethod === 'bank' ? 'Bank Transfer (Paystack)' : 'PayPal',
           reference,
         }).catch(() => {});
       }

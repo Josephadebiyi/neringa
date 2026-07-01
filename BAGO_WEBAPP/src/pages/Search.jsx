@@ -55,7 +55,7 @@ const Navbar = () => {
     );
 };
 
-const TripCard = ({ trip, weight, surchargeMultiplier = 1.2075 }) => {
+const TripCard = ({ trip, weight }) => {
     const navigate = useNavigate();
     const { isAuthenticated, user } = useAuth();
     const { t } = useLanguage();
@@ -188,7 +188,7 @@ const TripCard = ({ trip, weight, surchargeMultiplier = 1.2075 }) => {
                         <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('rate') || 'Rate'}</p>
                         <p className="text-[#5845D8] font-black text-lg tracking-tight">
                             {trip.pricePerKg
-                                ? `${trip.currency || '$'} ${(trip.pricePerKg * surchargeMultiplier).toFixed(2)}/kg`
+                                ? `${trip.currency || '$'} ${Number(trip.pricePerKg).toFixed(2)}/kg`
                                 : t('rateStandard')}
                         </p>
                     </div>
@@ -276,7 +276,6 @@ export default function Search() {
     const [searchParams] = useSearchParams();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [surchargeMultiplier, setSurchargeMultiplier] = useState(1.2075);
 
     const findInitialLocation = (cityParam, countryParam) => {
         if (!cityParam && !countryParam) return null;
@@ -309,9 +308,6 @@ export default function Search() {
 
     useEffect(() => {
         fetchTrips();
-        api.get('/api/config/pricing-config')
-            .then(r => { if (r.data?.surchargeMultiplier) setSurchargeMultiplier(r.data.surchargeMultiplier); })
-            .catch(() => {});
     }, []);
 
     const fetchTrips = async () => {
@@ -556,7 +552,7 @@ export default function Search() {
                         ) : trips.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {trips.map((trip) => (
-                                    <TripCard key={trip._id} trip={trip} weight={filters.weight} surchargeMultiplier={surchargeMultiplier} />
+                                    <TripCard key={trip._id} trip={trip} weight={filters.weight} />
                                 ))}
                             </div>
                         ) : (

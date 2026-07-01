@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import api from '../api';
 import { countries, locations } from '../utils/countries';
-import { calculateInsurance, fetchExchangeRates } from '../utils/insuranceCalculator';
 
 const AFRICAN_CURRENCIES = new Set([
     'AOA','BIF','BWP','CDF','CVE','DJF','DZD','EGP','ERN','ETB','GHS','GMD','GNF',
@@ -46,6 +45,24 @@ const ITEM_CATEGORIES = [
 
 const PAYMENT_PENDING_MESSAGE =
     'We are confirming your payment. If your bank has charged you, your shipment will be created automatically shortly.';
+
+const tripIdFrom = (trip) => String(trip?._id || trip?.id || '');
+
+const travelerIdFrom = (trip) => String(
+    trip?.travelerId ||
+    trip?.userId ||
+    trip?.user?._id ||
+    trip?.user?.id ||
+    trip?.user ||
+    ''
+);
+
+const readPreviewNumber = (preview, key) => {
+    const value = preview?.[key];
+    if (typeof value === 'number') return value;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
 
 const getCountryFromCity = (cityName) => {
     if (!cityName) return '';
@@ -140,13 +157,12 @@ export default function SendPackage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [platformRate, setPlatformRate] = useState(0);
     const [currency, setCurrency] = useState(user?.preferredCurrency || 'USD');
     const [kycStatus, setKycStatus] = useState(user?.kycStatus || 'not_started');
     const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
-    const [insuranceCost, setInsuranceCost] = useState(0);
-    const [exchangeRates, setExchangeRates] = useState(null);
-    const [quote, setQuote] = useState(null);
+    const [checkoutPreview, setCheckoutPreview] = useState(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewError, setPreviewError] = useState('');
     const [pendingPayment, setPendingPayment] = useState(null);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
     const [receiverPhoneCountry, setReceiverPhoneCountry] = useState('us');
@@ -192,34 +208,61 @@ export default function SendPackage() {
         if (!isAuthenticated) { navigate('/login'); return; }
         if (!selectedTrip) { navigate('/search', { replace: true }); return; }
         checkVerificationStatus();
-        loadExchangeRates();
     }, [isAuthenticated, navigate]);
 
     useEffect(() => { if (user?.preferredCurrency) setCurrency(user.preferredCurrency); }, [user?.preferredCurrency]);
 
-    useEffect(() => { if (selectedTrip) fetchPricing(); }, [selectedTrip, formData.packageWeight, user?.preferredCurrency]);
+    useEffect(() => {
+        if (selectedTrip) {
+            const timer = setTimeout(() => { fetchPricing(); }, 350);
+            return () => clearTimeout(timer);
+        }
+    }, [
+        selectedTrip,
+        formData.packageWeight,
+        formData.packageValue,
+        formData.insuranceProtection,
+        user?.preferredCurrency,
+    ]);
 
-    const loadExchangeRates = async () => {
-        try { setExchangeRates(await fetchExchangeRates('USD')); } catch (_) {}
-    };
-
-    const fetchPricing = async () => {
+    const fetchPricing = async ({ silent = false } = {}) => {
+        const weight = parseFloat(formData.packageWeight);
+        const declaredValue = parseFloat(formData.packageValue) || 0;
+        const senderCurrency = (user?.preferredCurrency || currency || 'USD').toUpperCase();
+        const tripId = tripIdFrom(selectedTrip);
+        if (!tripId || !Number.isFinite(weight) || weight <= 0) {
+            setCheckoutPreview(null);
+            setPreviewError('');
+            setPreviewLoading(false);
+            return null;
+        }
+        if (!silent) {
+            setPreviewLoading(true);
+            setPreviewError('');
+        }
         try {
-            const senderCurrency = user?.preferredCurrency || 'USD';
-            const res = await api.post('/api/currency/quote', {
-                weight: parseFloat(formData.packageWeight) || 1,
-                travelerPricePerKg: selectedTrip?.pricePerKg || 10,
-                travelerCurrency: selectedTrip?.currency || 'USD',
+            const res = await api.post('/api/checkout/shipment-preview', {
+                tripId,
+                weight,
                 senderCurrency,
+                declaredValue,
+                insurance: formData.insuranceProtection,
             });
-            if (res.data.success) {
-                setQuote(res.data.quote);
-                setCurrency(senderCurrency);
-                setPlatformRate(res.data.quote.senderAmount / (parseFloat(formData.packageWeight) || 1));
+            const preview = res.data?.preview;
+            if (!res.data?.success || !preview) {
+                throw new Error(res.data?.message || 'Checkout price could not be calculated.');
             }
-        } catch (_) {
-            setPlatformRate(selectedTrip?.pricePerKg || 15);
-            setCurrency(user?.preferredCurrency || 'USD');
+            setCheckoutPreview(preview);
+            setCurrency((preview.senderCurrency || preview.senderPaymentCurrency || senderCurrency).toUpperCase());
+            setPreviewError('');
+            return preview;
+        } catch (err) {
+            const msg = err?.response?.data?.message || err?.message || 'Checkout price could not be calculated.';
+            setCheckoutPreview(null);
+            setPreviewError(msg);
+            return null;
+        } finally {
+            if (!silent) setPreviewLoading(false);
         }
     };
 
@@ -235,19 +278,6 @@ export default function SendPackage() {
             setPhoneVerified(user?.phoneVerified === true);
         }
     };
-
-    useEffect(() => {
-        if (!formData.insuranceProtection || !formData.packageValue || !exchangeRates) { setInsuranceCost(0); return; }
-        const itemValue = parseFloat(formData.packageValue);
-        if (!itemValue || itemValue <= 0) { setInsuranceCost(0); return; }
-        const timer = setTimeout(() => {
-            try {
-                const result = calculateInsurance(itemValue, currency, exchangeRates);
-                setInsuranceCost(result.error ? 0 : result.insurancePrice);
-            } catch (_) { setInsuranceCost(0); }
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [formData.packageValue, formData.insuranceProtection, currency, exchangeRates]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -270,20 +300,33 @@ export default function SendPackage() {
         }
     };
 
-    const shippingCost = quote ? quote.senderAmount : (parseFloat(formData.packageWeight) || 1) * platformRate;
-    const totalCost = (shippingCost + insuranceCost).toFixed(2);
-    const isAfricanCurrency = AFRICAN_CURRENCIES.has(String(currency || '').toUpperCase());
+    const shippingCost = readPreviewNumber(checkoutPreview, 'shippingAmount');
+    const insuranceCost = readPreviewNumber(checkoutPreview, 'insuranceAmount');
+    const totalCostNumber = readPreviewNumber(checkoutPreview, 'totalAmount');
+    const totalCost = totalCostNumber.toFixed(2);
+    const previewCurrency = (checkoutPreview?.senderCurrency || checkoutPreview?.senderPaymentCurrency || currency || 'USD').toUpperCase();
+    const canCheckout = Boolean(checkoutPreview && totalCostNumber > 0 && !previewLoading);
 
     const createShipmentAfterPayment = async ({ packageId, paymentReference, provider }) => {
+        const preview = pendingPayment?.checkoutPreview || checkoutPreview;
+        const paymentCurrency = (preview?.senderCurrency || preview?.senderPaymentCurrency || previewCurrency).toUpperCase();
+        const paymentTotal = readPreviewNumber(preview, 'totalAmount');
+        const paymentInsurance = readPreviewNumber(preview, 'insuranceAmount');
         const res = await api.post('/api/bago/RequestPackage', {
-            travelerId: selectedTrip.user,
-            packageId, tripId: selectedTrip._id,
-            amount: Number(totalCost), currency,
+            travelerId: preview?.travelerId || travelerIdFrom(selectedTrip),
+            packageId, tripId: tripIdFrom(selectedTrip),
+            amount: paymentTotal || Number(totalCost), currency: paymentCurrency,
             estimatedDeparture: selectedTrip.departureDate,
             insurance: formData.insuranceProtection,
-            insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+            insuranceCost: formData.insuranceProtection ? paymentInsurance : 0,
             termsAccepted: true, paymentReference,
             paymentProvider: provider, paymentStatus: 'paid',
+            travelerPayout: readPreviewNumber(preview, 'travelerPayout'),
+            platformCommission: readPreviewNumber(preview, 'platformFee'),
+            processingFee: readPreviewNumber(preview, 'processingFee'),
+            fxBuffer: readPreviewNumber(preview, 'fxBuffer'),
+            senderShippingFee: readPreviewNumber(preview, 'shippingAmount'),
+            bagoNetRevenue: readPreviewNumber(preview, 'bagoNetRevenue'),
         });
         if ([200, 201, 202].includes(res.status) || res.data?.success) {
             setPendingPayment(null);
@@ -296,7 +339,7 @@ export default function SendPackage() {
         setPaymentProcessing(true);
         setError('');
         try {
-            const verify = await api.get(`/api/bago/paystack/verify/${pendingPayment.reference}`);
+            const verify = await api.get(`/api/paystack/verify/${pendingPayment.reference}`);
             if (!verify.data?.success) { showPaymentError(setError, PAYMENT_PENDING_MESSAGE, verify.data); return; }
             await createShipmentAfterPayment({ packageId: pendingPayment.packageId, paymentReference: pendingPayment.reference, provider: 'paystack' });
         } catch (err) {
@@ -327,6 +370,22 @@ export default function SendPackage() {
         if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) { setError('Missing location data. Please go back and select a trip.'); setLoading(false); return; }
 
         try {
+            const preview = await fetchPricing({ silent: true });
+            if (!preview) {
+                setError(previewError || 'Checkout price could not be calculated. Please try again.');
+                setLoading(false);
+                return;
+            }
+            const checkoutCurrency = (preview.senderCurrency || preview.senderPaymentCurrency || currency || 'USD').toUpperCase();
+            const checkoutIsAfricanCurrency = AFRICAN_CURRENCIES.has(checkoutCurrency);
+            const checkoutTotal = readPreviewNumber(preview, 'totalAmount');
+            const checkoutInsurance = readPreviewNumber(preview, 'insuranceAmount');
+            if (checkoutTotal <= 0) {
+                setError('Checkout price could not be calculated. Please try again.');
+                setLoading(false);
+                return;
+            }
+
             let packageId = '';
             try {
                 const pkgRes = await api.post('/api/bago/createPackage', {
@@ -357,15 +416,15 @@ export default function SendPackage() {
                 return;
             }
 
-            if (!isAfricanCurrency) {
+            if (!checkoutIsAfricanCurrency) {
                 const params = new URLSearchParams({
                     packageId,
-                    tripId: selectedTrip._id,
-                    travelerId: String(selectedTrip.user?._id || selectedTrip.user || ''),
-                    currency,
-                    amount: Number(totalCost).toFixed(2),
+                    tripId: tripIdFrom(selectedTrip),
+                    travelerId: String(preview.travelerId || travelerIdFrom(selectedTrip)),
+                    currency: checkoutCurrency,
+                    amount: checkoutTotal.toFixed(2),
                     insurance: String(formData.insuranceProtection),
-                    insuranceCost: String(formData.insuranceProtection ? insuranceCost : 0),
+                    insuranceCost: String(formData.insuranceProtection ? checkoutInsurance : 0),
                     estimatedDeparture: selectedTrip.departureDate || '',
                 });
                 navigate(`/checkout/payment?${params.toString()}`);
@@ -374,16 +433,17 @@ export default function SendPackage() {
 
             const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
             try {
-                const psRes = await api.post('/api/bago/paystack/initialize', {
-                    packageId, tripId: selectedTrip._id,
-                    amount: Number(totalCost), currency,
+                const psRes = await api.post('/api/paystack/initialize', {
+                    packageId, tripId: tripIdFrom(selectedTrip),
+                    amount: checkoutTotal, currency: checkoutCurrency,
                     customerEmail: user?.email || '',
                     expiresAt,
                     metadata: {
                         insurance: formData.insuranceProtection,
-                        insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                        insuranceCost: formData.insuranceProtection ? checkoutInsurance : 0,
                         estimatedDeparture: selectedTrip.departureDate,
                         estimatedArrival: selectedTrip.arrivalDate,
+                        checkoutPreview: preview,
                     },
                 });
                 const authorizationUrl = psRes.data?.authorization_url || psRes.data?.data?.authorization_url;
@@ -391,16 +451,16 @@ export default function SendPackage() {
                 if (!authorizationUrl || !reference) throw new Error('Payment checkout could not start.');
                 localStorage.setItem('bagoPendingShipment', JSON.stringify({
                     packageId,
-                    tripId: selectedTrip._id,
-                    travelerId: String(selectedTrip.user?._id || selectedTrip.user || ''),
-                    amount: Number(totalCost),
-                    currency,
+                    tripId: tripIdFrom(selectedTrip),
+                    travelerId: String(preview.travelerId || travelerIdFrom(selectedTrip)),
+                    amount: checkoutTotal,
+                    currency: checkoutCurrency,
                     estimatedDeparture: selectedTrip.departureDate || '',
                     insurance: formData.insuranceProtection,
-                    insuranceCost: formData.insuranceProtection ? insuranceCost : 0,
+                    insuranceCost: formData.insuranceProtection ? checkoutInsurance : 0,
                 }));
                 window.open(authorizationUrl, '_blank', 'noopener,noreferrer');
-                setPendingPayment({ provider: 'paystack', packageId, reference, authorizationUrl });
+                setPendingPayment({ provider: 'paystack', packageId, reference, authorizationUrl, checkoutPreview: preview });
                 setLoading(false);
             } catch (err) {
                 showPaymentError(setError, 'We could not continue checkout right now. Please try again in a few minutes.', err);
@@ -706,7 +766,7 @@ export default function SendPackage() {
                                         <p className="text-sm font-black text-[#012126]">Item Protection</p>
                                         {formData.insuranceProtection && insuranceCost > 0 ? (
                                             <p className="text-xs text-[#5845D8] font-bold mt-0.5">
-                                                +{currency} {insuranceCost.toFixed(2)} (0.5% of item value)
+                                                +{previewCurrency} {insuranceCost.toFixed(2)} (backend calculated)
                                             </p>
                                         ) : (
                                             <p className="text-xs text-gray-400 font-medium mt-0.5">Protect your item against loss or damage</p>
@@ -744,6 +804,19 @@ export default function SendPackage() {
                                 </div>
                             )}
 
+                            {!error && (previewLoading || previewError) && (
+                                <div className={`lg:hidden border p-4 rounded-[16px] flex items-start gap-2.5 ${
+                                    previewError
+                                        ? 'bg-red-50 border-red-100 text-red-600'
+                                        : 'bg-white border-gray-100 text-gray-500'
+                                }`}>
+                                    <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                                    <p className="text-xs font-bold">
+                                        {previewError || 'Calculating checkout total…'}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Pending Paystack — mobile */}
                             {pendingPayment && (
                                 <div className="lg:hidden bg-amber-50 border border-amber-100 rounded-[20px] p-5">
@@ -767,10 +840,10 @@ export default function SendPackage() {
                             {/* Submit — mobile */}
                             <button
                                 type="submit"
-                                disabled={loading || Boolean(pendingPayment)}
+                                disabled={loading || Boolean(pendingPayment) || !canCheckout}
                                 className="lg:hidden w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-black text-[11px] uppercase tracking-[2px] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {pendingPayment ? 'Complete payment above' : loading ? 'Processing…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
+                                {pendingPayment ? 'Complete payment above' : loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
                             </button>
                         </div>
 
@@ -783,6 +856,16 @@ export default function SendPackage() {
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-12 -mt-12 pointer-events-none" />
                                     <h3 className="text-[9px] font-black uppercase tracking-widest text-white/45 mb-5">Price Summary</h3>
                                     <div className="space-y-3 relative">
+                                        {previewLoading && (
+                                            <div className="rounded-[14px] bg-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/70">
+                                                Calculating checkout total…
+                                            </div>
+                                        )}
+                                        {previewError && (
+                                            <div className="rounded-[14px] bg-red-500/15 px-3 py-2 text-[10px] font-bold text-red-100">
+                                                {previewError}
+                                            </div>
+                                        )}
                                         {selectedTrip && formData.fromCity && (
                                             <>
                                                 <div className="text-[10px] font-black text-white/40 uppercase tracking-wider mb-4">
@@ -792,17 +875,21 @@ export default function SendPackage() {
                                         )}
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-white/60 font-medium">Shipping</span>
-                                            <span className="text-sm font-black">{currency} {shippingCost.toFixed(2)}</span>
+                                            <span className="text-sm font-black">
+                                                {checkoutPreview ? `${previewCurrency} ${shippingCost.toFixed(2)}` : '--'}
+                                            </span>
                                         </div>
                                         {formData.insuranceProtection && insuranceCost > 0 && (
                                             <div className="flex justify-between items-center">
                                                 <span className="text-sm text-white/60 font-medium">Protection</span>
-                                                <span className="text-sm font-black">{currency} {insuranceCost.toFixed(2)}</span>
+                                                <span className="text-sm font-black">{previewCurrency} {insuranceCost.toFixed(2)}</span>
                                             </div>
                                         )}
                                         <div className="border-t border-white/10 pt-4 flex justify-between items-end">
                                             <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Total</span>
-                                            <span className="text-2xl font-black">{currency} {totalCost}</span>
+                                            <span className="text-2xl font-black">
+                                                {checkoutPreview ? `${previewCurrency} ${totalCost}` : '--'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -856,10 +943,10 @@ export default function SendPackage() {
                                 {/* Submit — desktop */}
                                 <button
                                     type="submit"
-                                    disabled={loading || Boolean(pendingPayment)}
+                                    disabled={loading || Boolean(pendingPayment) || !canCheckout}
                                     className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-black text-[11px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    {pendingPayment ? 'Complete payment above' : loading ? 'Processing…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
+                                    {pendingPayment ? 'Complete payment above' : loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
                                 </button>
 
                                 <p className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">

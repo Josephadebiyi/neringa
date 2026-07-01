@@ -6,16 +6,16 @@ const DAILY_WITHDRAWAL_LIMIT_USD = 2000;
 const PAYSTACK_PAYOUT_CURRENCIES = ['NGN', 'GHS', 'KES', 'ZAR', 'UGX', 'TZS', 'RWF'];
 
 function payoutMethodForCurrency(currency = 'USD') {
-  return PAYSTACK_PAYOUT_CURRENCIES.includes(currency.toUpperCase()) ? 'bank' : 'stripe';
+  return PAYSTACK_PAYOUT_CURRENCIES.includes(currency.toUpperCase()) ? 'bank' : 'paypal';
 }
 
-function validateWithdrawal({ amount, walletCurrency, availableBalance, stripeConnectAccountId, payoutStatus, paystackRecipientCode, spentTodayUsd, amountUsd }) {
+function validateWithdrawal({ amount, walletCurrency, availableBalance, paypalEmail, paystackRecipientCode, spentTodayUsd, amountUsd }) {
   if (!amount || Number(amount) <= 0) return { ok: false, reason: 'Positive amount required' };
 
   const method = payoutMethodForCurrency(walletCurrency);
 
-  if (method === 'stripe' && (!stripeConnectAccountId || payoutStatus !== 'active'))
-    return { ok: false, reason: 'Set up Stripe Connect payouts before withdrawing.' };
+  if (method === 'paypal' && !paypalEmail)
+    return { ok: false, reason: 'Set up PayPal payouts before withdrawing.' };
 
   if (method === 'bank' && !paystackRecipientCode)
     return { ok: false, reason: 'Add and verify a bank account before withdrawing.' };
@@ -30,11 +30,10 @@ function validateWithdrawal({ amount, walletCurrency, availableBalance, stripeCo
 }
 
 describe('withdrawal validation', () => {
-  const baseStripeUser = {
+  const basePaypalUser = {
     walletCurrency: 'USD',
     availableBalance: 100,
-    stripeConnectAccountId: 'acct_123',
-    payoutStatus: 'active',
+    paypalEmail: 'traveler@example.com',
     paystackRecipientCode: null,
     spentTodayUsd: 0,
     amountUsd: 20,
@@ -43,15 +42,14 @@ describe('withdrawal validation', () => {
   const baseNgnUser = {
     walletCurrency: 'NGN',
     availableBalance: 50000,
-    stripeConnectAccountId: null,
-    payoutStatus: null,
+    paypalEmail: null,
     paystackRecipientCode: 'RCP_abc123',
     spentTodayUsd: 0,
     amountUsd: 10,
   };
 
-  it('allows valid USD/Stripe withdrawal', () => {
-    expect(validateWithdrawal({ ...baseStripeUser, amount: 20 }).ok).toBe(true);
+  it('allows valid USD/PayPal withdrawal', () => {
+    expect(validateWithdrawal({ ...basePaypalUser, amount: 20 }).ok).toBe(true);
   });
 
   it('allows valid NGN/Paystack withdrawal', () => {
@@ -59,24 +57,19 @@ describe('withdrawal validation', () => {
   });
 
   it('rejects zero amount', () => {
-    const r = validateWithdrawal({ ...baseStripeUser, amount: 0 });
+    const r = validateWithdrawal({ ...basePaypalUser, amount: 0 });
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(/positive/i);
   });
 
   it('rejects negative amount', () => {
-    expect(validateWithdrawal({ ...baseStripeUser, amount: -10 }).ok).toBe(false);
+    expect(validateWithdrawal({ ...basePaypalUser, amount: -10 }).ok).toBe(false);
   });
 
-  it('rejects USD withdrawal when Stripe Connect is not connected', () => {
-    const r = validateWithdrawal({ ...baseStripeUser, stripeConnectAccountId: null, payoutStatus: null, amount: 20 });
+  it('rejects USD withdrawal when PayPal is not connected', () => {
+    const r = validateWithdrawal({ ...basePaypalUser, paypalEmail: null, amount: 20 });
     expect(r.ok).toBe(false);
-    expect(r.reason).toMatch(/stripe/i);
-  });
-
-  it('rejects USD withdrawal when Stripe payout is not active', () => {
-    const r = validateWithdrawal({ ...baseStripeUser, payoutStatus: 'pending', amount: 20 });
-    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/paypal/i);
   });
 
   it('rejects NGN withdrawal when no bank account linked', () => {
@@ -86,19 +79,19 @@ describe('withdrawal validation', () => {
   });
 
   it('rejects when amount exceeds available balance', () => {
-    const r = validateWithdrawal({ ...baseStripeUser, amount: 200 });
+    const r = validateWithdrawal({ ...basePaypalUser, amount: 200 });
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(/insufficient/i);
   });
 
   it('rejects when daily limit would be exceeded', () => {
-    const r = validateWithdrawal({ ...baseStripeUser, amount: 20, amountUsd: 20, spentTodayUsd: 1990 });
+    const r = validateWithdrawal({ ...basePaypalUser, amount: 20, amountUsd: 20, spentTodayUsd: 1990 });
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(/daily/i);
   });
 
   it('allows withdrawal exactly at daily limit', () => {
-    const r = validateWithdrawal({ ...baseStripeUser, amount: 10, amountUsd: 10, spentTodayUsd: 1990 });
+    const r = validateWithdrawal({ ...basePaypalUser, amount: 10, amountUsd: 10, spentTodayUsd: 1990 });
     expect(r.ok).toBe(true);
   });
 
@@ -106,11 +99,11 @@ describe('withdrawal validation', () => {
     expect(payoutMethodForCurrency('GHS')).toBe('bank');
   });
 
-  it('routes EUR to Stripe', () => {
-    expect(payoutMethodForCurrency('EUR')).toBe('stripe');
+  it('routes EUR to PayPal', () => {
+    expect(payoutMethodForCurrency('EUR')).toBe('paypal');
   });
 
-  it('routes GBP to Stripe', () => {
-    expect(payoutMethodForCurrency('GBP')).toBe('stripe');
+  it('routes GBP to PayPal', () => {
+    expect(payoutMethodForCurrency('GBP')).toBe('paypal');
   });
 });

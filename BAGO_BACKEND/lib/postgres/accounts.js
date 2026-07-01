@@ -366,13 +366,6 @@ export async function updateAccountProfile(userId, updates) {
     values,
   );
 
-  if (updates.preferredCurrency) {
-    await query(
-      `update public.wallet_accounts set currency = $2, updated_at = timezone('utc', now()) where user_id = $1`,
-      [userId, updates.preferredCurrency],
-    );
-  }
-
   return getAccountProfile(userId);
 }
 

@@ -290,7 +290,7 @@ class _NotificationPromptHostState
       final auth = ref.read(authProvider);
       if (!auth.isLoggedIn) return;
       final router = ref.read(routerProvider);
-      router.go('/profile/support/ticket/$ticketId');
+      router.go('/profile/support');
     });
     _attachSupportBannerListener();
   }
@@ -407,7 +407,7 @@ class _NotificationPromptHostState
     final router = ref.read(routerProvider);
     final currentLocation =
         router.routerDelegate.currentConfiguration.uri.toString();
-    if (currentLocation == '/profile/support/ticket/$ticketId') return;
+    if (currentLocation == '/profile/support') return;
 
     final senderName =
         rawMessage['senderName']?.toString().trim().isNotEmpty == true
@@ -436,7 +436,7 @@ class _NotificationPromptHostState
           ),
           action: SnackBarAction(
             label: 'Open',
-            onPressed: () => router.go('/profile/support/ticket/$ticketId'),
+            onPressed: () => router.go('/profile/support'),
           ),
         ),
       );

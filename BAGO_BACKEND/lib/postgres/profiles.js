@@ -1,7 +1,6 @@
 import bcrypt from 'bcrypt';
 
 import { query, queryOne, withTransaction } from './db.js';
-import { convertCurrency } from '../../services/currencyConverter.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
 
 const AFRICAN_PAYOUT_CURRENCIES = new Set([
@@ -460,33 +459,14 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
     `,
     [userId, currency, paymentGateway],
   );
-
-  // Convert balance from old currency to new currency using live exchange rates
-  const wallet = await queryOne(
-    `select available_balance, escrow_balance, currency from public.wallet_accounts where user_id = $1`,
+  await query(
+    `
+      update public.wallet_accounts
+      set updated_at = timezone('utc', now())
+      where user_id = $1
+    `,
     [userId],
   );
-
-  // Use wallet.currency first; fall back to oldCurrency for accounts where wallet.currency was never set
-  const fromCurrency = wallet?.currency || oldCurrency;
-
-  if (wallet && fromCurrency && fromCurrency.toUpperCase() !== currency.toUpperCase()) {
-    const newAvailable = Number(
-      (await convertCurrency(Number(wallet.available_balance || 0), fromCurrency, currency)).toFixed(2),
-    );
-    const newEscrow = Number(
-      (await convertCurrency(Number(wallet.escrow_balance || 0), fromCurrency, currency)).toFixed(2),
-    );
-    await query(
-      `update public.wallet_accounts set currency = $2, available_balance = $3, escrow_balance = $4 where user_id = $1`,
-      [userId, currency, newAvailable, newEscrow],
-    );
-  } else {
-    await query(
-      `update public.wallet_accounts set currency = $2 where user_id = $1`,
-      [userId, currency],
-    );
-  }
 }
 
 // Updates traveler payout currency. Currency conversion is handled server-side
@@ -496,7 +476,7 @@ const PAYSTACK_LOCK_CURRENCIES = new Set(['NGN', 'GHS', 'KES', 'ZAR']);
 export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
   const upper = currency.toUpperCase();
-  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'stripe';
+  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
   const locked = PAYSTACK_LOCK_CURRENCIES.has(upper);
   await withTransaction(async (client) => {
     await client.query(
@@ -504,34 +484,6 @@ export async function activateEarningCurrency(userId, currency) {
        preferred_currency = $2, payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
       [userId, upper, paymentGateway, locked],
     );
-
-    const walletResult = await client.query(
-      `SELECT available_balance, escrow_balance, currency
-       FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
-      [userId],
-    );
-    const wallet = walletResult.rows[0];
-    const fromCurrency = (wallet?.currency || '').toString().toUpperCase();
-
-    if (wallet && fromCurrency && fromCurrency !== upper) {
-      const newAvailable = Number(
-        (await convertCurrency(Number(wallet.available_balance || 0), fromCurrency, upper)).toFixed(2),
-      );
-      const newEscrow = Number(
-        (await convertCurrency(Number(wallet.escrow_balance || 0), fromCurrency, upper)).toFixed(2),
-      );
-      await client.query(
-        `UPDATE public.wallet_accounts
-         SET currency = $2, available_balance = $3, escrow_balance = $4, updated_at = NOW()
-         WHERE user_id = $1`,
-        [userId, upper, newAvailable, newEscrow],
-      );
-    } else {
-      await client.query(
-        `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
-        [userId, upper],
-      );
-    }
   });
   return findProfileById(userId);
 }
@@ -540,7 +492,7 @@ export async function activateEarningCurrency(userId, currency) {
 export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote) {
   await ensureEarningCurrencyColumns();
   const upper = newCurrency.toUpperCase();
-  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'stripe';
+  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
 
   await withTransaction(async (client) => {
     if (settleBalance) {
@@ -569,35 +521,10 @@ export async function adminChangeEarningCurrency(userId, newCurrency, settleBala
        payment_gateway = $3, earning_currency_locked = $4, updated_at = NOW() WHERE id = $1`,
       [userId, upper, paymentGateway, locked],
     );
-
-    // Convert existing balance to new currency (same logic as user-side activateEarningCurrency)
-    const walletResult = await client.query(
-      `SELECT available_balance, escrow_balance, currency
-       FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
+    await client.query(
+      `UPDATE public.wallet_accounts SET updated_at = NOW() WHERE user_id = $1`,
       [userId],
     );
-    const wallet = walletResult.rows[0];
-    const fromCurrency = (wallet?.currency || '').toString().toUpperCase();
-
-    if (wallet && fromCurrency && fromCurrency !== upper && !settleBalance) {
-      const newAvailable = Number(
-        (await convertCurrency(Number(wallet.available_balance || 0), fromCurrency, upper)).toFixed(2),
-      );
-      const newEscrow = Number(
-        (await convertCurrency(Number(wallet.escrow_balance || 0), fromCurrency, upper)).toFixed(2),
-      );
-      await client.query(
-        `UPDATE public.wallet_accounts
-         SET currency = $2, available_balance = $3, escrow_balance = $4, updated_at = NOW()
-         WHERE user_id = $1`,
-        [userId, upper, newAvailable, newEscrow],
-      );
-    } else {
-      await client.query(
-        `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
-        [userId, upper],
-      );
-    }
   });
   return findProfileById(userId);
 }

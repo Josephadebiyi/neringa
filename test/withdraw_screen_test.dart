@@ -49,13 +49,14 @@ void main() {
       expect(find.textContaining('No payout method linked'), findsOneWidget);
     });
 
-    testWidgets('withdraw button disabled when no payout method', (tester) async {
+    testWidgets('withdraw button disabled when no payout method',
+        (tester) async {
       await tester.pumpWidget(_wrap(_user(bankAccountLinked: false)));
       await tester.pump();
       await tester.pump(const Duration(seconds: 4));
 
       final btn = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Request Withdrawal'),
+        find.widgetWithText(ElevatedButton, 'Confirm withdrawal'),
       );
       expect(btn.onPressed, isNull);
     });
@@ -73,18 +74,20 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 4));
 
-      expect(find.textContaining('Minimum withdrawal'), findsOneWidget);
+      expect(find.text('Minimum'), findsWidgets);
     });
 
-    testWidgets('shows correct 20% commission label', (tester) async {
+    testWidgets('shows fee disclosure', (tester) async {
       await tester.pumpWidget(_wrap(_user(bankAccountLinked: true)));
       await tester.pump();
       await tester.pump(const Duration(seconds: 4));
 
-      expect(find.textContaining('20%'), findsOneWidget);
+      expect(
+          find.textContaining('Funds are sent after approval'), findsOneWidget);
     });
 
-    testWidgets('shows "Withdraw all" tap target when bank is linked', (tester) async {
+    testWidgets('shows "Withdraw all" tap target when bank is linked',
+        (tester) async {
       await tester.pumpWidget(_wrap(_user(bankAccountLinked: true)));
       await tester.pump();
       await tester.pump(const Duration(seconds: 4));

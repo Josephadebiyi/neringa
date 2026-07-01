@@ -253,6 +253,10 @@ function disabledPaymentProvider(provider) {
 }
 
 const MAX_STRING_LENGTH = 5000;
+// Fields carrying pre-rendered rich content (e.g. promo/newsletter email HTML) are
+// legitimately much larger than a normal input — cap them higher instead of exempting them.
+const RICH_CONTENT_KEYS = new Set(['html', 'body']);
+const MAX_RICH_CONTENT_LENGTH = 200000;
 const MAX_ARRAY_LENGTH = 100;
 const MAX_OBJECT_KEYS = 100;
 const MAX_DEPTH = 8;
@@ -260,12 +264,13 @@ const DANGEROUS_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
 const isPlainObject = (value) => Object.prototype.toString.call(value) === '[object Object]';
 
-const sanitizeScalar = (value) => {
+const sanitizeScalar = (value, key) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   // Allow base64 data URLs (images, PDFs) — these are legitimately large
   if (trimmed.startsWith('data:') && trimmed.includes(';base64,')) return trimmed;
-  if (trimmed.length > MAX_STRING_LENGTH) {
+  const maxLength = RICH_CONTENT_KEYS.has(key) ? MAX_RICH_CONTENT_LENGTH : MAX_STRING_LENGTH;
+  if (trimmed.length > maxLength) {
     const error = new Error('Payload contains a field that is too large.');
     error.statusCode = 413;
     throw error;
@@ -273,7 +278,7 @@ const sanitizeScalar = (value) => {
   return trimmed;
 };
 
-const sanitizeInput = (value, depth = 0) => {
+const sanitizeInput = (value, depth = 0, key = undefined) => {
   if (depth > MAX_DEPTH) {
     const error = new Error('Payload nesting is too deep.');
     error.statusCode = 413;
@@ -281,7 +286,7 @@ const sanitizeInput = (value, depth = 0) => {
   }
 
   if (value == null) return value;
-  if (typeof value === 'string') return sanitizeScalar(value);
+  if (typeof value === 'string') return sanitizeScalar(value, key);
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   if (value instanceof Date) return value;
   if (Array.isArray(value)) {
@@ -290,7 +295,7 @@ const sanitizeInput = (value, depth = 0) => {
       error.statusCode = 413;
       throw error;
     }
-    return value.map((item) => sanitizeInput(item, depth + 1));
+    return value.map((item) => sanitizeInput(item, depth + 1, key));
   }
   if (isPlainObject(value)) {
     const keys = Object.keys(value);
@@ -300,13 +305,13 @@ const sanitizeInput = (value, depth = 0) => {
       throw error;
     }
     const output = {};
-    for (const key of keys) {
-      if (DANGEROUS_KEYS.has(key)) {
+    for (const k of keys) {
+      if (DANGEROUS_KEYS.has(k)) {
         const error = new Error('Unsafe payload key detected.');
         error.statusCode = 400;
         throw error;
       }
-      output[key] = sanitizeInput(value[key], depth + 1);
+      output[k] = sanitizeInput(value[k], depth + 1, k);
     }
     return output;
   }
@@ -622,6 +627,14 @@ schema('/api/currency/quote', {
   stringOrNumbers: ['weight', 'travelerPricePerKg'],
   max: { weight: 20, travelerPricePerKg: 20, travelerCurrency: 3, senderCurrency: 3 },
 });
+schema('/api/checkout/shipment-preview', {
+  allowed: ['tripId', 'weight', 'senderCurrency', 'declaredValue', 'insurance'],
+  required: ['tripId', 'weight', 'senderCurrency'],
+  strings: ['tripId', 'senderCurrency'],
+  stringOrNumbers: ['weight', 'declaredValue'],
+  booleans: ['insurance'],
+  max: { tripId: 80, weight: 20, senderCurrency: 3, declaredValue: 30 },
+});
 schema('/api/paystack/initialize', {
   allowed: ['amount', 'currency', 'requestId', 'packageId', 'tripId', 'customerEmail', 'expiresAt', 'metadata'],
   required: ['amount'],
@@ -813,7 +826,10 @@ import {
   convertAmount,
   getRate,
   getAllExchangeRates,
+  getSupportedCurrencies,
+  previewConversion,
   getPaymentQuote,
+  previewShipmentCheckout,
 } from './controllers/CurrencyController.js';
 
 import { startCurrencyRateSync } from './cron/currencyCron.js';
@@ -876,7 +892,10 @@ app.get('/api/items/category-rules/:category', getCategoryRulesAPI);
 app.get('/api/currency/convert', convertAmount);
 app.get('/api/currency/rate', getRate);
 app.get('/api/currency/rates', getAllExchangeRates);
+app.get('/api/currency/supported', getSupportedCurrencies);
+app.post('/api/currency/preview', previewConversion);
 app.post('/api/currency/quote', getPaymentQuote);
+app.post('/api/checkout/shipment-preview', isAuthenticated, previewShipmentCheckout);
 
 // ✅ Paystack endpoints (for African users)
 app.post('/api/paystack/initialize', isAuthenticated, requireKycVerification, initializePaystackPayment);

@@ -172,10 +172,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   }
 
   Future<void> _openStripeOnboarding() async {
-    await _openStripeUrl(
-      endpoint: ApiConstants.stripeConnectOnboard,
-      successMessage: 'Stripe Express payout setup is complete.',
-    );
+    await _openPaypalPayoutPage();
   }
 
   Future<void> _openStripeUrl({
@@ -188,7 +185,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       AppSnackBar.show(
         context,
         message:
-            '$payoutCurrency payouts use Paystack bank transfer, not Stripe Express.',
+            '$payoutCurrency payouts use Paystack bank transfer, not PayPal.',
         type: SnackBarType.error,
       );
       return;
@@ -267,7 +264,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     AppSnackBar.show(
       context,
       message:
-          'Stripe still needs your terms, identity details, or bank account before payouts can be enabled.',
+          'PayPal payout setup is incomplete. Add or update your PayPal email.',
       type: SnackBarType.warning,
       duration: const Duration(seconds: 5),
     );
@@ -846,11 +843,11 @@ class _StripeSetupNote extends StatelessWidget {
   Widget build(BuildContext context) {
     final cleanEmail = email.trim();
     final signInText = cleanEmail.isEmpty
-        ? 'If Stripe asks you to sign in, use the email on your Bago account.'
-        : 'If Stripe asks you to sign in, use $cleanEmail.';
+        ? 'Use the email on your PayPal account for payouts.'
+        : 'Bago will send payouts to $cleanEmail.';
     final body = isActive
-        ? 'Stripe Connect is saved for payouts. Use the button below only to refresh your Stripe status.'
-        : '$signInText Tap the one Stripe button, complete terms, identity details, and bank account, then Bago saves it automatically.';
+        ? 'PayPal is saved for payouts. Use the button below to refresh payout status.'
+        : '$signInText You can update the payout email anytime.';
     return Container(
       margin: compact ? const EdgeInsets.all(12) : EdgeInsets.zero,
       padding: EdgeInsets.all(compact ? 12 : 14),
@@ -1055,10 +1052,10 @@ class _MethodPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = usesPaystack ? 'Paystack bank transfer' : 'Stripe Express';
+    final title = usesPaystack ? 'Paystack bank transfer' : 'PayPal';
     final subtitle = usesPaystack
         ? '$currency payouts go to your verified bank account.'
-        : 'Bago creates the Express account from your profile. Stripe securely collects and stores your bank or IBAN details.';
+        : 'Add the PayPal email where you want to receive Bago payouts.';
     final icon =
         usesPaystack ? Icons.account_balance_rounded : Icons.bolt_rounded;
     return Container(
@@ -1189,8 +1186,8 @@ class _PrimaryActionPanel extends StatelessWidget {
         : state.isActive
             ? 'Refresh payout status'
             : state.isIncomplete
-                ? 'Continue Stripe Express setup'
-                : 'Set up Stripe Express';
+                ? 'Update PayPal email'
+                : 'Set up PayPal';
     final primaryIcon =
         state.isActive ? Icons.refresh_rounded : Icons.bolt_rounded;
     return Container(

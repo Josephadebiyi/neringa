@@ -2,7 +2,7 @@ import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { getPackageById, getTripById, getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
-import { convertCurrency } from '../services/currencyConverter.js';
+import { CurrencyService, convertCurrency } from '../services/currencyConverter.js';
 import { sendWithdrawalSubmittedEmail, sendWithdrawalAdminNotification } from '../services/emailNotifications.js';
 import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
@@ -60,6 +60,11 @@ async function ensurePaypalInfrastructure() {
   await query(`create index if not exists paypal_payments_request_idx on public.paypal_payments(request_id)`);
   await query(`alter table public.paypal_payments add column if not exists paypal_capture_id text unique`);
   await query(`alter table public.paypal_payments add column if not exists error_message text`);
+  await query(`alter table public.paypal_payments add column if not exists provider_amount numeric(14,2)`);
+  await query(`alter table public.paypal_payments add column if not exists provider_currency text`);
+  await query(`alter table public.paypal_payments add column if not exists exchange_rate numeric(24,12)`);
+  await query(`alter table public.paypal_payments add column if not exists exchange_rate_source text`);
+  await query(`alter table public.paypal_payments add column if not exists exchange_rate_timestamp timestamptz`);
   await query(`
     alter table public.wallet_transactions
       add column if not exists updated_at timestamptz not null default timezone('utc', now())
@@ -114,6 +119,12 @@ function publicBaseUrl() {
     process.env.RENDER_EXTERNAL_URL ||
     'https://neringa.onrender.com'
   ).replace(/\/+$/, '');
+}
+
+function amountsMatch(expectedMajor, providerMajor, currency) {
+  const expectedMinor = CurrencyService.majorToMinor(Number(expectedMajor || 0), currency || 'USD');
+  const providerMinor = CurrencyService.majorToMinor(Number(providerMajor || 0), currency || 'USD');
+  return expectedMinor > 0 && expectedMinor === providerMinor;
 }
 
 function approvalUrlFromOrder(order) {
@@ -558,13 +569,43 @@ export async function capturePaypalOrder(req, res) {
       throw new Error('PayPal did not return a capture ID.');
     }
     const captureStatus = String(captureInfo?.status || capture?.status || 'COMPLETED').toLowerCase();
+    const providerAmount = Number(captureInfo?.amount?.value || 0);
+    const providerCurrency = String(captureInfo?.amount?.currency_code || payment.currency || 'USD').toUpperCase();
+    const expectedCurrency = String(payment.currency || 'USD').toUpperCase();
+    if (providerCurrency !== expectedCurrency || !amountsMatch(payment.amount, providerAmount, expectedCurrency)) {
+      await query(
+        `
+          update public.paypal_payments
+          set status = 'reconciliation_failed',
+              provider_amount = $2,
+              provider_currency = $3,
+              error_message = $4,
+              raw_response = raw_response || $5::jsonb,
+              updated_at = timezone('utc', now())
+          where paypal_order_id = $1
+        `,
+        [
+          orderId,
+          providerAmount,
+          providerCurrency,
+          `Expected ${expectedCurrency} ${payment.amount}; got ${providerCurrency} ${providerAmount}`,
+          { capture },
+        ],
+      );
+      const err = new Error('Payment amount or currency did not match the Bago checkout quote.');
+      err.statusCode = 409;
+      err.code = 'PAYMENT_RECONCILIATION_FAILED';
+      throw err;
+    }
 
     await query(
       `
         update public.paypal_payments
         set paypal_capture_id = $2,
             status = $3,
-            raw_response = raw_response || $4::jsonb,
+            provider_amount = $4,
+            provider_currency = $5,
+            raw_response = raw_response || $6::jsonb,
             error_message = null,
             updated_at = timezone('utc', now())
         where paypal_order_id = $1
@@ -573,6 +614,8 @@ export async function capturePaypalOrder(req, res) {
         orderId,
         captureId,
         captureStatus === 'completed' ? 'captured' : captureStatus,
+        providerAmount,
+        providerCurrency,
         { capture },
       ],
     );

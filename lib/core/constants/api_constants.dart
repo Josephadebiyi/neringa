@@ -147,6 +147,8 @@ class ApiConstants {
   static const String stripeCreateIntent = '/api/payments/create-intent';
   static const String stripeBizumCheckout = '/api/payments/bizum-checkout';
   // PayPal active checkout flow
+  static const String shipmentCheckoutPreview =
+      '/api/checkout/shipment-preview';
   static const String paypalConfig = '/api/config/paypal';
   static const String paypalCreateOrder = '/api/payments/paypal/create-order';
   static const String paypalAuthorize = '/api/payments/paypal/authorize';

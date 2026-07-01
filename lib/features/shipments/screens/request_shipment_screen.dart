@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,8 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../shared/services/api_service.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/trip_price_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
@@ -20,9 +24,54 @@ import '../../kyc/widgets/kyc_verification_required_dialog.dart';
 import '../../payment/services/shipment_checkout_service.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/services/trip_service.dart';
-import '../../../shared/services/app_settings_service.dart';
 import '../services/shipment_service.dart';
 import 'shipment_terms_screen.dart';
+
+class _CheckoutPreview {
+  const _CheckoutPreview({
+    required this.currency,
+    required this.provider,
+    required this.travelerPayout,
+    required this.baseShippingAmount,
+    required this.shippingAmount,
+    required this.insuranceAmount,
+    required this.totalAmount,
+    required this.insurancePercent,
+    required this.raw,
+  });
+
+  final String currency;
+  final String provider;
+  final double travelerPayout;
+  final double baseShippingAmount;
+  final double shippingAmount;
+  final double insuranceAmount;
+  final double totalAmount;
+  final double insurancePercent;
+  final Map<String, dynamic> raw;
+
+  factory _CheckoutPreview.fromJson(Map<String, dynamic> json) {
+    double readDouble(String key) {
+      final value = json[key];
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    return _CheckoutPreview(
+      currency: json['senderCurrency']?.toString() ??
+          json['senderPaymentCurrency']?.toString() ??
+          'USD',
+      provider: json['paymentProcessor']?.toString() ?? 'paypal',
+      travelerPayout: readDouble('travelerPayout'),
+      baseShippingAmount: readDouble('baseShippingAmount'),
+      shippingAmount: readDouble('shippingAmount'),
+      insuranceAmount: readDouble('insuranceAmount'),
+      totalAmount: readDouble('totalAmount'),
+      insurancePercent: readDouble('senderInsurancePercent'),
+      raw: json,
+    );
+  }
+}
 
 class RequestShipmentScreen extends ConsumerStatefulWidget {
   const RequestShipmentScreen(
@@ -49,8 +98,13 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   File? _itemImage;
   bool _insurance = false;
   bool _isSubmitting = false;
+  bool _isPreviewLoading = false;
   TripModel? _currentTrip;
   String? _loadError;
+  String? _previewError;
+  String? _previewKey;
+  Timer? _previewDebounce;
+  _CheckoutPreview? _checkoutPreview;
   String _category = 'Documents';
   CountryCurrencyData _receiverPhoneCountry =
       CurrencyConversionHelper.countryByCode('US')!;
@@ -78,6 +132,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     _currentTrip = widget.initialTrip;
     if (_currentTrip != null) {
       _applyDestinationCountry(_currentTrip!);
+      _scheduleCheckoutPreview();
     } else {
       _loadTrip();
     }
@@ -102,6 +157,22 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             : v.toStringAsFixed(2);
       }
     }
+    _weightCtrl.addListener(_scheduleCheckoutPreview);
+    _itemValueCtrl.addListener(_scheduleCheckoutPreview);
+    _scheduleCheckoutPreview();
+  }
+
+  @override
+  void dispose() {
+    _previewDebounce?.cancel();
+    _weightCtrl.dispose();
+    _itemValueCtrl.dispose();
+    _receiverNameCtrl.dispose();
+    _receiverPhoneCtrl.dispose();
+    _deliveryAddressCtrl.dispose();
+    _messageCtrl.dispose();
+    _formScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTrip() async {
@@ -113,22 +184,103 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           _loadError = null;
         });
         _applyDestinationCountry(trip);
+        _scheduleCheckoutPreview();
       }
     } catch (e) {
       if (mounted) setState(() => _loadError = e.toString());
     }
   }
 
-  @override
-  void dispose() {
-    _formScrollController.dispose();
-    _weightCtrl.dispose();
-    _itemValueCtrl.dispose();
-    _receiverNameCtrl.dispose();
-    _receiverPhoneCtrl.dispose();
-    _deliveryAddressCtrl.dispose();
-    _messageCtrl.dispose();
-    super.dispose();
+  String? _currentPreviewKey() {
+    final trip = _currentTrip;
+    if (trip == null) return null;
+    final user = ref.read(authProvider).user;
+    final currency = UserCurrencyHelper.resolve(user);
+    final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
+    final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
+    if (currency.isEmpty || weight <= 0) return null;
+    return [
+      trip.id,
+      currency,
+      weight.toStringAsFixed(3),
+      declaredValue.toStringAsFixed(2),
+      _insurance ? '1' : '0',
+    ].join('|');
+  }
+
+  void _scheduleCheckoutPreview() {
+    _previewDebounce?.cancel();
+    _previewDebounce = Timer(const Duration(milliseconds: 350), () {
+      _refreshCheckoutPreview();
+    });
+  }
+
+  Future<_CheckoutPreview?> _refreshCheckoutPreview(
+      {bool force = false}) async {
+    final trip = _currentTrip;
+    if (trip == null || !mounted) return null;
+    final user = ref.read(authProvider).user;
+    final currency = UserCurrencyHelper.resolve(user);
+    final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
+    final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
+    final key = _currentPreviewKey();
+    if (key == null) {
+      setState(() {
+        _checkoutPreview = null;
+        _previewKey = null;
+        _previewError = null;
+        _isPreviewLoading = false;
+      });
+      return null;
+    }
+    if (!force && key == _previewKey && _checkoutPreview != null) {
+      return _checkoutPreview;
+    }
+
+    setState(() {
+      _isPreviewLoading = true;
+      _previewError = null;
+    });
+    try {
+      final response = await ApiService.instance.post<Map<String, dynamic>>(
+        ApiConstants.shipmentCheckoutPreview,
+        data: {
+          'tripId': trip.id,
+          'weight': weight,
+          'senderCurrency': currency,
+          'declaredValue': declaredValue,
+          'insurance': _insurance,
+        },
+      );
+      final data = response.data ?? {};
+      final previewRaw = data['preview'];
+      if (previewRaw is! Map) {
+        throw StateError('Checkout preview was not returned.');
+      }
+      final preview =
+          _CheckoutPreview.fromJson(Map<String, dynamic>.from(previewRaw));
+      if (!mounted) return preview;
+      if (_currentPreviewKey() != key) {
+        return force ? null : _checkoutPreview;
+      }
+      setState(() {
+        _checkoutPreview = preview;
+        _previewKey = key;
+        _previewError = null;
+        _isPreviewLoading = false;
+      });
+      return preview;
+    } catch (error) {
+      if (!mounted) return null;
+      final message = error is DioException
+          ? ApiService.parseError(error)
+          : error.toString();
+      setState(() {
+        _previewError = message.replaceFirst('Exception: ', '');
+        _isPreviewLoading = false;
+      });
+      return null;
+    }
   }
 
   Future<void> _pickImage() async {
@@ -224,20 +376,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final currency = UserCurrencyHelper.resolve(user);
     if (weight == null || weight <= 0 || currency.isEmpty) return;
 
-    final settings = AppSettingsService.instance.cachedOrFallback;
-    final travelerPayout = weight * trip.pricePerKg;
-    final shippingAmount = CurrencyConversionHelper.convert(
-      amount: travelerPayout * settings.surchargeMultiplier,
-      fromCurrency: trip.currency,
-      toCurrency: currency,
-    );
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
-    final insuranceAmount = _insurance
-        ? (declaredValue * (settings.senderInsurancePercent / 100))
-        : 0.0;
-    final totalAmount = shippingAmount + insuranceAmount;
-    final provider =
-        ShipmentCheckoutService.instance.providerForCurrency(currency);
     final receiverName = _receiverNameCtrl.text.trim();
     final receiverPhone =
         '${_receiverPhoneCountry.dialCode}${_receiverPhoneCtrl.text.trim()}';
@@ -245,6 +384,19 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final preview = await _refreshCheckoutPreview(force: true);
+      if (preview == null) {
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            message: _previewError ??
+                'Checkout price could not be calculated. Please try again.',
+            type: SnackBarType.error,
+          );
+        }
+        return;
+      }
+
       // Reuse the existing draft package for the same shipment while its
       // 20-minute checkout window is still valid.
       final existingDraft = await ShipmentCheckoutService.instance.loadDraft();
@@ -290,14 +442,15 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         'tripId': trip.id,
         'travelerId': trip.userId,
         'packageId': reusePackageId ?? package!.id,
-        'currency': currency,
-        'provider': provider,
+        'currency': preview.currency,
+        'provider': preview.provider,
         'tripCurrency': trip.currency,
-        'travelerPayout': travelerPayout,
-        'baseShippingAmount': travelerPayout,
-        'shippingAmount': shippingAmount,
-        'insuranceAmount': insuranceAmount,
-        'totalAmount': totalAmount,
+        'travelerPayout': preview.travelerPayout,
+        'baseShippingAmount': preview.baseShippingAmount,
+        'shippingAmount': preview.shippingAmount,
+        'insuranceAmount': preview.insuranceAmount,
+        'totalAmount': preview.totalAmount,
+        'checkoutPreview': preview.raw,
         'insurance': _insurance,
         'weight': weight,
         'receiverName': receiverName,
@@ -456,18 +609,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
       );
     }
 
-    final settings = AppSettingsService.instance.cachedOrFallback;
-    final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
-    final shippingAmount = CurrencyConversionHelper.convert(
-      amount: weight * trip.pricePerKg * settings.surchargeMultiplier,
-      fromCurrency: trip.currency,
-      toCurrency: currency,
-    );
-    final itemValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
-    final insuranceAmount = _insurance
-        ? (itemValue * (settings.senderInsurancePercent / 100))
-        : 0.0;
-    final totalAmount = shippingAmount + insuranceAmount;
+    final preview = _checkoutPreview;
+    final previewCurrency = preview?.currency ?? currency;
+    final insurancePercent = preview?.insurancePercent ?? 0.5;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FB),
@@ -550,19 +694,24 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             // ── Insurance ─────────────────────────────────────────────
             _InsuranceTile(
               enabled: _insurance,
-              currency: currency,
-              insurancePercent: settings.senderInsurancePercent,
-              onToggle: (v) => setState(() => _insurance = v),
+              currency: previewCurrency,
+              insurancePercent: insurancePercent,
+              onToggle: (v) {
+                setState(() => _insurance = v);
+                _scheduleCheckoutPreview();
+              },
             ),
             const SizedBox(height: 20),
 
             // ── Price summary ─────────────────────────────────────────
             _PriceSummaryCard(
-              currency: currency,
-              shippingAmount: shippingAmount,
-              insuranceAmount: insuranceAmount,
-              totalAmount: totalAmount,
-              insurancePercent: settings.senderInsurancePercent,
+              currency: previewCurrency,
+              shippingAmount: preview?.shippingAmount,
+              insuranceAmount: preview?.insuranceAmount,
+              totalAmount: preview?.totalAmount,
+              insurancePercent: insurancePercent,
+              isLoading: _isPreviewLoading,
+              error: _previewError,
             ),
             const SizedBox(height: 28),
 
@@ -1504,16 +1653,25 @@ class _PriceSummaryCard extends StatelessWidget {
     required this.shippingAmount,
     required this.insuranceAmount,
     required this.totalAmount,
+    required this.isLoading,
+    this.error,
     this.insurancePercent = 0.5,
   });
   final String currency;
-  final double shippingAmount;
-  final double insuranceAmount;
-  final double totalAmount;
+  final double? shippingAmount;
+  final double? insuranceAmount;
+  final double? totalAmount;
   final double insurancePercent;
+  final bool isLoading;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
+    final hasAmounts = shippingAmount != null &&
+        insuranceAmount != null &&
+        totalAmount != null &&
+        error == null;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -1522,14 +1680,61 @@ class _PriceSummaryCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(18),
       child: Column(children: [
+        if (isLoading) ...[
+          Row(children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Calculating checkout total...',
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.gray500,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ]),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+          ),
+        ],
+        if (error != null) ...[
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.info_outline_rounded,
+                size: 18, color: AppColors.warning),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                error!,
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.gray600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ]),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+          ),
+        ],
         _Row(
             label: 'Shipping fee',
-            value: '$currency ${shippingAmount.toStringAsFixed(2)}'),
+            value: hasAmounts
+                ? '$currency ${shippingAmount!.toStringAsFixed(2)}'
+                : '--'),
         const SizedBox(height: 12),
         _Row(
             label:
                 'Item protection (${insurancePercent % 1 == 0 ? insurancePercent.toInt() : insurancePercent}%)',
-            value: '$currency ${insuranceAmount.toStringAsFixed(2)}'),
+            value: hasAmounts
+                ? '$currency ${insuranceAmount!.toStringAsFixed(2)}'
+                : '--'),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
           child: Divider(height: 1, color: Color(0xFFEEEFF1)),
@@ -1546,7 +1751,9 @@ class _PriceSummaryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '$currency ${totalAmount.toStringAsFixed(2)}',
+              hasAmounts
+                  ? '$currency ${totalAmount!.toStringAsFixed(2)}'
+                  : '--',
               style: AppTextStyles.labelLg.copyWith(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w900,

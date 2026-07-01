@@ -8,9 +8,11 @@ import {
   softDeleteConversation,
   getConversationById,
 } from '../lib/postgres/messaging.js';
+import jwt from 'jsonwebtoken';
 import cloudinary from 'cloudinary';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import { resolveSupportAdminId } from '../services/supportAutomationService.js';
+import { findProfileById } from '../lib/postgres/profiles.js';
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -23,6 +25,44 @@ const idOf = (value) => {
   if (typeof value === 'object') return String(value._id || value.id || '');
   return String(value);
 };
+
+function socketBearerToken(socket) {
+  const header = socket.handshake?.headers?.authorization || socket.handshake?.auth?.authorization;
+  const authToken = socket.handshake?.auth?.token;
+  if (typeof header === 'string' && header.startsWith('Bearer ')) {
+    return header.substring(7).trim();
+  }
+  if (typeof authToken === 'string' && authToken.trim()) {
+    return authToken.replace(/^Bearer\s+/i, '').trim();
+  }
+  return null;
+}
+
+async function authenticateSocketUser(socket) {
+  const token = socketBearerToken(socket);
+  if (!token || token.length > 4096) return null;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await findProfileById(decoded.id);
+    if (!user || user.banned) return null;
+    socket.data.userId = idOf(user.id || user._id);
+    return user;
+  } catch (error) {
+    console.warn(`Socket auth failed for ${socket.id}: ${error.message}`);
+    return null;
+  }
+}
+
+function isConversationMember(conversation, userId) {
+  const normalizedUserId = idOf(userId);
+  return Boolean(
+    normalizedUserId &&
+      conversation &&
+      (idOf(conversation.sender?._id || conversation.sender?.id) === normalizedUserId ||
+        idOf(conversation.traveler?._id || conversation.traveler?.id) === normalizedUserId),
+  );
+}
 
 function getChatNotificationTarget(conversation, senderId) {
   const normalizedSenderId = idOf(senderId);
@@ -65,26 +105,69 @@ async function uploadMessageAttachment(file, userId) {
 export const messageController = (io) => {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+    socket.data.authPromise = authenticateSocketUser(socket);
 
-    socket.on('join_user', (userId) => {
-      socket.join(userId.toString());
-      socket.data.userId = userId.toString();
+    const authenticatedUserId = async () => {
+      await socket.data.authPromise;
+      return socket.data.userId;
+    };
+
+    socket.on('join_user', async (userId, ack) => {
+      const userIdFromToken = await authenticatedUserId();
+      if (!userIdFromToken || idOf(userId) !== userIdFromToken) {
+        if (typeof ack === 'function') ack({ success: false, message: 'Unauthorized' });
+        socket.emit('error', { message: 'Unauthorized' });
+        return;
+      }
+      socket.join(userIdFromToken);
+      if (typeof ack === 'function') ack({ success: true });
     });
 
-    socket.on('join_conversation', (conversationId) => {
-      socket.join(conversationId.toString());
-      console.log(`User ${socket.id} joined conversation ${conversationId}`);
+    socket.on('join_conversation', async (conversationId, ack) => {
+      const userIdFromToken = await authenticatedUserId();
+      try {
+        if (!userIdFromToken || !conversationId) {
+          if (typeof ack === 'function') ack({ success: false, message: 'Unauthorized' });
+          socket.emit('error', { message: 'Unauthorized' });
+          return;
+        }
+
+        const conversation = await getConversationById(conversationId, userIdFromToken);
+        if (!isConversationMember(conversation, userIdFromToken)) {
+          if (typeof ack === 'function') ack({ success: false, message: 'Conversation not found' });
+          socket.emit('error', { message: 'Conversation not found' });
+          return;
+        }
+
+        socket.join(conversationId.toString());
+        if (typeof ack === 'function') ack({ success: true });
+        console.log(`User ${userIdFromToken} joined conversation ${conversationId}`);
+      } catch (error) {
+        console.error('Error joining conversation:', error);
+        if (typeof ack === 'function') ack({ success: false, message: 'Failed to join conversation' });
+        socket.emit('error', { message: 'Failed to join conversation' });
+      }
     });
 
     socket.on('send_message', async ({ conversationId, senderId, text }, ack) => {
       try {
-        // Reject if the claimed senderId doesn't match the authenticated socket user
-        if (socket.data.userId && socket.data.userId !== senderId?.toString()) {
+        const userIdFromToken = await authenticatedUserId();
+        if (!userIdFromToken) {
+          if (typeof ack === 'function') ack({ success: false, message: 'Unauthorized' });
+          socket.emit('error', { message: 'Unauthorized' });
+          return;
+        }
+        if (senderId && idOf(senderId) !== userIdFromToken) {
           if (typeof ack === 'function') ack({ success: false, message: 'Sender identity mismatch' });
           socket.emit('error', { message: 'Sender identity mismatch' });
           return;
         }
-        const result = await createConversationMessage({ conversationId, senderId, text });
+
+        const result = await createConversationMessage({
+          conversationId,
+          senderId: userIdFromToken,
+          text,
+        });
 
         if (!result) {
           if (typeof ack === 'function') ack({ success: false, message: 'Conversation not found' });
@@ -99,7 +182,7 @@ export const messageController = (io) => {
           id: message.id,
           conversationId,
           text,
-          sender: senderId,
+          sender: userIdFromToken,
           timestamp: message.createdAt,
         };
 
@@ -118,9 +201,9 @@ export const messageController = (io) => {
         }
 
         // Send push notification to recipient
-        const { recipientId, senderName } = getChatNotificationTarget(conversation, senderId);
+        const { recipientId, senderName } = getChatNotificationTarget(conversation, userIdFromToken);
 
-        if (recipientId && recipientId !== idOf(senderId)) {
+        if (recipientId && recipientId !== userIdFromToken) {
           await sendPushNotification(
             recipientId,
             `💬 New message from ${senderName}`,
