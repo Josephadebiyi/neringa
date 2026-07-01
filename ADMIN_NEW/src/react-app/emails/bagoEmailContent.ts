@@ -1,5 +1,8 @@
 export const BRAND = '#5C4DFF';
-export const LOGO = 'https://res.cloudinary.com/dmito8es3/image/upload/v1761919738/Bago_New_2_gh1gmn.png';
+// White logo — for dark/brand-color backgrounds (NewsletterEmail header)
+export const LOGO = 'https://res.cloudinary.com/dmito8es3/image/upload/w_300,h_100,c_fit/v1761919738/Bago_New_2_gh1gmn.png';
+// Purple logo — for white/light backgrounds (ProductLaunch, Promo headers & footers)
+export const LOGO_LIGHT = 'https://res.cloudinary.com/dmito8es3/image/upload/w_300,h_100,c_fit,e_colorize,co_rgb:5C4DFF/v1761919738/Bago_New_2_gh1gmn.png';
 
 const footer = {
   tagline: 'Peer-to-peer delivery, powered by people already going your way.',
@@ -11,7 +14,7 @@ const footer = {
 
 export const productLaunchDefault = {
   brand: BRAND,
-  logo: LOGO,
+  logo: LOGO_LIGHT,
   preheader: 'Your parcel, paired with a verified traveler in seconds.',
   browserUrl: 'https://sendwithbago.com',
   heroImage: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1200&q=80',
@@ -71,7 +74,7 @@ export const newsletterDefault = {
 
 export const promoDefault = {
   brand: BRAND,
-  logo: LOGO,
+  logo: LOGO_LIGHT,
   browserUrl: 'https://sendwithbago.com',
   offerKicker: 'Limited-time offer',
   offerHeading: ['Your next parcel,', '€10 lighter.'],

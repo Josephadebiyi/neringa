@@ -19,10 +19,10 @@ const card: React.CSSProperties = {
   overflow: 'hidden', border: '1px solid #EAE7DF', margin: '0 auto', fontFamily: FONT,
 };
 
-function Logo({ src, height = 26, invert = false }: { src: string; height?: number; invert?: boolean }) {
+function Logo({ src, height = 26 }: { src: string; height?: number }) {
   return (
     <img src={src} alt="Bago" height={height}
-      style={{ height, width: 'auto', display: 'block', border: 0, ...(invert ? { filter: 'brightness(0) invert(1)' } : {}) }} />
+      style={{ height, width: 'auto', display: 'block', border: 0 }} />
   );
 }
 
@@ -110,7 +110,7 @@ export function NewsletterEmail({ content: c }: { content: NewsletterContent }) 
     <div style={card}>
       <div style={{ padding: '30px 32px 26px', background: INK, color: '#fff' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Logo src={c.logo} height={24} invert />
+          <Logo src={c.logo} height={24} />
           <a href={c.viewUrl} style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>View online</a>
         </div>
         <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 38, letterSpacing: '-0.03em', lineHeight: 1, marginTop: 22 }}>{c.issueTitle}</div>
