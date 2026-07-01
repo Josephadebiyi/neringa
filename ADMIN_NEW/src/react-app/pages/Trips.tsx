@@ -408,6 +408,25 @@ export default function Trips() {
                             </button>
                         </div>
                         <div className="p-6 space-y-5">
+                            {/* Price per kg — most important, shown prominently */}
+                            <div className="flex items-center gap-4 bg-[#5240E8]/5 border border-[#5240E8]/20 rounded-2xl p-4">
+                                <div className="flex-1">
+                                    <p className="text-[9px] font-black text-[#5240E8]/60 uppercase tracking-widest">Price per kg</p>
+                                    <p className="text-2xl font-black text-[#5240E8] mt-0.5">
+                                        {detailTrip.currency || 'USD'} {Number(detailTrip.pricePerKg || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        <span className="text-sm font-bold text-[#5240E8]/50 ml-1">/ kg</span>
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Available</p>
+                                    <p className="text-lg font-black text-gray-800 mt-0.5">{detailTrip.availableKg} <span className="text-sm font-bold text-gray-400">kg</span></p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Sold</p>
+                                    <p className="text-lg font-black text-gray-800 mt-0.5">{detailTrip.soldKg ?? 0} <span className="text-sm font-bold text-gray-400">kg</span></p>
+                                </div>
+                            </div>
+
                             <JourneyMap
                                 fromCity={detailTrip.fromLocation}
                                 fromCountry={detailTrip.fromCountry || ''}
@@ -418,26 +437,20 @@ export default function Trips() {
                                 departureDate={detailTrip.departureDate}
                                 arrivalDate={detailTrip.arrivalDate}
                             />
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                 {[
-                                    { label: 'Status', value: detailTrip.status },
-                                    { label: 'Travel means', value: detailTrip.travelMeans },
-                                    { label: 'Departure', value: new Date(detailTrip.departureDate).toLocaleDateString() },
-                                    { label: 'Arrival', value: new Date(detailTrip.arrivalDate).toLocaleDateString() },
-                                    { label: 'Available KG', value: `${detailTrip.availableKg} kg` },
-                                    { label: 'Sold KG', value: `${detailTrip.soldKg ?? 0} kg` },
-                                    { label: 'Requests', value: String(detailTrip.request || 0) },
-                                    { label: 'Active shipments', value: String(detailTrip.activeShipmentCount ?? 0) },
-                                    { label: 'Bookings', value: detailTrip.bookingStatusSummary || 'None' },
-                                    ...(detailTrip.pricePerKg ? [{ label: 'Price/kg', value: `${detailTrip.currency || 'USD'} ${detailTrip.pricePerKg}` }] : []),
-                                    ...(detailTrip.travelerEarnings ? [{ label: 'Earnings', value: `${detailTrip.currency || 'USD'} ${Number(detailTrip.travelerEarnings).toFixed(2)}` }] : []),
-                                    { label: 'Payout', value: formatPayoutStatus(detailTrip.payoutStatus) },
-                                    { label: 'Travel doc', value: detailTrip.travelDocument ? 'Uploaded' : 'Not uploaded' },
-                                    { label: 'Created', value: new Date(detailTrip.createdAt).toLocaleString() },
+                                    { label: 'Status',          value: detailTrip.status },
+                                    { label: 'Travel means',    value: detailTrip.travelMeans },
+                                    { label: 'Departure',       value: new Date(detailTrip.departureDate).toLocaleDateString() },
+                                    { label: 'Arrival',         value: new Date(detailTrip.arrivalDate).toLocaleDateString() },
+                                    { label: 'Requests',        value: String(detailTrip.request || 0) },
+                                    { label: 'Payout',          value: formatPayoutStatus(detailTrip.payoutStatus) },
+                                    { label: 'Travel doc',      value: detailTrip.travelDocument ? 'Uploaded ✓' : 'Not uploaded' },
+                                    { label: 'Created',         value: new Date(detailTrip.createdAt).toLocaleString() },
                                 ].map(({ label, value }) => (
                                     <div key={label} className="bg-gray-50 rounded-xl p-3">
                                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-                                        <p className="text-xs font-bold text-[#1e2749] truncate">{value}</p>
+                                        <p className="text-xs font-bold text-[#1e2749]">{value}</p>
                                     </div>
                                 ))}
                             </div>
@@ -447,6 +460,33 @@ export default function Trips() {
                                     <span className="text-xs font-black text-green-700">
                                         Traveler earned {detailTrip.currency || 'USD'} {Number(detailTrip.travelerEarnings).toFixed(2)} · Payout: {formatPayoutStatus(detailTrip.payoutStatus)}
                                     </span>
+                                </div>
+                            )}
+
+                            {/* Sold shipments / bookings on this trip */}
+                            {Array.isArray((detailTrip as any).soldShipments) && (detailTrip as any).soldShipments.length > 0 && (
+                                <div>
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Bookings on this trip ({(detailTrip as any).soldShipments.length})</p>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                        {(detailTrip as any).soldShipments.map((sh: any) => (
+                                            <div key={sh.id} className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold text-gray-800 truncate">{sh.packageTitle || sh.packageDescription || 'Package'}</p>
+                                                    <p className="text-[10px] text-gray-400">Sender: {sh.senderName || '—'} · {sh.packageWeight ? `${sh.packageWeight} kg` : ''}</p>
+                                                    {sh.trackingNumber && <p className="text-[9px] font-mono text-indigo-400 mt-0.5">{sh.trackingNumber}</p>}
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-black ${
+                                                        sh.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                        sh.status === 'intransit' || sh.status === 'delivering' ? 'bg-blue-100 text-blue-700' :
+                                                        sh.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                                        'bg-amber-100 text-amber-700'
+                                                    }`}>{sh.status}</span>
+                                                    {sh.amount && <p className="text-[10px] font-black text-gray-700 mt-1">{sh.currency || ''} {Number(sh.amount).toLocaleString()}</p>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>

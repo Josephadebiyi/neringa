@@ -173,6 +173,20 @@ export async function getTracking() {
   return apiCall(`${ADMIN_API}/tracking`);
 }
 
+export async function getOrders(page = 1, limit = 30, status?: string, search?: string) {
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (status && status !== 'all') qs.set('status', status);
+  if (search) qs.set('search', search);
+  return apiCall(`${ADMIN_API}/orders?${qs}`);
+}
+
+export async function updateOrderStatus(id: string, status: string, location?: string, notes?: string) {
+  return apiCall(`${ADMIN_API}/tracking/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, location, notes }),
+  });
+}
+
 // Analytics
 export async function getAnalytics() {
   return apiCall(`${ADMIN_API}/analystic`);

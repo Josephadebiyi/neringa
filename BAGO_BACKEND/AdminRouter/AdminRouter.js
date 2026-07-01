@@ -4,7 +4,7 @@ import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { auditAdminAction, requireAdminPermission } from '../middleware/adminAuthorization.js';
 import { banUser, GetAllUsers, deleteUser, updateUser } from '../controllers/AdminControllers/GetAllUsers.js';
 import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controllers/postgresUserController.js';
-import { activeShipmentLocations, tracking, updateRequest } from '../controllers/AdminControllers/Tracking.js';
+import { activeShipmentLocations, tracking, updateRequest, getAllOrders } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
@@ -128,6 +128,7 @@ AdminRouter.post("/AdminSignup", adminAuthenticated, AdminSignup)
 AdminRouter.post("/AdminLogin", AdminLogin)
 AdminRouter.get("/CheckAdmin", adminAuthenticated, CheckAdmin)
 AdminRouter.get("/GetAllUsers", adminAuthenticated, can('users.read'), GetAllUsers)
+AdminRouter.get("/orders", adminAuthenticated, getAllOrders)
 AdminRouter.get("/tracking", adminAuthenticated, tracking)
 AdminRouter.get("/tracking/active-shipments", adminAuthenticated, activeShipmentLocations)
 AdminRouter.put("/tracking/:id", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.tracking.update', 'shipment_request'), updateRequest)

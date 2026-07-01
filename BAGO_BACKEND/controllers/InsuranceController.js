@@ -1,5 +1,5 @@
 import { query as pgQuery, queryOne, query } from '../lib/postgres/db.js';
-import fetch from 'node-fetch';
+import { convertCurrency } from '../services/currencyConverter.js';
 
 let _tableEnsured = false;
 async function ensureTable() {
@@ -41,7 +41,18 @@ async function getSettings() {
 
 export const calculateInsurance = async (req, res) => {
   try {
-    const { itemValue, currency = 'USD', region = 'global' } = req.query;
+    const { itemValue, region = 'global' } = req.query;
+
+    // Use the user's set currency (earning/preferred), fall back to query param, then USD
+    const userCurrency = (
+      req.user?.earningCurrency ||
+      req.user?.earning_currency ||
+      req.user?.preferredCurrency ||
+      req.user?.preferred_currency ||
+      req.query.currency ||
+      'USD'
+    ).toUpperCase();
+
     if (!itemValue || isNaN(itemValue) || itemValue < 0) {
       return res.status(400).json({ success: false, message: 'Valid item value is required' });
     }
@@ -56,24 +67,19 @@ export const calculateInsurance = async (req, res) => {
       return res.status(200).json({ success: true, available: false, message: `Insurance unavailable for ${region}` });
     }
 
-    const value = parseFloat(itemValue);
-    if (value > config.maxCoverageAmount) {
-      return res.status(400).json({ success: false, message: `Item value exceeds maximum coverage of ${config.maxCoverageAmount}`, maxCoverage: config.maxCoverageAmount });
-    }
+    const baseCurrency = (config.currency || 'USD').toUpperCase();
+    const insuranceCost = Number(config.fixedPrice || 6);
 
-    let insuranceCost = config.fixedPrice || 6;
+    // Convert from the config base currency to the user's currency
     let convertedCost = insuranceCost;
     let exchangeRate = 1;
-
-    if (currency !== config.currency) {
+    if (userCurrency !== baseCurrency) {
       try {
-        const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${config.currency || 'USD'}`);
-        const data = await response.json();
-        if (data?.rates?.[currency]) {
-          exchangeRate = data.rates[currency];
-          convertedCost = Math.round(insuranceCost * exchangeRate * 100) / 100;
-        }
-      } catch (_) {}
+        convertedCost = Number((await convertCurrency(insuranceCost, baseCurrency, userCurrency)).toFixed(2));
+        exchangeRate = Number((convertedCost / insuranceCost).toFixed(6));
+      } catch (_) {
+        // leave as base price if conversion fails
+      }
     }
 
     return res.status(200).json({
@@ -81,12 +87,12 @@ export const calculateInsurance = async (req, res) => {
       available: true,
       insurance: {
         cost: convertedCost,
-        currency,
+        currency: userCurrency,
         exchangeRate,
-        coverageAmount: value,
+        coverageAmount: parseFloat(itemValue),
         region,
         fixedPrice: config.fixedPrice,
-        baseCurrency: config.currency || 'USD',
+        baseCurrency,
         commissionPercentage: config.commissionPercentage || 15,
       },
     });

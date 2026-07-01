@@ -224,6 +224,161 @@ export const tracking = async (req, res, next) => {
   }
 };
 
+// Flat paginated orders list with full joined data for admin Orders page
+export const getAllOrders = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 30, status, search } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    const conditions = [];
+    const params = [];
+
+    if (status && status !== 'all') {
+      params.push(status);
+      conditions.push(`sr.status = $${params.length}`);
+    }
+    if (search) {
+      params.push(`%${search}%`);
+      const i = params.length;
+      conditions.push(`(
+        sr.tracking_number ILIKE $${i}
+        OR pkg.description ILIKE $${i}
+        OR sender.first_name ILIKE $${i}
+        OR sender.last_name ILIKE $${i}
+        OR sender.email ILIKE $${i}
+        OR traveler.first_name ILIKE $${i}
+        OR traveler.last_name ILIKE $${i}
+      )`);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const rows = await query(
+      `SELECT
+         sr.id,
+         sr.status,
+         sr.amount,
+         sr.currency,
+         sr.tracking_number,
+         sr.insurance,
+         sr.insurance_cost,
+         sr.insurance_status,
+         sr.insurance_error,
+         sr.insurance_policy_id,
+         sr.payment_status,
+         sr.created_at,
+         sr.updated_at,
+         -- package
+         pkg.id          AS package_id,
+         pkg.description AS pkg_description,
+         pkg.category    AS pkg_category,
+         pkg.package_weight,
+         pkg.declared_value,
+         pkg.image_url   AS pkg_image,
+         pkg.from_city,
+         pkg.from_country,
+         pkg.to_city,
+         pkg.to_country,
+         pkg.pickup_address,
+         pkg.delivery_address,
+         pkg.receiver_name,
+         pkg.receiver_email,
+         pkg.receiver_phone,
+         -- sender
+         sender.id         AS sender_id,
+         sender.first_name AS sender_first_name,
+         sender.last_name  AS sender_last_name,
+         sender.email      AS sender_email,
+         sender.phone      AS sender_phone,
+         sender.image_url  AS sender_image,
+         -- traveler
+         traveler.id         AS traveler_id,
+         traveler.first_name AS traveler_first_name,
+         traveler.last_name  AS traveler_last_name,
+         traveler.email      AS traveler_email,
+         traveler.phone      AS traveler_phone,
+         traveler.image_url  AS traveler_image,
+         traveler.kyc_status AS traveler_kyc_status
+       FROM public.shipment_requests sr
+       LEFT JOIN public.packages  pkg      ON pkg.id      = sr.package_id
+       LEFT JOIN public.profiles  sender   ON sender.id   = sr.sender_id
+       LEFT JOIN public.profiles  traveler ON traveler.id = sr.traveler_id
+       ${where}
+       ORDER BY sr.created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, Number(limit), offset],
+    );
+
+    const countRow = await queryOne(
+      `SELECT COUNT(*)::int AS total
+       FROM public.shipment_requests sr
+       LEFT JOIN public.packages  pkg      ON pkg.id      = sr.package_id
+       LEFT JOIN public.profiles  sender   ON sender.id   = sr.sender_id
+       LEFT JOIN public.profiles  traveler ON traveler.id = sr.traveler_id
+       ${where}`,
+      params,
+    );
+
+    const data = rows.rows.map((r) => ({
+      id: r.id,
+      status: r.status,
+      amount: Number(r.amount || 0),
+      currency: r.currency,
+      trackingNumber: r.tracking_number,
+      insurance: r.insurance,
+      insuranceCost: Number(r.insurance_cost || 0),
+      insuranceStatus: r.insurance_status,
+      insuranceError: r.insurance_error,
+      insurancePolicyId: r.insurance_policy_id,
+      paymentStatus: r.payment_status,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      package: {
+        id: r.package_id,
+        description: r.pkg_description,
+        category: r.pkg_category,
+        weight: Number(r.package_weight || 0),
+        value: Number(r.declared_value || 0),
+        image: r.pkg_image,
+        fromCity: r.from_city,
+        fromCountry: r.from_country,
+        toCity: r.to_city,
+        toCountry: r.to_country,
+        pickupAddress: r.pickup_address,
+        deliveryAddress: r.delivery_address,
+        receiverName: r.receiver_name,
+        receiverEmail: r.receiver_email,
+        receiverPhone: r.receiver_phone,
+      },
+      sender: {
+        id: r.sender_id,
+        name: [r.sender_first_name, r.sender_last_name].filter(Boolean).join(' ') || '—',
+        email: r.sender_email,
+        phone: r.sender_phone,
+        image: r.sender_image,
+      },
+      traveler: {
+        id: r.traveler_id,
+        name: [r.traveler_first_name, r.traveler_last_name].filter(Boolean).join(' ') || '—',
+        email: r.traveler_email,
+        phone: r.traveler_phone,
+        image: r.traveler_image,
+        kycStatus: r.traveler_kyc_status,
+      },
+    }));
+
+    return res.json({
+      success: true,
+      data,
+      total: countRow?.total || 0,
+      page: Number(page),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const activeShipmentLocations = async (req, res, next) => {
   try {
     const { limit = 100 } = req.query;
