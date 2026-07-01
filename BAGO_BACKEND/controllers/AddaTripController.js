@@ -8,6 +8,7 @@ import {
   updateTripRecord,
   deleteTripRecord,
   addTripReview,
+  getReviewsForUser,
   getTripPricingSettings,
   listActiveAdminEmails,
   userHasCompletedTripRequest,
@@ -440,6 +441,16 @@ export const AddReviewToRequest = async (req, res, next) => {
       message: 'Review added successfully',
       reviews: updatedTrip.reviews,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const GetMyReviews = async (req, res, next) => {
+  const userId = req.user.id || req.user._id;
+  try {
+    const reviews = await getReviewsForUser(userId);
+    res.status(200).json({ success: true, reviews });
   } catch (error) {
     next(error);
   }

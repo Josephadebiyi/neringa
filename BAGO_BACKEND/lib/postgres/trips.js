@@ -530,3 +530,41 @@ export async function addTripReview({ tripId, userId, rating, comment }) {
     return review.rows[0];
   });
 }
+
+export async function getReviewsForUser(userId) {
+  const result = await query(
+    `
+      select
+        r.id,
+        r.rating,
+        r.comment,
+        r.created_at,
+        t.from_location,
+        t.to_location,
+        p.first_name as reviewer_first_name,
+        p.last_name  as reviewer_last_name,
+        p.image_url  as reviewer_image_url,
+        p.selected_avatar as reviewer_avatar
+      from public.trip_reviews r
+      inner join public.trips t on t.traveler_id = $1 and t.id = r.trip_id
+      left  join public.profiles p on p.id = r.user_id
+      order by r.created_at desc
+      limit 50
+    `,
+    [userId],
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    rating: parseFloat(row.rating) || 0,
+    comment: row.comment || null,
+    createdAt: row.created_at,
+    route: row.from_location && row.to_location ? `${row.from_location} → ${row.to_location}` : null,
+    reviewer: {
+      firstName: row.reviewer_first_name,
+      lastName: row.reviewer_last_name,
+      imageUrl: row.reviewer_image_url || null,
+      selectedAvatar: row.reviewer_avatar || null,
+    },
+  }));
+}
