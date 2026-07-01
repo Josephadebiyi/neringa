@@ -17,7 +17,7 @@ import {
   ShieldAlert,
   Coins,
 } from 'lucide-react';
-import { getUsers, banUser as toggleBan, deleteUser, updateUser, recalculateUserBalance, adminSetWalletCurrency } from '../services/api';
+import { getUsers, banUser as toggleBan, deleteUser, updateUser, recalculateUserBalance, adminSetWalletCurrency, adminCorrectWallet } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 interface User {
@@ -83,6 +83,12 @@ export default function Users() {
   const [currencyLoading, setCurrencyLoading] = useState(false);
   const [currencyError, setCurrencyError] = useState('');
   const [recalcLoadingId, setRecalcLoadingId] = useState<string | null>(null);
+  const [correctBalance, setCorrectBalance] = useState('');
+  const [correctCurrency, setCorrectCurrency] = useState('');
+  const [correctReason, setCorrectReason] = useState('');
+  const [correctLoading, setCorrectLoading] = useState(false);
+  const [correctError, setCorrectError] = useState('');
+  const [correctSuccess, setCorrectSuccess] = useState('');
 
   const limit = 20;
 
@@ -150,7 +156,33 @@ export default function Users() {
     setSettleBalance(false);
     setAdminNote('');
     setCurrencyError('');
+    setCorrectBalance('');
+    setCorrectCurrency(user.walletCurrency || user.earningCurrency || '');
+    setCorrectReason('');
+    setCorrectError('');
+    setCorrectSuccess('');
     setCurrencyModalOpen(true);
+  };
+
+  const handleCorrectWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currencyUser || !correctBalance || !correctCurrency) return;
+    setCorrectLoading(true);
+    setCorrectError('');
+    setCorrectSuccess('');
+    try {
+      const res = await adminCorrectWallet(currencyUser._id, parseFloat(correctBalance), correctCurrency, correctReason || 'Admin manual correction');
+      if (res?.success) {
+        setCorrectSuccess(`Wallet set to ${correctCurrency} ${parseFloat(correctBalance).toFixed(2)}`);
+        fetchUsers();
+      } else {
+        setCorrectError(res?.message || 'Correction failed');
+      }
+    } catch (err: any) {
+      setCorrectError(err.message || 'Correction failed');
+    } finally {
+      setCorrectLoading(false);
+    }
   };
 
   const handleChangeCurrency = async (e: React.FormEvent) => {
@@ -550,6 +582,57 @@ export default function Users() {
                 </button>
               </div>
             </form>
+
+            {/* Direct balance correction — for already-corrupted data */}
+            <div className="mx-8 mb-8 border-t border-dashed border-gray-200 pt-6">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Direct Balance Correction</p>
+              <p className="text-[11px] text-gray-400 mb-4">Use this to fix a wallet where the balance is already wrong (e.g. 0.44 NGN that should be 730 NGN). Sets the exact amount directly.</p>
+              <form onSubmit={handleCorrectWallet} className="space-y-3">
+                <div className="flex gap-3">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Correct Amount</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={correctBalance}
+                      onChange={e => setCorrectBalance(e.target.value)}
+                      placeholder="e.g. 730.00"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:border-indigo-400 outline-none font-bold text-sm"
+                    />
+                  </div>
+                  <div className="w-28 space-y-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Currency</label>
+                    <select
+                      value={correctCurrency}
+                      onChange={e => setCorrectCurrency(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:border-indigo-400 outline-none font-bold text-sm"
+                    >
+                      <option value="">—</option>
+                      {['USD','EUR','GBP','CAD','AUD','NGN','GHS','KES','ZAR'].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  value={correctReason}
+                  onChange={e => setCorrectReason(e.target.value)}
+                  placeholder="Reason (e.g. EUR balance mislabelled as NGN)"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl focus:border-indigo-400 outline-none text-sm"
+                />
+                {correctError && <p className="text-xs font-bold text-red-500 bg-red-50 px-3 py-2 rounded-lg">{correctError}</p>}
+                {correctSuccess && <p className="text-xs font-bold text-green-600 bg-green-50 px-3 py-2 rounded-lg">{correctSuccess}</p>}
+                <button
+                  type="submit"
+                  disabled={correctLoading || !correctBalance || !correctCurrency}
+                  className="w-full py-3 bg-amber-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-600 disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+                >
+                  {correctLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Set Balance Directly'}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}

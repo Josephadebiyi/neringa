@@ -1436,6 +1436,54 @@ export function detectLocation(req, res) {
   res.json({ success: true, ...location });
 }
 
+// Admin-only: directly set wallet balance + currency (data correction tool)
+export async function adminCorrectWalletBalance(req, res, next) {
+  const { userId } = req.params;
+  const { balance, currency, reason } = req.body;
+  if (!userId || balance === undefined || !currency) {
+    return res.status(400).json({ message: 'userId, balance, and currency are required' });
+  }
+  const amount = Number(balance);
+  if (isNaN(amount) || amount < 0) {
+    return res.status(400).json({ message: 'balance must be a non-negative number' });
+  }
+  const upper = currency.toUpperCase();
+  try {
+    const wallet = await queryOne(
+      `SELECT id FROM public.wallet_accounts WHERE user_id = $1`,
+      [userId],
+    );
+    if (!wallet) {
+      return res.status(404).json({ message: 'Wallet not found for this user' });
+    }
+    await query(
+      `UPDATE public.wallet_accounts
+       SET available_balance = $2, currency = $3, updated_at = NOW()
+       WHERE user_id = $1`,
+      [userId, amount, upper],
+    );
+    await query(
+      `UPDATE public.profiles SET preferred_currency = $2, earning_currency = $2, updated_at = NOW() WHERE id = $1`,
+      [userId, upper],
+    );
+    await query(
+      `INSERT INTO public.wallet_transactions (wallet_id, user_id, type, amount, currency, status, description, metadata)
+       VALUES ($1, $2, 'admin_correction', $3, $4, 'completed', $5, $6)`,
+      [
+        wallet.id, userId, amount, upper,
+        reason || 'Admin manual balance correction',
+        JSON.stringify({ adminAction: true, reason }),
+      ],
+    );
+    return res.status(200).json({
+      success: true,
+      message: `Wallet corrected: ${amount} ${upper}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // Admin-only: settle balance and change earning currency
 export async function adminSetEarningCurrency(req, res, next) {
   const { userId } = req.params;

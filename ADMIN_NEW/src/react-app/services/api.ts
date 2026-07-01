@@ -556,6 +556,13 @@ export async function adminSetWalletCurrency(userId: string, newCurrency: string
   });
 }
 
+export async function adminCorrectWallet(userId: string, balance: number, currency: string, reason?: string) {
+  return apiCall(`${ADMIN_API}/users/${userId}/correct-wallet`, {
+    method: 'POST',
+    body: JSON.stringify({ balance, currency, reason }),
+  });
+}
+
 // Flagged / Banned Users
 export async function getFlaggedUsers(page = 1, limit = 50, source?: string) {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });

@@ -3,7 +3,7 @@ import { AdminLogin, AdminSignup } from '../controllers/AdminControllers/Adminlo
 import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { auditAdminAction, requireAdminPermission } from '../middleware/adminAuthorization.js';
 import { banUser, GetAllUsers, deleteUser, updateUser } from '../controllers/AdminControllers/GetAllUsers.js';
-import { adminSetEarningCurrency } from '../controllers/postgresUserController.js';
+import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controllers/postgresUserController.js';
 import { activeShipmentLocations, tracking, updateRequest } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
@@ -153,6 +153,7 @@ AdminRouter.put("/banUser/:userId", adminAuthenticated, can('users.manage'), val
 AdminRouter.put("/updateUser/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.update', 'profile', 'userId'), updateUser);
 AdminRouter.post("/users/:userId/earning-currency", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.earning_currency.set', 'profile', 'userId'), adminSetEarningCurrency);
 AdminRouter.post("/users/:userId/recalculate-balance", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.balance.recalculate', 'wallet_account', 'userId'), recalculateWalletBalance);
+AdminRouter.post("/users/:userId/correct-wallet", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.wallet.correction', 'wallet_account', 'userId'), adminCorrectWalletBalance);
 AdminRouter.delete("/deleteUser/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.delete', 'profile', 'userId'), deleteUser);
 AdminRouter.post("/send-promo", adminAuthenticated, can('promos.manage'), audit('admin.promo.send', 'promo'), sendPromoEmail);
 AdminRouter.get("/refunds", adminAuthenticated, can('refunds.manage'), getAllRefunds);

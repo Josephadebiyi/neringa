@@ -1,6 +1,24 @@
 import { query as pgQuery, queryOne, query } from '../lib/postgres/db.js';
 import fetch from 'node-fetch';
 
+let _tableEnsured = false;
+async function ensureTable() {
+  if (_tableEnsured) return;
+  await pgQuery(`
+    CREATE TABLE IF NOT EXISTS public.insurance_settings (
+      id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+      global_config jsonb,
+      africa_config jsonb,
+      europe_config jsonb,
+      enabled boolean NOT NULL DEFAULT true,
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now()
+    )
+  `);
+  _tableEnsured = true;
+}
+ensureTable().catch((err) => console.error('[insurance] table migration failed:', err.message));
+
 const DEFAULT_SETTINGS = {
   enabled: true,
   global: { fixedPrice: 6, maxCoverageAmount: 5000, commissionPercentage: 15, currency: 'USD', enabled: true },
