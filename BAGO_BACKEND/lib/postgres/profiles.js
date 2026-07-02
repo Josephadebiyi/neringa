@@ -566,41 +566,137 @@ export async function activateEarningCurrency(userId, currency) {
 }
 
 // Admin-only: settle old balance and set new earning currency
-export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote) {
+export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote, { convertBalance = true } = {}) {
   await ensureEarningCurrencyColumns();
   const upper = newCurrency.toUpperCase();
   const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
 
   await withTransaction(async (client) => {
-    if (settleBalance) {
-      const wallet = await client.query(
-        `SELECT available_balance, currency FROM public.wallet_accounts WHERE user_id = $1`,
-        [userId],
+    let wallet = await client.query(
+      `SELECT id, available_balance, escrow_balance, currency FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
+      [userId],
+    );
+    if (!wallet.rows[0]) {
+      wallet = await client.query(
+        `INSERT INTO public.wallet_accounts (user_id, available_balance, escrow_balance, currency)
+         SELECT id, 0, 0, $2
+         FROM public.profiles
+         WHERE id = $1
+         ON CONFLICT (user_id) DO UPDATE
+           SET currency = EXCLUDED.currency,
+               updated_at = NOW()
+         RETURNING id, available_balance, escrow_balance, currency`,
+        [userId, upper],
       );
-      const w = wallet.rows[0];
-      if (w && Number(w.available_balance) > 0) {
+    }
+    const w = wallet.rows[0];
+    const walletCurrency = String(w?.currency || upper).toUpperCase();
+    const availableBalance = Number(w?.available_balance || 0);
+    const escrowBalance = Number(w?.escrow_balance || 0);
+    const hasBalance = availableBalance > 0 || escrowBalance > 0;
+
+    if (settleBalance) {
+      if (w && hasBalance) {
         await client.query(
           `INSERT INTO public.wallet_transactions
            (wallet_id, user_id, type, amount, currency, status, description, metadata)
-           SELECT id, user_id, 'admin_settlement', available_balance, currency, 'completed', $2, $3
-           FROM public.wallet_accounts WHERE user_id = $1`,
-          [userId, adminNote || 'Admin settlement before earning currency change', JSON.stringify({ adminAction: true })],
-        );
-        await client.query(
-          `UPDATE public.wallet_accounts SET available_balance = 0, updated_at = NOW() WHERE user_id = $1`,
-          [userId],
+           VALUES ($1, $2, 'admin_settlement', $3, $4, 'completed', $5, $6)`,
+          [
+            w.id,
+            userId,
+            availableBalance,
+            walletCurrency,
+            adminNote || 'Admin settlement before earning currency change',
+            JSON.stringify({
+              adminAction: 'wallet_currency_settlement',
+              reason: adminNote || null,
+              oldAvailableBalance: availableBalance,
+              oldEscrowBalance: escrowBalance,
+              oldCurrency: walletCurrency,
+              newCurrency: upper,
+            }),
+          ],
         );
       }
+      await client.query(
+        `UPDATE public.wallet_accounts
+         SET available_balance = 0,
+             escrow_balance = 0,
+             currency = $2,
+             updated_at = NOW()
+         WHERE user_id = $1`,
+        [userId, upper],
+      );
+    } else if (w && walletCurrency !== upper) {
+      if (hasBalance && !convertBalance) {
+        const err = new Error('Wallet has a balance. Convert or settle the balance before changing wallet currency.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      let convertedAvailable = availableBalance;
+      let convertedEscrow = escrowBalance;
+      let conversionMetadata = {
+        adminAction: 'wallet_currency_change',
+        reason: adminNote || null,
+        oldAvailableBalance: availableBalance,
+        oldEscrowBalance: escrowBalance,
+        oldCurrency: walletCurrency,
+        newCurrency: upper,
+      };
+
+      if (hasBalance) {
+        const availableDisplay = await convertDisplayAmount(availableBalance, walletCurrency, upper);
+        const escrowDisplay = await convertDisplayAmount(escrowBalance, walletCurrency, upper);
+        convertedAvailable = availableDisplay.amount;
+        convertedEscrow = escrowDisplay.amount;
+        conversionMetadata = {
+          ...conversionMetadata,
+          adminAction: 'wallet_currency_conversion',
+          convertedAvailableBalance: convertedAvailable,
+          convertedEscrowBalance: convertedEscrow,
+          exchangeRate: availableDisplay.rate,
+          exchangeRateSource: availableDisplay.source,
+          exchangeRateTimestamp: availableDisplay.timestamp,
+          exchangeRateExpiresAt: availableDisplay.expiresAt || null,
+        };
+
+        await client.query(
+          `INSERT INTO public.wallet_transactions
+           (wallet_id, user_id, type, amount, currency, status, description, metadata)
+           VALUES ($1, $2, 'admin_settlement', $3, $4, 'pending', $5, $6)`,
+          [
+            w.id,
+            userId,
+            convertedAvailable,
+            upper,
+            adminNote || `Admin converted wallet currency from ${walletCurrency} to ${upper}`,
+            JSON.stringify(conversionMetadata),
+          ],
+        );
+      }
+
+      await client.query(
+        `UPDATE public.wallet_accounts
+         SET available_balance = $2,
+             escrow_balance = $3,
+             currency = $4,
+             updated_at = NOW()
+         WHERE user_id = $1`,
+        [userId, convertedAvailable, convertedEscrow, upper],
+      );
+    } else if (w) {
+      await client.query(
+        `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
+        [userId, upper],
+      );
     }
+
     const locked = PAYSTACK_LOCK_CURRENCIES.has(upper);
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, preferred_currency = $2,
        payment_gateway = $3, earning_currency_locked = $4, updated_at = NOW() WHERE id = $1`,
       [userId, upper, paymentGateway, locked],
-    );
-    await client.query(
-      `UPDATE public.wallet_accounts SET updated_at = NOW() WHERE user_id = $1`,
-      [userId],
     );
   });
   return findProfileById(userId);

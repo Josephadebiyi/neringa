@@ -1,5 +1,6 @@
 import { query, withTransaction } from '../../lib/postgres/db.js';
 import { sendWithdrawalProcessedEmail } from '../../services/emailNotifications.js';
+import { convertCurrency } from '../../services/currencyConverter.js';
 
 const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected', 'cancelled']);
 const REFUNDABLE_STATUSES = new Set(['pending', 'pending_admin_approval', 'processing', 'approved']);
@@ -405,7 +406,7 @@ export const recalculateWalletBalance = async (req, res, next) => {
   try {
     const result = await withTransaction(async (client) => {
       const walletResult = await client.query(
-        `SELECT id, available_balance FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
+        `SELECT id, available_balance, escrow_balance, currency FROM public.wallet_accounts WHERE user_id = $1 FOR UPDATE`,
         [userId],
       );
       if (!walletResult.rows[0]) {
@@ -415,42 +416,105 @@ export const recalculateWalletBalance = async (req, res, next) => {
       }
       const wallet = walletResult.rows[0];
       const oldBalance = Number(wallet.available_balance || 0);
+      const oldEscrowBalance = Number(wallet.escrow_balance || 0);
+      const walletCurrency = String(wallet.currency || 'USD').toUpperCase();
 
-      // Correct balance = completed credits − all non-failed withdrawals
-      // (pending withdrawals were already deducted from available_balance at initiation time)
-      const calcResult = await client.query(
-        `SELECT GREATEST(
-           COALESCE(SUM(amount) FILTER (
-             WHERE type::text IN ('earning','signup_bonus','admin_settlement','credit','release','deposit','escrow_release')
-               AND status::text = 'completed'
-           ), 0)
-           -
-           COALESCE(SUM(amount) FILTER (
-             WHERE type::text IN ('withdrawal','withdraw','payout')
-               AND lower(status::text) NOT IN ('failed','rejected','cancelled','canceled')
-           ), 0),
-           0
-         ) AS correct_balance
-         FROM public.wallet_transactions
-         WHERE user_id = $1`,
+      // Available balance comes only from completed shipment earnings.
+      const earningsResult = await client.query(
+        `SELECT wt.id, wt.request_id, wt.amount, wt.currency
+         FROM public.wallet_transactions wt
+         JOIN public.shipment_requests sr ON sr.id = wt.request_id
+         WHERE wt.user_id = $1
+           AND wt.type::text = 'earning'
+           AND wt.status::text = 'completed'
+           AND sr.status::text = 'completed'
+           AND wt.request_id IS NOT NULL`,
         [userId],
       );
-      const newBalance = Number(calcResult.rows[0]?.correct_balance || 0);
+
+      // Escrow balance comes from paid/sold kg still pending delivery.
+      const escrowResult = await client.query(
+        `SELECT wt.id, wt.request_id, wt.amount, wt.currency, sr.status AS shipment_status
+         FROM public.wallet_transactions wt
+         JOIN public.shipment_requests sr ON sr.id = wt.request_id
+         WHERE wt.user_id = $1
+           AND wt.type::text = 'escrow_hold'
+           AND wt.status::text = 'completed'
+           AND wt.request_id IS NOT NULL
+           AND lower(sr.status::text) NOT IN ('completed','cancelled','canceled','rejected')`,
+        [userId],
+      );
+
+      const withdrawalsResult = await client.query(
+        `SELECT id, amount, currency
+         FROM public.wallet_transactions
+         WHERE user_id = $1
+           AND type::text IN ('withdrawal','withdraw','payout')
+           AND lower(status::text) NOT IN ('failed','rejected','cancelled','canceled')`,
+        [userId],
+      );
+
+      const toWalletCurrency = async (row) => {
+        const amount = Number(row.amount || 0);
+        const currency = String(row.currency || walletCurrency).toUpperCase();
+        if (!amount || currency === walletCurrency) return amount;
+        return convertCurrency(amount, currency, walletCurrency);
+      };
+
+      let completedShipmentEarnings = 0;
+      for (const row of earningsResult.rows) {
+        completedShipmentEarnings += await toWalletCurrency(row);
+      }
+
+      let pendingEscrow = 0;
+      for (const row of escrowResult.rows) {
+        pendingEscrow += await toWalletCurrency(row);
+      }
+
+      let activeWithdrawals = 0;
+      for (const row of withdrawalsResult.rows) {
+        activeWithdrawals += await toWalletCurrency(row);
+      }
+
+      const newBalance = Number(Math.max(completedShipmentEarnings - activeWithdrawals, 0).toFixed(2));
 
       await client.query(
         `UPDATE public.wallet_accounts
-         SET available_balance = $2, updated_at = timezone('utc', now())
+         SET available_balance = $2,
+             escrow_balance = $3,
+             updated_at = timezone('utc', now())
          WHERE id = $1`,
-        [wallet.id, newBalance],
+        [wallet.id, newBalance, Number(pendingEscrow.toFixed(2))],
       );
-      return { oldBalance, newBalance };
+      return {
+        oldBalance,
+        oldEscrowBalance,
+        newBalance,
+        newEscrowBalance: Number(pendingEscrow.toFixed(2)),
+        walletCurrency,
+        completedShipmentEarnings: Number(completedShipmentEarnings.toFixed(2)),
+        pendingEscrow: Number(pendingEscrow.toFixed(2)),
+        activeWithdrawals: Number(activeWithdrawals.toFixed(2)),
+        earningRows: earningsResult.rowCount,
+        escrowRows: escrowResult.rowCount,
+        withdrawalRows: withdrawalsResult.rowCount,
+      };
     });
 
     return res.json({
       success: true,
-      message: 'Balance recalculated from transaction history.',
+      message: 'Wallet recalculated from completed shipment earnings, active withdrawals, and pending kg escrow.',
       oldBalance: result.oldBalance,
+      oldEscrowBalance: result.oldEscrowBalance,
       newBalance: result.newBalance,
+      newEscrowBalance: result.newEscrowBalance,
+      walletCurrency: result.walletCurrency,
+      completedShipmentEarnings: result.completedShipmentEarnings,
+      pendingEscrow: result.pendingEscrow,
+      activeWithdrawals: result.activeWithdrawals,
+      earningRows: result.earningRows,
+      escrowRows: result.escrowRows,
+      withdrawalRows: result.withdrawalRows,
     });
   } catch (error) {
     next(error);

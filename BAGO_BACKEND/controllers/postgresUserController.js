@@ -1633,14 +1633,22 @@ export async function adminCorrectWalletBalance(req, res, next) {
 // Admin-only: settle balance and change earning currency
 export async function adminSetEarningCurrency(req, res, next) {
   const { userId } = req.params;
-  const { newCurrency, settleBalance = false, adminNote } = req.body;
+  const { newCurrency, settleBalance = false, adminNote, convertBalance = true } = req.body;
   if (!userId || !newCurrency) {
     return res.status(400).json({ message: 'userId and newCurrency are required' });
   }
+  const shouldSettleBalance = settleBalance === true || settleBalance === 'true';
+  const shouldConvertBalance = convertBalance !== false && convertBalance !== 'false';
   try {
-    const updatedProfile = await adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote);
+    const updatedProfile = await adminChangeEarningCurrency(
+      userId,
+      newCurrency,
+      shouldSettleBalance,
+      adminNote,
+      { convertBalance: shouldConvertBalance },
+    );
     res.status(200).json({
-      message: `Earning currency changed to ${newCurrency.toUpperCase()}${settleBalance ? ' (balance settled)' : ''}.`,
+      message: `Wallet and earning currency changed to ${newCurrency.toUpperCase()}${shouldSettleBalance ? ' (balance settled)' : shouldConvertBalance ? ' (balance converted)' : ''}.`,
       success: true,
       user: await buildUserResponse(updatedProfile),
     });
