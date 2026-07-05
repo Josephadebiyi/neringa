@@ -35,14 +35,17 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
       final key = res.data?['cuoralKey']?.toString() ?? '';
 
       if (key.isEmpty) {
-        setState(() { _hasError = true; _loading = false; });
+        setState(() {
+          _hasError = true;
+          _loading = false;
+        });
         return;
       }
 
       final user = ref.read(authProvider).user;
-      final email     = user?.email     ?? '';
+      final email = user?.email ?? '';
       final firstName = user?.firstName ?? '';
-      final lastName  = user?.lastName  ?? '';
+      final lastName = user?.lastName ?? '';
 
       final html = _buildHtml(key, email, firstName, lastName);
       final controller = WebViewController()
@@ -50,20 +53,35 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
         ..setBackgroundColor(Colors.white)
         ..setNavigationDelegate(NavigationDelegate(
           onPageFinished: (_) => setState(() => _loading = false),
-          onWebResourceError: (_) => setState(() { _hasError = true; _loading = false; }),
+          onWebResourceError: (_) => setState(() {
+            _hasError = true;
+            _loading = false;
+          }),
         ))
         ..loadHtmlString(html);
 
-      setState(() { _controller = controller; });
+      setState(() {
+        _controller = controller;
+      });
     } catch (_) {
-      setState(() { _hasError = true; _loading = false; });
+      setState(() {
+        _hasError = true;
+        _loading = false;
+      });
     }
   }
 
-  String _buildHtml(String key, String email, String firstName, String lastName) {
-    final emailAttr     = email.isNotEmpty     ? 'data-email="$email"'           : '';
-    final firstNameAttr = firstName.isNotEmpty ? 'data-first_name="$firstName"'  : '';
-    final lastNameAttr  = lastName.isNotEmpty  ? 'data-last_name="$lastName"'    : '';
+  String _buildHtml(
+      String key, String email, String firstName, String lastName) {
+    final safeKey = _htmlAttributeEscape(key);
+    final safeEmail = _htmlAttributeEscape(email);
+    final safeFirstName = _htmlAttributeEscape(firstName);
+    final safeLastName = _htmlAttributeEscape(lastName);
+    final emailAttr = safeEmail.isNotEmpty ? 'data-email="$safeEmail"' : '';
+    final firstNameAttr =
+        safeFirstName.isNotEmpty ? 'data-first_name="$safeFirstName"' : '';
+    final lastNameAttr =
+        safeLastName.isNotEmpty ? 'data-last_name="$safeLastName"' : '';
     return '''<!DOCTYPE html>
 <html>
 <head>
@@ -77,13 +95,22 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
   <script
     src="https://js.cuoral.com/inline.js"
     defer
-    data-cuoral-key="$key"
+    data-cuoral-key="$safeKey"
     $emailAttr
     $firstNameAttr
     $lastNameAttr>
   </script>
 </body>
 </html>''';
+  }
+
+  String _htmlAttributeEscape(String value) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
   }
 
   @override
@@ -93,16 +120,18 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: BackButton(color: AppColors.black),
+        leading: const BackButton(color: AppColors.black),
         title: Text('Support', style: AppTextStyles.h3),
       ),
       body: Stack(
         children: [
-          if (_controller != null)
-            WebViewWidget(controller: _controller!),
+          if (_controller != null) WebViewWidget(controller: _controller!),
           if (_loading)
             const Center(
-              child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+                strokeWidth: 3,
+              ),
             ),
           if (_hasError)
             Center(
@@ -111,11 +140,13 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.support_agent, color: AppColors.primary, size: 48),
+                    const Icon(Icons.support_agent,
+                        color: AppColors.primary, size: 48),
                     const SizedBox(height: 16),
                     Text(
                       'Support chat is temporarily unavailable.\nPlease email support@sendwithbago.com',
-                      style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray700),
+                      style: AppTextStyles.bodyMd
+                          .copyWith(color: AppColors.gray700),
                       textAlign: TextAlign.center,
                     ),
                   ],

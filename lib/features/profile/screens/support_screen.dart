@@ -8,7 +8,6 @@ import '../../../features/support/models/support_ticket_model.dart';
 import '../../../features/support/providers/support_provider.dart';
 import '../../../features/support/screens/create_ticket_screen.dart';
 import '../../../features/support/screens/cuoral_chat_screen.dart';
-import '../../../features/support/screens/support_tickets_screen.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_text_field.dart';
 
@@ -218,7 +217,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
 
   void _openCreate(BuildContext context, SupportMode mode) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => CreateTicketScreen(mode: mode)),
+      MaterialPageRoute(builder: (_) => const CuoralChatScreen()),
     );
   }
 
