@@ -1,6 +1,7 @@
 import cloudinary from 'cloudinary';
 import { createPackageRecord, deletePackageRecord, getPackageById } from '../lib/postgres/shipping.js';
 import { queryOne } from '../lib/postgres/db.js';
+import { scanItemImageForSafety } from '../services/itemImageSafetyService.js';
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -100,6 +101,24 @@ export const createPackage = async (req, res) => {
       const fileObj = Array.isArray(fileField) ? fileField[0] : fileField;
       if (fileObj?.data) rawImageData = fileObj.data; // Buffer
     }
+    const imageSafetyScan = rawImageData
+      ? await scanItemImageForSafety({
+          image: rawImageData,
+          description,
+          category,
+          declaredValue: value,
+        })
+      : { skipped: true, reason: 'no_image' };
+
+    if (imageSafetyScan?.allowed === false) {
+      return res.status(403).json({
+        success: false,
+        code: 'ITEM_IMAGE_BLOCKED',
+        message: 'The uploaded item photo appears to show a prohibited or unsafe item. Please contact support if this is incorrect.',
+        imageSafetyScan,
+      });
+    }
+
     const imageUrl = rawImageData ? await uploadPackageImage(rawImageData, userId) : null;
 
     const pkg = await createPackageRecord({
@@ -120,9 +139,14 @@ export const createPackage = async (req, res) => {
       category,
       pickupAddress,
       deliveryAddress,
+      imageSafetyScan,
     });
 
-    return res.status(201).json({ message: 'Package created successfully', package: pkg });
+    return res.status(201).json({
+      message: 'Package created successfully',
+      package: pkg,
+      imageSafetyScan,
+    });
   } catch (err) {
     console.error('Error creating package:', err);
     return res.status(500).json({ message: err.message || 'Internal server error' });

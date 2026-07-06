@@ -749,6 +749,7 @@ export async function createPackageRecord(data) {
       toCountry: data.toCountry,
       toCity: data.toCity,
       hasImages: Array.isArray(data.images) && data.images.length > 0,
+      imageSafetyScan: data.imageSafetyScan || null,
     },
   });
   return normalizePackage(row);
