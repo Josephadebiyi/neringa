@@ -32,7 +32,7 @@ This is the **recommended approach** - no terminal commands needed!
 
 5. **When asked for Apple credentials:**
    - Apple ID: `taiwojos2@gmail.com`
-   - Password: `Tayelolu@1`
+   - Password: `your_app_specific_password`
    - 2FA Code: Enter the code from your iPhone
 
 6. **Click "Build"** - The build will start automatically
@@ -69,7 +69,7 @@ I've created a script for you that will handle the build process.
 
 4. **Enter credentials when asked:**
    - Apple ID: `taiwojos2@gmail.com`
-   - Password: `Tayelolu@1`
+   - Password: `your_app_specific_password`
    - 2FA Code: (from your iPhone)
    - Answer "Y" to generate certificates/profiles
 
@@ -116,7 +116,7 @@ Run the commands yourself in your own Terminal app.
    → Type: taiwojos2@gmail.com (Enter)
 
    "Password:"
-   → Type: Tayelolu@1 (Enter)
+   → Type: your_app_specific_password (Enter)
 
    "Enter 2FA code:"
    → Type: 123456 (code from iPhone) (Enter)
@@ -182,7 +182,7 @@ Your new build will have number **4** or higher (not 8) because:
 
 ### Credentials:
 - Apple ID: `taiwojos2@gmail.com`
-- Password: `Tayelolu@1`
+- Password: `your_app_specific_password`
 - 2FA required: Have your iPhone nearby
 - Apple Developer membership: Required ($99/year)
 

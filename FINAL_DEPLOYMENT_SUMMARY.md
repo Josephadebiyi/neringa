@@ -127,7 +127,7 @@ npm run build
 
 ```
 Username: admin
-Password: 123456789
+Password: <set ADMIN_SEED_PASSWORD in env>
 ```
 
 **Important**: Change these after first login!

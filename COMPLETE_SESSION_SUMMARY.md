@@ -175,13 +175,13 @@ Three options to build with higher build number:
 URL: http://localhost:5173 (dev)
 URL: https://yourdomain.com/admin (prod)
 Username: admin
-Password: 123456789
+Password: <set ADMIN_SEED_PASSWORD in env>
 ```
 
 ### **Apple Developer**:
 ```
 Apple ID: taiwojos2@gmail.com
-Password: Tayelolu@1
+Password: your_app_specific_password
 ```
 
 ### **Backend API**:

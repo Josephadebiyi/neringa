@@ -27,7 +27,7 @@ Google Cloud Console only has these domains authorized:
 
 2. **Add Domain to Google Cloud Console**
    - Go to: https://console.cloud.google.com/apis/credentials
-   - Find: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+   - Find: `your_google_web_client_id`
    - Click Edit
    - Add your domain to both:
      - Authorized JavaScript origins
@@ -46,7 +46,7 @@ If you want to test locally:
    - https://console.cloud.google.com/apis/credentials
 
 2. **Edit OAuth Client ID**
-   - Find: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+   - Find: `your_google_web_client_id`
    - Click Edit
 
 3. **Add Localhost**
@@ -213,7 +213,7 @@ Replace `yourdomain.com` with your actual domain.
 
 **Google Cloud Console:**
 - https://console.cloud.google.com/apis/credentials
-- Client ID: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+- Client ID: `your_google_web_client_id`
 
 ---
 

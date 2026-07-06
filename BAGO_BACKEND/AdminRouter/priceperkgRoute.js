@@ -6,8 +6,11 @@ import {
   updatePrice,
   deletePrice,
 } from "../controllers/AdminControllers/priceperkgController.js";
+import { adminAuthenticated } from "../Auth/AdminAuthentication.js";
 
 const priceRoutes = express.Router();
+
+priceRoutes.use(adminAuthenticated);
 
 priceRoutes.post("/create", createPrice);      // Create new price per kg
 priceRoutes.get("/get", getAllPrices);      // Get all

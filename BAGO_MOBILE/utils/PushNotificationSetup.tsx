@@ -35,7 +35,7 @@ export default function PushNotificationSetup() {
           const token = await registerForPushNotificationsAsync();
           if (token) {
             setExpoPushToken(token);
-            console.log('✅ Expo Push Token Identified:', token);
+            console.log('✅ Expo push token identified');
 
             // Register token with backend using global API instance
             const res = await api.post('/register-token', { userId: uId, token });

@@ -155,7 +155,7 @@ Then invite testers via App Store Connect.
 ### **Admin Panel:**
 ```
 Username: admin
-Password: 123456789
+Password: <set ADMIN_SEED_PASSWORD in env>
 ```
 
 ### **Backend Environment:**

@@ -112,6 +112,46 @@ const userRefFromPayload = (payload = {}) =>
   payload?.metadata?.userRef ||
   '';
 
+const clientFootprintFromRequest = (req = {}) => {
+  const bodyFootprint = req.body?.clientFootprint || {};
+  const deviceFingerprint =
+    bodyFootprint.deviceFingerprint ||
+    bodyFootprint.device_fingerprint ||
+    req.headers?.['x-device-fingerprint'] ||
+    '';
+  const platform =
+    bodyFootprint.platform ||
+    req.headers?.['x-platform'] ||
+    req.headers?.['sec-ch-ua-platform'] ||
+    '';
+  return {
+    ...(deviceFingerprint && { deviceFingerprint: String(deviceFingerprint).trim() }),
+    ...(platform && { platform: String(platform).replace(/"/g, '').trim().toLowerCase() }),
+    ...(bodyFootprint.source && { source: String(bodyFootprint.source).slice(0, 80) }),
+    ...(bodyFootprint.country && { country: String(bodyFootprint.country).toUpperCase().slice(0, 3) }),
+    ip: req.ip || req.headers?.['x-forwarded-for']?.split(',')?.[0]?.trim() || req.socket?.remoteAddress || '',
+    userAgent: String(req.headers?.['user-agent'] || '').slice(0, 300),
+    recordedAt: new Date().toISOString(),
+  };
+};
+
+const clientFootprintFromPayload = (payload = {}) => {
+  const metadata =
+    payload?.clientFootprint ||
+    payload?.metadata ||
+    payload?.data?.metadata ||
+    payload?.payload?.clientFootprint ||
+    payload?.payload?.metadata ||
+    {};
+  return {
+    ...(metadata.deviceFingerprint && { deviceFingerprint: metadata.deviceFingerprint }),
+    ...(metadata.device_fingerprint && { deviceFingerprint: metadata.device_fingerprint }),
+    ...(metadata.platform && { platform: metadata.platform }),
+    ...(metadata.source && { source: metadata.source }),
+    ...(metadata.country && { country: metadata.country }),
+  };
+};
+
 const callbackPayloadFromBody = (body = {}) => {
   const candidates = [
     body?.sdkResponse,
@@ -344,7 +384,7 @@ async function findPremblyUserId(reference = '') {
 // ---------------------------------------------------------------------------
 async function applyPremblyResult(userId, status, rawPayload, { referenceId = '', notify = true } = {}) {
   const userRow = await queryOne(
-    `SELECT email, first_name, last_name FROM public.profiles WHERE id = $1`,
+    `SELECT email, first_name, last_name, device_fingerprint AS "deviceFingerprint" FROM public.profiles WHERE id = $1`,
     [userId],
   ).catch(() => null);
   const userEmail = userRow?.email;
@@ -356,6 +396,11 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
     ...(referenceId && { verificationRef: referenceId, premblyRef: referenceId }),
     ...(sessionIdFromPayload(rawPayload) && { sessionId: sessionIdFromPayload(rawPayload) }),
     ...(userRefFromPayload(rawPayload) && { userRef: userRefFromPayload(rawPayload) }),
+    clientFootprint: {
+      ...(userRow?.deviceFingerprint && { deviceFingerprint: userRow.deviceFingerprint }),
+      ...clientFootprintFromPayload(rawPayload),
+      resultRecordedAt: new Date().toISOString(),
+    },
     payload: rawPayload,
   };
 
@@ -450,6 +495,7 @@ export const startPremblySession = async (req, res) => {
 
     const verificationRef = `bago-${userId}-${crypto.randomUUID()}`;
     const country = (req.body?.country || '').toUpperCase().trim();
+    const clientFootprint = clientFootprintFromRequest(req);
 
     const activeSession = await activePremblySessionForUser(userId);
     if (activeSession?.verificationUrl) {
@@ -487,6 +533,7 @@ export const startPremblySession = async (req, res) => {
         user_ref: verificationRef,
         userId,
         country,
+        ...clientFootprint,
         callback_url: PREMBLY_CALLBACK_URL,
       },
     };
@@ -547,12 +594,13 @@ export const startPremblySession = async (req, res) => {
                'session_id', NULLIF($5::text, ''),
                'userId', $1,
                'country', $4,
+               'clientFootprint', $6::jsonb,
                'startedAt', timezone('utc', now())
              )
            END,
            updated_at = NOW()
        WHERE id = $1`,
-      [userId, verificationRef, premblyRef, country, sessionId || ''],
+      [userId, verificationRef, premblyRef, country, sessionId || '', clientFootprint],
     ).catch(() => {});
 
     await recordPremblySession({
@@ -564,7 +612,11 @@ export const startPremblySession = async (req, res) => {
       status: 'started',
       source: 'backend_start',
       verificationUrl,
-      rawPayload: premblyRes.data,
+      rawPayload: {
+        premblyResponse: premblyRes.data,
+        requestMetadata: sessionBody.metadata,
+        clientFootprint,
+      },
     }).catch((err) => console.warn('Prembly session record failed:', err?.message || err));
 
     return res.json({
@@ -771,12 +823,17 @@ export const syncPremblyResult = async (req, res) => {
     }
 
     const callbackPayload = callbackPayloadFromBody(req.body);
+    const clientFootprint = clientFootprintFromRequest(req);
     const callbackRef = verificationRefFromPayload(callbackPayload);
     const callbackSessionId = sessionIdFromPayload(callbackPayload);
     const callbackStatus = normalizePremblyStatus(callbackPayload);
     const hasCallbackPayload = Object.keys(callbackPayload || {}).length > 0;
     const callbackError = callbackPayload?.error || callbackPayload?.message;
     const callbackLookupRef = callbackRef || callbackSessionId;
+    const callbackPayloadWithFootprint = {
+      ...callbackPayload,
+      clientFootprint,
+    };
 
     const verificationRef =
       existing?.kycVerifiedData?.verificationRef ||
@@ -796,7 +853,7 @@ export const syncPremblyResult = async (req, res) => {
       '';
 
     if (callbackStatus !== 'unknown') {
-      const result = await applyPremblyResult(userId, callbackStatus, callbackPayload, { referenceId: verificationRef, notify: true });
+      const result = await applyPremblyResult(userId, callbackStatus, callbackPayloadWithFootprint, { referenceId: verificationRef, notify: true });
       if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)) {
         return res.json({ success: true, kycStatus: result.status, source: 'sdk_callback' });
       }
@@ -816,6 +873,7 @@ export const syncPremblyResult = async (req, res) => {
                'session_id', NULLIF($3::text, ''),
                'userRef', $4::text,
                'payload', $5::jsonb,
+               'clientFootprint', $6::jsonb,
                'syncedAt', timezone('utc', now())
              ),
              updated_at = NOW()
@@ -825,7 +883,8 @@ export const syncPremblyResult = async (req, res) => {
           callbackLookupRef,
           callbackSessionId,
           req.body?.userRef || callbackPayload?.user_ref || callbackPayload?.userRef || userId,
-          callbackPayload,
+          callbackPayloadWithFootprint,
+          clientFootprint,
         ],
       ).catch(() => {});
     }
@@ -840,6 +899,7 @@ export const syncPremblyResult = async (req, res) => {
                'userRef', $2,
                'userId', $2,
                'payload', $3,
+               'clientFootprint', $5::jsonb,
                'lastSyncNote', $4,
                'syncedAt', timezone('utc', now())
              ),
@@ -848,8 +908,9 @@ export const syncPremblyResult = async (req, res) => {
         [
           userId,
           userId,
-          hasCallbackPayload ? callbackPayload : {},
+          hasCallbackPayload ? callbackPayloadWithFootprint : {},
           callbackError ? String(callbackError).slice(0, 200) : 'prembly_sync_without_reference',
+          clientFootprint,
         ],
       ).catch(() => {});
       return res.json({ success: true, kycStatus: 'pending', source: callbackError ? 'sdk_callback_error' : 'db_no_reference' });

@@ -61,7 +61,7 @@
 
     <div class="box info">
         <strong>Current URL:</strong> <span id="currentUrl"></span><br>
-        <strong>Client ID:</strong> <code>207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0</code><br>
+        <strong>Client ID:</strong> <code>your_google_web_client_id</code><br>
         <strong>Backend:</strong> <code id="backendUrl"></code>
     </div>
 
@@ -93,7 +93,7 @@
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
-        const CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
+        const CLIENT_ID = "your_google_web_client_id";
         const BACKEND_URL = "https://neringa.onrender.com/api";
         const logs = [];
 
@@ -161,7 +161,7 @@
                         <h5>Fix:</h5>
                         <ol>
                             <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
-                            <li>Find: <code>207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0</code></li>
+                            <li>Find: <code>your_google_web_client_id</code></li>
                             <li>Add to "Authorized JavaScript origins":<br><code>${window.location.origin}</code></li>
                             <li>Add to "Authorized redirect URIs":<br>
                                 <code>${window.location.origin}</code><br>

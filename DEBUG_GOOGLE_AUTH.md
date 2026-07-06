@@ -31,7 +31,7 @@ Google Cloud Console doesn't have your domain authorized.
 
 **Fix:**
 1. Go to: https://console.cloud.google.com/apis/credentials
-2. Find: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+2. Find: `your_google_web_client_id`
 3. Click **Edit**
 4. Under **"Authorized redirect URIs"**, add the EXACT URI from the error message
 
@@ -58,7 +58,7 @@ Your domain isn't in "Authorized JavaScript origins"
 
 **Fix:**
 1. Go to: https://console.cloud.google.com/apis/credentials
-2. Find: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+2. Find: `your_google_web_client_id`
 3. Click **Edit**
 4. Under **"Authorized JavaScript origins"**, add the EXACT origin from the error message
 
@@ -200,7 +200,7 @@ You need to add your Hostinger domain to Google Cloud Console.
 ### Check Your Current Google Cloud Console Settings
 
 1. Go to: https://console.cloud.google.com/apis/credentials
-2. Find: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+2. Find: `your_google_web_client_id`
 3. Screenshot what you see under:
    - Authorized JavaScript origins
    - Authorized redirect URIs

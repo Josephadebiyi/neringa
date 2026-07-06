@@ -64,7 +64,7 @@ export function usePushNotifications() {
                 const project = Constants?.expoConfig?.extra?.eas?.projectId || Constants?.easConfig?.projectId || projectId;
 
                 token = (await Notifications.getExpoPushTokenAsync({ projectId: project })).data;
-                console.log("EXPO PUSH TOKEN:", token);
+                console.log("Expo push token registered");
             } catch (e) {
                 console.log('Error getting push token', e);
             }

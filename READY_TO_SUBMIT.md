@@ -43,7 +43,7 @@ Since Build #25 has a higher build number than #8, use it to avoid the "version 
 
 3. **Enter your Apple credentials**:
    - Apple ID: taiwojos2@gmail.com
-   - Password: Tayelolu@1
+   - Password: your_app_specific_password
    - 2FA code: (from your iPhone)
 
 4. **Done!** Build will upload to App Store Connect automatically

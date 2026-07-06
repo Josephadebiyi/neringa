@@ -102,7 +102,7 @@
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
-        const CLIENT_ID = "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com";
+        const CLIENT_ID = "your_google_web_client_id";
         const domain = window.location.origin;
 
         document.getElementById('domain').textContent = domain;
@@ -137,7 +137,7 @@
                         <h3>🔧 How to Fix:</h3>
                         <ol>
                             <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></li>
-                            <li>Find OAuth Client ID: <code>207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0</code></li>
+                            <li>Find OAuth Client ID: <code>your_google_web_client_id</code></li>
                             <li>Click the pencil icon (Edit)</li>
                             <li>Under "Authorized JavaScript origins", add:<br><code>${domain}</code></li>
                             <li>Under "Authorized redirect URIs", add:<br>

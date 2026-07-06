@@ -55,7 +55,7 @@ You're seeing two errors:
 
 **Go to:** https://console.cloud.google.com/apis/credentials
 
-**Find:** `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+**Find:** `your_google_web_client_id`
 
 **Click Edit**
 

@@ -8,6 +8,11 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 class DefaultFirebaseOptions {
+  static const String _firebaseApiKey = String.fromEnvironment(
+    'FIREBASE_API_KEY',
+    defaultValue: '',
+  );
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) throw UnsupportedError('Web platform not supported.');
     switch (defaultTargetPlatform) {
@@ -23,7 +28,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCfEHIrHZmO4u3S5Murc6bKlVZEOYCkpW8',
+    apiKey: _firebaseApiKey,
     appId: '1:908126616288:ios:a3b48ea93890202a086e85',
     messagingSenderId: '908126616288',
     projectId: 'bago-broadcast',
@@ -41,7 +46,7 @@ class DefaultFirebaseOptions {
   // The appId below is derived from the iOS config. Replace it with the real
   // Android appId from Firebase Console if different.
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCfEHIrHZmO4u3S5Murc6bKlVZEOYCkpW8',
+    apiKey: _firebaseApiKey,
     appId: '1:908126616288:android:a3b48ea93890202a086e85',
     messagingSenderId: '908126616288',
     projectId: 'bago-broadcast',

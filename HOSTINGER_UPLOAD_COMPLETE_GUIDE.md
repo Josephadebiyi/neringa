@@ -5,7 +5,7 @@
 The Google Auth issue was caused by **missing Google Client ID** in your production build. This has been fixed:
 
 1. **Google Client ID**: Hardcoded in [App.jsx:28](BAGO_WEBAPP/src/App.jsx#L28)
-   - Value: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+   - Value: `your_google_web_client_id`
    - This is embedded in the compiled JavaScript
 
 2. **Backend API URL**: Set via environment variable
@@ -164,7 +164,7 @@ FallbackResource /index.html
 ### 3. `assets/index-CtkqWwb5.js`
 - **Purpose**: Entire React app compiled into one file
 - **Contains**:
-  - Google Client ID: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0`
+  - Google Client ID: `your_google_web_client_id`
   - API endpoint: `https://neringa.onrender.com`
   - All React components
   - Google OAuth library

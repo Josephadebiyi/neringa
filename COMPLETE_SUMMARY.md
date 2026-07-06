@@ -15,7 +15,7 @@
 ### **Admin Login Credentials:**
 ```
 Username: admin
-Password: 123456789
+Password: <set ADMIN_SEED_PASSWORD in env>
 ```
 
 ---

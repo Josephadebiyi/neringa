@@ -39,11 +39,7 @@ import {
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const FALLBACK_GOOGLE_WEB_CLIENT_ID =
-  '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com';
-const FALLBACK_GOOGLE_IOS_CLIENT_ID =
-  '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com';
-const FALLBACK_APPLE_AUDIENCE = 'com.deracali.boltexponativewind';
+const APPLE_AUDIENCE = process.env.APPLE_AUDIENCE || process.env.APPLE_BUNDLE_ID || '';
 
 function getTwilioClient() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -65,8 +61,7 @@ function getAllowedAppleAudiences() {
     process.env.APPLE_CLIENT_ID,
     process.env.APPLE_SERVICE_ID,
     process.env.APPLE_BUNDLE_ID,
-    process.env.APPLE_AUDIENCE,
-    FALLBACK_APPLE_AUDIENCE,
+    APPLE_AUDIENCE,
   ]
     .flatMap((value) => (value || '').split(','))
     .map((value) => value.trim())
@@ -803,8 +798,6 @@ export async function googleAuth(req, res) {
       process.env.GOOGLE_WEB_CLIENT_ID,
       process.env.GOOGLE_IOS_CLIENT_ID,
       process.env.GOOGLE_ANDROID_CLIENT_ID,
-      FALLBACK_GOOGLE_WEB_CLIENT_ID,
-      FALLBACK_GOOGLE_IOS_CLIENT_ID,
     ].filter(Boolean)));
     if (idToken && !googleAudiences.length && !accessToken) {
       return res.status(500).json({
@@ -968,6 +961,9 @@ async function verifyAppleIdentityToken(identityToken) {
   const pem = pubKey.export({ type: 'spki', format: 'pem' });
   const decoded = jwt.verify(identityToken, pem, { algorithms: ['RS256'] });
   const allowedAudiences = getAllowedAppleAudiences();
+  if (!allowedAudiences.length) {
+    throw new Error('Apple login is not configured on the server');
+  }
   const tokenAudiences = Array.isArray(decoded?.aud)
     ? decoded.aud
     : [decoded?.aud].filter(Boolean);
@@ -1455,7 +1451,7 @@ export async function savePushToken(req, res) {
     if (!resolvedToken) return res.status(400).json({ success: false, message: 'Token is required' });
     
     const userId = req.user.id || req.user._id;
-    console.log(`🔔 savePushToken: user=${userId}, tokenLen=${resolvedToken.length}, prefix=${resolvedToken.substring(0, 30)}...`);
+    console.log(`🔔 savePushToken: user=${userId}, tokenLen=${resolvedToken.length}`);
     
     const updateResult = await addPushToken(userId, resolvedToken);
     if (!updateResult) {
@@ -1472,7 +1468,7 @@ export async function savePushToken(req, res) {
     const storedTokens = row?.push_tokens || [];
     const isStored = storedTokens.includes(resolvedToken);
     
-    console.log(`🔔 Token stored: ${isStored}, total tokens for user: ${storedTokens.length}`);
+    console.log(`🔔 Push token stored=${isStored}, total tokens for user: ${storedTokens.length}`);
     
     res.json({ 
       success: true, 

@@ -85,7 +85,7 @@ If you prefer not to use ZIP:
 
 Go to: https://console.cloud.google.com/apis/credentials
 
-Find Client ID: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+Find Client ID: `your_google_web_client_id`
 
 ### 2. Add Your Hostinger Domain
 
@@ -185,7 +185,7 @@ Replace `yourdomain.com` with your actual Hostinger domain.
 - Optimized for production
 
 ### ✅ Google OAuth Configured
-- Client ID: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+- Client ID: `your_google_web_client_id`
 - Ready to work once domain is added to Google Cloud Console
 
 ---

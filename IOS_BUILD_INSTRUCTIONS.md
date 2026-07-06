@@ -42,7 +42,7 @@ Press Enter
 
 #### **Prompt 3: "Password"**
 ```
-Enter: Tayelolu@1
+Enter: your_app_specific_password
 Press Enter
 ```
 
@@ -123,7 +123,7 @@ npx eas-cli build --platform ios --profile production
 
 # Enter credentials when prompted:
 # - Apple ID: taiwojos2@gmail.com
-# - Password: Tayelolu@1
+# - Password: your_app_specific_password
 # - 2FA code: (from your iPhone)
 # - Generate certificates: Y
 # - Generate provisioning profile: Y
@@ -161,7 +161,7 @@ Since this might be your first time building with your Apple account, EAS will:
 
 ### **Error: "Invalid credentials"**
 - Double-check the email: `taiwojos2@gmail.com`
-- Double-check the password: `Tayelolu@1`
+- Double-check the password: `your_app_specific_password`
 - Make sure caps lock is OFF
 
 ### **Error: "Account needs to agree to terms"**
@@ -220,7 +220,7 @@ Once submitted to App Store Connect:
 Before you start:
 - [ ] Terminal app open
 - [ ] Apple ID ready: `taiwojos2@gmail.com`
-- [ ] Password ready: `Tayelolu@1`
+- [ ] Password ready: `your_app_specific_password`
 - [ ] iPhone nearby (for 2FA code)
 - [ ] Active Apple Developer account
 - [ ] Internet connection stable

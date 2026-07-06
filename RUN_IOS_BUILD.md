@@ -75,7 +75,7 @@ Run this first:
 npx eas-cli login
 ```
 - Username: `donnyace`
-- Password: `Tayelolu@1`
+- Password: `your_app_specific_password`
 
 Then try the build command again.
 

@@ -38,14 +38,14 @@
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
-		<key>GIDClientID</key>
-		<string>207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com</string>
+	<key>GIDClientID</key>
+		<string>$(GOOGLE_IOS_CLIENT_ID)</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>com.googleusercontent.apps.207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd</string>
+					<string>$(GOOGLE_IOS_REVERSED_CLIENT_ID)</string>
 				</array>
 			</dict>
 			<dict>

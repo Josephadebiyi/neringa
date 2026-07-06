@@ -49,7 +49,7 @@ https://expo.dev/accounts/donnyace/projects/bolt-expo-nativewind/builds
 
 3. **Credentials:**
    - Select: **"Use existing credentials"** (Expo already has them stored)
-   - Or if prompted, log in with Apple ID: `taiwojos2@gmail.com` / `Tayelolu@1`
+   - Or if prompted, log in with Apple ID: `taiwojos2@gmail.com` / `your_app_specific_password`
 
 4. **Click "Build"**
 
@@ -92,7 +92,7 @@ npx eas-cli build --platform ios --profile production
 
 **When prompted:**
 - "Do you want to log in to your Apple account?" → **n** (use stored credentials)
-- If it insists, enter: `taiwojos2@gmail.com` / `Tayelolu@1`
+- If it insists, enter: `taiwojos2@gmail.com` / `your_app_specific_password`
 
 ---
 

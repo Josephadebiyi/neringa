@@ -19,13 +19,11 @@ class ApiConstants {
   // Google OAuth
   static const String googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
-    defaultValue:
-        '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
+    defaultValue: '',
   );
   static const String googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
-    defaultValue:
-        '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com',
+    defaultValue: '',
   );
 
   // ---------------------------------------------------------------------------

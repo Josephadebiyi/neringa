@@ -68,7 +68,7 @@ export const requestAdminCredentialChange = async (req, res) => {
         html: buildOtpEmail({ fullName: fullAdmin.full_name, otp, pendingEmail: normalizedEmail }),
       });
     } else {
-      console.log(`Admin credential change OTP for ${fullAdmin.email}: ${otp}`);
+      console.warn('Admin credential change OTP could not be delivered because email is not configured.');
     }
 
     return res.status(200).json({

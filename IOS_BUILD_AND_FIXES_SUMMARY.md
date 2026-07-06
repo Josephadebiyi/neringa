@@ -62,7 +62,7 @@ Created comprehensive guide: [GOOGLE_AUTH_HOSTINGER_FIX.md](GOOGLE_AUTH_HOSTINGE
 
 **Quick Fix Steps:**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Edit Client ID: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+2. Edit Client ID: `your_google_web_client_id`
 3. Add your Hostinger domain to **Authorized JavaScript origins**:
    ```
    https://yourdomain.com

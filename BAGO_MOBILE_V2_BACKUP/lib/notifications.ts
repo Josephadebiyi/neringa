@@ -45,7 +45,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | unde
     try {
       const projectId = ''; // Add your Expo project ID here
       token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-      console.log('Push token:', token);
+      console.log('Push token registered');
     } catch (error) {
       console.error('Error getting push token:', error);
     }

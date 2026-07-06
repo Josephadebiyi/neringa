@@ -59,7 +59,7 @@ The dashboard will ask for Apple Developer credentials:
 #### **Option A: Log in with Apple ID**
 - Click **"Log in with Apple"**
 - Enter Apple ID: `taiwojos2@gmail.com`
-- Enter Password: `Tayelolu@1`
+- Enter Password: `your_app_specific_password`
 - Enter 2FA code from your iPhone
 
 #### **Option B: Use Managed Credentials**
@@ -142,8 +142,8 @@ You can also set up automated builds using GitHub Actions:
 2. **Add secrets** (Settings → Secrets → Actions):
    ```
    EXPO_TOKEN=your_expo_token
-   APPLE_ID=taiwojos2@gmail.com
-   APPLE_PASSWORD=Tayelolu@1
+   APPLE_ID=your_apple_id@example.com
+   APPLE_PASSWORD=your_app_specific_password
    ```
 
 3. **Create workflow file** (`.github/workflows/build-ios.yml`):

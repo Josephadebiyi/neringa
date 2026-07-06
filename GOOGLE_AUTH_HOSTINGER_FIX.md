@@ -30,7 +30,7 @@ First, identify your exact domain. Examples:
 
 ### Step 3: Edit OAuth 2.0 Client ID
 
-1. Find the credential with Client ID: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+1. Find the credential with Client ID: `your_google_web_client_id`
 2. Click the **✏️ Edit** icon (pencil icon) on the right
 
 ---
@@ -149,7 +149,7 @@ Google OAuth **requires HTTPS** (not HTTP) in production.
 
 **Google Client ID (Web):**
 ```
-207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com
+your_google_web_client_id
 ```
 
 **Currently Authorized Domains (need to add your Hostinger domain):**

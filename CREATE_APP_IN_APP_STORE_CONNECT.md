@@ -17,7 +17,7 @@ Your iOS build is ready, but the app doesn't exist in App Store Connect yet. You
 
 2. **Log in** with:
    - Apple ID: `taiwojos2@gmail.com`
-   - Password: `Tayelolu@1`
+   - Password: `your_app_specific_password`
    - 2FA code: (from your iPhone)
 
 ---

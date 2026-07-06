@@ -64,8 +64,8 @@ Make sure your `app.json` has these Android settings:
       }
     },
     "extra": {
-      "googleClientId": "207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com",
-      "androidGoogleClientId": "207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com"
+      "googleClientId": "your_google_web_client_id",
+      "androidGoogleClientId": "your_google_android_client_id"
     }
   }
 }
@@ -197,15 +197,15 @@ Once complete, download the `.aab` file (Android App Bundle):
 ## 🔑 **API & Service Configuration for Android**
 
 ### **1. Google OAuth Setup** 
-Your iOS build uses: `207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd`
-Your Android build uses: `207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od`
+Your iOS build uses: `your_google_ios_client_id`
+Your Android build uses: `your_google_android_client_id`
 
 **Configured in:**
 - `lib/core/constants/api_constants.dart`:
 ```dart
 static const String googleAndroidClientId = String.fromEnvironment(
   'GOOGLE_ANDROID_CLIENT_ID',
-  defaultValue: '207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com',
+  defaultValue: 'your_google_android_client_id',
 );
 ```
 
@@ -470,12 +470,21 @@ eas build --platform android --build-type app-bundle
 # Or manually with dart-define flags:
 eas build --platform android --build-type app-bundle \
   --dart-define=API_BASE_URL=https://neringa.onrender.com \
-  --dart-define=GOOGLE_WEB_CLIENT_ID=207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com \
-  --dart-define=GOOGLE_ANDROID_CLIENT_ID=207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od.apps.googleusercontent.com \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=your_google_web_client_id \
+  --dart-define=GOOGLE_IOS_CLIENT_ID=your_google_ios_client_id \
+  --dart-define=GOOGLE_ANDROID_CLIENT_ID=your_google_android_client_id \
+  --dart-define=FIREBASE_API_KEY=your_restricted_firebase_api_key \
   --dart-define=SUPABASE_URL=your_supabase_url \
   --dart-define=SUPABASE_PUBLISHABLE_KEY=your_supabase_key \
   --dart-define=STRIPE_KEY=pk_test_xxxxx \
   --dart-define=PAYSTACK_KEY=pk_test_xxxxx
+```
+
+For iOS Google Sign-In, also provide Xcode build settings:
+
+```bash
+GOOGLE_IOS_CLIENT_ID=your_google_ios_client_id
+GOOGLE_IOS_REVERSED_CLIENT_ID=com.googleusercontent.apps.your_google_ios_reversed_client_id
 ```
 
 **Note:** EAS automatically injects these - no manual command needed.
@@ -718,7 +727,7 @@ eas build --platform android --build-type app-bundle
 #### **Issue: Google Sign-In not working on Android**
 ✅ **Verify:**
 1. Android Google Client ID in app.json:
-   - `207312508850-1o8b8kli0tkdnbet7k116cjocqjd83od`
+   - `your_google_android_client_id`
 2. Google Console → Credentials → OAuth 2.0 → Check Android app configured
 3. Check SHA-1 fingerprint matches in Google Console
 4. Test on actual device (not emulator)

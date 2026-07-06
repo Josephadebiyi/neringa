@@ -33,7 +33,7 @@ The test page will show you the **exact error**. Common ones:
 
 **Fix:**
 1. Go to: https://console.cloud.google.com/apis/credentials
-2. Click on: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+2. Click on: `your_google_web_client_id`
 3. Under **"Authorized JavaScript origins"**, click "ADD URI"
 4. Add your domain EXACTLY as shown in the test page (e.g., `https://yourdomain.com`)
 5. Click **Save**
@@ -86,7 +86,7 @@ Your domain is NOT in Google Cloud Console yet.
 
 1. Go to: https://console.cloud.google.com/apis/credentials
 2. Sign in with the account that created the project
-3. Find: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+3. Find: `your_google_web_client_id`
 4. Click the **pencil icon (Edit)**
 5. Scroll to **"Authorized JavaScript origins"**
 6. Click **"+ ADD URI"**
@@ -122,7 +122,7 @@ Then I can give you the exact fix!
 
 **Google Cloud Console:**
 - Project: Your Bago project
-- Client ID: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+- Client ID: `your_google_web_client_id`
 
 **Backend Endpoint:**
 - Route: `/api/bago/google-auth`

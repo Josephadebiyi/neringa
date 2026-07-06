@@ -81,7 +81,7 @@ Solution: Check browser console, verify API is running
 📱 ADMIN CREDENTIALS:
 
 Username: admin
-Password: 123456789
+Password: <set ADMIN_SEED_PASSWORD in env>
 
 (Change these after first login!)
 

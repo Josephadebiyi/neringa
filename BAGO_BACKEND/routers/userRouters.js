@@ -39,7 +39,14 @@ const userRouter = express.Router();
 userRouter.use(
   fileUpload({
     useTempFiles: false,       // keep in memory buffer (ok for small files)
-    limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
+    limits: {
+      fileSize: Number(process.env.MAX_UPLOAD_BYTES || 10 * 1024 * 1024),
+      files: 4,
+    },
+    abortOnLimit: true,
+    parseNested: false,
+    safeFileNames: true,
+    preserveExtension: 8,
   })
 );
 

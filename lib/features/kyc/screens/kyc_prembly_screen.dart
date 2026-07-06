@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/services/storage_service.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -101,6 +103,10 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
       if (!mounted) return;
       final user = ref.read(authProvider).user;
+      final deviceFingerprint =
+          await StorageService.instance.getDeviceFingerprint();
+      if (!mounted) return;
+      final startedAt = DateTime.now().toUtc().toIso8601String();
 
       final options = IdentityKycOptions(
         widgetKey: widgetKey,
@@ -111,7 +117,17 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
         userRef: widget.userId,
         // Tells the Prembly widget which country this user is from so it can
         // skip the internal country-selection step and go straight to capture.
-        metadata: {'country': widget.countryCode.toUpperCase()},
+        metadata: {
+          'provider': 'prembly',
+          'source': 'bago_flutter',
+          'userId': widget.userId,
+          'user_ref': widget.userId,
+          'country': widget.countryCode.toUpperCase(),
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          'startedAt': startedAt,
+          if (deviceFingerprint != null && deviceFingerprint.isNotEmpty)
+            'deviceFingerprint': deviceFingerprint,
+        },
         callback: _onSdkComplete,
       );
 
@@ -156,9 +172,21 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _syncResult([Map<String, dynamic>? sdkResponse]) async {
     try {
+      final deviceFingerprint =
+          await StorageService.instance.getDeviceFingerprint();
       final res = await ApiService.instance
           .post(ApiConstants.kycPremblySyncResult, data: {
         if (sdkResponse != null) 'sdkResponse': sdkResponse,
+        'clientFootprint': {
+          'provider': 'prembly',
+          'source': 'bago_flutter',
+          'userId': widget.userId,
+          'country': widget.countryCode.toUpperCase(),
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          if (deviceFingerprint != null && deviceFingerprint.isNotEmpty)
+            'deviceFingerprint': deviceFingerprint,
+          'syncedAt': DateTime.now().toUtc().toIso8601String(),
+        },
       }).timeout(const Duration(seconds: 10));
 
       final status = res.data?['kycStatus']?.toString() ?? '';

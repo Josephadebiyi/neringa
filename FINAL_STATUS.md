@@ -223,7 +223,7 @@ All requested features have been implemented, tested, and documented.
 ```
 URL: https://yourdomain.com/admin
 Username: admin
-Password: 123456789
+Password: <set ADMIN_SEED_PASSWORD in env>
 ```
 
 ### **Backend API**:

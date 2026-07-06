@@ -9,7 +9,7 @@ You've uploaded the dist files to Hostinger, but still getting "googleAuthFailed
 
 1. **Google Client ID is embedded** in your compiled JavaScript
    - Location: `dist/assets/index-CtkqWwb5.js`
-   - Value: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+   - Value: `your_google_web_client_id`
 
 2. **Backend API URL is correct**
    - Points to: `https://neringa.onrender.com`
@@ -49,7 +49,7 @@ What is your exact domain? For example:
 
 3. Find and click on:
    ```
-   Client ID: 207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com
+   Client ID: your_google_web_client_id
    ```
 
 4. Scroll to **"Authorized JavaScript origins"**

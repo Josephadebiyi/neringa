@@ -75,7 +75,7 @@ npx eas-cli build --platform ios --profile production
 
 **Option A: Test Locally**
 1. Go to: https://console.cloud.google.com/apis/credentials
-2. Find: `207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com`
+2. Find: `your_google_web_client_id`
 3. Click **Edit**
 4. Add to "Authorized JavaScript origins":
    ```

@@ -209,7 +209,7 @@ app.use(
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Fingerprint', 'X-Platform'],
   })
 );
 
@@ -231,10 +231,28 @@ cloudinary.v2.config({
 });
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const allowedUploadMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+]);
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: Number(process.env.MAX_UPLOAD_BYTES || 10 * 1024 * 1024),
+    files: 1,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (allowedUploadMimeTypes.has(file.mimetype)) return cb(null, true);
+    return cb(new Error('Unsupported file type.'));
+  },
+});
 
 app.use(express.json({
-  limit: '10mb',
+  limit: process.env.JSON_BODY_LIMIT || '2mb',
   strict: true,
   verify: (req, _res, buf) => {
     if (req.originalUrl === '/api/webhooks/stripe' || req.originalUrl === '/api/payouts/connect/webhook') {
@@ -242,8 +260,20 @@ app.use(express.json({
     }
   },
 }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.urlencoded({ limit: process.env.FORM_BODY_LIMIT || '1mb', extended: true, parameterLimit: 100 }));
 app.use(cookieParser());
+
+// Parse errors happen before route handlers; return a controlled response.
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ success: false, message: 'Request payload is too large.' });
+  }
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ success: false, message: 'Malformed JSON payload.' });
+  }
+  return next(err);
+});
 
 function disabledPaymentProvider(provider) {
   return (_req, res) => res.status(410).json({
@@ -366,7 +396,7 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 5,
   keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${String(req.body?.email || req.body?.userName || req.body?.username || '').toLowerCase()}`,
   standardHeaders: true,
   legacyHeaders: false,
@@ -407,6 +437,7 @@ app.use(globalLimiter);
 const authRoutes = [
   '/api/bago/signin',
   '/api/bago/signup',
+  '/api/bago/signup/check-email',
   '/api/bago/google-auth',
   '/api/bago/apple-auth',
   '/api/bago/revoke-all-sessions',
@@ -421,8 +452,14 @@ const authRoutes = [
   '/api/bago/user/verify-email-change',
   '/api/bago/user/request-phone-change',
   '/api/bago/user/verify-phone-change',
+  '/api/bago/phone/send-otp',
+  '/api/bago/phone/verify',
+  '/api/bago/withdrawal/request-otp',
+  '/api/bago/paystack/verify-bank-otp',
   '/api/Adminbaggo/AdminLogin',
   '/api/Adminbaggo/AdminSignup',
+  '/api/Adminbaggo/credentials/request-change',
+  '/api/Adminbaggo/credentials/verify-change',
 ];
 authRoutes.forEach(route => app.use(route, authLimiter));
 
@@ -575,10 +612,62 @@ schema('/api/bago/signin', {
   max: { email: 254, password: 256 },
 });
 schema('/api/bago/signup', {
-  allowed: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
+  allowed: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'promoCode', 'role', 'dateOfBirth'],
   required: ['email', 'password'],
-  strings: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'role'],
-  max: { email: 254, password: 256, confirmPassword: 256, firstName: 80, lastName: 80, fullName: 160, phone: 40, country: 80, currency: 3, referralCode: 32, role: 24 },
+  strings: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'promoCode', 'role', 'dateOfBirth'],
+  max: { email: 254, password: 256, confirmPassword: 256, firstName: 80, lastName: 80, fullName: 160, phone: 40, country: 80, currency: 3, referralCode: 32, promoCode: 32, role: 24, dateOfBirth: 40 },
+});
+schema('/api/bago/signup/check-email', {
+  allowed: ['email'],
+  required: ['email'],
+  strings: ['email'],
+  max: { email: 254 },
+});
+schema('/api/bago/google-auth', {
+  allowed: ['accessToken', 'idToken', 'platform', 'referralCode', 'promoCode', 'country'],
+  strings: ['accessToken', 'idToken', 'platform', 'referralCode', 'promoCode', 'country'],
+  max: { accessToken: 4096, idToken: 4096, platform: 20, referralCode: 32, promoCode: 32, country: 80 },
+});
+schema('/api/bago/apple-auth', {
+  allowed: ['identityToken', 'email', 'firstName', 'lastName', 'country'],
+  required: ['identityToken'],
+  strings: ['identityToken', 'email', 'firstName', 'lastName', 'country'],
+  max: { identityToken: 4096, email: 254, firstName: 80, lastName: 80, country: 80 },
+});
+schema('/api/bago/verify-signup-otp', {
+  allowed: ['signupToken', 'otp'],
+  required: ['signupToken', 'otp'],
+  strings: ['signupToken', 'otp'],
+  max: { signupToken: 4096, otp: 12 },
+});
+schema('/api/bago/forgot-password', {
+  allowed: ['email'],
+  required: ['email'],
+  strings: ['email'],
+  max: { email: 254 },
+});
+schema('/api/bago/verify-otp', {
+  allowed: ['email', 'otp'],
+  required: ['email', 'otp'],
+  strings: ['email', 'otp'],
+  max: { email: 254, otp: 12 },
+});
+schema('/api/bago/reset-password', {
+  allowed: ['email', 'password', 'newPassword', 'confirmPassword'],
+  required: ['email', 'newPassword'],
+  strings: ['email', 'password', 'newPassword', 'confirmPassword'],
+  max: { email: 254, password: 256, newPassword: 256, confirmPassword: 256 },
+});
+schema('/api/bago/resend-otp', {
+  allowed: ['email'],
+  required: ['email'],
+  strings: ['email'],
+  max: { email: 254 },
+});
+schema('/api/bago/refresh-token', {
+  allowed: ['refreshToken'],
+  strings: ['refreshToken'],
+  max: { refreshToken: 4096 },
 });
 schema('/api/Adminbaggo/AdminLogin', {
   allowed: ['email', 'userName', 'username', 'password'],
@@ -995,9 +1084,21 @@ app.get('/api/config/app', isAuthenticated, async (req, res) => {
   const userId = req.user?.id;
   if (userId) {
     try {
+      const clientFootprint = {
+        ...(req.headers['x-device-fingerprint'] && {
+          deviceFingerprint: String(req.headers['x-device-fingerprint']).trim(),
+        }),
+        ...(req.headers['x-platform'] && {
+          platform: String(req.headers['x-platform']).replace(/"/g, '').trim().toLowerCase(),
+        }),
+        source: 'bago_flutter_config',
+        ip: req.ip || req.headers['x-forwarded-for']?.split(',')?.[0]?.trim() || req.socket?.remoteAddress || '',
+        userAgent: String(req.headers['user-agent'] || '').slice(0, 300),
+        recordedAt: new Date().toISOString(),
+      };
       await trackPremblyInlineStart(userId, {
         source: 'app_config',
-        rawPayload: { userRef: userId, route: '/api/config/app' },
+        rawPayload: { userRef: userId, route: '/api/config/app', clientFootprint },
       });
       await pgQuery(
         `UPDATE public.profiles
@@ -1008,12 +1109,13 @@ app.get('/api/config/app', isAuthenticated, async (req, res) => {
                  'provider', 'prembly',
                  'userRef', $2::text,
                  'userId', $2::text,
+                 'clientFootprint', $3::jsonb,
                  'startedAt', COALESCE(kyc_verified_data->>'startedAt', timezone('utc', now())::text)
                )
              END,
              updated_at = NOW()
          WHERE id = $1`,
-        [userId, userId],
+        [userId, userId, clientFootprint],
       );
     } catch (err) {
       console.warn('Prembly config preflight store failed:', err?.message || err);
