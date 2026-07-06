@@ -96,20 +96,42 @@ export const sendPromoEmail = async (req, res, next) => {
       </div>
     </div></body></html>`;
 
-    const { data, error } = await resend.emails.send({
-      from: 'Bago <updates@sendwithbago.com>',
-      to: 'Bago Users <updates@sendwithbago.com>',
-      bcc: emails,
-      subject,
-      html: htmlTemplate,
-      attachments: resendAttachments.length > 0 ? resendAttachments : undefined,
-    });
+    // Send one message per recipient (same technique the transactional emails use)
+    // instead of a single bcc blast — mailbox providers and Resend's own suppression
+    // logic treat large bcc sends as bulk/spam and silently drop recipients even
+    // though the API call itself reports success.
+    const BATCH_SIZE = 100;
+    let sentCount = 0;
+    const failures = [];
 
-    if (error) {
-      return res.status(500).json({ success: false, message: 'Failed to send emails', error });
+    for (let i = 0; i < emails.length; i += BATCH_SIZE) {
+      const chunk = emails.slice(i, i + BATCH_SIZE);
+      const { data, error } = await resend.batch.send(
+        chunk.map((email) => ({
+          from: 'Bago <updates@sendwithbago.com>',
+          to: email,
+          subject,
+          html: htmlTemplate,
+          attachments: resendAttachments.length > 0 ? resendAttachments : undefined,
+        }))
+      );
+
+      if (error) {
+        failures.push({ chunkStart: i, error });
+        continue;
+      }
+      sentCount += chunk.length;
     }
 
-    res.status(200).json({ success: true, message: `Successfully dispatched to ${emails.length} users`, data });
+    if (sentCount === 0) {
+      return res.status(500).json({ success: false, message: 'Failed to send emails', error: failures[0]?.error });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully dispatched to ${sentCount} of ${emails.length} users`,
+      failures: failures.length > 0 ? failures : undefined,
+    });
   } catch (err) {
     next(err);
   }
