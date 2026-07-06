@@ -11,19 +11,25 @@ const api = axios.create({
 
 const ACCESS_TOKEN_KEY = 'bago_access_token';
 const REFRESH_TOKEN_KEY = 'bago_refresh_token';
+let inMemoryAccessToken = null;
+let inMemoryRefreshToken = null;
 
 export const getStoredTokens = () => ({
-    accessToken: localStorage.getItem(ACCESS_TOKEN_KEY),
-    refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY),
+    accessToken: inMemoryAccessToken,
+    refreshToken: inMemoryRefreshToken,
 });
 
 export const setAuthSession = ({ token, accessToken, refreshToken } = {}) => {
     const nextAccessToken = token || accessToken;
-    if (nextAccessToken) localStorage.setItem(ACCESS_TOKEN_KEY, nextAccessToken);
-    if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    inMemoryAccessToken = nextAccessToken || null;
+    inMemoryRefreshToken = refreshToken || null;
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
 export const clearAuthSession = () => {
+    inMemoryAccessToken = null;
+    inMemoryRefreshToken = null;
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem('bago_access_token');

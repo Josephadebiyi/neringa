@@ -255,7 +255,17 @@ app.use(express.json({
   limit: process.env.JSON_BODY_LIMIT || '2mb',
   strict: true,
   verify: (req, _res, buf) => {
-    if (req.originalUrl === '/api/webhooks/stripe' || req.originalUrl === '/api/payouts/connect/webhook') {
+    const rawBodyRoutes = new Set([
+      '/api/webhooks/stripe',
+      '/api/payouts/connect/webhook',
+      '/api/paystack/webhook',
+      '/api/paystack/transfer-approval',
+      '/api/payments/paypal/webhook',
+      '/payments/paypal/webhook',
+      '/api/bago/kyc/dojah/webhook',
+      '/api/bago/kyc/prembly/webhook',
+    ]);
+    if (rawBodyRoutes.has(req.originalUrl)) {
       req.rawBody = buf;
     }
   },
@@ -992,8 +1002,8 @@ app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPaymen
 app.post('/api/paystack/add-bank', isAuthenticated, addBankAccount);
 app.post('/api/paystack/verify-bank-otp', isAuthenticated, verifyBankOTP);
 app.post('/api/paystack/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFundsPaystack);
-app.get('/api/paystack/banks', getPaystackBanks);
-app.get('/api/paystack/resolve', resolvePaystackAccount);
+app.get('/api/paystack/banks', isAuthenticated, getPaystackBanks);
+app.get('/api/paystack/resolve', isAuthenticated, requireKycVerification, resolvePaystackAccount);
 app.get('/api/paystack/countries', getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 app.post('/api/paystack/transfer-approval', paystackTransferApproval); // Called by Paystack transfer approvals
@@ -1313,7 +1323,7 @@ const toKobo = (amount) => Math.round(Number(amount) * 100);
 // 1️⃣  LIST BANKS
 // -----------------------------
 // Keep both routes for safety
-app.get("/banks", async (req, res) => {
+app.get("/banks", adminAuthenticated, async (req, res) => {
   // console.log('[banks] incoming request');
   try {
     const resp = await fetch("https://api.paystack.co/bank?currency=NGN", { method: "GET", headers });

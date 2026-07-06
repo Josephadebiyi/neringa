@@ -13,6 +13,7 @@ import {
   getPaypalBuyerCountry,
   getPaypalClientId,
   getPaypalMerchantId,
+  verifyPaypalWebhookSignature,
   isPaypalAdvancedCardsEnabled,
   isPaypalApplePayEnabled,
   voidPaypalAuthorization as voidPaypalAuthorizationApi,
@@ -780,7 +781,14 @@ export async function voidPaypalAuthorization(req, res) {
 
 export async function paypalWebhook(req, res) {
   await ensurePaypalInfrastructure().catch(() => {});
+  let webhookVerified = false;
   try {
+    const verified = await verifyPaypalWebhookSignature({ headers: req.headers, body: req.body });
+    if (!verified) {
+      return res.status(401).json({ success: false, message: 'Invalid PayPal webhook signature' });
+    }
+    webhookVerified = true;
+
     const eventType = String(req.body?.event_type || '').toUpperCase();
     const resource = req.body?.resource || {};
 
@@ -839,6 +847,12 @@ export async function paypalWebhook(req, res) {
     }
   } catch (err) {
     console.error('paypalWebhook error:', err.message);
+    if (!webhookVerified) {
+      return res.status(err.statusCode || 500).json({
+        success: false,
+        message: 'PayPal webhook verification failed',
+      });
+    }
   }
   res.json({ received: true });
 }

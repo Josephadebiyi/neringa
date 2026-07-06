@@ -748,6 +748,16 @@ export const paystackWebhook = async (req, res) => {
  */
 export const paystackTransferApproval = async (req, res) => {
   try {
+    const signature = req.headers['x-paystack-signature'];
+    if (!verifyWebhookSignature(signature, req.body || {})) {
+      console.error('❌ Invalid Paystack transfer approval signature');
+      return res.status(401).json({
+        status: false,
+        approved: false,
+        message: 'Invalid signature',
+      });
+    }
+
     const body = req.body || {};
     const data = body.data || body;
     const reference = String(

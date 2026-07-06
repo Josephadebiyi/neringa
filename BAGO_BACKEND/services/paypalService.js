@@ -79,6 +79,30 @@ export async function paypalRequest(path, { method = 'GET', body } = {}) {
   return data;
 }
 
+export async function verifyPaypalWebhookSignature({ headers = {}, body = {} }) {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) {
+    const err = new Error('PayPal webhook id is not configured.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  const data = await paypalRequest('/v1/notifications/verify-webhook-signature', {
+    method: 'POST',
+    body: {
+      auth_algo: headers['paypal-auth-algo'],
+      cert_url: headers['paypal-cert-url'],
+      transmission_id: headers['paypal-transmission-id'],
+      transmission_sig: headers['paypal-transmission-sig'],
+      transmission_time: headers['paypal-transmission-time'],
+      webhook_id: webhookId,
+      webhook_event: body,
+    },
+  });
+
+  return data?.verification_status === 'SUCCESS';
+}
+
 export async function createPaypalOrder({
   amount,
   currency,

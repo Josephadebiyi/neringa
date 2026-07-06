@@ -68,12 +68,12 @@ export const requestAdminCredentialChange = async (req, res) => {
         html: buildOtpEmail({ fullName: fullAdmin.full_name, otp, pendingEmail: normalizedEmail }),
       });
     } else {
-      console.warn('Admin credential change OTP could not be delivered because email is not configured.');
+      console.warn('Admin credential verification email could not be delivered because email is not configured.');
     }
 
     return res.status(200).json({
       success: true,
-      message: resend ? `Verification code sent to ${fullAdmin.email}` : 'Verification code generated. Check backend logs.',
+      message: resend ? `Verification code sent to ${fullAdmin.email}` : 'Email service is not configured.',
     });
   } catch (error) {
     console.error('requestAdminCredentialChange error:', error);

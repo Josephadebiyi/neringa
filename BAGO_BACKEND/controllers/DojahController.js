@@ -43,6 +43,24 @@ const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH
 const DOJAH_VERIFICATION_URL = 'https://api.dojah.io/api/v1/kyc/verification';
 const DOJAH_LEGACY_EASYONBOARD_URL = 'https://api.dojah.io/api/v1/kyc/easyonboard';
 
+const safeEqualText = (left = '', right = '') => {
+  const leftBuffer = Buffer.from(String(left));
+  const rightBuffer = Buffer.from(String(right));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const verifyDojahWebhook = (req) => {
+  const secret = process.env.DOJAH_WEBHOOK_SECRET;
+  if (!secret) return process.env.NODE_ENV !== 'production';
+
+  const receivedSecret =
+    req.headers['x-dojah-webhook-secret'] ||
+    req.headers['x-dojah-secret'] ||
+    req.headers['x-webhook-secret'];
+
+  return Boolean(receivedSecret && safeEqualText(receivedSecret, secret));
+};
+
 const COUNTRY_CURRENCY_MAP = {
   NG: 'NGN', GH: 'GHS', KE: 'KES', ZA: 'ZAR', UG: 'UGX', TZ: 'TZS', RW: 'RWF',
   ET: 'ETB', EG: 'EGP', MA: 'MAD', SN: 'XOF', CI: 'XOF', CM: 'XAF',
@@ -618,6 +636,10 @@ export const startDojahSession = async (req, res) => {
 // ---------------------------------------------------------------------------
 export const dojahWebhook = async (req, res) => {
   try {
+    if (!verifyDojahWebhook(req)) {
+      return res.status(401).json({ success: false, message: 'Invalid Dojah webhook signature' });
+    }
+
     const event = req.body;
     console.log('Dojah webhook received:', JSON.stringify(event).slice(0, 500));
 

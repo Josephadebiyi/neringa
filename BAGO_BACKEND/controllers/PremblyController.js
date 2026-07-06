@@ -30,6 +30,24 @@ const PREMBLY_SDK_LIVE_URL =
 // The Flutter WebView and web iframe both watch for this URL to auto-close.
 const PREMBLY_CALLBACK_URL = `${process.env.BACKEND_URL || process.env.SERVER_URL || 'https://neringa.onrender.com'}/api/bago/kyc/prembly/complete`;
 
+const safeEqualText = (left = '', right = '') => {
+  const leftBuffer = Buffer.from(String(left));
+  const rightBuffer = Buffer.from(String(right));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const verifyPremblyWebhook = (req) => {
+  const secret = process.env.PREMBLY_WEBHOOK_SECRET;
+  if (!secret) return process.env.NODE_ENV !== 'production';
+
+  const receivedSecret =
+    req.headers['x-prembly-webhook-secret'] ||
+    req.headers['x-prembly-secret'] ||
+    req.headers['x-webhook-secret'];
+
+  return Boolean(receivedSecret && safeEqualText(receivedSecret, secret));
+};
+
 const premblyHeaders = () => {
   const headers = { 'x-api-key': PREMBLY_API_KEY, 'Content-Type': 'application/json' };
   if (PREMBLY_APP_ID) {
@@ -751,6 +769,10 @@ export const premblyComplete = async (req, res) => {
 // ---------------------------------------------------------------------------
 export const premblyWebhook = async (req, res) => {
   try {
+    if (!verifyPremblyWebhook(req)) {
+      return res.status(401).json({ success: false, message: 'Invalid Prembly webhook signature' });
+    }
+
     const payload = req.body;
     console.log('Prembly webhook received:', JSON.stringify(payload).slice(0, 600));
 
