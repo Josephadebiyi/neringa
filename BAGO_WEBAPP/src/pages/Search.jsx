@@ -29,6 +29,96 @@ import {
     locationMatches,
 } from '../utils/citySearch.jsx';
 
+const FALLBACK_PRICING_SETTINGS = {
+    platformCommissionPercent: 15,
+    processingFeePercent: 5,
+    fxBufferPercent: 0,
+    exchangeRates: {
+        USD: 1,
+        EUR: 0.92,
+        GBP: 0.79,
+        CAD: 1.36,
+        NGN: 1550,
+        GHS: 15.2,
+        KES: 129,
+        ZAR: 18.5,
+    },
+};
+
+const normalizeCurrency = (value, fallback = 'USD') => (
+    String(value || fallback).trim().toUpperCase() || fallback
+);
+
+const numberOr = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const senderPriceMultiplier = (settings) => {
+    const platform = 1 + numberOr(settings?.platformCommissionPercent, 15) / 100;
+    const variable =
+        1 +
+        numberOr(settings?.processingFeePercent, 5) / 100 +
+        numberOr(settings?.fxBufferPercent, 0) / 100;
+    return platform * variable;
+};
+
+const convertDisplayCurrency = (amount, fromCurrency, toCurrency, settings) => {
+    const from = normalizeCurrency(fromCurrency);
+    const to = normalizeCurrency(toCurrency);
+    if (from === to) return amount;
+    const rates = settings?.exchangeRates || FALLBACK_PRICING_SETTINGS.exchangeRates;
+    const fromRate = numberOr(rates[from], 0);
+    const toRate = numberOr(rates[to], 0);
+    if (fromRate <= 0 || toRate <= 0) return null;
+    return (amount / fromRate) * toRate;
+};
+
+const formatMoney = (amount, currency, decimals = 2) =>
+    `${normalizeCurrency(currency)} ${Number(amount).toFixed(decimals)}`;
+
+const formatTripRate = (trip, viewerCurrency, settings) => {
+    const baseCurrency = normalizeCurrency(trip.currency);
+    const pricePerKg = numberOr(trip.pricePerKg, 0);
+    if (pricePerKg <= 0) return { primary: 'Standard rate', secondary: '' };
+
+    const senderPrice = pricePerKg * senderPriceMultiplier(settings);
+    const displayCurrency = normalizeCurrency(viewerCurrency, baseCurrency);
+    const converted = convertDisplayCurrency(senderPrice, baseCurrency, displayCurrency, settings);
+    const primaryAmount = converted ?? senderPrice;
+    const primaryCurrency = converted == null ? baseCurrency : displayCurrency;
+    const baseLabel = `${formatMoney(senderPrice, baseCurrency)}/kg base`;
+
+    return {
+        primary: `${formatMoney(primaryAmount, primaryCurrency)}/kg`,
+        secondary: primaryCurrency === baseCurrency ? '' : baseLabel,
+    };
+};
+
+const parseTripDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const dateKey = (value) => {
+    const date = parseTripDate(value);
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const formatTravelDate = (value, includeYear = false) => {
+    const date = parseTripDate(value);
+    if (!date) return '';
+    return date.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        ...(includeYear ? { year: 'numeric' } : {}),
+    });
+};
 
 const Navbar = () => {
     const navigate = useNavigate();
@@ -55,10 +145,12 @@ const Navbar = () => {
     );
 };
 
-const TripCard = ({ trip, weight }) => {
+const TripCard = ({ trip, weight, pricingSettings }) => {
     const navigate = useNavigate();
     const { isAuthenticated, user } = useAuth();
-    const { t } = useLanguage();
+    const { t, currency } = useLanguage();
+    const rate = formatTripRate(trip, currency, pricingSettings);
+    const travelDate = formatTravelDate(trip.departureDate, true);
     const isVerified = trip.isVerified === true ||
         trip.kycStatus === 'approved' ||
         trip.isKycCompleted === true ||
@@ -139,9 +231,9 @@ const TripCard = ({ trip, weight }) => {
                         <p className="text-white/35 text-[8px] font-bold mt-1 uppercase truncate max-w-[75px]">
                             {(trip.origin || trip.originCity || '').split(',')[0]}
                         </p>
-                        {trip.departureDate && (
+                        {travelDate && (
                             <p className="text-[#9B8EF5] text-[8px] font-black mt-1.5">
-                                {new Date(trip.departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                {travelDate}
                             </p>
                         )}
                     </div>
@@ -183,14 +275,21 @@ const TripCard = ({ trip, weight }) => {
                     <div>
                         <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('spaceAvailable') || 'Space Available'}</p>
                         <p className="text-[#012126] font-black text-sm">{trip.availableWeight || '5'} KG</p>
+                        {travelDate && (
+                            <p className="mt-1 flex items-center gap-1 text-[9px] font-black text-[#6B7280]">
+                                <Calendar size={10} className="text-[#5845D8]" />
+                                {travelDate}
+                            </p>
+                        )}
                     </div>
                     <div className="text-right">
                         <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('rate') || 'Rate'}</p>
                         <p className="text-[#5845D8] font-black text-lg tracking-tight">
-                            {trip.pricePerKg
-                                ? `${trip.currency || '$'} ${Number(trip.pricePerKg).toFixed(2)}/kg`
-                                : t('rateStandard')}
+                            {rate.primary}
                         </p>
+                        {rate.secondary && (
+                            <p className="text-[8px] text-gray-400 font-black mt-0.5">{rate.secondary}</p>
+                        )}
                     </div>
                 </div>
                 <button
@@ -276,6 +375,7 @@ export default function Search() {
     const [searchParams] = useSearchParams();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [pricingSettings, setPricingSettings] = useState(FALLBACK_PRICING_SETTINGS);
 
     const findInitialLocation = (cityParam, countryParam) => {
         if (!cityParam && !countryParam) return null;
@@ -310,6 +410,32 @@ export default function Search() {
         fetchTrips();
     }, []);
 
+    useEffect(() => {
+        let cancelled = false;
+        const fetchPricingSettings = async () => {
+            try {
+                const response = await api.get('/api/bago/get-settings');
+                const data = response.data?.data || response.data?.setting || response.data;
+                if (!cancelled && data) {
+                    setPricingSettings({
+                        ...FALLBACK_PRICING_SETTINGS,
+                        ...data,
+                        exchangeRates: {
+                            ...FALLBACK_PRICING_SETTINGS.exchangeRates,
+                            ...(data.exchangeRates || {}),
+                        },
+                    });
+                }
+            } catch (_) {
+                if (!cancelled) setPricingSettings(FALLBACK_PRICING_SETTINGS);
+            }
+        };
+        fetchPricingSettings();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const fetchTrips = async () => {
         setLoading(true);
         try {
@@ -327,10 +453,15 @@ export default function Search() {
                             const kycStatus = traveler?.kycStatus || traveler?.kyc_status || trip.kycStatus || trip.kyc_status;
                             return {
                                 ...trip,
+                                id: trip.id || trip._id,
+                                _id: trip._id || trip.id,
+                                userId: trip.userId || trip.user,
+                                travelerId: trip.travelerId || trip.userId || trip.user,
                                 firstName: traveler?.name || traveler?.firstName || t('traveler'),
                                 origin: trip.fromLocation,
                                 destination: trip.toLocation,
-                                departureDate: trip.departureDate,
+                                departureDate: trip.departureDate || trip.date || trip.departure_date,
+                                arrivalDate: trip.arrivalDate || trip.arrival_date || trip.departureDate || trip.date,
                                 availableWeight: trip.availableKg,
                                 transportMode: trip.travelMeans,
                                 pricePerKg: trip.pricePerKg,
@@ -389,6 +520,9 @@ export default function Search() {
 
                     if (filters.weight) {
                         filtered = filtered.filter(t => t.availableWeight >= parseFloat(filters.weight));
+                    }
+                    if (filters.date) {
+                        filtered = filtered.filter(t => dateKey(t.departureDate) === filters.date);
                     }
                     if (filters.transportMode) {
                         filtered = filtered.filter(t => t.transportMode === filters.transportMode);
@@ -552,7 +686,12 @@ export default function Search() {
                         ) : trips.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {trips.map((trip) => (
-                                    <TripCard key={trip._id} trip={trip} weight={filters.weight} />
+                                    <TripCard
+                                        key={trip._id || trip.id}
+                                        trip={trip}
+                                        weight={filters.weight}
+                                        pricingSettings={pricingSettings}
+                                    />
                                 ))}
                             </div>
                         ) : (
