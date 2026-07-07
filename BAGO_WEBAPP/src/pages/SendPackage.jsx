@@ -64,6 +64,26 @@ const readPreviewNumber = (preview, key) => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const checkoutErrorMessage = (error, fallback = 'Checkout price could not be calculated. Please try again.') => {
+    const d = error?.response?.data;
+    const raw = d?.message || d?.error || (Array.isArray(d?.errors) ? d.errors[0]?.message || d.errors[0] : null) || error?.message || fallback;
+    const value = String(raw || '').toLowerCase();
+    if (
+        d?.code === 'EXCHANGE_RATE_EXPIRED' ||
+        d?.code === 'EXCHANGE_RATE_MISSING' ||
+        value.includes('exchange rates are stale') ||
+        value.includes('exchange rates are not available') ||
+        value.includes('exchange rate refresh failed') ||
+        value.includes('exchange rate missing')
+    ) {
+        return 'Pricing is temporarily unavailable while exchange rates refresh. Please try again in a few minutes.';
+    }
+    if (error?.response?.status === 413) {
+        return 'The item image is too large. Please upload a smaller photo.';
+    }
+    return raw;
+};
+
 const getCountryFromCity = (cityName) => {
     if (!cityName) return '';
     const loc = locations.find(l => l.city && l.city.toLowerCase() === cityName.toLowerCase());
@@ -91,10 +111,7 @@ const countryIsoFromName = (name) => {
 
 const showPaymentError = (setError, message, error = null) => {
     if (error) console.error('[payment]', error);
-    const d = error?.response?.data;
-    const backendMsg = d?.message || d?.error || (Array.isArray(d?.errors) ? d.errors[0]?.message || d.errors[0] : null);
-    const status413 = error?.response?.status === 413 ? 'The item image is too large. Please upload a smaller photo.' : null;
-    setError(status413 || backendMsg || error?.message || message);
+    setError(checkoutErrorMessage(error, message));
 };
 
 const resizePackageImage = (file) => new Promise((resolve, reject) => {
@@ -257,7 +274,7 @@ export default function SendPackage() {
             setPreviewError('');
             return preview;
         } catch (err) {
-            const msg = err?.response?.data?.message || err?.message || 'Checkout price could not be calculated.';
+            const msg = checkoutErrorMessage(err);
             setCheckoutPreview(null);
             setPreviewError(msg);
             return null;

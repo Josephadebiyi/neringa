@@ -18,6 +18,23 @@ function loadPayPalSdk(clientId, currency) {
     });
 }
 
+function checkoutErrorMessage(error, fallback = 'Payment checkout could not load.') {
+    const data = error?.response?.data;
+    const raw = data?.message || data?.error || error?.message || fallback;
+    const value = String(raw || '').toLowerCase();
+    if (
+        data?.code === 'EXCHANGE_RATE_EXPIRED' ||
+        data?.code === 'EXCHANGE_RATE_MISSING' ||
+        value.includes('exchange rates are stale') ||
+        value.includes('exchange rates are not available') ||
+        value.includes('exchange rate refresh failed') ||
+        value.includes('exchange rate missing')
+    ) {
+        return 'Pricing is temporarily unavailable while exchange rates refresh. Please try again in a few minutes.';
+    }
+    return raw;
+}
+
 export default function PaymentCheckout() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
@@ -163,7 +180,7 @@ export default function PaymentCheckout() {
                             });
                         } catch (err) {
                             setProcessing(false);
-                            setError(err?.response?.data?.message || err?.message || 'Payment could not be completed.');
+                            setError(checkoutErrorMessage(err, 'Payment could not be completed.'));
                         }
                     },
 
@@ -187,7 +204,7 @@ export default function PaymentCheckout() {
                 }
             } catch (err) {
                 if (!alive) return;
-                setError(err?.response?.data?.message || err?.message || 'Payment checkout could not load.');
+                setError(checkoutErrorMessage(err));
             } finally {
                 if (alive) setLoading(false);
             }

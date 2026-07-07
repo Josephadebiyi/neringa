@@ -29,6 +29,23 @@ function getSymbol(currency) {
     return CURRENCY_SYMBOLS[currency] || currency + ' ';
 }
 
+function moneyMovementErrorMessage(error, fallback = 'Request failed. Please try again.') {
+    const data = error?.response?.data;
+    const raw = data?.message || data?.error || error?.message || fallback;
+    const value = String(raw || '').toLowerCase();
+    if (
+        data?.code === 'EXCHANGE_RATE_EXPIRED' ||
+        data?.code === 'EXCHANGE_RATE_MISSING' ||
+        value.includes('exchange rates are stale') ||
+        value.includes('exchange rates are not available') ||
+        value.includes('exchange rate refresh failed') ||
+        value.includes('exchange rate missing')
+    ) {
+        return 'Currency rates are refreshing. Please try again in a few minutes.';
+    }
+    return raw;
+}
+
 function transactionTitle(tx, isOut) {
     if (tx.type === 'withdrawal') return 'Withdrawal Request';
     if (tx.description) return tx.description;
@@ -208,7 +225,7 @@ export default function Earnings({ user, checkAuthStatus }) {
             setOtpCode('');
             setShowModal(true);
         } catch (err) {
-            setStatus({ type:'error', msg: err.response?.data?.message || 'Could not send withdrawal code. Please try again.' });
+            setStatus({ type:'error', msg: moneyMovementErrorMessage(err, 'Could not send withdrawal code. Please try again.') });
         } finally { setSubmitting(false); }
     };
 
@@ -235,7 +252,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                 if (checkAuthStatus) await checkAuthStatus();
             }
         } catch (err) {
-            setStatus({ type:'error', msg: err.response?.data?.message || 'Withdrawal failed. Please try again.' });
+            setStatus({ type:'error', msg: moneyMovementErrorMessage(err, 'Withdrawal failed. Please try again.') });
         } finally { setSubmitting(false); }
     };
 
