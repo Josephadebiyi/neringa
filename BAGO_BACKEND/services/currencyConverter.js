@@ -218,7 +218,14 @@ export class CurrencyService {
            values ($1,$2,'success',$3,$4::jsonb)`,
           [provider.name, base, `Stored ${Object.keys(cleanRates).length} rates`, toJson({ asOf: result?.asOf || null })],
         );
-        return { baseCurrency: base, rates: cleanRates, source: provider.name, timestamp: validTimestamp.toISOString() };
+        const expiresAt = rateExpiry(validTimestamp, maxAgeMinutes).toISOString();
+        return {
+          baseCurrency: base,
+          rates: cleanRates,
+          source: provider.name,
+          timestamp: validTimestamp.toISOString(),
+          expiresAt,
+        };
       } catch (error) {
         errors.push(`${provider.name}: ${error.message}`);
         await query(
@@ -232,7 +239,7 @@ export class CurrencyService {
     throw new Error(`Exchange rate refresh failed: ${errors.join('; ')}`);
   }
 
-  static async getCachedRates({ baseCurrency = DEFAULT_BASE_CURRENCY, maxAgeMinutes = DEFAULT_MAX_RATE_AGE_MINUTES } = {}) {
+  static async getCachedRates({ baseCurrency = DEFAULT_BASE_CURRENCY, maxAgeMinutes = DEFAULT_MAX_RATE_AGE_MINUTES, refreshIfStale = true } = {}) {
     await ensureCurrencyInfrastructure();
     const base = CurrencyService.normalizeCurrency(baseCurrency);
     const row = await queryOne(
@@ -243,6 +250,13 @@ export class CurrencyService {
       [base],
     );
     if (!row?.rates || !row?.last_updated) {
+      if (refreshIfStale) {
+        try {
+          return await CurrencyService.refreshRates({ baseCurrency: base, maxAgeMinutes });
+        } catch (refreshError) {
+          console.error('Exchange rate refresh failed after cache miss:', refreshError.message);
+        }
+      }
       const err = new Error('Exchange rates are not available. Please try again later.');
       err.code = 'EXCHANGE_RATE_MISSING';
       err.statusCode = 503;
@@ -250,6 +264,13 @@ export class CurrencyService {
     }
     const expiresAt = row.expires_at ? new Date(row.expires_at) : rateExpiry(row.last_updated, maxAgeMinutes);
     if (Date.now() > expiresAt.getTime()) {
+      if (refreshIfStale) {
+        try {
+          return await CurrencyService.refreshRates({ baseCurrency: base, maxAgeMinutes });
+        } catch (refreshError) {
+          console.error('Exchange rate refresh failed after stale cache:', refreshError.message);
+        }
+      }
       const err = new Error('Exchange rates are stale. Please try again shortly.');
       err.code = 'EXCHANGE_RATE_EXPIRED';
       err.statusCode = 503;

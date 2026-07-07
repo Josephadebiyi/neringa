@@ -12,6 +12,12 @@ vi.mock('../lib/postgres/db.js', () => ({
   queryOne: queryOneMock,
 }));
 
+vi.mock('node-fetch', () => ({
+  default: vi.fn(async () => {
+    throw new Error('network disabled in tests');
+  }),
+}));
+
 const { CurrencyService } = await import('../services/currencyConverter.js');
 
 describe('CurrencyService cached conversion', () => {
