@@ -269,12 +269,19 @@ async function calculateCheckout(req) {
 }
 
 export async function getPaypalConfig(_req, res) {
+  const applePayEligible = isPaypalApplePayEnabled();
   res.json({
     success: true,
     clientId: getPaypalClientId(),
     environment: process.env.PAYPAL_ENV === 'sandbox' ? 'sandbox' : 'live',
     advancedCardsEligible: isPaypalAdvancedCardsEnabled(),
-    applePayEligible: isPaypalApplePayEnabled(),
+    applePayEligible,
+    applePayDomain:
+      process.env.PAYPAL_APPLE_PAY_DOMAIN ||
+      process.env.PUBLIC_APP_URL ||
+      process.env.FRONTEND_URL ||
+      null,
+    applePaySetupRequired: !applePayEligible,
   });
 }
 

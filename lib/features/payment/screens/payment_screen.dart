@@ -41,7 +41,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _initError;
 
   // AI compliance
-  String _complianceRisk = '';   // 'low' | 'medium' | 'high' | '' (not loaded)
+  String _complianceRisk = ''; // 'low' | 'medium' | 'high' | '' (not loaded)
   String _complianceNotes = '';
   List<String> _complianceDocs = [];
   bool _complianceDismissed = false;
@@ -105,11 +105,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           _paypalConfig = config;
           _paypalCardsEligible = config.advancedCardsEligible;
           _applePaySupported = Platform.isIOS && config.applePayEligible;
-          if (_applePaySupported) {
-            _selectedMethod = _CheckoutPaymentMethod.applePay;
-          } else {
-            _selectedMethod = _CheckoutPaymentMethod.card;
-          }
+          _selectedMethod = _applePaySupported
+              ? _CheckoutPaymentMethod.applePay
+              : _CheckoutPaymentMethod.card;
         });
       }
     } catch (e) {
@@ -128,22 +126,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final res = await ApiService.instance.post(
         ApiConstants.aiComplianceCheck,
         data: {
-          'category':     draft['category']?.toString()     ?? '',
-          'weight':       draft['weight']                   ?? 0,
+          'category': draft['category']?.toString() ?? '',
+          'weight': draft['weight'] ?? 0,
           'fromLocation': draft['fromLocation']?.toString() ?? '',
-          'toLocation':   draft['toLocation']?.toString()   ?? '',
+          'toLocation': draft['toLocation']?.toString() ?? '',
         },
       ).timeout(const Duration(seconds: 12));
       if (!mounted) return;
-      final risk  = res.data?['riskLevel']?.toString()  ?? 'low';
-      final notes = res.data?['notes']?.toString()      ?? '';
-      final docs  = (res.data?['requiredDocs'] as List?)?.cast<String>() ?? [];
+      final risk = res.data?['riskLevel']?.toString() ?? 'low';
+      final notes = res.data?['notes']?.toString() ?? '';
+      final docs = (res.data?['requiredDocs'] as List?)?.cast<String>() ?? [];
       // Only surface medium/high — low risk has nothing to tell the user
       if (risk == 'medium' || risk == 'high') {
         setState(() {
-          _complianceRisk  = risk;
+          _complianceRisk = risk;
           _complianceNotes = notes;
-          _complianceDocs  = docs;
+          _complianceDocs = docs;
         });
       }
     } catch (_) {}
@@ -329,11 +327,93 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  Future<void> _startPaypalCheckout({String paymentMethod = 'paypal'}) async {
+    if (_isProcessing || _draft == null || !_isSdkReady) return;
+    setState(() => _isProcessing = true);
+    String? paymentReference;
+    try {
+      final draft = _draft!;
+      final currency = _asString(draft['currency'], 'USD');
+      final packageId = draft['packageId']?.toString() ?? '';
+      final tripId = draft['tripId']?.toString() ?? '';
+      final travelerId = draft['travelerId']?.toString() ?? '';
+      final session = await _paymentService.createPaypalOrder(
+        packageId: packageId,
+        tripId: tripId,
+        travelerId: travelerId,
+        currency: currency,
+        insurance: draft['insurance'] == true,
+        paymentMethod: paymentMethod,
+        customerEmail: draft['customerEmail']?.toString(),
+        additionalRequestId: draft['additionalRequestId']?.toString(),
+        additionalKg: _asDouble(draft['additionalKg']),
+      );
+      paymentReference = session.orderId;
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _PaymentWebView(
+            url: session.approvalUrl,
+            title: 'PayPal',
+            callbackUrlPattern: '/api/payments/paypal/return',
+            cancelUrlPattern: '/api/payments/paypal/cancel',
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (result?['type'] == 'cancel') {
+        _failWithDraft(
+          'paypal',
+          'Payment was cancelled.',
+          paymentReference: paymentReference,
+        );
+        return;
+      }
+      if (result?['type'] != 'callback') {
+        _failWithDraft(
+          'paypal',
+          'Payment was not approved.',
+          paymentReference: paymentReference,
+        );
+        return;
+      }
+      setState(() => _isProcessing = true);
+      final capture =
+          await _paymentService.capturePaypalOrder(orderId: session.orderId);
+
+      await _completeShipmentAfterPayment(
+        draft: draft,
+        travelerId: travelerId,
+        packageId: packageId,
+        tripId: tripId,
+        currency: capture.currency,
+        paymentReference: capture.paymentReference,
+        paymentProvider: 'paypal',
+        paymentStatus: 'paid_escrow',
+        amountOverride:
+            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
+      );
+    } catch (e) {
+      debugPrint('PayPal payment error: $e');
+      _failWithDraft(
+        'paypal',
+        e.toString().replaceFirst('Exception: ', ''),
+        paymentReference: paymentReference,
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   Future<void> _startApplePayCheckout() async {
     if (_isProcessing || _draft == null || !_isSdkReady) return;
     if (!_applePaySupported) {
       setState(() => _initError =
-          'Apple Pay is available only on supported iPhone devices. Please use card or PayPal.');
+          'Apple Pay is not available on this device. Please use Bank Card or PayPal.');
       return;
     }
     setState(() => _isProcessing = true);
@@ -410,88 +490,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       debugPrint('Apple Pay payment error: $e');
       _failWithDraft(
         'apple_pay',
-        e.toString().replaceFirst('Exception: ', ''),
-        paymentReference: paymentReference,
-      );
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  Future<void> _startPaypalCheckout({String paymentMethod = 'paypal'}) async {
-    if (_isProcessing || _draft == null || !_isSdkReady) return;
-    setState(() => _isProcessing = true);
-    String? paymentReference;
-    try {
-      final draft = _draft!;
-      final currency = _asString(draft['currency'], 'USD');
-      final packageId = draft['packageId']?.toString() ?? '';
-      final tripId = draft['tripId']?.toString() ?? '';
-      final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createPaypalOrder(
-        packageId: packageId,
-        tripId: tripId,
-        travelerId: travelerId,
-        currency: currency,
-        insurance: draft['insurance'] == true,
-        paymentMethod: paymentMethod,
-        customerEmail: draft['customerEmail']?.toString(),
-        additionalRequestId: draft['additionalRequestId']?.toString(),
-        additionalKg: _asDouble(draft['additionalKg']),
-      );
-      paymentReference = session.orderId;
-
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-
-      final result = await Navigator.push<Map<String, dynamic>>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _PaymentWebView(
-            url: session.approvalUrl,
-            title: 'PayPal',
-            callbackUrlPattern: '/api/payments/paypal/return',
-            cancelUrlPattern: '/api/payments/paypal/cancel',
-          ),
-        ),
-      );
-      if (!mounted) return;
-      if (result?['type'] == 'cancel') {
-        _failWithDraft(
-          'paypal',
-          'Payment was cancelled.',
-          paymentReference: paymentReference,
-        );
-        return;
-      }
-      if (result?['type'] != 'callback') {
-        _failWithDraft(
-          'paypal',
-          'Payment was not approved.',
-          paymentReference: paymentReference,
-        );
-        return;
-      }
-      setState(() => _isProcessing = true);
-      final capture =
-          await _paymentService.capturePaypalOrder(orderId: session.orderId);
-
-      await _completeShipmentAfterPayment(
-        draft: draft,
-        travelerId: travelerId,
-        packageId: packageId,
-        tripId: tripId,
-        currency: capture.currency,
-        paymentReference: capture.paymentReference,
-        paymentProvider: 'paypal',
-        paymentStatus: 'paid_escrow',
-        amountOverride:
-            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
-      );
-    } catch (e) {
-      debugPrint('PayPal payment error: $e');
-      _failWithDraft(
-        'paypal',
         e.toString().replaceFirst('Exception: ', ''),
         paymentReference: paymentReference,
       );
@@ -1130,6 +1128,7 @@ class _PaymentWebViewState extends State<_PaymentWebView> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
+        onHttpAuthRequest: (request) => request.onCancel(),
         onPageStarted: (_) {
           if (mounted) setState(() => _isLoading = true);
         },
@@ -1242,8 +1241,8 @@ class _ComplianceBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final isHigh = risk == 'high';
     final color = isHigh ? const Color(0xFFDC2626) : const Color(0xFFD97706);
-    final bg    = isHigh ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB);
-    final icon  = isHigh ? Icons.warning_rounded : Icons.info_outline_rounded;
+    final bg = isHigh ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB);
+    final icon = isHigh ? Icons.warning_rounded : Icons.info_outline_rounded;
     final label = isHigh ? 'Customs alert' : 'Customs notice';
 
     return Container(

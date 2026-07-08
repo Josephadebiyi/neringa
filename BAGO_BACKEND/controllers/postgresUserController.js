@@ -39,6 +39,7 @@ import {
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const IOS_BUNDLE_ID = 'com.deracali.boltexponativewind';
 const APPLE_AUDIENCE = process.env.APPLE_AUDIENCE || process.env.APPLE_BUNDLE_ID || '';
 
 function getTwilioClient() {
@@ -58,6 +59,7 @@ function getTwilioClient() {
 
 function getAllowedAppleAudiences() {
   return [
+    IOS_BUNDLE_ID,
     process.env.APPLE_CLIENT_ID,
     process.env.APPLE_SERVICE_ID,
     process.env.APPLE_BUNDLE_ID,
@@ -990,7 +992,8 @@ export async function appleAuth(req, res) {
     let decoded;
     try {
       decoded = await verifyAppleIdentityToken(identityToken);
-    } catch {
+    } catch (error) {
+      console.warn('Apple identity token rejected:', error.message);
       return res.status(401).json({ success: false, message: 'Invalid Apple identity token' });
     }
 
@@ -1058,6 +1061,12 @@ export async function appleAuth(req, res) {
     });
   } catch (error) {
     console.error('appleAuth error:', error);
+    if (/email is required/i.test(error.message || '')) {
+      return res.status(409).json({
+        success: false,
+        message: 'Apple did not share an email for this account. Please remove Bago from Apple ID Sign-In settings, then try Continue with Apple again.',
+      });
+    }
     res.status(500).json({ success: false, message: 'Apple sign-in failed. Please try again.' });
   }
 }

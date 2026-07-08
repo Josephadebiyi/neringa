@@ -20,12 +20,6 @@
 		<string>Bago needs permission to save photos to your library.</string>
 		<key>NSFaceIDUsageDescription</key>
 		<string>Bago uses Face ID to let you sign in quickly and securely.</string>
-		<key>NSLocalNetworkUsageDescription</key>
-		<string>Bago needs local network access while debugging so Flutter tools can connect to the app.</string>
-		<key>NSBonjourServices</key>
-		<array>
-			<string>_dartobservatory._tcp</string>
-		</array>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<false/>
 		<key>CFBundleDevelopmentRegion</key>
@@ -39,13 +33,13 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 	<key>GIDClientID</key>
-		<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<string>207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>$(GOOGLE_IOS_REVERSED_CLIENT_ID)</string>
+					<string>com.googleusercontent.apps.207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd</string>
 				</array>
 			</dict>
 			<dict>
