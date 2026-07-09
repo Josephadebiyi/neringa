@@ -5,6 +5,8 @@ import App from './App.jsx';
 import './index.css';
 import { AuthProvider } from './AuthContext.jsx';
 
+window.__BAGO_WEB_BUILD__ = '2026-07-09-google-auth-1';
+
 if (typeof document !== 'undefined') {
     let lastTouchEnd = 0;
 

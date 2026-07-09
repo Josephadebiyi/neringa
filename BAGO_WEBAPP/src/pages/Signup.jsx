@@ -8,6 +8,41 @@ import 'react-phone-input-2/lib/style.css';
 import { countries } from '../utils/countries';
 import { CheckCircle, AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { GOOGLE_CLIENT_ID } from '../config/googleAuth';
+
+function GoogleSignupButton({ loading, label, onStart, onDone, onSuccess, onError, referralCode, country }) {
+    const handleGoogleSignup = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            onStart();
+            try {
+                const response = await api.post('/api/bago/google-auth', {
+                    accessToken: tokenResponse.access_token,
+                    referralCode: referralCode || undefined,
+                    country: country || undefined,
+                });
+                onSuccess(response);
+            } catch (err) {
+                onError(err.response?.data?.message || err.message || 'Google auth failed. Technical issue.');
+            } finally {
+                onDone();
+            }
+        },
+        onError: () => {
+            onError('Google login popup failed. Please allow popups.');
+        }
+    });
+
+    return (
+        <button
+            onClick={() => handleGoogleSignup()}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-[#012126] hover:bg-gray-50 transition-all shadow-sm group"
+        >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="text-sm">{label}</span>
+        </button>
+    );
+}
 
 export default function Signup() {
     const { t } = useLanguage();
@@ -40,35 +75,6 @@ export default function Signup() {
 
     // Auto-detect country from phone flag
     const [detectedCountry, setDetectedCountry] = useState('');
-
-    const handleGoogleSignup = useGoogleLogin({
-        onSuccess: async (tokenResponse) => {
-            setLoading(true);
-            setError('');
-            try {
-                const response = await api.post('/api/bago/google-auth', {
-                    accessToken: tokenResponse.access_token,
-                    referralCode: formData.referralCode || undefined,
-                    country: formData.country || undefined,
-                });
-                if (response.data.success) {
-                    setAuthSession(response.data);
-                    login(response.data.user);
-                    navigate('/dashboard');
-                } else {
-                    setError(response.data.message || 'Google signup failed');
-                }
-            } catch (err) {
-                const msg = err.response?.data?.message || err.message || 'Google auth failed. Technical issue.';
-                setError(msg);
-            } finally {
-                setLoading(false);
-            }
-        },
-        onError: (err) => {
-            setError('Google login popup failed. Please allow popups.');
-        }
-    });
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -258,14 +264,38 @@ export default function Signup() {
                     ) : (
                         <div className="space-y-4">
                             {/* Google Signup */}
-                            <button
-                                onClick={() => handleGoogleSignup()}
-                                disabled={loading}
-                                className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-[#012126] hover:bg-gray-50 transition-all shadow-sm group"
-                            >
-                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                <span className="text-sm">{t('continueWithGoogle')}</span>
-                            </button>
+                            {GOOGLE_CLIENT_ID ? (
+                                <GoogleSignupButton
+                                    loading={loading}
+                                    label={t('continueWithGoogle')}
+                                    referralCode={formData.referralCode}
+                                    country={formData.country}
+                                    onStart={() => {
+                                        setLoading(true);
+                                        setError('');
+                                    }}
+                                    onDone={() => setLoading(false)}
+                                    onSuccess={(response) => {
+                                        if (response.data.success) {
+                                            setAuthSession(response.data);
+                                            login(response.data.user);
+                                            navigate('/dashboard');
+                                        } else {
+                                            setError(response.data.message || 'Google signup failed');
+                                        }
+                                    }}
+                                    onError={(message) => setError(message)}
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    disabled
+                                    className="w-full flex items-center justify-center gap-4 bg-gray-50 border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-gray-400 shadow-sm"
+                                >
+                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 opacity-50" />
+                                    <span className="text-sm">{t('continueWithGoogle')}</span>
+                                </button>
+                            )}
 
                             <div className="relative flex items-center py-4">
                                 <div className="flex-grow border-t-2 border-gray-50"></div>

@@ -1,13 +1,8 @@
 # MIME types — must come before rewrite rules
 AddType image/svg+xml .svg
 AddType image/svg+xml .svgz
-
-# Allow .well-known directory (needed for Apple Pay domain verification)
-<IfModule mod_authz_core.c>
-  <Directory ".well-known">
-    Require all granted
-  </Directory>
-</IfModule>
+AddType text/javascript .js
+AddType text/css .css
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
@@ -20,13 +15,15 @@ AddType image/svg+xml .svgz
   # 2. Serve .well-known files directly (Apple Pay domain verification)
   RewriteRule ^\.well-known/ - [L]
 
-  # 3. SPA Routing - Handle Refreshes (login, dashboard, etc)
+  # 3. Never rewrite real asset requests to index.html.
+  # Missing JS/CSS/images should return 404 instead of HTML-as-JavaScript.
+  RewriteRule ^assets/ - [L]
+  RewriteRule \.(js|css|png|jpg|jpeg|gif|svg|webp|ico|json|map|txt|xml|woff2?|ttf|otf)$ - [L]
+
+  # 4. SPA Routing - Handle Refreshes (login, dashboard, etc)
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_FILENAME} !-l
   RewriteRule . /index.html [L]
 </IfModule>
-
-# Robust Fallback for refreshing sub-pages (must not override .well-known)
-FallbackResource /index.html

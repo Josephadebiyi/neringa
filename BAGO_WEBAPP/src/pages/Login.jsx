@@ -5,6 +5,37 @@ import api, { setAuthSession } from '../api';
 import { useGoogleLogin } from '@react-oauth/google';
 import { AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { GOOGLE_CLIENT_ID } from '../config/googleAuth';
+
+function GoogleLoginButton({ loading, onStart, onDone, onSuccess, onError, label }) {
+    const handleGoogleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            onStart();
+            try {
+                const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
+                onSuccess(response);
+            } catch (err) {
+                onError(err.response?.data?.message || 'Unable to complete Google authentication');
+            } finally {
+                onDone();
+            }
+        },
+        onError: () => {
+            onError('Google sign-in was blocked. Please allow popups and try again.');
+        }
+    });
+
+    return (
+        <button
+            onClick={() => handleGoogleLogin()}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-[#012126] hover:bg-gray-50 transition-all shadow-sm group"
+        >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="text-sm">{label}</span>
+        </button>
+    );
+}
 
 export default function Login() {
     const { t } = useLanguage();
@@ -54,31 +85,6 @@ export default function Login() {
         }
     };
 
-    const handleGoogleLogin = useGoogleLogin({
-        onSuccess: async (tokenResponse) => {
-            setLoading(true);
-            setError('');
-            try {
-                const response = await api.post('/api/bago/google-auth', { accessToken: tokenResponse.access_token });
-                if (response.data.success) {
-                    setAuthSession(response.data);
-                    login(response.data.user);
-                    navigate(redirectPath);
-                } else {
-                    setError(response.data.message || t('googleSignupFailed') || 'Unable to sign in with Google');
-                }
-            } catch (err) {
-                const msg = err.response?.data?.message || t('googleAuthFailed') || 'Unable to complete Google authentication';
-                setError(msg);
-            } finally {
-                setLoading(false);
-            }
-        },
-        onError: (err) => {
-            setError(t('googlePopupBlocked') || 'Google sign-in was blocked. Please allow popups and try again.');
-        }
-    });
-
     return (
         <div className="min-h-screen bg-white flex lg:flex-row flex-col">
             {/* Left side banner */}
@@ -122,14 +128,36 @@ export default function Login() {
 
                     <div className="space-y-8">
                         {/* Google Login */}
-                        <button
-                            onClick={() => handleGoogleLogin()}
-                            disabled={loading}
-                            className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-[#012126] hover:bg-gray-50 transition-all shadow-sm group"
-                        >
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm">{t('continueWithGoogle')}</span>
-                        </button>
+                        {GOOGLE_CLIENT_ID ? (
+                            <GoogleLoginButton
+                                loading={loading}
+                                label={t('continueWithGoogle')}
+                                onStart={() => {
+                                    setLoading(true);
+                                    setError('');
+                                }}
+                                onDone={() => setLoading(false)}
+                                onSuccess={(response) => {
+                                    if (response.data.success) {
+                                        setAuthSession(response.data);
+                                        login(response.data.user);
+                                        navigate(redirectPath);
+                                    } else {
+                                        setError(response.data.message || t('googleSignupFailed') || 'Unable to sign in with Google');
+                                    }
+                                }}
+                                onError={(message) => setError(message || t('googleAuthFailed') || 'Unable to complete Google authentication')}
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                disabled
+                                className="w-full flex items-center justify-center gap-4 bg-gray-50 border-2 border-gray-100 py-3.5 rounded-2xl font-bold text-gray-400 shadow-sm"
+                            >
+                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 opacity-50" />
+                                <span className="text-sm">{t('continueWithGoogle')}</span>
+                            </button>
+                        )}
 
                         <div className="relative flex items-center">
                             <div className="flex-grow border-t-2 border-gray-50"></div>

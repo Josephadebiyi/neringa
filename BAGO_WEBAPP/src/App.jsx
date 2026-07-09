@@ -26,8 +26,7 @@ import ShippingSuccess from './pages/ShippingSuccess';
 import PaymentCallback from './pages/PaymentCallback';
 import PaymentCheckout from './pages/PaymentCheckout';
 import Test from './Test';
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+import { GOOGLE_CLIENT_ID } from './config/googleAuth';
 
 function App() {
     return (
