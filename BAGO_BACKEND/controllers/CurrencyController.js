@@ -10,6 +10,45 @@ import {
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
 import { getTripById } from '../lib/postgres/shipping.js';
 
+// Degrade path when the live rate service is down, same trade-off AddaTripController
+// already makes for trip pricing: show an approximate price instead of blocking checkout.
+const CHECKOUT_REFERENCE_RATES = {
+  USD: 1, EUR: 0.92, GBP: 0.78, NGN: 1500, GHS: 15, KES: 130, ZAR: 18, CAD: 1.37, AUD: 1.52,
+};
+
+const isRateAvailabilityError = (error) =>
+  error?.code === 'EXCHANGE_RATE_EXPIRED' ||
+  error?.code === 'EXCHANGE_RATE_MISSING' ||
+  error?.statusCode === 503 ||
+  error?.status === 503;
+
+const convertWithFallback = async (amount, fromCurrency, toCurrency) => {
+  try {
+    return Number(await convertCurrency(amount, fromCurrency, toCurrency));
+  } catch (error) {
+    if (!isRateAvailabilityError(error)) throw error;
+    const fromRate = CHECKOUT_REFERENCE_RATES[fromCurrency];
+    const toRate = CHECKOUT_REFERENCE_RATES[toCurrency];
+    if (!fromRate || !toRate) throw error;
+    console.warn(`Using reference FX for checkout preview after rate service failure: ${fromCurrency}->${toCurrency}`, error.message);
+    return Number(((Number(amount) / fromRate) * toRate).toFixed(2));
+  }
+};
+
+const getExchangeRateWithFallback = async (fromCurrency, toCurrency) => {
+  try {
+    const rate = await CurrencyService.getExchangeRate(fromCurrency, toCurrency);
+    return rate;
+  } catch (error) {
+    if (!isRateAvailabilityError(error)) throw error;
+    const fromRate = CHECKOUT_REFERENCE_RATES[fromCurrency];
+    const toRate = CHECKOUT_REFERENCE_RATES[toCurrency];
+    if (!fromRate || !toRate) throw error;
+    console.warn(`Using reference FX rate for checkout preview after rate service failure: ${fromCurrency}->${toCurrency}`, error.message);
+    return { rate: toRate / fromRate, source: 'reference_fallback', timestamp: new Date().toISOString() };
+  }
+};
+
 /**
  * Convert amount between currencies
  * GET /api/currency/convert?amount=100&from=USD&to=NGN
@@ -259,17 +298,17 @@ export const previewShipmentCheckout = async (req, res) => {
     const pricing = calculateAllInclusivePrice(travelerPayout, config);
     const shippingAmount = travelerCurrency === checkoutCurrency
       ? Number(pricing.senderShippingFee)
-      : Number((await convertCurrency(pricing.senderShippingFee, travelerCurrency, checkoutCurrency)).toFixed(2));
+      : Number((await convertWithFallback(pricing.senderShippingFee, travelerCurrency, checkoutCurrency)).toFixed(2));
     const convertedTravelerPayout = travelerCurrency === checkoutCurrency
       ? Number(pricing.travelerPayout)
-      : Number((await convertCurrency(pricing.travelerPayout, travelerCurrency, checkoutCurrency)).toFixed(2));
+      : Number((await convertWithFallback(pricing.travelerPayout, travelerCurrency, checkoutCurrency)).toFixed(2));
     const insuranceAmount = insurance === true
       ? Number((numericDeclaredValue * (Number(config.senderInsurancePercent || 0) / 100)).toFixed(2))
       : 0;
     const totalAmount = Number((shippingAmount + insuranceAmount).toFixed(2));
     const exchangeRate = travelerCurrency === checkoutCurrency
       ? { rate: 1, source: 'same_currency', timestamp: new Date().toISOString() }
-      : await CurrencyService.getExchangeRate(travelerCurrency, checkoutCurrency);
+      : await getExchangeRateWithFallback(travelerCurrency, checkoutCurrency);
 
     return res.status(200).json({
       success: true,

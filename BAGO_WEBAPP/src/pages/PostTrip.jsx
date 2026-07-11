@@ -115,7 +115,7 @@ const LocationSelect = ({ value, onChange, placeholder, label, icon: Icon, t }) 
 };
 
 export default function PostTrip() {
-    const { user, isAuthenticated, loading: authLoading } = useAuth();
+    const { user, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
@@ -314,7 +314,12 @@ export default function PostTrip() {
         if (!selectedCurrency) return;
         setLoading(true);
         try {
-            await api.put('/api/bago/edit', { preferredCurrency: selectedCurrency });
+            // Use the same endpoint Settings uses — it locks the earning currency and
+            // assigns the correct payout gateway (Paystack vs PayPal) together. The
+            // generic /edit endpoint only wrote preferredCurrency, leaving payout
+            // gateway unset and the currency unlocked, which let it drift later.
+            await api.post('/api/bago/activate-earning', { currency: selectedCurrency });
+            await refreshUser?.();
             setShowCurrencyModal(false);
             setStep(2);
         } catch (err) {
