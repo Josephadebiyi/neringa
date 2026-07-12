@@ -24,6 +24,10 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   final _accountCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
+  final _ibanCtrl = TextEditingController();
+  final _accountHolderCtrl = TextEditingController();
+  final _ibanBankNameCtrl = TextEditingController();
+  final _swiftCtrl = TextEditingController();
 
   String _bankName = '';
   String _bankCode = '';
@@ -38,10 +42,18 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   List<Map<String, dynamic>> _banks = [];
   List<Map<String, dynamic>> _filteredBanks = [];
 
+  // EUR/GBP payouts use IBAN + SWIFT/BIC (no bank-list picker — that's a
+  // Nigerian-/Ghanaian-/Kenyan-style corridor). Everything else keeps the
+  // existing "pick a bank from a list" flow below.
+  static const _ibanCurrencies = {'EUR', 'GBP'};
+  String get _currency =>
+      UserCurrencyHelper.resolve(ref.read(authProvider).user).toUpperCase();
+  bool get _isIban => _ibanCurrencies.contains(_currency);
+
   @override
   void initState() {
     super.initState();
-    _fetchBanks();
+    if (!_isIban) _fetchBanks();
     _searchCtrl.addListener(() {
       final q = _searchCtrl.text.toLowerCase();
       setState(() => _filteredBanks = q.isEmpty
@@ -57,24 +69,33 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     _accountCtrl.dispose();
     _otpCtrl.dispose();
     _searchCtrl.dispose();
+    _ibanCtrl.dispose();
+    _accountHolderCtrl.dispose();
+    _ibanBankNameCtrl.dispose();
+    _swiftCtrl.dispose();
     super.dispose();
   }
+
+  // Flutterwave is the sole active payout provider — covers EU/UK bank accounts
+  // (IBAN) in addition to the African corridors Paystack supported.
+  static const _currencyCountryMap = {
+    'NGN': 'NG',
+    'GHS': 'GH',
+    'KES': 'KE',
+    'ZAR': 'ZA',
+    'EUR': 'LT',
+    'GBP': 'GB',
+  };
 
   Future<void> _fetchBanks() async {
     final user = ref.read(authProvider).user;
     final currency = UserCurrencyHelper.resolve(user);
-    const currencyCountryMap = {
-      'NGN': 'NG',
-      'GHS': 'GH',
-      'KES': 'KE',
-      'ZAR': 'ZA'
-    };
-    final country = currencyCountryMap[currency] ?? 'NG';
+    final country = _currencyCountryMap[currency] ?? 'NG';
 
     setState(() => _banksLoading = true);
     try {
       final res = await ApiService.instance.get(
-          '${ApiConstants.paystackBanks}?country=$country&currency=$currency');
+          '${ApiConstants.flutterwaveBanks}?country=$country&currency=$currency');
       final data = res.data as Map<String, dynamic>?;
       final rawBanks = (data?['banks'] as List?) ?? const [];
       final list = rawBanks
@@ -105,7 +126,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       setState(() => _verifying = true);
       try {
         final res = await ApiService.instance.get(
-          '${ApiConstants.paystackResolve}?accountNumber=${_accountCtrl.text}&bankCode=$_bankCode',
+          '${ApiConstants.flutterwaveResolveAccount}?accountNumber=${_accountCtrl.text}&bankCode=$_bankCode',
         );
         final data = res.data as Map<String, dynamic>?;
         if (mounted) {
@@ -137,11 +158,94 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     setState(() => _loading = true);
     try {
       final currency = UserCurrencyHelper.resolve(ref.read(authProvider).user);
-      final res = await ApiService.instance.post(ApiConstants.paystackAddBank,
-          data: {
+      final res = await ApiService.instance
+          .post(ApiConstants.flutterwaveBeneficiaryConnect, data: {
             'accountNumber': _accountCtrl.text,
             'bankCode': _bankCode,
             'bankName': _bankName,
+            'currency': currency,
+          },
+          options: Options(
+            headers: {
+              if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
+            },
+          ));
+      final data = res.data as Map<String, dynamic>?;
+      if (data?['requiresOtp'] == true) {
+        final message =
+            data?['message'] as String? ?? 'OTP sent to your email.';
+        final debugOtp = data?['debugOtp']?.toString();
+        setState(() {
+          _showOtp = true;
+          _loading = false;
+          _otpMessage = message;
+          _debugOtp = debugOtp;
+        });
+        if (mounted) {
+          AppSnackBar.show(context,
+              message: message, type: SnackBarType.success);
+        }
+      } else {
+        setState(() => _loading = false);
+        if (mounted) {
+          AppSnackBar.show(context,
+              message: 'Bank account linked!', type: SnackBarType.success);
+        }
+      }
+    } on DioException catch (e) {
+      setState(() => _loading = false);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: _bankSetupErrorMessage(e), type: SnackBarType.error);
+      }
+    } catch (_) {
+      setState(() => _loading = false);
+      if (mounted) {
+        AppSnackBar.show(context,
+            message:
+                'Bank account setup could not be completed. Please try again.',
+            type: SnackBarType.error);
+      }
+    }
+  }
+
+  // EUR/GBP IBAN corridor — mirrors _linkBank's shape (same endpoint, OTP
+  // handling, and error handling) with IBAN-specific fields and validation.
+  bool _isValidIban(String value) {
+    final cleaned = value.replaceAll(' ', '').toUpperCase();
+    return RegExp(r'^[A-Z]{2}[0-9A-Z]{13,32}$').hasMatch(cleaned);
+  }
+
+  Future<void> _linkIban() async {
+    final iban = _ibanCtrl.text.trim();
+    final accountHolder = _accountHolderCtrl.text.trim();
+    if (accountHolder.isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please enter the account holder name.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (!_isValidIban(iban)) {
+      AppSnackBar.show(context,
+          message: 'Please enter a valid IBAN.', type: SnackBarType.error);
+      return;
+    }
+    if (_swiftCtrl.text.trim().isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please enter the SWIFT/BIC code.',
+          type: SnackBarType.error);
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final currency = _currency;
+      final res = await ApiService.instance
+          .post(ApiConstants.flutterwaveBeneficiaryConnect, data: {
+            'accountHolderName': accountHolder,
+            'iban': iban.replaceAll(' ', '').toUpperCase(),
+            'bankName': _ibanBankNameCtrl.text.trim(),
+            'swiftBic': _swiftCtrl.text.trim().toUpperCase(),
+            'country': _currencyCountryMap[currency] ?? 'LT',
             'currency': currency,
           },
           options: Options(
@@ -196,7 +300,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     }
     setState(() => _loading = true);
     try {
-      await ApiService.instance.post(ApiConstants.paystackVerifyBankOtp,
+      await ApiService.instance.post(ApiConstants.flutterwaveVerifyBankOtp,
           data: {'otp': _otpCtrl.text});
       if (!mounted) return;
       await ref.read(authProvider.notifier).refreshProfile();
@@ -256,7 +360,110 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
-      body: _showOtp ? _buildOtpStep() : _buildMainForm(),
+      body: _showOtp
+          ? _buildOtpStep()
+          : (_isIban ? _buildIbanForm() : _buildMainForm()),
+    );
+  }
+
+  Widget _buildIbanForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_rounded,
+                    color: Color(0xFF059669), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Your bank details are encrypted and securely stored. Used strictly for traveler payouts.',
+                    style: AppTextStyles.bodySm.copyWith(
+                        color: const Color(0xFF065F46),
+                        height: 1.4,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          Text('ACCOUNT DETAILS',
+              style: AppTextStyles.labelSm.copyWith(
+                  color: AppColors.gray400,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1)),
+          const SizedBox(height: 16),
+          _IbanField(
+            label: 'Account Holder Name *',
+            controller: _accountHolderCtrl,
+            hint: 'Full name on the account',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'IBAN *',
+            controller: _ibanCtrl,
+            hint: 'e.g. LT12 3456 7890 1234 5678',
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'Bank Name *',
+            controller: _ibanBankNameCtrl,
+            hint: 'e.g. Revolut, N26, Wise',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'SWIFT/BIC *',
+            controller: _swiftCtrl,
+            hint: 'e.g. REVOLT21',
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _loading ? null : _linkIban,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: const StadiumBorder(),
+                elevation: 0,
+              ),
+              child: _loading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2.5))
+                  : Text('Link Bank Account',
+                      style: AppTextStyles.labelLg.copyWith(
+                          color: Colors.white, fontWeight: FontWeight.w800)),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.lock_outline_rounded,
+                  size: 14, color: AppColors.gray400),
+              const SizedBox(width: 6),
+              Text('Protected by bank-grade encryption',
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -596,7 +803,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 ? null
                 : () {
                     _otpCtrl.clear();
-                    _linkBank();
+                    _isIban ? _linkIban() : _linkBank();
                   },
             child: Text('Resend code',
                 style: AppTextStyles.primary(AppTextStyles.labelMd)),
@@ -719,6 +926,51 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _IbanField extends StatelessWidget {
+  const _IbanField({
+    required this.label,
+    required this.controller,
+    required this.hint,
+    this.textCapitalization = TextCapitalization.words,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hint;
+  final TextCapitalization textCapitalization;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F7F8),
+            border: Border.all(color: AppColors.border, width: 1.5),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: TextField(
+            controller: controller,
+            textCapitalization: textCapitalization,
+            style: AppTextStyles.bodyMd,
+            decoration: InputDecoration(
+              hintText: hint,
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -15,22 +15,6 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 
-// African currencies that use Paystack
-const _africanCurrencies = {
-  'NGN',
-  'GHS',
-  'KES',
-  'ZAR',
-  'UGX',
-  'TZS',
-  'RWF',
-  'EGP',
-  'MAD',
-  'XOF',
-  'XAF',
-  'ETB',
-};
-
 class WithdrawalSetupScreen extends ConsumerStatefulWidget {
   const WithdrawalSetupScreen({super.key});
 
@@ -44,25 +28,38 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
   Widget build(BuildContext context) {
     final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
     if (currency.isEmpty) {
+      // Used to be a dead end here — no currency set yet meant no way forward.
+      // Send them to set country + currency, then bring them straight back.
       return Scaffold(
         backgroundColor: AppColors.black,
         body: SafeArea(
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Text(
-                'Please set your preferred currency in profile settings before setting up withdrawals.',
-                style: AppTextStyles.bodyLg
-                    .copyWith(color: AppColors.gray400, height: 1.5),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Set your country and currency first — it only takes a moment.',
+                    style: AppTextStyles.bodyLg
+                        .copyWith(color: AppColors.gray400, height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  AppButton(
+                    label: 'Set country & currency',
+                    onPressed: () async {
+                      await context.push('/profile/currency');
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                ],
               ),
             ),
           ),
         ),
       );
     }
-    final isAfrican = _africanCurrencies.contains(currency.toUpperCase());
-
     return Scaffold(
       backgroundColor: AppColors.black,
       body: SafeArea(
@@ -95,9 +92,9 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
                     .copyWith(color: AppColors.gray400, height: 1.5),
               ),
               const SizedBox(height: 40),
-              isAfrican
-                  ? _PaystackSetup(currency: currency)
-                  : _PaypalPayoutSetup(currency: currency),
+              // Flutterwave is the sole active payout provider — always the
+              // bank-account setup flow now, no African/PayPal branch.
+              _FlutterwaveBankSetup(currency: currency),
               const Spacer(),
               TextButton(
                 onPressed: () => context.go('/home'),
@@ -118,21 +115,31 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Paystack flow (African currencies)
+// Flutterwave bank-account setup flow (sole active payout provider)
 // ---------------------------------------------------------------------------
-class _PaystackSetup extends ConsumerStatefulWidget {
-  const _PaystackSetup({required this.currency});
+class _FlutterwaveBankSetup extends ConsumerStatefulWidget {
+  const _FlutterwaveBankSetup({required this.currency});
   final String currency;
 
   @override
-  ConsumerState<_PaystackSetup> createState() => _PaystackSetupState();
+  ConsumerState<_FlutterwaveBankSetup> createState() => _FlutterwaveBankSetupState();
 }
 
-class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
+class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
+  // EUR/GBP payouts use IBAN + SWIFT/BIC, not the bank-list picker below (that
+  // corridor style is African-bank-specific, e.g. Nigeria/Ghana/Kenya).
+  static const _ibanCurrencies = {'EUR', 'GBP'};
+  static const _ibanCountryMap = {'EUR': 'LT', 'GBP': 'GB'};
+  bool get _isIban => _ibanCurrencies.contains(widget.currency.toUpperCase());
+
   List<Map<String, dynamic>> _banks = [];
   Map<String, dynamic>? _selectedBank;
   final _accountCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
+  final _ibanCtrl = TextEditingController();
+  final _accountHolderCtrl = TextEditingController();
+  final _ibanBankNameCtrl = TextEditingController();
+  final _swiftCtrl = TextEditingController();
   String? _accountName;
   bool _isLoadingBanks = false;
   bool _isResolving = false;
@@ -144,7 +151,7 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
   @override
   void initState() {
     super.initState();
-    _loadBanks();
+    if (!_isIban) _loadBanks();
     _accountCtrl.addListener(_onAccountChanged);
   }
 
@@ -153,7 +160,92 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
     _accountCtrl.removeListener(_onAccountChanged);
     _accountCtrl.dispose();
     _otpCtrl.dispose();
+    _ibanCtrl.dispose();
+    _accountHolderCtrl.dispose();
+    _ibanBankNameCtrl.dispose();
+    _swiftCtrl.dispose();
     super.dispose();
+  }
+
+  bool _isValidIban(String value) {
+    final cleaned = value.replaceAll(' ', '').toUpperCase();
+    return RegExp(r'^[A-Z]{2}[0-9A-Z]{13,32}$').hasMatch(cleaned);
+  }
+
+  Future<void> _submitIban() async {
+    final iban = _ibanCtrl.text.trim();
+    final accountHolder = _accountHolderCtrl.text.trim();
+    if (accountHolder.isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please enter the account holder name.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (!_isValidIban(iban)) {
+      AppSnackBar.show(context,
+          message: 'Please enter a valid IBAN.', type: SnackBarType.error);
+      return;
+    }
+    if (_swiftCtrl.text.trim().isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please enter the SWIFT/BIC code.',
+          type: SnackBarType.error);
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    try {
+      final currency = widget.currency.toUpperCase();
+      final response = await ApiService.instance
+          .post(ApiConstants.flutterwaveBeneficiaryConnect, data: {
+            'accountHolderName': accountHolder,
+            'iban': iban.replaceAll(' ', '').toUpperCase(),
+            'bankName': _ibanBankNameCtrl.text.trim(),
+            'swiftBic': _swiftCtrl.text.trim().toUpperCase(),
+            'country': _ibanCountryMap[currency] ?? 'LT',
+            'currency': currency,
+          },
+          options: Options(
+            headers: {
+              if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
+            },
+          ));
+      final data = response.data;
+      final requiresOtp = data is Map && data['requiresOtp'] == true;
+      if (mounted) {
+        if (requiresOtp) {
+          setState(() {
+            _showOtpStep = true;
+            _otpMessage = data['message']?.toString() ??
+                'Enter the confirmation code to complete setup.';
+            _debugOtp = data['debugOtp']?.toString();
+            _isSubmitting = false;
+          });
+          AppSnackBar.show(context,
+              message: _otpMessage!, type: SnackBarType.success);
+        } else {
+          AppSnackBar.show(context,
+              message: 'Bank account added successfully!',
+              type: SnackBarType.success);
+          setState(() => _isSubmitting = false);
+        }
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        final msg = e.response?.data is Map
+            ? (e.response!.data['message'] ?? 'Failed to save account')
+            : 'Failed to save account';
+        AppSnackBar.show(context,
+            message: msg.toString(), type: SnackBarType.error);
+        setState(() => _isSubmitting = false);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: 'Something went wrong. Please try again.',
+            type: SnackBarType.error);
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   void _onAccountChanged() {
@@ -168,7 +260,7 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
     setState(() => _isLoadingBanks = true);
     try {
       final response =
-          await ApiService.instance.get(ApiConstants.paystackBanks);
+          await ApiService.instance.get(ApiConstants.flutterwaveBanks);
       final data = response.data;
       List<dynamic> bankList = [];
       if (data is Map && data['data'] is List) {
@@ -202,7 +294,7 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
           _selectedBank!['bank_code']?.toString() ??
           '';
       final response = await ApiService.instance.get(
-        ApiConstants.paystackResolve,
+        ApiConstants.flutterwaveResolveAccount,
         queryParameters: {
           'accountNumber': _accountCtrl.text.trim(),
           'bankCode': bankCode,
@@ -261,7 +353,7 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
           _selectedBank!['bank_code']?.toString() ??
           '';
       final response =
-          await ApiService.instance.post(ApiConstants.paystackAddBank,
+          await ApiService.instance.post(ApiConstants.flutterwaveBeneficiaryConnect,
               data: {
                 'accountNumber': _accountCtrl.text.trim(),
                 'bankCode': bankCode,
@@ -323,7 +415,7 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
     setState(() => _isSubmitting = true);
     try {
       await ApiService.instance.post(
-        ApiConstants.paystackVerifyBankOtp,
+        ApiConstants.flutterwaveVerifyBankOtp,
         data: {'otp': _otpCtrl.text.trim()},
       );
       if (!mounted) return;
@@ -360,6 +452,9 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
   Widget build(BuildContext context) {
     if (_showOtpStep) {
       return _buildOtpStep();
+    }
+    if (_isIban) {
+      return _buildIbanForm();
     }
 
     return Column(
@@ -462,6 +557,52 @@ class _PaystackSetupState extends ConsumerState<_PaystackSetup> {
           label: 'Save Bank Account',
           isLoading: _isSubmitting,
           onPressed: _isSubmitting ? null : _submit,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIbanForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _infoChip('Bank Transfer (${widget.currency})',
+            Icons.account_balance_outlined, AppColors.primary),
+        const SizedBox(height: 24),
+        AppTextField(
+          controller: _accountHolderCtrl,
+          label: 'Account Holder Name',
+          hint: 'Full name on the account',
+          prefixIcon: const Icon(Icons.person_outline, color: AppColors.gray400),
+        ),
+        const SizedBox(height: 16),
+        AppTextField(
+          controller: _ibanCtrl,
+          label: 'IBAN',
+          hint: 'e.g. LT12 3456 7890 1234 5678',
+          prefixIcon: const Icon(Icons.account_balance_outlined,
+              color: AppColors.gray400),
+        ),
+        const SizedBox(height: 16),
+        AppTextField(
+          controller: _ibanBankNameCtrl,
+          label: 'Bank Name',
+          hint: 'e.g. Revolut, N26, Wise',
+          prefixIcon:
+              const Icon(Icons.account_balance, color: AppColors.gray400),
+        ),
+        const SizedBox(height: 16),
+        AppTextField(
+          controller: _swiftCtrl,
+          label: 'SWIFT/BIC',
+          hint: 'e.g. REVOLT21',
+          prefixIcon: const Icon(Icons.tag, color: AppColors.gray400),
+        ),
+        const SizedBox(height: 32),
+        AppButton(
+          label: 'Save Bank Account',
+          isLoading: _isSubmitting,
+          onPressed: _isSubmitting ? null : _submitIban,
         ),
       ],
     );

@@ -499,6 +499,90 @@ class PaymentService {
     }
   }
 
+  // ── Flutterwave — sole active payment provider ──────────────────────────
+  // Mirrors initializePaystackPayment/verifyPaystackPayment above. Kept as a
+  // separate pair (not merged into the Paystack methods) so the Paystack path
+  // stays intact and reachable for rollback per the migration plan.
+  Future<({String authorizationUrl, String reference})>
+      initializeFlutterwavePayment({
+    required String packageId,
+    required String tripId,
+    required double amount,
+    required String currency,
+    bool insurance = false,
+    double insuranceCost = 0,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConstants.flutterwaveInitialize,
+        data: {
+          'amount': amount,
+          'currency': currency,
+          'packageId': packageId,
+          'tripId': tripId,
+          'metadata': {
+            'insurance': insurance,
+            'insuranceCost': insuranceCost,
+          },
+        },
+      );
+      final data = _extractMap(response.data);
+      final url = data['authorizationUrl']?.toString() ??
+          data['paymentLink']?.toString() ??
+          data['link']?.toString() ??
+          '';
+      final ref = data['reference']?.toString() ??
+          data['txRef']?.toString() ??
+          data['tx_ref']?.toString() ??
+          '';
+      if (url.isEmpty) {
+        throw StateError(
+            data['message']?.toString() ?? 'Payment initialization failed.');
+      }
+      return (authorizationUrl: url, reference: ref);
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<PaymentResult> verifyFlutterwavePayment(String reference) async {
+    try {
+      final response =
+          await _api.get('${ApiConstants.flutterwaveVerify}/$reference');
+      final raw = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      final data = _extractMap(raw);
+      final successValue = raw['success'] ?? data['success'];
+      final status =
+          (data['status'] ?? raw['status'])?.toString().toLowerCase();
+      final success = successValue == true ||
+          status == 'success' ||
+          status == 'successful' ||
+          status == 'paid' ||
+          status == 'completed';
+
+      return PaymentResult(
+        success: success,
+        provider: 'flutterwave',
+        message: data['message']?.toString(),
+        reference: _firstString(
+          data,
+          const [
+            'reference',
+            'paymentReference',
+            'txRef',
+            'tx_ref',
+            'data.reference',
+          ],
+        ),
+        raw: raw,
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Map<String, dynamic> _extractMap(dynamic raw) {
     if (raw is Map) {
       final parsed = Map<String, dynamic>.from(raw);

@@ -20,14 +20,31 @@ class CurrencySettingsScreen extends ConsumerStatefulWidget {
 
 class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen> {
   bool _isSaving = false;
+  bool _pickingCountry = false;
   String? _selectedCurrency;
+  CountryCurrencyData? _selectedCountry;
+  final _countrySearchCtrl = TextEditingController();
 
+  @override
+  void dispose() {
+    _countrySearchCtrl.dispose();
+    super.dispose();
+  }
+
+  // Country + currency are set together, deliberately, in one confirmed step —
+  // never inferred silently from device locale/IP. Reuses the same backend
+  // plumbing (confirmDetectedLocationCurrency) the app-wide location-detection
+  // prompt already uses, just driven by an explicit user choice here instead
+  // of an IP guess.
   Future<void> _confirmEarningCurrency() async {
     final currency = _selectedCurrency;
     if (currency == null || _isSaving) return;
     setState(() => _isSaving = true);
     try {
-      await ref.read(authProvider.notifier).activateEarning(currency);
+      await ref.read(authProvider.notifier).confirmDetectedLocationCurrency(
+            currency: currency,
+            country: _selectedCountry?.name,
+          );
       if (!mounted) return;
       AppSnackBar.show(
         context,
@@ -60,17 +77,75 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        title: Text(l10n.preferredCurrencyTitle, style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        title: Text(
+          _pickingCountry
+              ? 'Country of residence'
+              : l10n.preferredCurrencyTitle,
+          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
-          onPressed: () => context.pop(),
+          onPressed: _pickingCountry
+              ? () => setState(() => _pickingCountry = false)
+              : () => context.pop(),
         ),
       ),
       body: SafeArea(
         child: locked
             ? _buildLockedView(context, current)
-            : _buildSelectorView(context, l10n, current, currencies),
+            : (_pickingCountry
+                ? _buildCountryPicker(context)
+                : _buildSelectorView(context, l10n, current, currencies)),
       ),
+    );
+  }
+
+  Widget _buildCountryPicker(BuildContext context) {
+    final query = _countrySearchCtrl.text.trim().toLowerCase();
+    final countries = CurrencyConversionHelper.supportedCountries
+        .where((c) => query.isEmpty || c.name.toLowerCase().contains(query))
+        .toList();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: TextField(
+            controller: _countrySearchCtrl,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Search country',
+              prefixIcon: const Icon(Icons.search, color: AppColors.gray400),
+              filled: true,
+              fillColor: AppColors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: countries.length,
+            itemBuilder: (_, i) {
+              final country = countries[i];
+              return ListTile(
+                leading: Text(country.flag, style: const TextStyle(fontSize: 24)),
+                title: Text(country.name,
+                    style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
+                subtitle: Text('Currency: ${country.currency}',
+                    style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+                onTap: () => setState(() {
+                  _selectedCountry = country;
+                  _selectedCurrency = country.currency;
+                  _pickingCountry = false;
+                }),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -161,6 +236,50 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
           ),
         ),
         const SizedBox(height: 16),
+        InkWell(
+          onTap: _isSaving ? null : () => setState(() => _pickingCountry = true),
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: _selectedCountry != null ? AppColors.primary : AppColors.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(_selectedCountry?.flag ?? '🌍', style: const TextStyle(fontSize: 28)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Country of residence',
+                          style: AppTextStyles.labelSm.copyWith(
+                              color: AppColors.gray400, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 2),
+                      Text(
+                        _selectedCountry?.name ?? 'Select your country — sets the right currency automatically',
+                        style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.gray400),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          _selectedCountry != null
+              ? 'Based on ${_selectedCountry!.name}, or pick a different currency below:'
+              : 'Or pick a currency directly:',
+          style: AppTextStyles.labelSm.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 10),
         if (_isSaving)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),

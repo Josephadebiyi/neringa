@@ -19,11 +19,13 @@ class ApiConstants {
   // Google OAuth
   static const String googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
-    defaultValue: '',
+    defaultValue:
+        '207312508850-kgpk9uramqhjkhjeqds4bfdkotm1iqo0.apps.googleusercontent.com',
   );
   static const String googleIosClientId = String.fromEnvironment(
     'GOOGLE_IOS_CLIENT_ID',
-    defaultValue: '',
+    defaultValue:
+        '207312508850-iebcq2acbvgv1emdv7lkfo2o53dk3qkd.apps.googleusercontent.com',
   );
 
   // ---------------------------------------------------------------------------
@@ -157,6 +159,13 @@ class ApiConstants {
   // Paystack payment flow
   static const String paystackInitialize = '/api/bago/paystack/initialize';
   static const String paystackVerify = '/api/bago/paystack/verify';
+  // Flutterwave — the only active payment provider going forward. Paystack/PayPal
+  // constants above are kept for historical reference and rollback, not deleted.
+  static const String flutterwaveConfig = '/api/config/flutterwave';
+  static const String flutterwaveInitialize =
+      '/api/payments/flutterwave/initialize';
+  // Backend: GET /verify/:txId — caller appends /<txId>
+  static const String flutterwaveVerify = '/api/payments/flutterwave/verify';
 
   // ---------------------------------------------------------------------------
   // Payouts
@@ -175,6 +184,15 @@ class ApiConstants {
   static const String stripeWithdraw = '/api/payouts/withdraw';
   static const String paypalPayoutConnect = '/api/payouts/paypal/connect';
   static const String paypalWithdraw = '/api/payouts/paypal/withdraw';
+  // Flutterwave payouts
+  static const String flutterwaveBanks = '/api/payouts/flutterwave/banks';
+  static const String flutterwaveResolveAccount =
+      '/api/payouts/flutterwave/resolve';
+  static const String flutterwaveBeneficiaryConnect =
+      '/api/payouts/flutterwave/connect';
+  static const String flutterwaveVerifyBankOtp =
+      '/api/payouts/flutterwave/verify-bank-otp';
+  static const String flutterwaveWithdraw = '/api/payouts/flutterwave/withdraw';
 
   // ---------------------------------------------------------------------------
   // Messaging

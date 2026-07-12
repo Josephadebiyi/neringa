@@ -1082,3 +1082,40 @@ export async function sendShipmentLabelEmail({ toEmail, toName, trackingNumber, 
     return false;
   }
 }
+
+/**
+ * Sends an annual birthday greeting email to a verified user.
+ */
+export async function sendBirthdayEmail(userEmail, userName) {
+  if (!resend || !userEmail) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        🎉 Happy Birthday from all of us at Bago! We're grateful to have you as part of our community-powered shipping network.
+      </p>
+      <div style="background:#f6f3ff; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5240E8;">
+        <p style="margin:0; font-size:14px; color:#374151; line-height:1.6;">
+          Here's to another year of safe deliveries and new journeys. Thank you for trusting Bago.
+        </p>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Have a wonderful day! 🎂
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <updates@sendwithbago.com>',
+      to: userEmail,
+      subject: '🎂 Happy Birthday from Bago!',
+      html: generateEmailTemplate('Happy Birthday!', content, 'Open Bago App', FRONTEND_URL),
+    });
+    console.log(`✅ Sent birthday email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send birthday email:', err);
+    return false;
+  }
+}

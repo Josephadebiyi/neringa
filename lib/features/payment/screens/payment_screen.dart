@@ -46,11 +46,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   List<String> _complianceDocs = [];
   bool _complianceDismissed = false;
 
-  bool get _usePaystack {
-    if (_draft == null) return false;
-    final currency = _asString(_draft!['currency'], 'USD');
-    return _checkoutService.providerForCurrency(currency) == 'paystack';
-  }
+  // Flutterwave is the sole active payment provider — providerForCurrency always
+  // returns 'flutterwave' now (Paystack/PayPal are disabled on the backend, kept
+  // only for rollback). _usePaystack/_usePaypal helpers are gone; checkout always
+  // goes through _startFlutterwaveCheckout below.
 
   @override
   void initState() {
@@ -75,12 +74,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isLoadingDraft = false;
       });
       if (draft != null) {
-        final currency = _asString(draft['currency'], 'USD');
-        if (_checkoutService.providerForCurrency(currency) == 'paystack') {
-          if (mounted) setState(() => _isSdkReady = true);
-        } else {
-          await _initPaypal();
-        }
+        // Flutterwave's hosted checkout needs no client-side priming (unlike
+        // PayPal's config/eligibility fetch) — ready as soon as the draft loads.
+        if (mounted) setState(() => _isSdkReady = true);
         // Fire compliance check in background — never blocks checkout
         _fetchCompliance(draft);
       }
@@ -221,7 +217,88 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  // ── In-app checkout ───────────────────────────────────────────────────────
+  // ── Flutterwave checkout (sole active provider) ───────────────────────────
+  // Mirrors _startPaystackCheckout/_verifyPaystack above. Flutterwave's hosted
+  // checkout presents card/bank/mobile-money/Apple Pay/Google Pay options on its
+  // own page based on currency/country, so Bago just opens one webview instead
+  // of pre-selecting a method the way the old PayPal flow required.
+
+  Future<void> _startFlutterwaveCheckout() async {
+    if (_isProcessing || _draft == null) return;
+    setState(() => _isProcessing = true);
+    try {
+      final draft = _draft!;
+      final currency = _asString(draft['currency'], 'USD');
+      final amount = _asDouble(draft['totalAmount']);
+      final packageId = draft['packageId']?.toString() ?? '';
+      final tripId = draft['tripId']?.toString() ?? '';
+      final insurance = draft['insurance'] == true;
+      final insuranceCost = _asDouble(draft['insuranceAmount']);
+
+      final init = await _paymentService.initializeFlutterwavePayment(
+        packageId: packageId,
+        tripId: tripId,
+        amount: amount,
+        currency: currency,
+        insurance: insurance,
+        insuranceCost: insuranceCost,
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _PaymentWebView(
+            url: init.authorizationUrl,
+            title: 'Secure checkout',
+            callbackUrlPattern: '/payment/callback',
+          ),
+        ),
+      );
+
+      if (!mounted || result == null) return;
+      if (result['type'] == 'callback') {
+        final ref = result['reference']?.toString();
+        await _verifyFlutterwave(
+            ref?.isNotEmpty == true ? ref! : init.reference);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isProcessing = false);
+      _failWithDraft(
+          'flutterwave', e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _verifyFlutterwave(String reference) async {
+    if (!mounted || reference.isEmpty) return;
+    setState(() => _isProcessing = true);
+    try {
+      final draft = _draft!;
+      final result = await _paymentService.verifyFlutterwavePayment(reference);
+      if (!mounted) return;
+      if (result.success) {
+        _checkoutService.clearDraft();
+        context.go('/order-success', extra: {
+          ...draft,
+          'provider': 'flutterwave',
+          'paymentReference': reference,
+          'request': null,
+        });
+      } else {
+        _failWithDraft(
+            'flutterwave', result.message ?? 'Payment verification failed.');
+      }
+    } catch (e) {
+      _failWithDraft(
+          'flutterwave', e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  // ── In-app checkout (legacy PayPal — disabled on backend, kept for rollback) ─
 
   Future<void> _startCardCheckout() async {
     if (_isProcessing || _draft == null || !_isSdkReady) return;
@@ -760,34 +837,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
           // ── Payment options ──────────────────────────────────────────────
           if (!isExpired) ...[
-            if (_usePaystack) ...[
-              // Paystack — African currencies (NGN / GHS / KES / ZAR)
-              _PaymentOptionButton(
-                assetImage: 'assets/images/paystack-mark.png',
-                label: 'Pay with Paystack',
-                subtitle: 'Cards, bank transfer & mobile money',
-                isLoading: _isProcessing,
-                color: const Color(0xFF00C3E3),
-                onTap: _startPaystackCheckout,
-              ),
-            ] else if (!_isSdkReady && _initError == null)
+            if (!_isSdkReady && _initError == null)
               const Center(child: AppLoading())
             else if (_isSdkReady) ...[
-              Text(
-                'Choose payment method',
-                style: AppTextStyles.h3.copyWith(
-                  color: AppColors.black,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _CardCheckoutForm(
-                amountLabel: '$currency ${totalAmount.toStringAsFixed(2)}',
+              _PaymentOptionButton(
+                // TODO(flutterwave-assets): swap for a Flutterwave brand mark once
+                // added under assets/images/ — using a generic icon for now so we
+                // don't reference a file that doesn't exist yet.
+                icon: Icons.lock_outline_rounded,
+                label: 'Pay securely',
+                subtitle: 'Card, Apple Pay, bank transfer & mobile money',
                 isLoading: _isProcessing,
-                applePaySupported: _applePaySupported,
-                selectedMethod: _selectedMethod,
-                onSelect: (method) => setState(() => _selectedMethod = method),
-                onPay: _paySelectedMethod,
+                color: AppColors.black,
+                onTap: _startFlutterwaveCheckout,
               ),
             ],
             const SizedBox(height: 16),
@@ -806,17 +868,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 'Secure checkout',
                 style: AppTextStyles.labelXs.copyWith(color: AppColors.gray400),
               ),
-              if (!_usePaystack) ...[
-                const SizedBox(width: 10),
-                SvgPicture.asset('assets/images/amex.svg',
-                    width: 38, height: 24, fit: BoxFit.contain),
-                const SizedBox(width: 6),
-                SvgPicture.asset('assets/images/visa.svg',
-                    width: 38, height: 24, fit: BoxFit.contain),
-                const SizedBox(width: 6),
-                SvgPicture.asset('assets/images/mastercard.svg',
-                    width: 38, height: 24, fit: BoxFit.contain),
-              ],
+              const SizedBox(width: 10),
+              SvgPicture.asset('assets/images/amex.svg',
+                  width: 38, height: 24, fit: BoxFit.contain),
+              const SizedBox(width: 6),
+              SvgPicture.asset('assets/images/visa.svg',
+                  width: 38, height: 24, fit: BoxFit.contain),
+              const SizedBox(width: 6),
+              SvgPicture.asset('assets/images/mastercard.svg',
+                  width: 38, height: 24, fit: BoxFit.contain),
             ],
           ),
           const SizedBox(height: 16),

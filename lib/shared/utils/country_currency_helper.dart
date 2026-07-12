@@ -309,16 +309,11 @@ class CurrencyConversionHelper {
     return null;
   }
 
+  // Flutterwave is the sole active payment/payout provider. This used to branch
+  // Paystack (African currencies) vs PayPal (everything else) — both are disabled
+  // on the backend now, kept here only as a reference for rollback.
   static String providerForCurrency(String currency) {
-    switch (currency.toUpperCase()) {
-      case 'NGN':
-      case 'GHS':
-      case 'KES':
-      case 'ZAR':
-        return 'paystack';
-      default:
-        return 'paypal';
-    }
+    return 'flutterwave';
   }
 
   static double convert({

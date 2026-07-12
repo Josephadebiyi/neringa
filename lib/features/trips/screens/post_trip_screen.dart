@@ -138,6 +138,12 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     return '';
   }
 
+  // Resolves the locked currency from whatever's fastest first (in-memory auth
+  // state, then local cache) so the form renders immediately instead of
+  // blocking behind a network round-trip — this screen used to always wait on
+  // AuthService.getProfile() before showing anything, which is why it felt
+  // much slower to open than every other section. The profile refresh still
+  // happens, just in the background after the form is already visible.
   Future<void> _bootstrapCurrency() async {
     final user = ref.read(authProvider).user;
     final kycPassed = user?.hasPassedKyc == true;
@@ -154,6 +160,39 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       return;
     }
 
+    // Fast path: already-loaded auth state, no network wait.
+    final liveCurrency = _strictUserCurrency(user);
+    if (liveCurrency.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _lockedCurrency = liveCurrency.toUpperCase();
+        _currencyLoading = false;
+      });
+      _refreshCurrencyInBackground();
+      return;
+    }
+
+    // Next-fastest: local cache, still no network wait.
+    try {
+      final storedUser = await StorageService.instance.getUser();
+      if (storedUser != null && storedUser.isNotEmpty) {
+        final parsed = UserModel.fromJsonString(storedUser);
+        final storedCurrency = UserCurrencyHelper.resolve(parsed);
+        if (storedCurrency.isNotEmpty) {
+          if (!mounted) return;
+          setState(() {
+            _lockedCurrency = storedCurrency.toUpperCase();
+            _currencyLoading = false;
+          });
+          _refreshCurrencyInBackground();
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Last resort: neither in-memory nor cached data has a currency, so we
+    // have to wait on the network before we can decide whether to show the
+    // form or prompt the user to set one up.
     try {
       final freshUser = await AuthService.instance.getProfile();
       if (freshUser.acceptedTerms == true) {
@@ -174,32 +213,6 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       }
     } catch (_) {}
 
-    try {
-      final storedUser = await StorageService.instance.getUser();
-      if (storedUser != null && storedUser.isNotEmpty) {
-        final parsed = UserModel.fromJsonString(storedUser);
-        final storedCurrency = UserCurrencyHelper.resolve(parsed);
-        if (storedCurrency.isNotEmpty) {
-          if (!mounted) return;
-          setState(() {
-            _lockedCurrency = storedCurrency.toUpperCase();
-            _currencyLoading = false;
-          });
-          return;
-        }
-      }
-    } catch (_) {}
-
-    final liveCurrency = _strictUserCurrency(user);
-    if (liveCurrency.isNotEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _lockedCurrency = liveCurrency.toUpperCase();
-        _currencyLoading = false;
-      });
-      return;
-    }
-
     // No currency found — prompt the user on first trip post
     if (!mounted) return;
     setState(() {
@@ -208,170 +221,51 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     });
   }
 
+  // Refreshes the profile after the form is already showing, so KYC/terms/
+  // currency changes since the last cache are picked up without blocking.
+  Future<void> _refreshCurrencyInBackground() async {
+    try {
+      final freshUser = await AuthService.instance.getProfile();
+      if (!mounted) return;
+      if (freshUser.acceptedTerms == true && freshUser.hasPassedKyc == true) {
+        setState(() {
+          _termsAccepted = true;
+          if (_step < 1) {
+            _step = 1;
+            _minStep = 1;
+          }
+        });
+      }
+      final backendCurrency = UserCurrencyHelper.resolve(freshUser);
+      if (backendCurrency.isNotEmpty &&
+          backendCurrency.toUpperCase() != _lockedCurrency) {
+        setState(() => _lockedCurrency = backendCurrency.toUpperCase());
+      }
+    } catch (_) {
+      // Best-effort background refresh — the form is already usable either way.
+    }
+  }
+
+  // Sends the user to the shared country-of-residence + currency screen
+  // (same one used in onboarding and Settings) instead of a raw currency list
+  // with no country context — one canonical place for this decision so the
+  // app isn't asking it three different ways in three different places.
   Future<void> _promptForCurrency() async {
     if (_currencyPromptShown || !mounted || _currencyLoading) return;
     if (ref.read(authProvider).user?.earningCurrencyLocked == true) return;
     _currencyPromptShown = true;
 
-    final currencies = CurrencyConversionHelper.supportedCurrencyCodes;
-
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        String? tempSelection;
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            return Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(ctx).size.height * 0.82,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.gray200,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        AppLocalizations.of(ctx).setWalletCurrencyTitle,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.h3
-                            .copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppLocalizations.of(ctx)
-                            .chooseWalletCurrencyDescription,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMd
-                            .copyWith(color: AppColors.gray500),
-                      ),
-                      const SizedBox(height: 18),
-                      Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: currencies.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (_, i) {
-                            final currency = currencies[i];
-                            final symbol =
-                                CurrencyConversionHelper.symbolForCurrency(
-                                    currency);
-                            final sel = tempSelection == currency;
-                            return InkWell(
-                              onTap: () =>
-                                  setSheetState(() => tempSelection = currency),
-                              borderRadius: BorderRadius.circular(18),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: sel
-                                      ? AppColors.primarySoft
-                                      : AppColors.white,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                      color: sel
-                                          ? AppColors.primary
-                                          : AppColors.border),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        color: sel
-                                            ? AppColors.primary
-                                            : AppColors.gray100,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        symbol,
-                                        style: AppTextStyles.labelMd.copyWith(
-                                          color: sel
-                                              ? AppColors.white
-                                              : AppColors.black,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                        child: Text(
-                                      currency,
-                                      style: AppTextStyles.labelLg.copyWith(
-                                          fontWeight: FontWeight.w800),
-                                    )),
-                                    if (sel)
-                                      const Icon(Icons.check_circle_rounded,
-                                          color: AppColors.primary),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: tempSelection == null
-                              ? null
-                              : () =>
-                                  Navigator.pop(sheetContext, tempSelection),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: const StadiumBorder(),
-                            elevation: 0,
-                          ),
-                          child: Text(AppLocalizations.of(ctx).confirmCurrency),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
+    await context.push('/profile/currency');
+    _currencyPromptShown = false;
     if (!mounted) return;
-    if (selected == null || selected.trim().isEmpty) {
+
+    final resolved = _strictUserCurrency(ref.read(authProvider).user);
+    if (resolved.isEmpty) {
+      // Still not set — the user backed out without confirming.
       context.pop();
       return;
     }
-    try {
-      await ref.read(authProvider.notifier).activateEarning(selected);
-      if (!mounted) return;
-      setState(() => _lockedCurrency = selected.toUpperCase());
-    } catch (e) {
-      if (mounted)
-        AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
-    } finally {
-      _currencyPromptShown = false;
-    }
+    setState(() => _lockedCurrency = resolved.toUpperCase());
   }
 
   // Returns lowercase values matching the backend Mongoose enum:

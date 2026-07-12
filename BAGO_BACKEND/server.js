@@ -19,6 +19,7 @@ import priceRoutes from "./AdminRouter/priceperkgRoute.js";
 import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
+import { startBirthdayGreetings } from './cron/birthdayCron.js'
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { getPushProviderStatus, sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
@@ -182,6 +183,7 @@ runMigrations();
 ensureSupportTable();
 startEscrowAutoRelease();
 startCurrencyRateSync();
+startBirthdayGreetings();
 startPremblySessionReconciler();
 
 // Apple Pay domain verification — must be before all middleware and auth
@@ -288,8 +290,24 @@ app.use((err, _req, res, next) => {
 function disabledPaymentProvider(provider) {
   return (_req, res) => res.status(410).json({
     success: false,
-    message: `${provider} is disabled. Bago checkout is currently PayPal only.`,
+    message: `${provider} is disabled. Bago is switching payment providers — checkout and payouts will return shortly.`,
   });
+}
+
+// Feature-flag gate for providers being phased out (Paystack, PayPal) in favor of
+// Flutterwave. Defaults to disabled even if the env var is unset, so disabling a
+// provider here takes effect immediately without depending on a Render env change.
+// Only gates "start something new" routes (initialize/create-order/connect/withdraw)
+// — verify/capture/void/webhook/reconciliation routes stay reachable so any
+// transaction already in flight when the flag flips can still settle instead of
+// stranding real money.
+function requireProviderEnabled(provider, envVar) {
+  return (req, res, next) => {
+    if (String(process.env[envVar] || 'false').toLowerCase() !== 'true') {
+      return disabledPaymentProvider(provider)(req, res);
+    }
+    return next();
+  };
 }
 
 const MAX_STRING_LENGTH = 5000;
@@ -996,33 +1014,38 @@ app.post('/api/currency/preview', previewConversion);
 app.post('/api/currency/quote', getPaymentQuote);
 app.post('/api/checkout/shipment-preview', isAuthenticated, previewShipmentCheckout);
 
-// ✅ Paystack endpoints (for African users)
-app.post('/api/paystack/initialize', isAuthenticated, requireKycVerification, initializePaystackPayment);
+// Paystack is disabled — Bago is migrating to Flutterwave as the sole payment/payout
+// provider (PAYSTACK_ENABLED gate). Verify/webhook/transfer-approval stay reachable
+// so any withdrawal or payment already in flight can still settle. Historical
+// Paystack records and this code remain intact for reconciliation and rollback.
+app.post('/api/paystack/initialize', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), requireKycVerification, initializePaystackPayment);
 app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
-app.post('/api/paystack/add-bank', isAuthenticated, addBankAccount);
-app.post('/api/paystack/verify-bank-otp', isAuthenticated, verifyBankOTP);
-app.post('/api/paystack/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFundsPaystack);
-app.get('/api/paystack/banks', isAuthenticated, getPaystackBanks);
-app.get('/api/paystack/resolve', isAuthenticated, requireKycVerification, resolvePaystackAccount);
-app.get('/api/paystack/countries', getPaystackCountries);
+app.post('/api/paystack/add-bank', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), addBankAccount);
+app.post('/api/paystack/verify-bank-otp', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), verifyBankOTP);
+app.post('/api/paystack/withdraw', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFundsPaystack);
+app.get('/api/paystack/banks', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), getPaystackBanks);
+app.get('/api/paystack/resolve', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), requireKycVerification, resolvePaystackAccount);
+app.get('/api/paystack/countries', requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), getPaystackCountries);
 app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
 app.post('/api/paystack/transfer-approval', paystackTransferApproval); // Called by Paystack transfer approvals
 
-// ✅ PayPal active checkout flow. Customers pay first, then Bago holds the
-// captured funds in escrow until the shipment is completed.
-app.get('/api/config/paypal', isAuthenticated, getPaypalConfig);
-app.post('/api/payouts/paypal/connect', isAuthenticated, requireKycVerification, connectPaypalPayout);
-app.post('/api/payouts/paypal/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawPaypalPayout);
-app.post('/api/payments/paypal/create-order', isAuthenticated, createPaypalOrder);
+// PayPal is disabled — Bago is migrating to Flutterwave as the sole payment/payout
+// provider (PAYPAL_ENABLED gate). Capture/void/webhook/return/cancel stay reachable
+// so any order already created before the cutover can still settle. Historical
+// PayPal records and this code remain intact for reconciliation and rollback.
+app.get('/api/config/paypal', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), getPaypalConfig);
+app.post('/api/payouts/paypal/connect', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), requireKycVerification, connectPaypalPayout);
+app.post('/api/payouts/paypal/withdraw', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawPaypalPayout);
+app.post('/api/payments/paypal/create-order', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), createPaypalOrder);
 app.post('/api/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
 app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
 app.post('/api/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
 app.post('/api/payments/paypal/webhook', paypalWebhook);
-app.get('/api/payments/paypal/apple-pay-sheet', paypalApplePaySheet);
-app.get('/api/payments/paypal/card-fields', paypalCardFieldsSheet);
+app.get('/api/payments/paypal/apple-pay-sheet', requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), paypalApplePaySheet);
+app.get('/api/payments/paypal/card-fields', requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), paypalCardFieldsSheet);
 app.get('/api/payments/paypal/return', paypalReturn);
 app.get('/api/payments/paypal/cancel', paypalCancel);
-app.post('/payments/paypal/create-order', isAuthenticated, createPaypalOrder);
+app.post('/payments/paypal/create-order', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), createPaypalOrder);
 app.post('/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
 app.post('/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
 app.post('/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);

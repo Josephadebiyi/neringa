@@ -85,6 +85,11 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     _hydrateFromUser(user);
   }
 
+  // Flutterwave is the sole active payout provider now — bank-account setup no
+  // longer branches by currency. _africanPayoutCurrencies/_usesPaystack are kept
+  // only so _payoutStateFor below can still recognize an already-connected
+  // legacy Paystack/PayPal account (so existing users don't see broken state);
+  // they no longer drive which flow a user is offered.
   bool get _usesPaystack =>
       _africanPayoutCurrencies.contains(_selectedCurrency.toUpperCase());
 
@@ -102,47 +107,48 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     final provider = user?.payoutProvider?.trim().toLowerCase() ?? '';
     final payoutStatus = user?.payoutStatus?.trim().toLowerCase() ?? '';
     final methodStatus = user?.payoutMethodStatus?.trim().toLowerCase() ?? '';
+    final connected = payoutStatus == 'active' ||
+        methodStatus == 'active' ||
+        methodStatus == 'connected';
+
+    final hasFlutterwave = provider == 'flutterwave' || method == 'flutterwave';
+    if (hasFlutterwave && connected) {
+      return const _PayoutState(
+        provider: _PayoutProvider.flutterwave,
+        status: _PayoutStatus.active,
+        detail: 'Bank account connected',
+        accountId: null,
+      );
+    }
+
+    // Legacy providers, kept only so an already-connected account from before
+    // the Flutterwave migration still shows as connected instead of broken.
     final hasPaystack = user?.bankAccountLinked == true &&
         (provider == 'paystack' ||
             method == 'paystack' ||
             methodStatus == 'connected');
-    final paystackActive = _usesPaystack &&
-        hasPaystack &&
-        (payoutStatus == 'active' ||
-            methodStatus == 'active' ||
-            methodStatus == 'connected');
-    final hasPaypal = provider == 'paypal' || method == 'paypal';
-    final paypalActive = !_usesPaystack &&
-        hasPaypal &&
-        (payoutStatus == 'active' ||
-            methodStatus == 'active' ||
-            methodStatus == 'connected');
-
-    if (paystackActive) {
-      return _PayoutState(
+    if (hasPaystack && connected) {
+      return const _PayoutState(
         provider: _PayoutProvider.paystack,
         status: _PayoutStatus.active,
-        detail: 'Paystack bank payouts are connected',
+        detail: 'Paystack bank payouts are connected (legacy)',
         accountId: null,
       );
     }
-
-    if (paypalActive) {
-      return _PayoutState(
+    final hasPaypal = provider == 'paypal' || method == 'paypal';
+    if (hasPaypal && connected) {
+      return const _PayoutState(
         provider: _PayoutProvider.paypal,
         status: _PayoutStatus.active,
-        detail: 'PayPal payouts are connected',
+        detail: 'PayPal payouts are connected (legacy)',
         accountId: null,
       );
     }
 
-    return _PayoutState(
-      provider:
-          _usesPaystack ? _PayoutProvider.paystack : _PayoutProvider.paypal,
+    return const _PayoutState(
+      provider: _PayoutProvider.flutterwave,
       status: _PayoutStatus.notStarted,
-      detail: _usesPaystack
-          ? 'Add a Paystack-supported bank account'
-          : 'Add your PayPal email to receive payouts',
+      detail: 'Add a bank account to receive payouts',
       accountId: null,
     );
   }
@@ -270,7 +276,11 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     );
   }
 
-  Future<void> _continueWithPaystack() async {
+  // Flutterwave — sole active payout provider. Kept the name/shape of the old
+  // _continueWithPaystack (same activateEarning-then-navigate pattern) since
+  // add_bank_screen.dart now posts to Flutterwave's bank endpoints instead of
+  // Paystack's.
+  Future<void> _continueToAddPayoutAccount() async {
     if (_saving) return;
     final payoutCurrency = _selectedCurrency.toUpperCase();
     setState(() => _saving = true);
@@ -357,10 +367,16 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
     final user = ref.watch(authProvider).user;
     final payoutState = _payoutStateFor(user);
-    final methodName = _usesPaystack ? 'Paystack bank transfer' : 'PayPal';
-    final providerHelp = _usesPaystack
-        ? 'This currency is paid out through Paystack bank transfer.'
-        : 'This currency is paid out through PayPal.';
+    final isLegacyProvider = payoutState.provider == _PayoutProvider.paystack ||
+        payoutState.provider == _PayoutProvider.paypal;
+    final methodName = isLegacyProvider
+        ? (payoutState.provider == _PayoutProvider.paystack
+            ? 'Paystack bank transfer'
+            : 'PayPal')
+        : 'Bank account';
+    final providerHelp = isLegacyProvider
+        ? 'This account is on our previous payout provider and will keep working.'
+        : 'This currency is paid out through Bago\'s secure payout partner.';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -394,43 +410,30 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             ),
           ),
           const SizedBox(height: 28),
-          if (_usesPaystack) ...[
+          if (isLegacyProvider) ...[
+            // Already connected on the previous provider — show as-is, no new
+            // legacy connections are offered going forward.
             _PayoutChoiceTile(
-              assetImage: 'assets/images/paystack-mark.png',
-              title: payoutState.isActive
-                  ? 'Bank account connected'
-                  : 'Bank account',
-              subtitle: payoutState.isActive
-                  ? 'Tap to update your Paystack bank account'
-                  : 'Save a local bank account with Paystack',
+              assetImage: payoutState.provider == _PayoutProvider.paystack
+                  ? 'assets/images/paystack-mark.png'
+                  : null,
+              paypal: payoutState.provider == _PayoutProvider.paypal,
+              title: payoutState.detail,
+              subtitle: 'Tap to add a new payout account instead',
               enabled: !_saving,
-              onTap: _continueWithPaystack,
-            ),
-            const Divider(height: 1, color: AppColors.gray200),
-            _PayoutChoiceTile(
-              paypal: true,
-              title: 'PayPal',
-              subtitle: 'Not available for $_selectedCurrency payouts',
-              enabled: false,
-              onTap: () {},
+              onTap: _continueToAddPayoutAccount,
             ),
           ] else ...[
             _PayoutChoiceTile(
               icon: Icons.account_balance_rounded,
-              title: 'Bank account',
-              subtitle: 'Coming soon',
-              enabled: false,
-              onTap: () {},
-            ),
-            const Divider(height: 1, color: AppColors.gray200),
-            _PayoutChoiceTile(
-              paypal: true,
-              title: payoutState.isActive ? 'PayPal connected' : 'PayPal',
+              title: payoutState.isActive
+                  ? 'Bank account connected'
+                  : 'Bank account',
               subtitle: payoutState.isActive
-                  ? 'Tap to update your PayPal email'
-                  : 'Receive payouts with your PayPal email',
+                  ? 'Tap to update your payout account'
+                  : 'Add your bank account to receive payouts',
               enabled: !_saving,
-              onTap: _openPaypalPayoutPage,
+              onTap: _continueToAddPayoutAccount,
             ),
           ],
           const SizedBox(height: 26),
@@ -779,6 +782,7 @@ class _StripePayoutWebViewState extends State<_StripePayoutWebView> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onHttpAuthRequest: (request) => request.onCancel(),
           onPageFinished: (_) {
             if (mounted) setState(() => _loading = false);
           },
@@ -881,7 +885,7 @@ class _StripeSetupNote extends StatelessWidget {
   }
 }
 
-enum _PayoutProvider { stripe, paystack, paypal }
+enum _PayoutProvider { stripe, paystack, paypal, flutterwave }
 
 enum _PayoutStatus { notStarted, incomplete, active }
 

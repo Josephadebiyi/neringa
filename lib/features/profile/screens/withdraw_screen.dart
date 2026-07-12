@@ -70,53 +70,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   double _profileEscrowBalance() =>
       ref.read(authProvider).user?.escrowBalance ?? 0;
 
-  static const _africanCurrencies = {
-    'AOA',
-    'BIF',
-    'BWP',
-    'CDF',
-    'CVE',
-    'DJF',
-    'DZD',
-    'EGP',
-    'ERN',
-    'ETB',
-    'GHS',
-    'GMD',
-    'GNF',
-    'KES',
-    'KMF',
-    'LRD',
-    'LSL',
-    'LYD',
-    'MAD',
-    'MGA',
-    'MRU',
-    'MUR',
-    'MWK',
-    'MZN',
-    'NAD',
-    'NGN',
-    'RWF',
-    'SCR',
-    'SDG',
-    'SLE',
-    'SOS',
-    'SSP',
-    'STN',
-    'SZL',
-    'TZS',
-    'UGX',
-    'XAF',
-    'XOF',
-    'ZAR',
-    'ZMW',
-    'ZWL',
-  };
-
   @override
   void initState() {
     super.initState();
+    // Seed from the already-cached auth state immediately so the balance card
+    // shows real numbers on first frame instead of "0.00" while the network
+    // calls below are still in flight — this is what made the screen feel
+    // slow to open compared to sections that render from cache first.
+    _balance = _profileBalance();
+    _escrowBalance = _profileEscrowBalance();
     _fetchBalance();
   }
 
@@ -129,8 +91,14 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   Future<void> _fetchBalance() async {
     if (mounted) setState(() => _balanceLoading = true);
     try {
-      await ref.read(authProvider.notifier).refreshProfile();
-      final res = await ApiService.instance.get(ApiConstants.walletBalance);
+      // These two calls are independent — run them together instead of
+      // sequentially, since each one was doubling the wait before the
+      // balance card could show real numbers.
+      final results = await Future.wait([
+        ref.read(authProvider.notifier).refreshProfile(),
+        ApiService.instance.get(ApiConstants.walletBalance),
+      ]);
+      final res = results[1] as Response;
       final data = res.data as Map<String, dynamic>?;
       final parsedBalance = _numFrom(data, const [
         'balance',
@@ -223,15 +191,12 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         return;
       }
 
-      final path = _africanCurrencies.contains(currency.toUpperCase())
-          ? ApiConstants.withdrawFunds
-          : ApiConstants.paypalWithdraw;
-      await ApiService.instance.post(path, data: {
+      // Flutterwave is the sole active payout provider — one withdrawal endpoint
+      // for every currency now, instead of branching African vs PayPal.
+      await ApiService.instance.post(ApiConstants.flutterwaveWithdraw, data: {
         'amount': amount,
         'currency': currency,
         'otp': otp,
-        if (!_africanCurrencies.contains(currency.toUpperCase()))
-          'method': 'paypal',
       });
       if (mounted) {
         await _fetchBalance();
@@ -487,19 +452,22 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
     final minimumAmount =
         CurrencyConversionHelper.minimumWithdrawalForCurrency(currency);
-    final isAfrican = _africanCurrencies.contains(currency.toUpperCase());
+    // Flutterwave is the sole active payout provider — bank-account linkage is
+    // no longer currency-branched. bankAccountLinked covers new Flutterwave
+    // beneficiaries; payoutProvider/payoutStatus catch an already-connected
+    // legacy PayPal account so existing users aren't shown as unlinked.
     final hasBankLinked = user?.bankAccountLinked == true;
     final payoutProvider = user?.payoutProvider?.toLowerCase() ?? '';
     final payoutMethod = user?.payoutMethod?.toLowerCase() ?? '';
     final payoutStatus = user?.payoutStatus?.toLowerCase() ?? '';
     final payoutMethodStatus = user?.payoutMethodStatus?.toLowerCase() ?? '';
-    final hasPaypalLinked =
+    final hasLegacyPaypalLinked =
         payoutProvider == 'paypal' || payoutMethod == 'paypal';
-    final hasActivePaypal = hasPaypalLinked &&
+    final hasActiveLegacyPaypal = hasLegacyPaypalLinked &&
         (payoutStatus == 'active' ||
             payoutMethodStatus == 'connected' ||
             payoutMethodStatus == 'active');
-    final hasPayoutMethod = isAfrican ? hasBankLinked : hasActivePaypal;
+    final hasPayoutMethod = hasBankLinked || hasActiveLegacyPaypal;
     final canWithdraw =
         hasPayoutMethod && !_submitting && _balance >= minimumAmount;
 
@@ -574,9 +542,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                                     fontWeight: FontWeight.w800)),
                             const SizedBox(height: 4),
                             Text(
-                              isAfrican
-                                  ? 'Please link a bank account before withdrawing.'
-                                  : 'Please add your PayPal payout email before withdrawing.',
+                              'Please link a bank account before withdrawing.',
                               style: AppTextStyles.bodySm.copyWith(
                                   color: const Color(0xFF92400E), height: 1.4),
                             ),
@@ -605,7 +571,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               ),
               const SizedBox(height: 12),
               _PayoutMethodPanel(
-                method: isAfrican ? 'Paystack bank transfer' : 'PayPal',
+                method: hasActiveLegacyPaypal ? 'PayPal (legacy)' : 'Bank account',
                 hasMethod: hasPayoutMethod,
                 onSetup: () => context.push('/profile/payout-methods'),
               ),
@@ -641,7 +607,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 amount: double.tryParse(_amountCtrl.text) ?? 0,
                 minimumAmount: minimumAmount,
                 balance: _balance,
-                method: isAfrican ? 'Paystack bank transfer' : 'PayPal',
+                method: hasActiveLegacyPaypal ? 'PayPal (legacy)' : 'Bank account',
               ),
               const SizedBox(height: 24),
               SizedBox(

@@ -7,14 +7,6 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
-// Same African currency set as the mobile app
-const AFRICAN_CURRENCIES = new Set([
-    'AOA','BIF','BWP','CDF','CVE','DJF','DZD','EGP','ERN','ETB',
-    'GHS','GMD','GNF','KES','KMF','LRD','LSL','LYD','MAD','MGA',
-    'MRU','MUR','MWK','MZN','NAD','NGN','RWF','SCR','SDG','SLE',
-    'SOS','SSP','STN','SZL','TZS','UGX','XAF','XOF','ZAR','ZMW','ZWL',
-]);
-
 const CURRENCY_SYMBOLS = { USD:'$', EUR:'€', GBP:'£', NGN:'₦', GHS:'₵', KES:'KSh', ZAR:'R' };
 // Approximate exchange rates vs USD for minimum calculation
 const FX = { USD:1, EUR:0.91, GBP:0.78, NGN:1550, GHS:15, KES:129, ZAR:18.5 };
@@ -98,12 +90,10 @@ function firstNumber(...values) {
     return 0;
 }
 
+// Legacy — only rendered for a user still on a pre-Flutterwave connected
+// PayPal payout, kept for display continuity.
 function PayPalLogo({ size = 20 }) {
     return <img src="/paypal-symbol.png" alt="PayPal" style={{ height: size, width: 'auto' }} />;
-}
-
-function PaystackLogo({ size = 20 }) {
-    return <img src="/paystack-mark.png" alt="Paystack" style={{ height: size, width: 'auto' }} />;
 }
 
 export default function Earnings({ user, checkAuthStatus }) {
@@ -127,20 +117,22 @@ export default function Earnings({ user, checkAuthStatus }) {
 
     const walletCurrency = (walletApiCurrency || user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
     const sym             = getSymbol(walletCurrency);
-    const isAfrican       = AFRICAN_CURRENCIES.has(walletCurrency);
     const minimum         = getMinimum(walletCurrency);
 
-    // Payout method detection — mirrors mobile app exactly
+    // Flutterwave is the sole active payout provider — bank-account linkage is
+    // no longer currency-branched. bankAccountLinked covers new Flutterwave
+    // beneficiaries; payoutProvider/payoutStatus catch an already-connected
+    // legacy PayPal account so existing users aren't shown as unlinked.
     const hasBankLinked   = !!user?.bankAccountLinked || !!user?.bankDetails?.accountNumber;
     const payoutProvider  = (user?.payoutProvider  || '').toLowerCase();
     const payoutMethod    = (user?.payoutMethod    || '').toLowerCase();
     const payoutStatus    = (user?.payoutStatus    || '').toLowerCase();
     const payoutMethodSt  = (user?.payoutMethodStatus || '').toLowerCase();
-    const hasPaypalLinked = payoutProvider === 'paypal' || payoutMethod === 'paypal';
-    const hasActivePaypal = hasPaypalLinked && (
+    const hasLegacyPaypalLinked = payoutProvider === 'paypal' || payoutMethod === 'paypal';
+    const hasActiveLegacyPaypal = hasLegacyPaypalLinked && (
         payoutStatus === 'active' || payoutMethodSt === 'connected' || payoutMethodSt === 'active'
     );
-    const hasPayoutMethod = isAfrican ? hasBankLinked : hasActivePaypal;
+    const hasPayoutMethod = hasBankLinked || hasActiveLegacyPaypal;
 
     useEffect(() => {
         let alive = true;
@@ -239,11 +231,15 @@ export default function Earnings({ user, checkAuthStatus }) {
         setSubmitting(true);
         setStatus({ type:'', msg:'' });
         try {
-            const endpoint = isAfrican ? '/api/bago/withdrawFunds' : '/api/payouts/paypal/withdraw';
-            const payload  = { amount: amountNum, currency: walletCurrency, otp };
-            if (!isAfrican) payload.method = 'paypal';
-            else payload.description = 'Withdrawal via Bank Transfer';
-            const res = await api.post(endpoint, payload);
+            // Flutterwave is the sole active payout provider — one withdrawal
+            // endpoint for every currency now, instead of branching African vs
+            // PayPal.
+            const res = await api.post('/api/payouts/flutterwave/withdraw', {
+                amount: amountNum,
+                currency: walletCurrency,
+                otp,
+                description: 'Withdrawal via Bank Transfer',
+            });
             if (res.data.success) {
                 setStatus({ type:'success', msg:'Withdrawal submitted successfully!' });
                 setAmount('');
@@ -281,14 +277,14 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div className="flex flex-col gap-3 min-w-[200px]">
                         {/* Payout method badge */}
                         <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${hasPayoutMethod ? 'bg-white/70 border-white/60' : 'bg-red-50/80 border-red-200/60'}`}>
-                            {isAfrican ? (
-                                <PaystackLogo size={22} />
-                            ) : (
+                            {hasActiveLegacyPaypal ? (
                                 <PayPalLogo size={22} />
+                            ) : (
+                                <Wallet size={22} className="text-[#5C4BFD]" />
                             )}
                             <div>
                                 <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
-                                    {isAfrican ? 'Paystack Bank Transfer' : 'PayPal Payout'}
+                                    {hasActiveLegacyPaypal ? 'PayPal Payout (legacy)' : 'Bank Transfer'}
                                 </p>
                                 <p className={`text-[8px] font-bold uppercase tracking-wider ${hasPayoutMethod ? 'text-emerald-600' : 'text-red-500'}`}>
                                     {hasPayoutMethod ? 'Connected' : 'Not connected'}
@@ -366,9 +362,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             <div>
                                 <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight mb-1">No payout method linked</p>
                                 <p className="text-[9px] text-amber-700 font-medium leading-relaxed">
-                                    {isAfrican
-                                        ? 'Please link a bank account before withdrawing.'
-                                        : 'Please add your PayPal payout email before withdrawing.'}
+                                    Please link a bank account before withdrawing.
                                 </p>
                                 <button
                                     onClick={() => navigate('/dashboard?tab=settings')}
@@ -425,8 +419,8 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <div className="flex justify-between text-[#111827]">
                             <span className="text-[#5C4BFD]">Method</span>
                             <span className="font-black flex items-center gap-1.5">
-                                {isAfrican ? <PaystackLogo size={14} /> : <PayPalLogo size={13} />}
-                                {isAfrican ? 'Paystack' : 'PayPal'}
+                                {hasActiveLegacyPaypal ? <PayPalLogo size={13} /> : <Wallet size={14} className="text-[#5C4BFD]" />}
+                                {hasActiveLegacyPaypal ? 'PayPal' : 'Bank Transfer'}
                             </span>
                         </div>
                         <div className="border-t border-gray-200 pt-2 flex justify-between text-[#111827]">
@@ -442,18 +436,18 @@ export default function Earnings({ user, checkAuthStatus }) {
 
                     {/* Payout method display */}
                     <div className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 ${hasPayoutMethod ? 'bg-white border border-gray-100' : 'bg-gray-50 border border-gray-100'}`}>
-                        {isAfrican ? (
-                            <div className="w-10 h-7 rounded-lg flex items-center justify-center shrink-0">
-                                <PaystackLogo size={24} />
+                        {hasActiveLegacyPaypal ? (
+                            <div className="w-10 h-7 bg-[#5C4BFD]/6 rounded-lg flex items-center justify-center shrink-0">
+                                <PayPalLogo size={18} />
                             </div>
                         ) : (
                             <div className="w-10 h-7 bg-[#5C4BFD]/6 rounded-lg flex items-center justify-center shrink-0">
-                                <PayPalLogo size={18} />
+                                <Wallet size={18} className="text-[#5C4BFD]" />
                             </div>
                         )}
                         <div className="flex-1 min-w-0">
                             <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
-                                {isAfrican ? 'Paystack Bank Transfer' : 'PayPal'}
+                                {hasActiveLegacyPaypal ? 'PayPal' : 'Bank Transfer'}
                             </p>
                             <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
                                 {hasPayoutMethod ? 'Funds sent after approval' : 'Setup required before withdrawing'}

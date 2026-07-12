@@ -28,12 +28,6 @@ import {
 import api from '../api';
 import { countries, locations } from '../utils/countries';
 
-const AFRICAN_CURRENCIES = new Set([
-    'AOA','BIF','BWP','CDF','CVE','DJF','DZD','EGP','ERN','ETB','GHS','GMD','GNF',
-    'KES','KMF','LRD','LSL','LYD','MAD','MGA','MRU','MUR','MWK','MZN','NAD','NGN',
-    'RWF','SCR','SDG','SLE','SOS','SSP','STN','SZL','TZS','UGX','XAF','XOF','ZAR','ZMW','ZWL',
-]);
-
 const ITEM_CATEGORIES = [
     { value: 'Documents',   label: 'Documents',   icon: FileText },
     { value: 'Clothing',    label: 'Clothing',    icon: Archive },
@@ -180,8 +174,6 @@ export default function SendPackage() {
     const [checkoutPreview, setCheckoutPreview] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [previewError, setPreviewError] = useState('');
-    const [pendingPayment, setPendingPayment] = useState(null);
-    const [paymentProcessing, setPaymentProcessing] = useState(false);
     const [receiverPhoneCountry, setReceiverPhoneCountry] = useState('us');
     const [termsAccepted, setTermsAccepted] = useState([false, false, false]);
 
@@ -324,46 +316,6 @@ export default function SendPackage() {
     const previewCurrency = (checkoutPreview?.senderCurrency || checkoutPreview?.senderPaymentCurrency || currency || 'USD').toUpperCase();
     const canCheckout = Boolean(checkoutPreview && totalCostNumber > 0 && !previewLoading);
 
-    const createShipmentAfterPayment = async ({ packageId, paymentReference, provider }) => {
-        const preview = pendingPayment?.checkoutPreview || checkoutPreview;
-        const paymentCurrency = (preview?.senderCurrency || preview?.senderPaymentCurrency || previewCurrency).toUpperCase();
-        const paymentTotal = readPreviewNumber(preview, 'totalAmount');
-        const paymentInsurance = readPreviewNumber(preview, 'insuranceAmount');
-        const res = await api.post('/api/bago/RequestPackage', {
-            travelerId: preview?.travelerId || travelerIdFrom(selectedTrip),
-            packageId, tripId: tripIdFrom(selectedTrip),
-            amount: paymentTotal || Number(totalCost), currency: paymentCurrency,
-            estimatedDeparture: selectedTrip.departureDate,
-            insurance: formData.insuranceProtection,
-            insuranceCost: formData.insuranceProtection ? paymentInsurance : 0,
-            termsAccepted: true, paymentReference,
-            paymentProvider: provider, paymentStatus: 'paid',
-            travelerPayout: readPreviewNumber(preview, 'travelerPayout'),
-            platformCommission: readPreviewNumber(preview, 'platformFee'),
-            processingFee: readPreviewNumber(preview, 'processingFee'),
-            fxBuffer: readPreviewNumber(preview, 'fxBuffer'),
-            senderShippingFee: readPreviewNumber(preview, 'shippingAmount'),
-            bagoNetRevenue: readPreviewNumber(preview, 'bagoNetRevenue'),
-        });
-        if ([200, 201, 202].includes(res.status) || res.data?.success) {
-            setPendingPayment(null);
-            navigate('/dashboard', { state: { message: t('requestSentSuccess') } });
-        }
-    };
-
-    const handleVerifyPaystackPayment = async () => {
-        if (!pendingPayment?.reference) return;
-        setPaymentProcessing(true);
-        setError('');
-        try {
-            const verify = await api.get(`/api/paystack/verify/${pendingPayment.reference}`);
-            if (!verify.data?.success) { showPaymentError(setError, PAYMENT_PENDING_MESSAGE, verify.data); return; }
-            await createShipmentAfterPayment({ packageId: pendingPayment.packageId, paymentReference: pendingPayment.reference, provider: 'paystack' });
-        } catch (err) {
-            showPaymentError(setError, PAYMENT_PENDING_MESSAGE, err);
-        } finally { setPaymentProcessing(false); }
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -394,7 +346,6 @@ export default function SendPackage() {
                 return;
             }
             const checkoutCurrency = (preview.senderCurrency || preview.senderPaymentCurrency || currency || 'USD').toUpperCase();
-            const checkoutIsAfricanCurrency = AFRICAN_CURRENCIES.has(checkoutCurrency);
             const checkoutTotal = readPreviewNumber(preview, 'totalAmount');
             const checkoutInsurance = readPreviewNumber(preview, 'insuranceAmount');
             if (checkoutTotal <= 0) {
@@ -433,56 +384,20 @@ export default function SendPackage() {
                 return;
             }
 
-            if (!checkoutIsAfricanCurrency) {
-                const params = new URLSearchParams({
-                    packageId,
-                    tripId: tripIdFrom(selectedTrip),
-                    travelerId: String(preview.travelerId || travelerIdFrom(selectedTrip)),
-                    currency: checkoutCurrency,
-                    amount: checkoutTotal.toFixed(2),
-                    insurance: String(formData.insuranceProtection),
-                    insuranceCost: String(formData.insuranceProtection ? checkoutInsurance : 0),
-                    estimatedDeparture: selectedTrip.departureDate || '',
-                });
-                navigate(`/checkout/payment?${params.toString()}`);
-                return;
-            }
-
-            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-            try {
-                const psRes = await api.post('/api/paystack/initialize', {
-                    packageId, tripId: tripIdFrom(selectedTrip),
-                    amount: checkoutTotal, currency: checkoutCurrency,
-                    customerEmail: user?.email || '',
-                    expiresAt,
-                    metadata: {
-                        insurance: formData.insuranceProtection,
-                        insuranceCost: formData.insuranceProtection ? checkoutInsurance : 0,
-                        estimatedDeparture: selectedTrip.departureDate,
-                        estimatedArrival: selectedTrip.arrivalDate,
-                        checkoutPreview: preview,
-                    },
-                });
-                const authorizationUrl = psRes.data?.authorization_url || psRes.data?.data?.authorization_url;
-                const reference = psRes.data?.reference || psRes.data?.data?.reference;
-                if (!authorizationUrl || !reference) throw new Error('Payment checkout could not start.');
-                localStorage.setItem('bagoPendingShipment', JSON.stringify({
-                    packageId,
-                    tripId: tripIdFrom(selectedTrip),
-                    travelerId: String(preview.travelerId || travelerIdFrom(selectedTrip)),
-                    amount: checkoutTotal,
-                    currency: checkoutCurrency,
-                    estimatedDeparture: selectedTrip.departureDate || '',
-                    insurance: formData.insuranceProtection,
-                    insuranceCost: formData.insuranceProtection ? checkoutInsurance : 0,
-                }));
-                window.open(authorizationUrl, '_blank', 'noopener,noreferrer');
-                setPendingPayment({ provider: 'paystack', packageId, reference, authorizationUrl, checkoutPreview: preview });
-                setLoading(false);
-            } catch (err) {
-                showPaymentError(setError, 'We could not continue checkout right now. Please try again in a few minutes.', err);
-                setLoading(false);
-            }
+            // Flutterwave is the sole active payment provider — every currency now
+            // routes through the same hosted-checkout page instead of branching
+            // African currencies into an inline Paystack new-tab flow.
+            const params = new URLSearchParams({
+                packageId,
+                tripId: tripIdFrom(selectedTrip),
+                travelerId: String(preview.travelerId || travelerIdFrom(selectedTrip)),
+                currency: checkoutCurrency,
+                amount: checkoutTotal.toFixed(2),
+                insurance: String(formData.insuranceProtection),
+                insuranceCost: String(formData.insuranceProtection ? checkoutInsurance : 0),
+                estimatedDeparture: selectedTrip.departureDate || '',
+            });
+            navigate(`/checkout/payment?${params.toString()}`);
         } catch (err) {
             showPaymentError(setError, 'We could not continue checkout right now. Please try again in a few minutes.', err);
             setLoading(false);
@@ -834,33 +749,13 @@ export default function SendPackage() {
                                 </div>
                             )}
 
-                            {/* Pending Paystack — mobile */}
-                            {pendingPayment && (
-                                <div className="lg:hidden bg-amber-50 border border-amber-100 rounded-[20px] p-5">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <img src="/paystack-mark.png" alt="Paystack" className="h-5 w-auto shrink-0" />
-                                        <p className="text-xs font-black text-amber-800">Complete payment in the Paystack tab, then verify here.</p>
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <a href={pendingPayment.authorizationUrl} target="_blank" rel="noreferrer"
-                                            className="flex-1 py-3 bg-white border border-amber-200 text-amber-700 rounded-[14px] text-[10px] font-black uppercase tracking-widest text-center">
-                                            Reopen
-                                        </a>
-                                        <button type="button" onClick={handleVerifyPaystackPayment} disabled={paymentProcessing}
-                                            className="flex-1 py-3 bg-[#5845D8] text-white rounded-[14px] text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
-                                            {paymentProcessing ? 'Checking…' : 'Verify & Send'}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Submit — mobile */}
                             <button
                                 type="submit"
-                                disabled={loading || Boolean(pendingPayment) || !canCheckout}
+                                disabled={loading || !canCheckout}
                                 className="lg:hidden w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-black text-[11px] uppercase tracking-[2px] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {pendingPayment ? 'Complete payment above' : loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
+                                {loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
                             </button>
                         </div>
 
@@ -937,33 +832,13 @@ export default function SendPackage() {
                                     </div>
                                 )}
 
-                                {/* Pending Paystack — desktop */}
-                                {pendingPayment && (
-                                    <div className="bg-amber-50 border border-amber-100 rounded-[18px] p-4">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <img src="/paystack-mark.png" alt="Paystack" className="h-5 w-auto shrink-0" />
-                                            <p className="text-xs font-black text-amber-800">Complete payment in the Paystack tab, then verify here.</p>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <a href={pendingPayment.authorizationUrl} target="_blank" rel="noreferrer"
-                                                className="flex-1 py-2.5 bg-white border border-amber-200 text-amber-700 rounded-[12px] text-[9px] font-black uppercase tracking-widest text-center">
-                                                Reopen
-                                            </a>
-                                            <button type="button" onClick={handleVerifyPaystackPayment} disabled={paymentProcessing}
-                                                className="flex-1 py-2.5 bg-[#5845D8] text-white rounded-[12px] text-[9px] font-black uppercase tracking-widest disabled:opacity-50">
-                                                {paymentProcessing ? 'Checking…' : 'Verify & Send'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Submit — desktop */}
                                 <button
                                     type="submit"
-                                    disabled={loading || Boolean(pendingPayment) || !canCheckout}
+                                    disabled={loading || !canCheckout}
                                     className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-black text-[11px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
-                                    {pendingPayment ? 'Complete payment above' : loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
+                                    {loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
                                 </button>
 
                                 <p className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">

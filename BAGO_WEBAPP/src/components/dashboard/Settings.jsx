@@ -25,6 +25,9 @@ const COUNTRY_CODES = [
     { code: 'PT', name: 'Portugal', dial: '+351', flag: '🇵🇹' },
     { code: 'NL', name: 'Netherlands', dial: '+31', flag: '🇳🇱' },
     { code: 'BE', name: 'Belgium', dial: '+32', flag: '🇧🇪' },
+    { code: 'LT', name: 'Lithuania', dial: '+370', flag: '🇱🇹' },
+    { code: 'LV', name: 'Latvia', dial: '+371', flag: '🇱🇻' },
+    { code: 'EE', name: 'Estonia', dial: '+372', flag: '🇪🇪' },
     { code: 'CH', name: 'Switzerland', dial: '+41', flag: '🇨🇭' },
     { code: 'SE', name: 'Sweden', dial: '+46', flag: '🇸🇪' },
     { code: 'NO', name: 'Norway', dial: '+47', flag: '🇳🇴' },
@@ -57,6 +60,18 @@ const COUNTRY_CODES = [
     { code: 'EG', name: 'Egypt', dial: '+20', flag: '🇪🇬' },
     { code: 'MA', name: 'Morocco', dial: '+212', flag: '🇲🇦' },
 ];
+
+// Maps a country of residence to Bago's supported earning currencies, so
+// picking a country auto-suggests the right currency instead of asking users
+// to guess from a bare currency-code list.
+const COUNTRY_TO_CURRENCY = {
+    NG: 'NGN', GH: 'GHS', KE: 'KES', ZA: 'ZAR',
+    LT: 'EUR', LV: 'EUR', EE: 'EUR', FR: 'EUR', DE: 'EUR', IT: 'EUR', ES: 'EUR', PT: 'EUR', NL: 'EUR', BE: 'EUR', FI: 'EUR',
+    GB: 'GBP',
+    US: 'USD',
+    CA: 'CAD',
+    AU: 'AUD', NZ: 'AUD',
+};
 
 function parsePhone(fullPhone) {
     if (!fullPhone) return { dial: '+1', local: '' };
@@ -188,6 +203,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const [showEmailOtp, setShowEmailOtp] = useState(false);
     const [emailOtp, setEmailOtp] = useState('');
     const [preferredCurrency, setPreferredCurrency] = useState(user?.earningCurrency || user?.preferredCurrency || '');
+    const [residenceCountry, setResidenceCountry] = useState(user?.country || '');
     const earningLocked = user?.earningCurrencyLocked ?? false;
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -262,10 +278,11 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'EGP', 'MAD', 'TND', 'UGX', 'TZS', 'XOF', 'XAF', 'RWF', 'ETB', 'MWK', 'BWP', 'MUR'];
-    const isAfricanCurrency = africanCurrencies.includes(preferredCurrency?.toUpperCase());
-    const showBankOption = isAfricanCurrency;
-    const showConnectedPayoutOption = !isAfricanCurrency;
+    // Flutterwave is the sole active payout provider — bank/IBAN setup is no
+    // longer currency-branched between "African bank" and "PayPal email".
+    // EUR/GBP use IBAN + SWIFT/BIC instead of the bank-list picker.
+    const ibanCurrencies = ['EUR', 'GBP'];
+    const isIbanCurrency = ibanCurrencies.includes(preferredCurrency?.toUpperCase());
     const bankDetails = user?.bankDetails || user?.bank_details || {};
     const payoutProvider = String(user?.payoutProvider || user?.payout_provider || '').toLowerCase();
     const payoutMethod = String(user?.payoutMethod || user?.payout_method || '').toLowerCase();
@@ -286,14 +303,18 @@ export default function Settings({ user, checkAuthStatus }) {
         bankDetails?.accountNumber ||
         bankDetails?.account_number
     );
+    // Only surface the legacy PayPal panel for an account that's already
+    // connected on it — no new PayPal connections are offered going forward.
+    const showConnectedPayoutOption = hasConnectedPayout;
+    const showBankOption = !hasConnectedPayout;
 
     useEffect(() => {
-        if (!showBankOption) return;
+        if (!showBankOption || isIbanCurrency) return;
         const countryByCurrency = { NGN: 'NG', GHS: 'GH', KES: 'KE', ZAR: 'ZA' };
-        api.get(`/api/bago/paystack/banks?country=${countryByCurrency[preferredCurrency] || 'NG'}&currency=${preferredCurrency}`)
+        api.get(`/api/payouts/flutterwave/banks?country=${countryByCurrency[preferredCurrency] || 'NG'}&currency=${preferredCurrency}`)
             .then((res) => setBanks(res.data?.banks || res.data?.data || []))
             .catch(() => setBanks([]));
-    }, [showBankOption, preferredCurrency]);
+    }, [showBankOption, isIbanCurrency, preferredCurrency]);
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -308,6 +329,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 firstName,
                 lastName,
                 dateOfBirth,
+                country: residenceCountry,
                 bankDetails: {
                     bankName,
                     accountNumber,
@@ -370,14 +392,54 @@ export default function Settings({ user, checkAuthStatus }) {
         setBankLoading(true);
         try {
             const selectedBank = banks.find(bank => String(bank.code) === String(bankCode));
-            const res = await api.post('/api/bago/paystack/add-bank', {
+            const res = await api.post('/api/payouts/flutterwave/connect', {
                 accountNumber,
                 bankCode,
                 bankName: selectedBank?.name || bankName,
+                currency: preferredCurrency,
             });
             if (res.data.success) {
                 setAccountHolderName(res.data.accountName || '');
                 setBankName(selectedBank?.name || bankName);
+                setShowBankOtp(true);
+                setSuccessMessage(res.data.message || 'Confirmation code sent.');
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Could not start bank verification.');
+        } finally {
+            setBankLoading(false);
+        }
+    };
+
+    // EUR/GBP — IBAN + SWIFT/BIC instead of the bank-list picker above.
+    const [iban, setIban] = useState('');
+    const [swiftBic, setSwiftBic] = useState('');
+    const handleStartIbanSetup = async () => {
+        setError('');
+        setSuccessMessage('');
+        const cleanedIban = iban.replace(/\s/g, '').toUpperCase();
+        if (!accountHolderName.trim()) {
+            setError('Enter the account holder name.');
+            return;
+        }
+        if (!/^[A-Z]{2}[0-9A-Z]{13,32}$/.test(cleanedIban)) {
+            setError('Enter a valid IBAN.');
+            return;
+        }
+        if (!swiftBic.trim()) {
+            setError('Enter the SWIFT/BIC code.');
+            return;
+        }
+        setBankLoading(true);
+        try {
+            const res = await api.post('/api/payouts/flutterwave/connect', {
+                accountHolderName: accountHolderName.trim(),
+                iban: cleanedIban,
+                bankName: bankName.trim(),
+                swiftBic: swiftBic.trim().toUpperCase(),
+                currency: preferredCurrency,
+            });
+            if (res.data.success) {
                 setShowBankOtp(true);
                 setSuccessMessage(res.data.message || 'Confirmation code sent.');
             }
@@ -397,7 +459,7 @@ export default function Settings({ user, checkAuthStatus }) {
         }
         setBankLoading(true);
         try {
-            const res = await api.post('/api/bago/paystack/verify-bank-otp', { otp: bankOtp.trim() });
+            const res = await api.post('/api/payouts/flutterwave/verify-bank-otp', { otp: bankOtp.trim() });
             if (res.data.success) {
                 setShowBankOtp(false);
                 setBankOtp('');
@@ -504,6 +566,34 @@ export default function Settings({ user, checkAuthStatus }) {
                                 className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
                             />
                         </div>
+
+                        {!earningLocked && (
+                            <div className="pt-2 border-t border-gray-50 mt-2">
+                                <div className="bg-[#5845D8]/5 p-3 rounded-2xl border border-[#5845D8]/10 mb-2">
+                                    <label className="block text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1.5 ml-1">
+                                        Country of residence
+                                    </label>
+                                    <select
+                                        value={residenceCountry}
+                                        onChange={(e) => {
+                                            const code = e.target.value;
+                                            setResidenceCountry(code);
+                                            const suggested = COUNTRY_TO_CURRENCY[code];
+                                            if (suggested) setPreferredCurrency(suggested);
+                                        }}
+                                        className="w-full px-4 py-2 rounded-xl border border-transparent font-black text-[11px] transition-all uppercase tracking-tight bg-white focus:border-[#5845D8]/20 outline-none appearance-none"
+                                    >
+                                        <option value="">— select your country —</option>
+                                        {COUNTRY_CODES.map(c => (
+                                            <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[7px] text-[#5845D8]/60 font-medium mt-1 uppercase tracking-wider ml-1">
+                                        * Sets your earning currency below automatically.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="pt-2 border-t border-gray-50 mt-2">
                             <div className="bg-[#5845D8]/5 p-3 rounded-2xl border border-[#5845D8]/10 mb-2">
@@ -792,7 +882,6 @@ export default function Settings({ user, checkAuthStatus }) {
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
                                 <h4 className="flex items-center gap-2 text-[10px] font-black text-[#111827] mb-4 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
-                                    <img src="/paystack-mark.png" alt="Paystack" className="h-5 w-auto shrink-0" />
                                     Bank Transfer ({preferredCurrency})
                                 </h4>
                                 {hasBankPayout && (
@@ -803,46 +892,81 @@ export default function Settings({ user, checkAuthStatus }) {
                                         <div className="flex-1">
                                             <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Bank payout connected</p>
                                             <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">
-                                                {bankDetails?.bankName || bankDetails?.bank_name || bankName || 'Paystack bank transfer'}
+                                                {bankDetails?.bankName || bankDetails?.bank_name || bankName || 'Bank transfer'}
                                             </p>
                                         </div>
                                         <ShieldCheck className="text-green-500/50" size={18} />
                                     </div>
                                 )}
                                 <div className="space-y-2.5">
-                                    <select
-                                        value={bankCode}
-                                        onChange={(e) => {
-                                            setBankCode(e.target.value);
-                                            const selectedBank = banks.find(bank => String(bank.code) === e.target.value);
-                                            setBankName(selectedBank?.name || '');
-                                        }}
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
-                                    >
-                                        <option value="">Select bank</option>
-                                        {banks.map((bank) => (
-                                            <option key={bank.code} value={bank.code}>{bank.name}</option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="text"
-                                        value={accountNumber}
-                                        onChange={(e) => setAccountNumber(e.target.value)}
-                                        placeholder={t('accountNumber')}
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={accountHolderName}
-                                        onChange={(e) => setAccountHolderName(e.target.value)}
-                                        placeholder={t('accountHolderName')}
-                                        readOnly
-                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight opacity-70"
-                                    />
+                                    {isIbanCurrency ? (
+                                        <>
+                                            <input
+                                                type="text"
+                                                value={accountHolderName}
+                                                onChange={(e) => setAccountHolderName(e.target.value)}
+                                                placeholder="Account holder name"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={iban}
+                                                onChange={(e) => setIban(e.target.value)}
+                                                placeholder="IBAN"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest uppercase"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={bankName}
+                                                onChange={(e) => setBankName(e.target.value)}
+                                                placeholder="Bank name"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={swiftBic}
+                                                onChange={(e) => setSwiftBic(e.target.value)}
+                                                placeholder="SWIFT/BIC"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest uppercase"
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={bankCode}
+                                                onChange={(e) => {
+                                                    setBankCode(e.target.value);
+                                                    const selectedBank = banks.find(bank => String(bank.code) === e.target.value);
+                                                    setBankName(selectedBank?.name || '');
+                                                }}
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
+                                            >
+                                                <option value="">Select bank</option>
+                                                {banks.map((bank) => (
+                                                    <option key={bank.code} value={bank.code}>{bank.name}</option>
+                                                ))}
+                                            </select>
+                                            <input
+                                                type="text"
+                                                value={accountNumber}
+                                                onChange={(e) => setAccountNumber(e.target.value)}
+                                                placeholder={t('accountNumber')}
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={accountHolderName}
+                                                onChange={(e) => setAccountHolderName(e.target.value)}
+                                                placeholder={t('accountHolderName')}
+                                                readOnly
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight opacity-70"
+                                            />
+                                        </>
+                                    )}
                                     {!showBankOtp ? (
                                         <button
                                             type="button"
-                                            onClick={handleStartBankSetup}
+                                            onClick={isIbanCurrency ? handleStartIbanSetup : handleStartBankSetup}
                                             disabled={bankLoading}
                                             className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
