@@ -9,6 +9,12 @@ const FLUTTERWAVE_SECRET_KEY = (process.env.FLUTTERWAVE_SECRET_KEY || '').trim()
 // '/v3' suffix caused every request here to 404 against Flutterwave.
 const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
 const FLUTTERWAVE_WEBHOOK_SECRET_HASH = process.env.FLUTTERWAVE_WEBHOOK_SECRET_HASH;
+// Some Flutterwave accounts have app-level access control requiring a
+// 'v3-xapp-id' header alongside the Bearer secret key — Flutterwave's own
+// API server advertises this as a recognized header (seen in its
+// Access-Control-Allow-Headers response). Optional: only sent if set,
+// so accounts that don't need it are unaffected.
+const FLUTTERWAVE_APP_ID = (process.env.FLUTTERWAVE_APP_ID || '').trim();
 
 // Safe, non-secret-revealing sanity check logged once at startup — never
 // logs the actual key, only its shape, so it's safe in Render's logs. A
@@ -47,6 +53,7 @@ function client() {
     headers: {
       Authorization: `Bearer ${FLUTTERWAVE_SECRET_KEY}`,
       'Content-Type': 'application/json',
+      ...(FLUTTERWAVE_APP_ID ? { 'v3-xapp-id': FLUTTERWAVE_APP_ID } : {}),
     },
     timeout: 20000,
   });
