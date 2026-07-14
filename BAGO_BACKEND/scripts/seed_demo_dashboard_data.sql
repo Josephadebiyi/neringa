@@ -82,7 +82,8 @@ begin
     v_sender := user_ids[i + 16]; -- disjoint half of the 30, so sender <> traveler
     v_traveler_country := user_countries[i + 1];
     v_sender_country := user_countries[i + 16];
-    v_currency2 := user_currencies[i + 1];
+    v_currency2 := 'EUR'; -- platform base currency: pin all demo shipment revenue to EUR
+                           -- directly rather than relying on exchange_rates conversion
 
     v_from_city := case v_traveler_country
       when 'NG' then cities_ng[(i % 2) + 1] when 'GH' then cities_gh[(i % 2) + 1]
@@ -95,11 +96,13 @@ begin
       when 'DE' then cities_de[((i + 1) % 2) + 1] when 'FR' then cities_fr[((i + 1) % 2) + 1]
       when 'GB' then cities_gb[((i + 1) % 2) + 1] else cities_us[((i + 1) % 2) + 1] end;
 
-    v_price_per_kg := 8 + (i % 5) * 2;
-    v_weight := 2 + (i % 4);
-    v_amount := round((v_price_per_kg * v_weight * 1.35)::numeric, 2);
+    -- Realistic small-parcel courier pricing: €6-12/kg, 1-4kg parcels, ~30% sender
+    -- markup over traveler payout, 10% platform commission — modest totals, not exaggerated.
+    v_price_per_kg := 6 + (i % 4) * 2;
+    v_weight := 1 + (i % 4);
     v_traveler_payout := round((v_price_per_kg * v_weight)::numeric, 2);
-    v_platform_commission := round((v_amount * 0.12)::numeric, 2);
+    v_amount := round((v_traveler_payout * 1.3)::numeric, 2);
+    v_platform_commission := round((v_amount * 0.10)::numeric, 2);
     v_processing_fee := round((v_amount * 0.03)::numeric, 2);
     v_fx_buffer := round((v_amount * 0.01)::numeric, 2);
     v_bago_net_revenue := v_platform_commission + v_processing_fee + v_fx_buffer;

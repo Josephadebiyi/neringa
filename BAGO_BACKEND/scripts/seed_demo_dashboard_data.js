@@ -127,15 +127,17 @@ async function main() {
       const sender = userIds[i + 15]; // disjoint half of the pool, so sender != traveler
       const fromCity = pick(CITIES[traveler.country], i);
       const toCity = pick(CITIES[sender.country], i + 1);
-      const pricePerKg = 8 + (i % 5) * 2;
-      const weight = 2 + (i % 4);
-      const amount = Number((pricePerKg * weight * 1.35).toFixed(2)); // sender-side price incl. markup
+      // Realistic small-parcel courier pricing: €6-12/kg, 1-4kg parcels, ~30% sender
+      // markup over traveler payout, 10% platform commission — modest totals, not exaggerated.
+      const pricePerKg = 6 + (i % 4) * 2;
+      const weight = 1 + (i % 4);
       const travelerPayout = Number((pricePerKg * weight).toFixed(2));
-      const platformCommission = Number((amount * 0.12).toFixed(2));
+      const amount = Number((travelerPayout * 1.3).toFixed(2)); // sender-side price incl. markup
+      const platformCommission = Number((amount * 0.10).toFixed(2));
       const processingFee = Number((amount * 0.03).toFixed(2));
       const fxBuffer = Number((amount * 0.01).toFixed(2));
       const bagoNetRevenue = Number((platformCommission + processingFee + fxBuffer).toFixed(2));
-      const currency = traveler.currency;
+      const currency = 'EUR'; // platform base currency: pin demo shipment revenue to EUR directly
 
       const tripResult = await client.query(
         `
