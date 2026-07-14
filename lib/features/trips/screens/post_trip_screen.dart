@@ -420,7 +420,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       if (context.canPop()) {
         context.pop();
       } else {
-        context.go('/trips');
+        context.go('/activity');
       }
     }
   }

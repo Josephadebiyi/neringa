@@ -684,20 +684,30 @@ class _WithdrawBalanceHero extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                loading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
+                // Always show the cached balance immediately — only add a small
+                // inline refresh indicator while a background fetch is in
+                // flight, instead of blanking the figure the user already has.
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$currency ${balance.toStringAsFixed(2)}',
+                      style: AppTextStyles.displaySm.copyWith(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (loading) ...[
+                      const SizedBox(width: 10),
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(
                             color: AppColors.black, strokeWidth: 2),
-                      )
-                    : Text(
-                        '$currency ${balance.toStringAsFixed(2)}',
-                        style: AppTextStyles.displaySm.copyWith(
-                          color: AppColors.black,
-                          fontWeight: FontWeight.w900,
-                        ),
                       ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
