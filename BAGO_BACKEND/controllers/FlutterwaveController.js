@@ -6,6 +6,9 @@ import {
   getBanks,
   resolveAccount,
   initiateTransfer,
+  initiateOrchestratedTransfer,
+  createTransferRecipient,
+  createTransferSender,
   verifyWebhookSignature,
 } from '../services/flutterwaveService.js';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
@@ -20,6 +23,35 @@ import { sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js'
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+
+// Currencies that require Flutterwave's orchestrated transfer flow (Transfer
+// Recipient + Transfer Sender + payment_instruction transfer) instead of the
+// flat account_bank/account_number call used for African bank corridors.
+const ORCHESTRATED_TRANSFER_CURRENCIES = new Set(['EUR', 'GBP']);
+
+// Minimal calling-code lookup for splitting a stored "+<code><number>" phone
+// string into Flutterwave's separate country_code/number fields. Not a full
+// phone-number library — covers the countries BAGO actually operates in.
+const CALLING_CODES = {
+  NG: '234', GH: '233', KE: '254', ZA: '27', US: '1', CA: '1', GB: '44',
+  DE: '49', FR: '33', ES: '34', IT: '39', NL: '31', BE: '32', IE: '353',
+  PT: '351', AT: '43', LT: '370',
+};
+
+function splitPhone(phone, countryIso) {
+  const raw = String(phone || '').replace(/[^\d+]/g, '');
+  const digitsOnly = raw.replace(/^\+/, '');
+  const guessedCode = CALLING_CODES[String(countryIso || '').toUpperCase()];
+  if (guessedCode && digitsOnly.startsWith(guessedCode)) {
+    return { countryCode: guessedCode, number: digitsOnly.slice(guessedCode.length) };
+  }
+  if (guessedCode) {
+    return { countryCode: guessedCode, number: digitsOnly };
+  }
+  // No known calling code for this country — best effort: assume the first
+  // 1-3 digits are the code, matching common calling-code lengths.
+  return { countryCode: digitsOnly.slice(0, 2), number: digitsOnly.slice(2) };
+}
 
 function requireConfigured(res) {
   if (!isFlutterwaveConfigured()) {
@@ -220,16 +252,80 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
   try {
     if (!requireConfigured(res)) return;
     const user = req.user;
-    const { accountNumber, bankCode, bankName, accountHolderName, iban, swiftBic, currency } = req.body || {};
+    const {
+      accountNumber, bankCode, bankName, accountHolderName, iban, swiftBic, currency,
+      addressLine1, addressLine2, city, state, postalCode, addressCountry,
+    } = req.body || {};
     const normalizedCurrency = CurrencyService.normalizeCurrency(currency || 'USD');
     const isIban = Boolean(iban);
+    const needsOrchestration = ORCHESTRATED_TRANSFER_CURRENCIES.has(normalizedCurrency);
 
     if (isIban) {
       if (!accountHolderName || !iban || !swiftBic) {
         return res.status(400).json({ success: false, message: 'Account holder name, IBAN, and SWIFT/BIC are required.' });
       }
+      if (needsOrchestration && (!addressLine1 || !city || !postalCode || !addressCountry)) {
+        return res.status(400).json({ success: false, message: 'Address (street, city, postal code, and country) is required for this currency.' });
+      }
     } else if (!accountNumber || !bankCode) {
       return res.status(400).json({ success: false, message: 'Select a bank and enter your account number.' });
+    }
+
+    let flutterwaveRecipientId = null;
+    let flutterwaveSenderId = null;
+
+    if (isIban && needsOrchestration) {
+      const profile = await queryOne(
+        `select first_name, last_name, email, phone, date_of_birth, country from public.profiles where id = $1`,
+        [user.id],
+      );
+      const { countryCode: phoneCountryCode, number: phoneNumber } = splitPhone(profile?.phone, profile?.country);
+      const [first, ...lastParts] = accountHolderName.trim().split(/\s+/);
+      const last = lastParts.length ? lastParts.join(' ') : (profile?.last_name || first);
+
+      const recipientResult = await createTransferRecipient({
+        currency: normalizedCurrency,
+        iban,
+        swiftBic,
+        bankName,
+        accountHolderFirstName: first || profile?.first_name,
+        accountHolderLastName: last,
+        email: profile?.email,
+        phoneCountryCode,
+        phoneNumber,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        postalCode,
+        country: addressCountry,
+      });
+      if (!recipientResult.success) {
+        return res.status(502).json({ success: false, message: recipientResult.message || 'Could not register payout recipient with Flutterwave.' });
+      }
+      flutterwaveRecipientId = recipientResult.recipientId;
+
+      const senderResult = await createTransferSender({
+        currency: normalizedCurrency,
+        firstName: profile?.first_name || first,
+        lastName: profile?.last_name || last,
+        email: profile?.email,
+        phoneCountryCode,
+        phoneNumber,
+        addressLine1,
+        addressLine2,
+        city,
+        state,
+        postalCode,
+        country: addressCountry,
+        dateOfBirth: profile?.date_of_birth
+          ? new Date(profile.date_of_birth).toISOString().slice(0, 10)
+          : undefined,
+      });
+      if (!senderResult.success) {
+        return res.status(502).json({ success: false, message: senderResult.message || 'Could not register payout sender with Flutterwave.' });
+      }
+      flutterwaveSenderId = senderResult.senderId;
     }
 
     const beneficiary = await saveBeneficiary({
@@ -243,6 +339,8 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
       bankName,
       iban,
       swiftCode: swiftBic,
+      flutterwaveRecipientId,
+      flutterwaveSenderId,
     });
 
     await pgQuery(
@@ -361,16 +459,25 @@ export const withdrawFundsFlutterwave = async (req, res) => {
       ],
     ).catch(() => {});
 
-    const transfer = await initiateTransfer({
-      accountBank: beneficiary.bank_code,
-      accountNumber: beneficiary.type === 'iban' ? beneficiary.iban : beneficiary.account_number,
-      swiftCode: beneficiary.swift_code,
-      amount: withdrawalAmount,
-      currency: walletCurrency,
-      narration: 'Bago wallet withdrawal',
-      reference,
-      beneficiaryName: beneficiary.account_holder_name,
-    });
+    const transfer = beneficiary.flutterwave_recipient_id
+      ? await initiateOrchestratedTransfer({
+          recipientId: beneficiary.flutterwave_recipient_id,
+          senderId: beneficiary.flutterwave_sender_id,
+          amount: withdrawalAmount,
+          sourceCurrency: walletCurrency,
+          narration: 'Bago wallet withdrawal',
+          reference,
+        })
+      : await initiateTransfer({
+          accountBank: beneficiary.bank_code,
+          accountNumber: beneficiary.type === 'iban' ? beneficiary.iban : beneficiary.account_number,
+          swiftCode: beneficiary.swift_code,
+          amount: withdrawalAmount,
+          currency: walletCurrency,
+          narration: 'Bago wallet withdrawal',
+          reference,
+          beneficiaryName: beneficiary.account_holder_name,
+        });
 
     if (!transfer.success) {
       await pgQuery(

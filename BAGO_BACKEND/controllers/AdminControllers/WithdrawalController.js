@@ -1,7 +1,7 @@
 import { query, queryOne, withTransaction } from '../../lib/postgres/db.js';
 import { sendWithdrawalProcessedEmail } from '../../services/emailNotifications.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
-import { initiateTransfer, getTransferStatus } from '../../services/flutterwaveService.js';
+import { initiateTransfer, initiateOrchestratedTransfer, getTransferStatus } from '../../services/flutterwaveService.js';
 import { getActiveBeneficiary } from '../../lib/postgres/flutterwavePayments.js';
 
 const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected', 'cancelled']);
@@ -482,16 +482,25 @@ export const approveWithdrawal = async (req, res, next) => {
       }
 
       const reference = metadata.reference || `BAGO-WD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-      const transfer = await initiateTransfer({
-        accountBank: beneficiary.bank_code,
-        accountNumber: beneficiary.type === 'iban' ? beneficiary.iban : beneficiary.account_number,
-        swiftCode: beneficiary.swift_code,
-        amount: metadata.payoutAmount || amount,
-        currency,
-        narration: 'Bago wallet withdrawal',
-        reference,
-        beneficiaryName: beneficiary.account_holder_name,
-      });
+      const transfer = beneficiary.flutterwave_recipient_id
+        ? await initiateOrchestratedTransfer({
+            recipientId: beneficiary.flutterwave_recipient_id,
+            senderId: beneficiary.flutterwave_sender_id,
+            amount: metadata.payoutAmount || amount,
+            sourceCurrency: currency,
+            narration: 'Bago wallet withdrawal',
+            reference,
+          })
+        : await initiateTransfer({
+            accountBank: beneficiary.bank_code,
+            accountNumber: beneficiary.type === 'iban' ? beneficiary.iban : beneficiary.account_number,
+            swiftCode: beneficiary.swift_code,
+            amount: metadata.payoutAmount || amount,
+            currency,
+            narration: 'Bago wallet withdrawal',
+            reference,
+            beneficiaryName: beneficiary.account_holder_name,
+          });
       if (!transfer.success) throw new Error(transfer.message || 'Transfer failed');
 
       await query(

@@ -28,6 +28,12 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   final _accountHolderCtrl = TextEditingController();
   final _ibanBankNameCtrl = TextEditingController();
   final _swiftCtrl = TextEditingController();
+  final _addressLine1Ctrl = TextEditingController();
+  final _addressLine2Ctrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
+  final _postalCodeCtrl = TextEditingController();
+  final _addressCountryCtrl = TextEditingController();
 
   String _bankName = '';
   String _bankCode = '';
@@ -54,6 +60,9 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   void initState() {
     super.initState();
     if (!_isIban) _fetchBanks();
+    if (_isIban) {
+      _addressCountryCtrl.text = _currencyCountryMap[_currency] ?? '';
+    }
     _searchCtrl.addListener(() {
       final q = _searchCtrl.text.toLowerCase();
       setState(() => _filteredBanks = q.isEmpty
@@ -73,6 +82,12 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     _accountHolderCtrl.dispose();
     _ibanBankNameCtrl.dispose();
     _swiftCtrl.dispose();
+    _addressLine1Ctrl.dispose();
+    _addressLine2Ctrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    _postalCodeCtrl.dispose();
+    _addressCountryCtrl.dispose();
     super.dispose();
   }
 
@@ -263,6 +278,17 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           type: SnackBarType.error);
       return;
     }
+    // Flutterwave requires a full billing address to register a payout
+    // recipient/sender for EUR and GBP transfers.
+    if (_addressLine1Ctrl.text.trim().isEmpty ||
+        _cityCtrl.text.trim().isEmpty ||
+        _postalCodeCtrl.text.trim().isEmpty ||
+        _addressCountryCtrl.text.trim().isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please fill in your address (street, city, postal code, and country).',
+          type: SnackBarType.error);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final currency = _currency;
@@ -274,6 +300,14 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             'swiftBic': _swiftCtrl.text.trim().toUpperCase(),
             'country': _currencyCountryMap[currency] ?? 'LT',
             'currency': currency,
+            'addressLine1': _addressLine1Ctrl.text.trim(),
+            if (_addressLine2Ctrl.text.trim().isNotEmpty)
+              'addressLine2': _addressLine2Ctrl.text.trim(),
+            'city': _cityCtrl.text.trim(),
+            if (_stateCtrl.text.trim().isNotEmpty)
+              'state': _stateCtrl.text.trim(),
+            'postalCode': _postalCodeCtrl.text.trim(),
+            'addressCountry': _addressCountryCtrl.text.trim().toUpperCase(),
           },
           options: Options(
             headers: {
@@ -453,6 +487,52 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             label: 'SWIFT/BIC *',
             controller: _swiftCtrl,
             hint: 'e.g. REVOLT21',
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 28),
+          Text('BILLING ADDRESS',
+              style: AppTextStyles.labelSm.copyWith(
+                  color: AppColors.gray400,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1)),
+          const SizedBox(height: 4),
+          Text('Required by our payout provider to verify EUR/GBP transfers.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+          const SizedBox(height: 16),
+          _IbanField(
+            label: 'Address Line 1 *',
+            controller: _addressLine1Ctrl,
+            hint: 'Street address',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'Address Line 2',
+            controller: _addressLine2Ctrl,
+            hint: 'Apartment, suite, etc. (optional)',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'City *',
+            controller: _cityCtrl,
+            hint: 'e.g. Berlin',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'State / Region',
+            controller: _stateCtrl,
+            hint: 'Optional',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'Postal Code *',
+            controller: _postalCodeCtrl,
+            hint: 'e.g. 10115',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'Country *',
+            controller: _addressCountryCtrl,
+            hint: '2-letter code, e.g. DE',
             textCapitalization: TextCapitalization.characters,
           ),
           const SizedBox(height: 32),
