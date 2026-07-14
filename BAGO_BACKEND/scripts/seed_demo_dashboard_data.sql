@@ -127,7 +127,7 @@ begin
       v_sender, v_traveler_country, v_from_city, v_sender_country, v_to_city, v_weight, v_amount * 3,
       first_names[((i + 5) % 30) + 1] || ' ' || last_names[((i + 5) % 30) + 1],
       format('receiver.%s@bago-demo-seed.internal', i), '+1555' || lpad((2000000 + i)::text, 7, '0'),
-      categories[(i % 5) + 1], 'Demo package for dashboard screenshot',
+      '+1', 'Demo package for dashboard screenshot', categories[(i % 5) + 1],
       'Demo pickup address', 'Demo delivery address'
     )
     returning id into v_package_id;
