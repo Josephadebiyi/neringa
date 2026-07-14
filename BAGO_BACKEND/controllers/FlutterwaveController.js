@@ -186,7 +186,14 @@ export const getFlutterwaveBanks = async (req, res, next) => {
     if (!requireConfigured(res)) return;
     const country = String(req.query.country || 'NG').toUpperCase();
     const result = await getBanks(country);
-    return res.status(200).json({ success: result.success, banks: result.banks });
+    if (!result.success) {
+      return res.status(502).json({
+        success: false,
+        banks: [],
+        message: result.message || 'Could not fetch banks from the payout provider.',
+      });
+    }
+    return res.status(200).json({ success: true, banks: result.banks });
   } catch (error) {
     next(error);
   }
