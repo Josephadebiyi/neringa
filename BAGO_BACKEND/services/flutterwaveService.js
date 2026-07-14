@@ -10,6 +10,32 @@ const FLUTTERWAVE_SECRET_KEY = (process.env.FLUTTERWAVE_SECRET_KEY || '').trim()
 const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
 const FLUTTERWAVE_WEBHOOK_SECRET_HASH = process.env.FLUTTERWAVE_WEBHOOK_SECRET_HASH;
 
+// Safe, non-secret-revealing sanity check logged once at startup — never
+// logs the actual key, only its shape, so it's safe in Render's logs. A
+// correct Flutterwave secret key starts with FLWSECK_TEST- (sandbox) or
+// FLWSECK- (live) and is 40+ characters. Catches the most common
+// misconfigurations: pasting the Public key (FLWPUBK-) or Encryption key
+// instead of the Secret key, stray wrapping quotes from copying a .env
+// line verbatim, or a truncated paste.
+if (FLUTTERWAVE_SECRET_KEY) {
+  const looksLikeTestKey = FLUTTERWAVE_SECRET_KEY.startsWith('FLWSECK_TEST-');
+  const looksLikeLiveKey = FLUTTERWAVE_SECRET_KEY.startsWith('FLWSECK-') && !looksLikeTestKey;
+  const looksValid = looksLikeTestKey || looksLikeLiveKey;
+  console.log(
+    `Flutterwave key check: prefix="${FLUTTERWAVE_SECRET_KEY.slice(0, 12)}..." length=${FLUTTERWAVE_SECRET_KEY.length} mode=${looksLikeTestKey ? 'TEST/sandbox' : looksLikeLiveKey ? 'LIVE' : 'UNRECOGNIZED'}`,
+  );
+  if (!looksValid) {
+    console.warn(
+      '⚠️  FLUTTERWAVE_SECRET_KEY does not look like a real Flutterwave secret key ' +
+      '(expected it to start with FLWSECK_TEST- or FLWSECK-). Check you copied the ' +
+      "Secret Key, not the Public Key (FLWPUBK-) or Encryption Key, and that no quotes " +
+      'or extra characters got pasted in alongside it.',
+    );
+  }
+} else {
+  console.warn('⚠️  FLUTTERWAVE_SECRET_KEY is not set at all.');
+}
+
 export const isFlutterwaveConfigured = () => Boolean(FLUTTERWAVE_SECRET_KEY);
 
 function client() {
