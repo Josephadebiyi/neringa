@@ -108,14 +108,41 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           _filteredBanks = list;
           _banksLoading = false;
         });
+        if (list.isEmpty) {
+          final serverMessage = data?['message']?.toString();
+          AppSnackBar.show(
+            context,
+            message: serverMessage?.isNotEmpty == true
+                ? serverMessage!
+                : 'No banks were returned for $country. This usually means the payout provider isn\'t configured on the backend yet.',
+            type: SnackBarType.error,
+          );
+        }
+      }
+    } on DioException catch (e) {
+      if (mounted) setState(() => _banksLoading = false);
+      if (mounted) {
+        final status = e.response?.statusCode;
+        final serverMessage = e.response?.data is Map
+            ? (e.response?.data as Map)['message']?.toString()
+            : null;
+        AppSnackBar.show(
+          context,
+          message: status != null
+              ? 'Could not load banks (HTTP $status): ${serverMessage ?? ApiService.parseError(e)}'
+              : 'Could not load banks: ${ApiService.parseError(e)}',
+          type: SnackBarType.error,
+          duration: const Duration(seconds: 8),
+        );
       }
     } catch (e) {
       if (mounted) setState(() => _banksLoading = false);
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: 'Unable to load banks right now. Please try again.',
+          message: 'Unable to load banks right now: $e',
           type: SnackBarType.error,
+          duration: const Duration(seconds: 8),
         );
       }
     }
