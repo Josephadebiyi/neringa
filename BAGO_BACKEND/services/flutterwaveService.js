@@ -1,8 +1,12 @@
 import axios from 'axios';
 import crypto from 'node:crypto';
 
-const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY;
-const FLUTTERWAVE_BASE_URL = process.env.FLUTTERWAVE_BASE_URL || 'https://api.flutterwave.com/v3';
+const FLUTTERWAVE_SECRET_KEY = (process.env.FLUTTERWAVE_SECRET_KEY || '').trim();
+// Strip any trailing slash — combined with this file's leading-slash paths
+// (e.g. '/banks/NG'), a trailing slash on the env var produces a double
+// slash that Flutterwave's Cloudflare-fronted API 404s on.
+const FLUTTERWAVE_BASE_URL =
+  (process.env.FLUTTERWAVE_BASE_URL || 'https://api.flutterwave.com/v3').trim().replace(/\/+$/, '');
 const FLUTTERWAVE_WEBHOOK_SECRET_HASH = process.env.FLUTTERWAVE_WEBHOOK_SECRET_HASH;
 
 export const isFlutterwaveConfigured = () => Boolean(FLUTTERWAVE_SECRET_KEY);
@@ -109,7 +113,12 @@ export async function getBanks(countryCode) {
     const banks = Array.isArray(response.data?.data) ? response.data.data : [];
     return { success: true, banks: banks.map((b) => ({ code: b.code, name: b.name })) };
   } catch (error) {
-    console.error('❌ Flutterwave banks error:', error.response?.data || error.message);
+    console.error(
+      '❌ Flutterwave banks error:',
+      `url=${FLUTTERWAVE_BASE_URL}/banks/${countryCode}`,
+      `status=${error.response?.status}`,
+      error.response?.data || error.message,
+    );
     return { success: false, message: error.response?.data?.message || error.message, banks: [] };
   }
 }
