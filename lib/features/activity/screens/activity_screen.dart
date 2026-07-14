@@ -28,7 +28,6 @@ class ActivityScreen extends ConsumerStatefulWidget {
 class _ActivityScreenState extends ConsumerState<ActivityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _preloading = true;
 
   @override
   void initState() {
@@ -43,11 +42,13 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
     super.dispose();
   }
 
-  Future<void> _preload({bool showLoading = true}) async {
+  // Each tab already shows its own spinner only when it has no cached data
+  // yet (`state.isLoading && state.items.isEmpty`), so this just kicks off
+  // the refresh in the background — it must never gate the whole screen
+  // behind a full-screen spinner, or every already-cached tab flashes blank
+  // on each visit.
+  Future<void> _preload() async {
     if (!mounted) return;
-    if (showLoading) {
-      setState(() => _preloading = true);
-    }
     try {
       await Future.wait<void>([
         ref.read(tripProvider.notifier).loadMyTrips(),
@@ -57,15 +58,11 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
       ]).timeout(const Duration(seconds: 12), onTimeout: () => []);
     } catch (_) {
       // Silently swallow — individual loaders store their own errors in state.
-    } finally {
-      if (mounted) {
-        setState(() => _preloading = false);
-      }
     }
   }
 
   void _load() {
-    _preload(showLoading: false);
+    _preload();
   }
 
   @override
@@ -114,16 +111,14 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen>
               ),
             ),
             Expanded(
-              child: _preloading
-                  ? const Center(child: AppLoading())
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _TripsTab(onReload: _load),
-                        _ShipmentsTab(onReload: _load),
-                        _RequestsTab(onReload: _load),
-                      ],
-                    ),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _TripsTab(onReload: _load),
+                  _ShipmentsTab(onReload: _load),
+                  _RequestsTab(onReload: _load),
+                ],
+              ),
             ),
           ],
         ),

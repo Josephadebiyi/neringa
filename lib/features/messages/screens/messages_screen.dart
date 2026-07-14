@@ -129,9 +129,12 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
               ),
             ),
             Expanded(
-              child: state.isLoading
+              // Only block on the spinner when there's no cached conversation
+              // list yet — a background refresh must not blank an already
+              // -rendered inbox back to a full-screen loader.
+              child: state.isLoading && conversations.isEmpty
                   ? const Center(child: AppLoading())
-                  : state.error != null
+                  : state.error != null && conversations.isEmpty
                       ? ListView(
                           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                           children: [

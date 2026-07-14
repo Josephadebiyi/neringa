@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -117,18 +118,14 @@ class _BannerCard extends StatelessWidget {
     return _BannerFrame(
       child: url.isEmpty
           ? _BannerFallback(title: banner.title)
-          : Image.network(
-              url,
+          : CachedNetworkImage(
+              imageUrl: url,
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
-              gaplessPlayback: true,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return _BannerFallback(title: banner.title);
-              },
-              errorBuilder: (_, __, ___) =>
-                  _BannerFallback(title: banner.title),
+              fadeInDuration: Duration.zero,
+              placeholder: (context, _) => _BannerFallback(title: banner.title),
+              errorWidget: (_, __, ___) => _BannerFallback(title: banner.title),
             ),
     );
   }

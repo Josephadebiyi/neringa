@@ -1817,9 +1817,12 @@ class _RecentActivityList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return _buildSkeleton();
-
     final entries = _allEntries();
+
+    // Only show the skeleton when there's no cached data to display yet —
+    // a background refresh (isLoading flips true again) must not wipe an
+    // already-rendered list back to a skeleton.
+    if (isLoading && entries.isEmpty) return _buildSkeleton();
 
     if (entries.isEmpty) {
       return GestureDetector(
