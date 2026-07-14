@@ -2,11 +2,12 @@ import axios from 'axios';
 import crypto from 'node:crypto';
 
 const FLUTTERWAVE_SECRET_KEY = (process.env.FLUTTERWAVE_SECRET_KEY || '').trim();
-// Strip any trailing slash — combined with this file's leading-slash paths
-// (e.g. '/banks/NG'), a trailing slash on the env var produces a double
-// slash that Flutterwave's Cloudflare-fronted API 404s on.
-const FLUTTERWAVE_BASE_URL =
-  (process.env.FLUTTERWAVE_BASE_URL || 'https://api.flutterwave.com/v3').trim().replace(/\/+$/, '');
+// Not configurable via env — Flutterwave uses this exact base URL for both
+// test and live modes (sandbox vs. live is determined by which kind of
+// secret key you use, not the host), so a FLUTTERWAVE_BASE_URL env var only
+// creates a way to misconfigure this. A previous env value missing the
+// '/v3' suffix caused every request here to 404 against Flutterwave.
+const FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';
 const FLUTTERWAVE_WEBHOOK_SECRET_HASH = process.env.FLUTTERWAVE_WEBHOOK_SECRET_HASH;
 
 export const isFlutterwaveConfigured = () => Boolean(FLUTTERWAVE_SECRET_KEY);
