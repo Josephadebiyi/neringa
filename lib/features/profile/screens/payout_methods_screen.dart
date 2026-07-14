@@ -106,36 +106,23 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         methodStatus == 'active' ||
         methodStatus == 'connected';
 
-    final hasFlutterwave = provider == 'flutterwave' || method == 'flutterwave';
-    if (hasFlutterwave && connected) {
+    // Any connected payout method — whether the account connected through
+    // Flutterwave or an older provider before this migration — is shown
+    // generically as "Bank account connected". We never surface the old
+    // provider's name in the UI, only whether a payout destination exists.
+    final hasAnyConnectedMethod = connected &&
+        (provider == 'flutterwave' ||
+            method == 'flutterwave' ||
+            user?.bankAccountLinked == true ||
+            provider == 'paystack' ||
+            method == 'paystack' ||
+            provider == 'paypal' ||
+            method == 'paypal');
+    if (hasAnyConnectedMethod) {
       return const _PayoutState(
         provider: _PayoutProvider.flutterwave,
         status: _PayoutStatus.active,
         detail: 'Bank account connected',
-        accountId: null,
-      );
-    }
-
-    // Legacy providers, kept only so an already-connected account from before
-    // the Flutterwave migration still shows as connected instead of broken.
-    final hasPaystack = user?.bankAccountLinked == true &&
-        (provider == 'paystack' ||
-            method == 'paystack' ||
-            methodStatus == 'connected');
-    if (hasPaystack && connected) {
-      return const _PayoutState(
-        provider: _PayoutProvider.paystack,
-        status: _PayoutStatus.active,
-        detail: 'Paystack bank payouts are connected (legacy)',
-        accountId: null,
-      );
-    }
-    final hasPaypal = provider == 'paypal' || method == 'paypal';
-    if (hasPaypal && connected) {
-      return const _PayoutState(
-        provider: _PayoutProvider.paypal,
-        status: _PayoutStatus.active,
-        detail: 'PayPal payouts are connected (legacy)',
         accountId: null,
       );
     }
@@ -210,16 +197,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
     final user = ref.watch(authProvider).user;
     final payoutState = _payoutStateFor(user);
-    final isLegacyProvider = payoutState.provider == _PayoutProvider.paystack ||
-        payoutState.provider == _PayoutProvider.paypal;
-    final methodName = isLegacyProvider
-        ? (payoutState.provider == _PayoutProvider.paystack
-            ? 'Paystack bank transfer'
-            : 'PayPal')
-        : 'Bank account';
-    final providerHelp = isLegacyProvider
-        ? 'This account is on our previous payout provider and will keep working.'
-        : 'This currency is paid out through Bago\'s secure payout partner.';
+    const methodName = 'Bank account';
+    const providerHelp = 'This currency is paid out through Bago\'s secure payout partner.';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -253,32 +232,17 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             ),
           ),
           const SizedBox(height: 28),
-          if (isLegacyProvider) ...[
-            // Already connected on the previous provider — show as-is, no new
-            // legacy connections are offered going forward.
-            _PayoutChoiceTile(
-              assetImage: payoutState.provider == _PayoutProvider.paystack
-                  ? 'assets/images/paystack-mark.png'
-                  : null,
-              paypal: payoutState.provider == _PayoutProvider.paypal,
-              title: payoutState.detail,
-              subtitle: 'Tap to add a new payout account instead',
-              enabled: !_saving,
-              onTap: _continueToAddPayoutAccount,
-            ),
-          ] else ...[
-            _PayoutChoiceTile(
-              icon: Icons.account_balance_rounded,
-              title: payoutState.isActive
-                  ? 'Bank account connected'
-                  : 'Bank account',
-              subtitle: payoutState.isActive
-                  ? 'Tap to update your payout account'
-                  : 'Add your bank account to receive payouts',
-              enabled: !_saving,
-              onTap: _continueToAddPayoutAccount,
-            ),
-          ],
+          _PayoutChoiceTile(
+            icon: Icons.account_balance_rounded,
+            title: payoutState.isActive
+                ? 'Bank account connected'
+                : 'Bank account',
+            subtitle: payoutState.isActive
+                ? 'Tap to update your payout account'
+                : 'Add your bank account to receive payouts',
+            enabled: !_saving,
+            onTap: _continueToAddPayoutAccount,
+          ),
           const SizedBox(height: 26),
           const _SectionLabel(
             title: 'Payout currency',
@@ -330,8 +294,6 @@ class _PayoutChoiceTile extends StatelessWidget {
     required this.enabled,
     required this.onTap,
     this.icon,
-    this.assetImage,
-    this.paypal = false,
   });
 
   final String title;
@@ -339,8 +301,6 @@ class _PayoutChoiceTile extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
   final IconData? icon;
-  final String? assetImage;
-  final bool paypal;
 
   @override
   Widget build(BuildContext context) {
@@ -353,21 +313,7 @@ class _PayoutChoiceTile extends StatelessWidget {
           children: [
             SizedBox(
               width: 42,
-              child: assetImage != null
-                  ? Image.asset(
-                      assetImage!,
-                      width: 34,
-                      height: 34,
-                      fit: BoxFit.contain,
-                    )
-                  : paypal
-                      ? Image.asset(
-                          'assets/images/paypal-symbol.png',
-                          width: 34,
-                          height: 34,
-                          fit: BoxFit.contain,
-                        )
-                      : Icon(icon, color: AppColors.gray500, size: 27),
+              child: Icon(icon, color: AppColors.gray500, size: 27),
             ),
             const SizedBox(width: 12),
             Expanded(
