@@ -10,6 +10,7 @@ import '../../../core/constants/api_constants.dart';
 import '../../../l10n/app_localizations.dart';
 import '../widgets/banner_slider.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/status_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shipments/models/package_model.dart';
@@ -68,6 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   double? _liveEscrow;
   String _liveEscrowCurrency = '';
   bool _walletRefreshing = false;
+  List<_RecentActivityEntry> _withdrawalActivities = const [];
 
   @override
   void initState() {
@@ -92,6 +94,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await ref.read(authProvider.notifier).refreshProfile();
       final res = await ApiService.instance.get(ApiConstants.walletBalance);
       final data = res.data as Map<String, dynamic>?;
+      final walletTransactions =
+          (data?['history'] ?? data?['transactions']) as List?;
       if (!mounted) return;
       setState(() {
         _liveEscrow = (data?['escrowDisplayBalance'] as num?)?.toDouble() ??
@@ -107,6 +111,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     data?['currency'])
                 ?.toString() ??
             '';
+        _withdrawalActivities = walletTransactions
+                ?.whereType<Map>()
+                .map((tx) => Map<String, dynamic>.from(tx))
+                .map(_RecentActivityEntry.fromWalletTransaction)
+                .whereType<_RecentActivityEntry>()
+                .take(8)
+                .toList() ??
+            const [];
       });
     } on DioException {
       return;
@@ -278,22 +290,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   child: CachedNetworkImage(
                                     imageUrl: user!.profilePicture!,
                                     fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => Center(
-                                      child: Text(
-                                        avatarLetter,
-                                        style: AppTextStyles.labelMd.copyWith(
-                                          color: AppColors.black,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
+                                    placeholder: (_, __) => _AvatarFallback(
+                                      label: avatarLetter,
+                                      size: 40,
+                                    ),
+                                    errorWidget: (_, __, ___) =>
+                                        _AvatarFallback(
+                                      label: avatarLetter,
+                                      size: 40,
                                     ),
                                   ),
                                 )
                               : Center(
-                                  child: Text(avatarLetter,
-                                      style: AppTextStyles.labelMd.copyWith(
-                                          color: AppColors.black,
-                                          fontWeight: FontWeight.w800))),
+                                  child: _AvatarFallback(
+                                    label: avatarLetter,
+                                    size: 40,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
@@ -328,7 +341,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           pendingEarnings: carrierEarnings,
                           currency:
                               UserCurrencyHelper.walletDisplayCurrency(user),
-                          onPostTrip: () => context.push('/post-trip'),
+                          onPostTrip: () => context.go('/post-trip'),
                           onWithdraw: () => context.push('/profile/withdraw'),
                           onRefresh: _refreshWallet,
                           isRefreshing: _walletRefreshing,
@@ -342,7 +355,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           onDateTap: _openCalendar,
                           onSearch: _search,
                         ),
-
                   if (!isCarrier) ...[
                     if ((_liveEscrow ?? 0) >= 10) ...[
                       const SizedBox(height: 10),
@@ -392,6 +404,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    const BannerSlider(),
+                    const SizedBox(height: 16),
                     _CarrierTripMetrics(
                       totalTrips: carrierTrips.length,
                       totalKgSold: carrierKgSold,
@@ -419,10 +433,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    const BannerSlider(),
+                    const SizedBox(height: 16),
                   ],
-
-                  // ── Banner Slider ─────────────────────────────────────────
-                  const BannerSlider(),
 
                   // ── Recent Activity — below the banner ────────────────────
                   Builder(builder: (context) {
@@ -493,6 +506,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           isCarrier: isCarrier,
                           requests: activityRequests,
                           packages: activityPackages,
+                          walletEntries: _withdrawalActivities,
                           isLoading: activityLoading,
                           onViewAll: () => context.go('/activity'),
                         ),
@@ -503,6 +517,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({required this.label, required this.size});
+
+  final String label;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = label.trim();
+    if (value.isEmpty) {
+      return Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: AppColors.gray500,
+          size: size * 0.55,
+        ),
+      );
+    }
+    return Center(
+      child: Text(
+        value[0].toUpperCase(),
+        style: AppTextStyles.labelMd.copyWith(
+          color: AppColors.black,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -1390,7 +1434,14 @@ class _ServiceCardState extends State<_ServiceCard> {
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
       child: InkWell(
-        onTap: widget.item.onTap ?? () => context.push(widget.item.route),
+        onTap: widget.item.onTap ??
+            () {
+              if (widget.item.route == '/post-trip') {
+                context.go(widget.item.route);
+                return;
+              }
+              context.push(widget.item.route);
+            },
         onTapDown: (_) => _setPressed(true),
         onTapCancel: () => _setPressed(false),
         onTapUp: (_) => _setPressed(false),
@@ -1464,22 +1515,26 @@ class _RecentActivityList extends StatelessWidget {
     required this.isCarrier,
     required this.requests,
     required this.packages,
+    required this.walletEntries,
     required this.isLoading,
     required this.onViewAll,
   });
   final bool isCarrier;
   final List<RequestModel> requests;
   final List<PackageModel> packages;
+  final List<_RecentActivityEntry> walletEntries;
   final bool isLoading;
   final VoidCallback onViewAll;
 
   List<_RecentActivityEntry> _allEntries() {
     final items = <_RecentActivityEntry>[
+      ...walletEntries,
       ...packages.map(_RecentActivityEntry.fromPackage),
       ...requests.map(_RecentActivityEntry.fromRequest),
     ];
     final seen = <String>{};
     final deduped = items.where((item) {
+      if (item.isWalletActivity) return seen.add('wallet:${item.id}');
       final requestKey = item.requestId?.trim() ?? '';
       final key =
           requestKey.isNotEmpty ? 'request:$requestKey' : 'package:${item.id}';
@@ -1490,35 +1545,63 @@ class _RecentActivityList extends StatelessWidget {
   }
 
   Color _statusColor(String s) {
+    if (s == 'paid' || s == 'succeeded' || s == 'success') {
+      return const Color(0xFF059669);
+    }
     if (s == 'completed' || s == 'delivered') return const Color(0xFF059669);
-    if (s == 'intransit' || s == 'delivering' || s == 'in_transit')
+    if (s == 'pending' || s == 'processing' || s == 'under_review') {
+      return const Color(0xFFD97706);
+    }
+    if (s == 'intransit' || s == 'delivering' || s == 'in_transit') {
       return AppColors.primary;
+    }
     if (s == 'accepted' || s == 'matched') return const Color(0xFF0891B2);
-    if (s == 'rejected' || s == 'cancelled') return const Color(0xFFDC2626);
+    if (s == 'rejected' ||
+        s == 'cancelled' ||
+        s == 'failed' ||
+        s == 'declined') {
+      return const Color(0xFFDC2626);
+    }
     return AppColors.gray400;
   }
 
   IconData _statusIcon(String s) {
+    if (s == 'paid' || s == 'succeeded' || s == 'success') {
+      return Icons.payments_rounded;
+    }
     if (s == 'completed' || s == 'delivered') return Icons.check_circle_rounded;
-    if (s == 'intransit' || s == 'in_transit')
+    if (s == 'pending' || s == 'processing' || s == 'under_review') {
+      return Icons.hourglass_top_rounded;
+    }
+    if (s == 'intransit' || s == 'in_transit') {
       return Icons.flight_takeoff_rounded;
+    }
     if (s == 'delivering') return Icons.local_shipping_rounded;
     if (s == 'accepted') return Icons.handshake_rounded;
     if (s == 'matched') return Icons.inventory_rounded;
-    if (s == 'rejected' || s == 'cancelled') return Icons.cancel_rounded;
+    if (s == 'rejected' ||
+        s == 'cancelled' ||
+        s == 'failed' ||
+        s == 'declined') {
+      return Icons.cancel_rounded;
+    }
     return Icons.inventory_2_outlined;
   }
 
   String _statusLabel(String s) {
+    if (s == 'paid' || s == 'succeeded' || s == 'success') return 'Paid';
+    if (s == 'pending' || s == 'processing' || s == 'under_review') {
+      return 'Pending';
+    }
     if (s == 'completed') return 'Completed';
     if (s == 'delivered') return 'Delivered';
     if (s == 'intransit' || s == 'in_transit') return 'In Transit';
     if (s == 'delivering') return 'Delivering';
     if (s == 'accepted') return 'Accepted';
     if (s == 'matched') return 'Matched';
-    if (s == 'rejected') return 'Rejected';
+    if (s == 'rejected' || s == 'failed' || s == 'declined') return 'Rejected';
     if (s == 'cancelled') return 'Cancelled';
-    return 'Pending';
+    return formatFrontendStatus(s);
   }
 
   String _dateGroup(String iso) {
@@ -1641,6 +1724,10 @@ class _RecentActivityList extends StatelessWidget {
 
     return InkWell(
       onTap: () async {
+        if (item.isWalletActivity) {
+          context.push('/profile/payments-refunds');
+          return;
+        }
         if (item.request != null) {
           context.push('/shipment-request/${item.id}', extra: item.request);
           return;
@@ -1924,6 +2011,7 @@ class _RecentActivityEntry {
     this.requestId,
     this.request,
     this.package,
+    this.isWalletActivity = false,
   });
 
   final String id;
@@ -1938,6 +2026,7 @@ class _RecentActivityEntry {
   final String? requestId;
   final RequestModel? request;
   final PackageModel? package;
+  final bool isWalletActivity;
 
   factory _RecentActivityEntry.fromRequest(RequestModel request) =>
       _RecentActivityEntry(
@@ -1968,6 +2057,118 @@ class _RecentActivityEntry {
         requestId: package.requestId,
         package: package,
       );
+
+  static _RecentActivityEntry? fromWalletTransaction(
+      Map<String, dynamic> transaction) {
+    final type = _stringFrom(transaction, const [
+      'type',
+      'transactionType',
+      'transaction_type',
+      'category',
+    ]).toLowerCase();
+    final description = _stringFrom(transaction, const [
+      'description',
+      'title',
+      'label',
+    ]);
+    final normalizedText = '$type $description'.toLowerCase();
+    if (!normalizedText.contains('withdraw')) return null;
+
+    final rawStatus = _stringFrom(transaction, const [
+      'status',
+      'withdrawalStatus',
+      'withdrawal_status',
+      'payoutStatus',
+      'payout_status',
+    ]).toLowerCase();
+    final status = _normalizeWithdrawalStatus(rawStatus);
+    final id = _stringFrom(transaction, const [
+      'id',
+      '_id',
+      'transactionId',
+      'transaction_id',
+      'reference',
+      'payoutReference',
+      'payout_reference',
+    ]);
+    final createdAt = _stringFrom(transaction, const [
+      'created_at',
+      'createdAt',
+      'requestedAt',
+      'requested_at',
+      'updated_at',
+      'updatedAt',
+    ]);
+    final currency = _stringFrom(transaction, const [
+      'currency',
+      'walletCurrency',
+      'wallet_currency',
+      'payoutCurrency',
+      'payout_currency',
+    ]).toUpperCase();
+
+    return _RecentActivityEntry(
+      id: id.isNotEmpty
+          ? id
+          : 'withdrawal-${createdAt.isNotEmpty ? createdAt : transaction.hashCode}',
+      title: description.isNotEmpty ? description : 'Withdrawal Request',
+      counterpart: 'Withdrawal Request',
+      status: status,
+      amount: _doubleFrom(transaction, const [
+        'amount',
+        'payoutAmount',
+        'payout_amount',
+        'withdrawalAmount',
+        'withdrawal_amount',
+      ]).abs(),
+      currency: currency.isNotEmpty ? currency : 'USD',
+      createdAt: createdAt.isNotEmpty
+          ? createdAt
+          : DateTime.now().toUtc().toIso8601String(),
+      isWalletActivity: true,
+    );
+  }
+
+  static String _normalizeWithdrawalStatus(String status) {
+    switch (status) {
+      case 'paid':
+      case 'completed':
+      case 'success':
+      case 'succeeded':
+      case 'settled':
+        return 'paid';
+      case 'rejected':
+      case 'declined':
+      case 'failed':
+      case 'cancelled':
+      case 'canceled':
+        return 'rejected';
+      default:
+        return 'pending';
+    }
+  }
+
+  static String _stringFrom(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
+
+  static double _doubleFrom(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value is num) return value.toDouble();
+      if (value is String) {
+        final parsed = double.tryParse(value.trim());
+        if (parsed != null) return parsed;
+      }
+    }
+    return 0;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

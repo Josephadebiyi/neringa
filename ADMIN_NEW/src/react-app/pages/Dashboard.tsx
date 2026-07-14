@@ -179,13 +179,12 @@ export default function Dashboard() {
               <DollarSign className="w-7 h-7" />
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Revenue</p>
-              <h3 className="text-2xl font-black text-[#1e2749] mt-1">${(stats?.totalIncome || 0).toLocaleString()}</h3>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Revenue (EUR)</p>
+              <h3 className="text-2xl font-black text-[#1e2749] mt-1">€{(stats?.totalIncome || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</h3>
             </div>
           </div>
           <div className="mt-4 flex items-center gap-2">
-            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg">+12.5%</span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">vs last month</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Platform reporting base currency: EUR</span>
           </div>
         </div>
 
@@ -230,12 +229,14 @@ export default function Dashboard() {
               <ArrowUpRight className="w-7 h-7" />
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Profit</p>
-              <h3 className="text-2xl font-black text-[#1e2749] mt-1">${(stats?.totalCommission || 0).toLocaleString()}</h3>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Commission (EUR)</p>
+              <h3 className="text-2xl font-black text-[#1e2749] mt-1">€{(stats?.totalCommission || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</h3>
             </div>
           </div>
           <div className="mt-4 flex items-center gap-2">
-            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg">10% Fee</span>
+            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg">
+              {stats?.totalIncome ? `${((stats.totalCommission / stats.totalIncome) * 100).toFixed(1)}%` : '—'}
+            </span>
             <span className="text-[10px] font-bold text-gray-400 uppercase mt-0.5 tracking-tighter">effective rate</span>
           </div>
         </div>

@@ -5,7 +5,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false"
+        tools:replace="android:required" />
 
     <application
         android:label="Bago"
@@ -43,12 +46,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- PayPal native SDK: handles return from PayPal checkout -->
-            <intent-filter>
+        </activity>
+
+        <!-- flutter_web_auth_2: handles the return from Flutterwave's hosted
+             checkout when opened via Chrome Custom Tabs (Apple Pay's iOS
+             counterpart is ASWebAuthenticationSession, configured in
+             ios/Runner/Info.plist under the same scheme). -->
+        <activity
+            android:name="com.linusu.flutter_web_auth_2.CallbackActivity"
+            android:exported="true">
+            <intent-filter android:label="flutter_web_auth_2">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.deracali.boltexponativewind" android:host="paypalpay" />
+                <data android:scheme="com.deracali.boltexponativewind.payments" />
             </intent-filter>
         </activity>
         <!-- Dojah SDK: required for file uploads (document capture) -->

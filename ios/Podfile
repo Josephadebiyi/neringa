@@ -33,7 +33,6 @@ target 'Runner' do
 
   pod 'Realm', '~> 10.52.2', :modular_headers => true
   pod 'DojahWidget', :git => 'https://github.com/dojah-inc/sdk-swift.git', :branch => 'pod-package'
-  pod 'PayPal/CardPayments'
 
   target 'RunnerTests' do
     inherit! :search_paths
@@ -47,7 +46,6 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
       config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'armv7'
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64 i386'
       definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
       definitions = [definitions] if definitions.is_a?(String)
       definitions |= [
@@ -57,7 +55,7 @@ post_install do |installer|
       ]
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions
       # Suppress deprecation-as-error in Braintree ObjC pods
-      if target.name.start_with?('Braintree') || target.name == 'BraintreeDropIn' || target.name == 'PayPalDataCollector' || target.name == 'PayPalUI'
+      if target.name.start_with?('Braintree') || target.name == 'BraintreeDropIn'
         config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
         config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
       end

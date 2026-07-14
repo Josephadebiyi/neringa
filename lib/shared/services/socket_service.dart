@@ -18,9 +18,13 @@ class SocketService {
 
   socket_io.Socket? _socket;
   bool _connected = false;
+  bool _connecting = false;
   String? _currentUserId;
+  String? _joinedUserId;
   String? _activeConversationId;
+  String? _joinedConversationId;
   String? _activeSupportTicketId;
+  String? _joinedSupportTicketId;
 
   final List<OnNewMessage> _messageListeners = [];
   final List<OnConversationUpdate> _conversationListeners = [];
@@ -31,7 +35,7 @@ class SocketService {
 
   /// Connect to backend Socket.IO server
   Future<void> connect() async {
-    if (_socket != null && _connected) return;
+    if (_socket != null && (_connected || _connecting)) return;
 
     final token = await StorageService.instance.getAccessToken();
     if (token == null) {
@@ -41,6 +45,7 @@ class SocketService {
 
     const baseUrl = ApiConstants.baseUrl;
     debugPrint('SocketService: Connecting to $baseUrl');
+    _connecting = true;
 
     _socket = socket_io.io(
       baseUrl,
@@ -57,35 +62,40 @@ class SocketService {
 
     _socket!.onConnect((_) {
       _connected = true;
+      _connecting = false;
+      _joinedUserId = null;
+      _joinedConversationId = null;
+      _joinedSupportTicketId = null;
       debugPrint('SocketService: Connected');
       // Join user room for personal notifications
       if (_currentUserId != null) {
-        _socket!.emit('join_user', _currentUserId);
-        debugPrint('SocketService: Joined user room $_currentUserId');
+        _joinCurrentUserRoom();
       }
       // Rejoin conversation if active
       if (_activeConversationId != null) {
-        _socket!.emit('join_conversation', _activeConversationId);
-        debugPrint(
-            'SocketService: Rejoined conversation $_activeConversationId');
+        _joinActiveConversationRoom();
       }
       if (_activeSupportTicketId != null) {
-        _socket!.emit('join_support_ticket', _activeSupportTicketId);
-        debugPrint(
-            'SocketService: Rejoined support ticket $_activeSupportTicketId');
+        _joinActiveSupportTicketRoom();
       }
     });
 
     _socket!.onDisconnect((_) {
       _connected = false;
+      _connecting = false;
+      _joinedUserId = null;
+      _joinedConversationId = null;
+      _joinedSupportTicketId = null;
       debugPrint('SocketService: Disconnected');
     });
 
     _socket!.onConnectError((data) {
+      _connecting = false;
       debugPrint('SocketService: Connection error: $data');
     });
 
     _socket!.onError((data) {
+      _connecting = false;
       debugPrint('SocketService: Error: $data');
     });
 
@@ -159,24 +169,19 @@ class SocketService {
   /// Set current user ID and join their private room
   void setUserId(String userId) {
     _currentUserId = userId;
-    if (_connected && _socket != null) {
-      _socket!.emit('join_user', userId);
-      debugPrint('SocketService: Joined user room $userId');
-    }
+    _joinCurrentUserRoom();
   }
 
   /// Join a specific conversation room for real-time messages
   void joinConversation(String conversationId) {
     _activeConversationId = conversationId;
-    if (_connected && _socket != null) {
-      _socket!.emit('join_conversation', conversationId);
-      debugPrint('SocketService: Joined conversation $conversationId');
-    }
+    _joinActiveConversationRoom();
   }
 
   /// Leave the active conversation room
   void leaveConversation() {
     _activeConversationId = null;
+    _joinedConversationId = null;
   }
 
   /// Send a message via socket (fast path).
@@ -256,13 +261,13 @@ class SocketService {
       await connect();
     }
     if (_connected && _socket != null) {
-      _socket!.emit('join_support_ticket', ticketId);
-      debugPrint('SocketService: Joined support ticket $ticketId');
+      _joinActiveSupportTicketRoom();
     }
   }
 
   void leaveSupportTicket() {
     _activeSupportTicketId = null;
+    _joinedSupportTicketId = null;
   }
 
   void addSupportListener(OnSupportMessage listener) {
@@ -279,13 +284,56 @@ class SocketService {
     _socket?.dispose();
     _socket = null;
     _connected = false;
+    _connecting = false;
     _currentUserId = null;
+    _joinedUserId = null;
     _activeConversationId = null;
+    _joinedConversationId = null;
     _activeSupportTicketId = null;
+    _joinedSupportTicketId = null;
     _messageListeners.clear();
     _conversationListeners.clear();
     _tripUpdateListeners.clear();
     _supportListeners.clear();
     debugPrint('SocketService: Disconnected and cleaned up');
+  }
+
+  void _joinCurrentUserRoom() {
+    final userId = _currentUserId;
+    if (!_connected || _socket == null || userId == null || userId.isEmpty) {
+      return;
+    }
+    if (_joinedUserId == userId) return;
+    _socket!.emit('join_user', userId);
+    _joinedUserId = userId;
+    debugPrint('SocketService: Joined user room $userId');
+  }
+
+  void _joinActiveConversationRoom() {
+    final conversationId = _activeConversationId;
+    if (!_connected ||
+        _socket == null ||
+        conversationId == null ||
+        conversationId.isEmpty) {
+      return;
+    }
+    if (_joinedConversationId == conversationId) return;
+    _socket!.emit('join_conversation', conversationId);
+    _joinedConversationId = conversationId;
+    debugPrint('SocketService: Joined conversation $conversationId');
+  }
+
+  void _joinActiveSupportTicketRoom() {
+    final ticketId = _activeSupportTicketId;
+    if (!_connected ||
+        _socket == null ||
+        ticketId == null ||
+        ticketId.isEmpty) {
+      return;
+    }
+    if (_joinedSupportTicketId == ticketId) return;
+    _socket!.emit('join_support_ticket', ticketId);
+    _joinedSupportTicketId = ticketId;
+    debugPrint('SocketService: Joined support ticket $ticketId');
   }
 }

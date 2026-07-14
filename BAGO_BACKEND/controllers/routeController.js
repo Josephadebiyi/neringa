@@ -69,8 +69,8 @@ const COUNTRY_CURRENCY_MAP = {
 export function isAfricanCountry(countryCode) {
   return AFRICAN_COUNTRY_CODES.includes(countryCode?.toUpperCase());
 }
-export function getPaymentGatewayForCountry(countryCode) {
-  return isAfricanCountry(countryCode) ? 'paystack' : 'stripe';
+export function getPaymentGatewayForCountry(_countryCode) {
+  return 'flutterwave';
 }
 export function getCurrencyForCountry(countryCode) {
   const code = countryCode?.toUpperCase();
@@ -316,7 +316,7 @@ export const calculatePrice = async (req, res) => {
       pricePerKg: parseFloat(route.base_price_per_kg),
       weightKg: w,
     };
-    const paymentGateway = userCountryCode ? getPaymentGatewayForCountry(userCountryCode) : (route.is_african_route ? 'paystack' : 'stripe');
+    const paymentGateway = 'flutterwave';
 
     res.json({ success: true, route: rowToRoute(route), pricing, paymentGateway, estimatedDelivery: { minDays: route.estimated_delivery_min_days, maxDays: route.estimated_delivery_max_days } });
   } catch (err) {
@@ -348,7 +348,7 @@ export const getPricingForTrip = async (req, res) => {
     const w = weightKg ? parseFloat(weightKg) : null;
     const pricing = w ? { basePrice: parseFloat(route.base_price_per_kg) * w, pricePerKg: parseFloat(route.base_price_per_kg), weightKg: w, currency: route.currency } : null;
 
-    res.json({ success: true, exactMatch: true, route: rowToRoute(route), pricing, paymentGateway: route.is_african_route ? 'paystack' : 'stripe' });
+    res.json({ success: true, exactMatch: true, route: rowToRoute(route), pricing, paymentGateway: 'flutterwave' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to get pricing', error: err.message });
   }

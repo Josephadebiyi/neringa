@@ -68,12 +68,18 @@ dependencies:
   # Native splash control
   flutter_native_splash: ^2.4.4
 
-  # WebView (for KYC / Paystack)
+  # WebView (for KYC)
   # Native Dojah KYC SDK (local patched copy — fixes SDKInitViewController early-resolve bug)
   dojah_kyc_sdk_flutter:
     path: packages/dojah_kyc_sdk_flutter
 
   webview_flutter: ^4.13.0
+
+  # ASWebAuthenticationSession (iOS) / Chrome Custom Tabs (Android) — required
+  # for Flutterwave checkout so Apple Pay actually works. Apple Pay does not
+  # function inside a plain embedded WKWebView (confirmed in Flutterwave's own
+  # docs), only in a real Safari context.
+  flutter_web_auth_2: ^4.1.0
 
   # Runtime permission requests (camera + microphone for Prembly KYC WebView)
   permission_handler: ^11.3.1

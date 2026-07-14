@@ -129,17 +129,10 @@ export async function detectLocationMiddleware(req, res, next) {
 
 /**
  * Determine payment gateway based on location
- * @param {String} countryCode - ISO country code
- * @returns {String} - 'paystack' or 'stripe'
+ * @returns {String} - always 'flutterwave', Bago's sole payment/payout provider
  */
-export function getPaymentGatewayByLocation(countryCode) {
-  const paystackCountries = ['NG', 'GH', 'ZA', 'KE'];
-
-  if (paystackCountries.includes(countryCode?.toUpperCase())) {
-    return 'paystack';
-  }
-
-  return 'stripe';
+export function getPaymentGatewayByLocation(_countryCode) {
+  return 'flutterwave';
 }
 
 /**

@@ -30,7 +30,8 @@ import {
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { buildTripCapacitySnapshot, syncTripCapacity } from '../lib/postgres/tripCapacity.js';
-import { verifyPayment as verifyPaystackPaymentRef } from '../services/paystackService.js';
+import { verifyFlutterwaveTransactionServerSide } from './FlutterwaveController.js';
+import { refundTransaction } from '../services/flutterwaveService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { getAppSettings } from './AdminControllers/setting.js';
 import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingController.js';
@@ -48,25 +49,12 @@ function getPaymentReference(paymentInfo = {}) {
   return paymentInfo.requestId || paymentInfo.paymentIntentId || paymentInfo.reference || paymentInfo.transactionReference || null;
 }
 
-async function refundPaystackPayment(reference) {
-  const secret = process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET;
-  if (!secret) {
-    throw new Error('Paystack secret is not configured.');
+async function refundFlutterwavePayment(reference) {
+  const result = await refundTransaction(reference, { comments: 'Traveler rejected the shipment request.' });
+  if (!result.success) {
+    throw new Error(result.message || 'Flutterwave refund failed.');
   }
-
-  const response = await fetch('https://api.paystack.co/refund', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ transaction: reference }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.status === false) {
-    throw new Error(data.message || 'Paystack refund failed.');
-  }
-  return data.data || data;
+  return result;
 }
 
 async function reverseTravelerEscrowForRefund(client, requestId, reason) {
@@ -117,14 +105,14 @@ async function refundPaidShipmentRequest(request) {
   const reference = getPaymentReference(paymentInfo);
   const previousRefundStatus = paymentInfo.refund?.status;
 
-  if (!reference || provider !== 'paystack') {
+  if (!reference || provider !== 'flutterwave') {
     return null;
   }
   if (['succeeded', 'pending'].includes(previousRefundStatus)) {
     return paymentInfo.refund || null;
   }
 
-  const refund = await refundPaystackPayment(reference);
+  const refund = await refundFlutterwavePayment(reference);
 
   const refundInfo = {
     status: refund.status || 'pending',
@@ -281,7 +269,7 @@ export async function mergePaidDuplicateRequest({
     const nextAmount = Number(request.amount || 0) + Number(additionalAmount || 0);
     const nextCurrency = currency || request.currency || 'USD';
     const paymentInfo = appendPaymentInfo(request.payment_info || {}, {
-      provider: paymentProvider || 'paystack',
+      provider: paymentProvider || 'flutterwave',
       reference: paymentReference,
       amount: Number(additionalAmount),
       currency: nextCurrency,
@@ -350,7 +338,7 @@ export async function mergePaidDuplicateRequest({
           `Additional kg escrow hold for Request ${request.tracking_number || request.id}`,
           {
             providerReference: paymentReference,
-            provider: paymentProvider || 'paystack',
+            provider: paymentProvider || 'flutterwave',
             originalAmount: rawAmount,
             originalCurrency: requestCurrency,
             packageId: incomingPackageId,
@@ -405,7 +393,7 @@ async function applyPaidAdditionalKg({
     const rawAmount = Number(additionalAmount || 0);
     const nextAmount = Number(request.amount || 0) + rawAmount;
     const paymentInfo = appendPaymentInfo(request.payment_info || {}, {
-      provider: paymentProvider || 'paypal',
+      provider: paymentProvider || 'flutterwave',
       reference: paymentReference,
       amount: rawAmount,
       currency: nextCurrency,
@@ -449,7 +437,7 @@ async function applyPaidAdditionalKg({
       currency: nextCurrency,
       packageWeight: parsedKg,
       metadata: {
-        paymentProvider: paymentProvider || 'paypal',
+        paymentProvider: paymentProvider || 'flutterwave',
         paymentReference,
         previousAmount: request.amount,
         nextAmount,
@@ -484,7 +472,7 @@ async function applyPaidAdditionalKg({
           `Additional kg escrow hold for Request ${request.tracking_number || request.id}`,
           {
             providerReference: paymentReference,
-            provider: paymentProvider || 'paypal',
+            provider: paymentProvider || 'flutterwave',
             originalAmount: rawAmount,
             originalCurrency: nextCurrency,
             additionalKg: parsedKg,
@@ -531,7 +519,6 @@ export async function RequestPackage(req, res) {
     let verifiedPaymentStatus = paymentStatus;
     let requestAmount = Number(amount);
     let requestCurrency = currency || 'USD';
-    let paypalPayment = null;
 
     if (!senderId || !travelerId || !packageId || !tripId) {
       return res.status(400).json({ message: 'All required fields must be provided' });
@@ -658,40 +645,24 @@ export async function RequestPackage(req, res) {
     }
 
     if (paymentReference) {
-      // Verify payment server-side before holding escrow
-      const provider = (paymentProvider || 'paystack').toLowerCase();
-      if (provider === 'paystack') {
-        const verification = await verifyPaystackPaymentRef(paymentReference);
+      // Verify payment server-side before holding escrow — never trust the
+      // client redirect alone. Flutterwave is the sole active provider.
+      const provider = (paymentProvider || 'flutterwave').toLowerCase();
+      if (provider === 'stripe') {
+        return res.status(410).json({ message: 'This payment method is disabled. Please restart checkout.', success: false });
+      } else if (provider === 'flutterwave') {
+        const verification = await verifyFlutterwaveTransactionServerSide(paymentReference);
         if (!verification.success) {
           return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
         }
-        // verifyPayment already converts kobo→naira — compare directly to agreed amount
         const verifiedAmount = Number(verification.data?.amount || 0);
         const agreedAmount = requestAmount;
         if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
-      } else if (provider === 'stripe') {
-        return res.status(410).json({ message: 'Stripe payments are disabled. Please restart checkout with PayPal.', success: false });
-      } else if (provider === 'paypal') {
-        paypalPayment = await queryOne(
-          `
-            select id, amount, shipment_amount, currency, status, paypal_capture_id
-            from public.paypal_payments
-            where paypal_order_id = $1
-              and user_id = $2
-              and status in ('captured', 'completed', 'paid', 'paid_escrow')
-            order by updated_at desc
-            limit 1
-          `,
-          [paymentReference, senderId],
-        );
-        if (!paypalPayment?.paypal_capture_id) {
-          return res.status(402).json({ message: 'PayPal payment could not be verified. Please complete payment first.', success: false });
+        if (String(verification.data?.currency || '').toUpperCase() !== String(requestCurrency || '').toUpperCase()) {
+          return res.status(402).json({ message: 'Verified payment currency does not match the agreed currency.', success: false });
         }
-        requestAmount = Number(paypalPayment.shipment_amount || requestAmount);
-        requestCurrency = String(paypalPayment.currency || requestCurrency || 'USD').toUpperCase();
-        verifiedPaymentStatus = 'paid_escrow';
       }
     }
 
@@ -703,7 +674,7 @@ export async function RequestPackage(req, res) {
         additionalAmount: requestAmount,
         currency: requestCurrency,
         paymentReference,
-        paymentProvider: paymentProvider || 'paypal',
+        paymentProvider: paymentProvider || 'flutterwave',
       });
       if (!updatedRequest) {
         return res.status(404).json({
@@ -711,15 +682,15 @@ export async function RequestPackage(req, res) {
           message: 'Active shipment request was not found for additional kg.',
         });
       }
-      if ((paymentProvider || '').toLowerCase() === 'paypal') {
+      if ((paymentProvider || '').toLowerCase() === 'flutterwave') {
         await query(
           `
-            update public.paypal_payments
-            set request_id = $2,
+            update public.payments
+            set shipment_id = $2,
                 status = 'paid_escrow',
                 raw_response = raw_response || $3::jsonb,
                 updated_at = timezone('utc', now())
-            where paypal_order_id = $1
+            where provider = 'flutterwave' and provider_reference = $1
           `,
           [
             paymentReference,
@@ -731,7 +702,7 @@ export async function RequestPackage(req, res) {
             },
           ],
         ).catch((linkError) => {
-          console.warn('PayPal additional kg payment linked but row update failed:', linkError.message);
+          console.warn('Flutterwave additional kg payment linked but row update failed:', linkError.message);
         });
       }
       return res.status(200).json({
@@ -767,9 +738,9 @@ export async function RequestPackage(req, res) {
           termsAccepted: true,
           paymentInfo: paymentReference
             ? {
-                method: paymentProvider || 'paystack',
-                gateway: paymentProvider || 'paystack',
-                status: paymentStatus || (paymentProvider === 'paypal' ? 'paid_escrow' : 'paid'),
+                method: paymentProvider || 'flutterwave',
+                gateway: paymentProvider || 'flutterwave',
+                status: paymentStatus || 'paid_escrow',
                 requestId: paymentReference,
               }
             : {},
@@ -819,7 +790,7 @@ export async function RequestPackage(req, res) {
           console.warn('Stripe payment linked to shipment request but payments row update failed:', linkError.message);
         });
         newRequest = await getShipmentRequestById(newRequest.id);
-      } else if ((paymentProvider || '').toLowerCase() === 'paypal') {
+      } else if ((paymentProvider || '').toLowerCase() === 'flutterwave') {
         await query(
           `
             update public.shipment_requests
@@ -831,27 +802,25 @@ export async function RequestPackage(req, res) {
           [
             newRequest.id,
             {
-              method: 'paypal',
-              gateway: 'paypal',
+              method: 'flutterwave',
+              gateway: 'flutterwave',
               status: 'paid_escrow',
               requestId: paymentReference,
-              orderId: paymentReference,
-              captureId: paypalPayment?.paypal_capture_id || null,
             },
           ],
         );
         await query(
           `
-            update public.paypal_payments
-            set request_id = $2,
+            update public.payments
+            set shipment_id = $2,
                 status = 'paid_escrow',
                 raw_response = raw_response || $3::jsonb,
                 updated_at = timezone('utc', now())
-            where paypal_order_id = $1
+            where provider = 'flutterwave' and provider_reference = $1
           `,
           [paymentReference, newRequest.id, { requestId: newRequest.id, linkedAfterPayment: true }],
         ).catch((linkError) => {
-          console.warn('PayPal payment linked to shipment request but row update failed:', linkError.message);
+          console.warn('Flutterwave payment linked to shipment request but payments row update failed:', linkError.message);
         });
         newRequest = await getShipmentRequestById(newRequest.id);
       }
@@ -860,13 +829,13 @@ export async function RequestPackage(req, res) {
         await holdEscrowForPaidRequest({
           requestId: newRequest.id,
           providerReference: paymentReference,
-          provider: paymentProvider || 'paystack',
+          provider: paymentProvider || 'flutterwave',
         });
       } catch (escrowError) {
         console.error('Paid request created but escrow hold failed:', {
           requestId: newRequest.id,
           paymentReference,
-          provider: paymentProvider || 'paystack',
+          provider: paymentProvider || 'flutterwave',
           error: escrowError.message,
         });
       }

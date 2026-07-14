@@ -214,12 +214,14 @@ async function buildUserResponse(user) {
     bank_details: user.bankDetails || {},
     payoutMethod: user.payoutMethod || null,
     payout_method: user.payoutMethod || null,
-    payoutMethodStatus: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId ? 'connected' : null),
-    payout_method_status: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId ? 'connected' : null),
+    payoutMethodStatus: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId || user.payoutProvider === 'flutterwave' ? 'connected' : null),
+    payout_method_status: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId || user.payoutProvider === 'flutterwave' ? 'connected' : null),
     referralCode: user.referral_code || user.referralCode || null,
     referral_code: user.referral_code || user.referralCode || null,
-    bankAccountLinked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeConnectAccountId),
-    bank_account_linked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeConnectAccountId),
+    // Flutterwave beneficiaries are tracked via profiles.payout_provider/payout_status
+    // (generalized columns, not a dedicated recipient-code field like Paystack's).
+    bankAccountLinked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeConnectAccountId) || (user.payoutProvider === 'flutterwave' && user.payoutStatus === 'active'),
+    bank_account_linked: Boolean(user.paystackRecipientCode) || Boolean(user.stripeConnectAccountId) || (user.payoutProvider === 'flutterwave' && user.payoutStatus === 'active'),
     acceptedTerms: user.acceptedTerms ?? false,
     accepted_terms: user.acceptedTerms ?? false,
     acceptedTermsAt: user.acceptedTermsAt || null,

@@ -4,14 +4,6 @@ import { query, queryOne, withTransaction } from './db.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
 import { CurrencyService } from '../../services/currencyConverter.js';
 
-const AFRICAN_PAYOUT_CURRENCIES = new Set([
-  'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
-  'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
-  'MRU', 'MUR', 'MWK', 'MZN', 'NAD', 'NGN', 'RWF', 'SCR', 'SDG', 'SLE',
-  'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
-  'ZWL',
-]);
-
 function roundDisplayMoney(amount) {
   return Number(Number(amount || 0).toFixed(2));
 }
@@ -548,13 +540,13 @@ export async function updatePreferredCurrency(userId, currency, paymentGateway, 
 
 // Updates traveler payout currency. Currency conversion is handled server-side
 // when ledger entries and wallet balances are created or displayed.
-const PAYSTACK_LOCK_CURRENCIES = new Set(['NGN', 'GHS', 'KES', 'ZAR']);
+const AFRICAN_LOCK_CURRENCIES = new Set(['NGN', 'GHS', 'KES', 'ZAR']);
 
 export async function activateEarningCurrency(userId, currency) {
   await ensureEarningCurrencyColumns();
   const upper = currency.toUpperCase();
-  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
-  const locked = PAYSTACK_LOCK_CURRENCIES.has(upper);
+  const paymentGateway = 'flutterwave';
+  const locked = AFRICAN_LOCK_CURRENCIES.has(upper);
   await withTransaction(async (client) => {
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = $4,
@@ -569,7 +561,7 @@ export async function activateEarningCurrency(userId, currency) {
 export async function adminChangeEarningCurrency(userId, newCurrency, settleBalance, adminNote, { convertBalance = true } = {}) {
   await ensureEarningCurrencyColumns();
   const upper = newCurrency.toUpperCase();
-  const paymentGateway = AFRICAN_PAYOUT_CURRENCIES.has(upper) ? 'paystack' : 'paypal';
+  const paymentGateway = 'flutterwave';
 
   await withTransaction(async (client) => {
     let wallet = await client.query(
@@ -692,7 +684,7 @@ export async function adminChangeEarningCurrency(userId, newCurrency, settleBala
       );
     }
 
-    const locked = PAYSTACK_LOCK_CURRENCIES.has(upper);
+    const locked = AFRICAN_LOCK_CURRENCIES.has(upper);
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, preferred_currency = $2,
        payment_gateway = $3, earning_currency_locked = $4, updated_at = NOW() WHERE id = $1`,

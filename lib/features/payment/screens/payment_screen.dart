@@ -1,10 +1,8 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -14,7 +12,6 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
-import '../../shipments/services/shipment_service.dart';
 import '../services/payment_service.dart';
 import '../services/shipment_checkout_service.dart';
 
@@ -33,10 +30,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   bool _isLoadingDraft = true;
   bool _isSdkReady = false;
   bool _isProcessing = false;
-  bool _applePaySupported = false;
-  bool _paypalCardsEligible = false;
-  PaypalConfig? _paypalConfig;
-  _CheckoutPaymentMethod _selectedMethod = _CheckoutPaymentMethod.paypal;
   Map<String, dynamic>? _draft;
   String? _initError;
 
@@ -45,11 +38,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _complianceNotes = '';
   List<String> _complianceDocs = [];
   bool _complianceDismissed = false;
-
-  // Flutterwave is the sole active payment provider — providerForCurrency always
-  // returns 'flutterwave' now (Paystack/PayPal are disabled on the backend, kept
-  // only for rollback). _usePaystack/_usePaypal helpers are gone; checkout always
-  // goes through _startFlutterwaveCheckout below.
 
   @override
   void initState() {
@@ -92,29 +80,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  Future<void> _initPaypal() async {
-    try {
-      final config = await _paymentService.getPaypalConfig();
-      if (mounted) {
-        setState(() {
-          _isSdkReady = true;
-          _paypalConfig = config;
-          _paypalCardsEligible = config.advancedCardsEligible;
-          _applePaySupported = Platform.isIOS && config.applePayEligible;
-          _selectedMethod = _applePaySupported
-              ? _CheckoutPaymentMethod.applePay
-              : _CheckoutPaymentMethod.card;
-        });
-      }
-    } catch (e) {
-      debugPrint('PayPal init failed: $e');
-      if (mounted) {
-        setState(() => _initError =
-            'Payment methods are temporarily unavailable. Please try again.');
-      }
-    }
-  }
-
   // ── AI compliance check ───────────────────────────────────────────────────
 
   Future<void> _fetchCompliance(Map<String, dynamic> draft) async {
@@ -143,85 +108,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (_) {}
   }
 
-  // ── Paystack checkout (African currencies) ────────────────────────────────
-
-  Future<void> _startPaystackCheckout() async {
-    if (_isProcessing || _draft == null) return;
-    setState(() => _isProcessing = true);
-    try {
-      final draft = _draft!;
-      final currency = _asString(draft['currency'], 'NGN');
-      final amount = _asDouble(draft['totalAmount']);
-      final packageId = draft['packageId']?.toString() ?? '';
-      final tripId = draft['tripId']?.toString() ?? '';
-      final insurance = draft['insurance'] == true;
-      final insuranceCost = _asDouble(draft['insuranceAmount']);
-
-      final init = await _paymentService.initializePaystackPayment(
-        packageId: packageId,
-        tripId: tripId,
-        amount: amount,
-        currency: currency,
-        insurance: insurance,
-        insuranceCost: insuranceCost,
-      );
-
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-
-      final result = await Navigator.push<Map<String, dynamic>>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _PaymentWebView(
-            url: init.authorizationUrl,
-            title: 'Paystack checkout',
-            callbackUrlPattern: '/payment/callback',
-          ),
-        ),
-      );
-
-      if (!mounted || result == null) return;
-      if (result['type'] == 'callback') {
-        final ref = result['reference']?.toString();
-        await _verifyPaystack(ref?.isNotEmpty == true ? ref! : init.reference);
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isProcessing = false);
-      _failWithDraft('paystack', e.toString().replaceFirst('Exception: ', ''));
-    }
-  }
-
-  Future<void> _verifyPaystack(String reference) async {
-    if (!mounted || reference.isEmpty) return;
-    setState(() => _isProcessing = true);
-    try {
-      final draft = _draft!;
-      final result = await _paymentService.verifyPaystackPayment(reference);
-      if (!mounted) return;
-      if (result.success) {
-        _checkoutService.clearDraft();
-        context.go('/order-success', extra: {
-          ...draft,
-          'provider': 'paystack',
-          'paymentReference': reference,
-          'request': null,
-        });
-      } else {
-        _failWithDraft(
-            'paystack', result.message ?? 'Payment verification failed.');
-      }
-    } catch (e) {
-      _failWithDraft('paystack', e.toString().replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
   // ── Flutterwave checkout (sole active provider) ───────────────────────────
-  // Mirrors _startPaystackCheckout/_verifyPaystack above. Flutterwave's hosted
-  // checkout presents card/bank/mobile-money/Apple Pay/Google Pay options on its
-  // own page based on currency/country, so Bago just opens one webview instead
-  // of pre-selecting a method the way the old PayPal flow required.
+  // Flutterwave's hosted checkout presents card/bank/mobile-money/Apple
+  // Pay/Google Pay options on its own page based on currency/country.
+  //
+  // Opened via FlutterWebAuth2 (a real Safari/ASWebAuthenticationSession context
+  // on iOS, Chrome Custom Tabs on Android) rather than the embedded
+  // _PaymentWebView used elsewhere — Apple Pay does not work inside a plain
+  // WKWebView (confirmed in Flutterwave's own docs), only in actual Safari.
+  static const _flutterwaveCallbackScheme =
+      'com.deracali.boltexponativewind.payments';
 
   Future<void> _startFlutterwaveCheckout() async {
     if (_isProcessing || _draft == null) return;
@@ -245,24 +141,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
 
       if (!mounted) return;
-      setState(() => _isProcessing = false);
 
-      final result = await Navigator.push<Map<String, dynamic>>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _PaymentWebView(
-            url: init.authorizationUrl,
-            title: 'Secure checkout',
-            callbackUrlPattern: '/payment/callback',
-          ),
-        ),
+      final callbackUrl = await FlutterWebAuth2.authenticate(
+        url: init.authorizationUrl,
+        callbackUrlScheme: _flutterwaveCallbackScheme,
       );
 
-      if (!mounted || result == null) return;
-      if (result['type'] == 'callback') {
-        final ref = result['reference']?.toString();
-        await _verifyFlutterwave(
-            ref?.isNotEmpty == true ? ref! : init.reference);
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final uri = Uri.tryParse(callbackUrl);
+      final status = uri?.queryParameters['status'];
+      if (status == 'cancelled') {
+        _failWithDraft('flutterwave', 'Payment was cancelled.');
+        return;
+      }
+      final ref = uri?.queryParameters['transaction_id'] ??
+          uri?.queryParameters['tx_ref'] ??
+          '';
+      await _verifyFlutterwave(ref.isNotEmpty ? ref : init.reference);
+    } on PlatformException catch (e) {
+      if (mounted) setState(() => _isProcessing = false);
+      // User closed the Safari sheet without completing checkout — not an error.
+      if (e.code != 'CANCELED') {
+        _failWithDraft('flutterwave', 'Payment could not be completed.');
       }
     } catch (e) {
       if (mounted) setState(() => _isProcessing = false);
@@ -296,330 +198,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
-  }
-
-  // ── In-app checkout (legacy PayPal — disabled on backend, kept for rollback) ─
-
-  Future<void> _startCardCheckout() async {
-    if (_isProcessing || _draft == null || !_isSdkReady) return;
-    final nativeConfig = _paypalConfig;
-    final canUseNativeCard = Platform.isIOS &&
-        nativeConfig != null &&
-        nativeConfig.clientId.isNotEmpty;
-    if (!_paypalCardsEligible && !canUseNativeCard) {
-      await _startPaypalCheckout(paymentMethod: 'card');
-      return;
-    }
-    setState(() => _isProcessing = true);
-    String? paymentReference;
-    try {
-      final draft = _draft!;
-      final currency = _asString(draft['currency'], 'USD');
-      final packageId = draft['packageId']?.toString() ?? '';
-      final tripId = draft['tripId']?.toString() ?? '';
-      final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createPaypalOrder(
-        packageId: packageId,
-        tripId: tripId,
-        travelerId: travelerId,
-        currency: currency,
-        insurance: draft['insurance'] == true,
-        paymentMethod: 'card',
-        customerEmail: draft['customerEmail']?.toString(),
-        additionalRequestId: draft['additionalRequestId']?.toString(),
-        additionalKg: _asDouble(draft['additionalKg']),
-      );
-      paymentReference = session.orderId;
-
-      if (canUseNativeCard) {
-        await _paymentService.approveNativePaypalCard(
-          clientId: nativeConfig.clientId,
-          environment: nativeConfig.environment,
-          orderId: session.orderId,
-          amount: session.amount,
-          currency: session.currency,
-        );
-      } else {
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-
-        final cardUrl = Uri.parse(ApiConstants.baseUrl)
-            .resolve(ApiConstants.paypalCardFields)
-            .replace(queryParameters: {
-          'orderId': session.orderId,
-          'amount': session.amount.toStringAsFixed(2),
-          'currency': session.currency,
-          if (draft['customerEmail']?.toString().isNotEmpty == true)
-            'email': draft['customerEmail'].toString(),
-        }).toString();
-
-        final result = await Navigator.push<Map<String, dynamic>>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => _PaymentWebView(
-              url: cardUrl,
-              title: 'Bank card',
-              callbackUrlPattern: '/api/payments/paypal/return',
-              cancelUrlPattern: '/api/payments/paypal/cancel',
-            ),
-          ),
-        );
-        if (!mounted) return;
-        if (result?['type'] == 'cancel') {
-          _failWithDraft('card', 'Payment was cancelled.',
-              paymentReference: paymentReference);
-          return;
-        }
-        if (result?['type'] != 'callback') {
-          _failWithDraft('card', 'Payment was not approved.',
-              paymentReference: paymentReference);
-          return;
-        }
-      }
-
-      setState(() => _isProcessing = true);
-      final capture =
-          await _paymentService.capturePaypalOrder(orderId: session.orderId);
-      await _completeShipmentAfterPayment(
-        draft: draft,
-        travelerId: travelerId,
-        packageId: packageId,
-        tripId: tripId,
-        currency: capture.currency,
-        paymentReference: capture.paymentReference,
-        paymentProvider: 'paypal_card',
-        paymentStatus: 'paid_escrow',
-        amountOverride:
-            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
-      );
-    } catch (e) {
-      debugPrint('Card payment error: $e');
-      _failWithDraft(
-        'card',
-        e.toString().replaceFirst('Exception: ', ''),
-        paymentReference: paymentReference,
-      );
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  Future<void> _startPaypalCheckout({String paymentMethod = 'paypal'}) async {
-    if (_isProcessing || _draft == null || !_isSdkReady) return;
-    setState(() => _isProcessing = true);
-    String? paymentReference;
-    try {
-      final draft = _draft!;
-      final currency = _asString(draft['currency'], 'USD');
-      final packageId = draft['packageId']?.toString() ?? '';
-      final tripId = draft['tripId']?.toString() ?? '';
-      final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createPaypalOrder(
-        packageId: packageId,
-        tripId: tripId,
-        travelerId: travelerId,
-        currency: currency,
-        insurance: draft['insurance'] == true,
-        paymentMethod: paymentMethod,
-        customerEmail: draft['customerEmail']?.toString(),
-        additionalRequestId: draft['additionalRequestId']?.toString(),
-        additionalKg: _asDouble(draft['additionalKg']),
-      );
-      paymentReference = session.orderId;
-
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-
-      final result = await Navigator.push<Map<String, dynamic>>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _PaymentWebView(
-            url: session.approvalUrl,
-            title: 'PayPal',
-            callbackUrlPattern: '/api/payments/paypal/return',
-            cancelUrlPattern: '/api/payments/paypal/cancel',
-          ),
-        ),
-      );
-      if (!mounted) return;
-      if (result?['type'] == 'cancel') {
-        _failWithDraft(
-          'paypal',
-          'Payment was cancelled.',
-          paymentReference: paymentReference,
-        );
-        return;
-      }
-      if (result?['type'] != 'callback') {
-        _failWithDraft(
-          'paypal',
-          'Payment was not approved.',
-          paymentReference: paymentReference,
-        );
-        return;
-      }
-      setState(() => _isProcessing = true);
-      final capture =
-          await _paymentService.capturePaypalOrder(orderId: session.orderId);
-
-      await _completeShipmentAfterPayment(
-        draft: draft,
-        travelerId: travelerId,
-        packageId: packageId,
-        tripId: tripId,
-        currency: capture.currency,
-        paymentReference: capture.paymentReference,
-        paymentProvider: 'paypal',
-        paymentStatus: 'paid_escrow',
-        amountOverride:
-            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
-      );
-    } catch (e) {
-      debugPrint('PayPal payment error: $e');
-      _failWithDraft(
-        'paypal',
-        e.toString().replaceFirst('Exception: ', ''),
-        paymentReference: paymentReference,
-      );
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  Future<void> _startApplePayCheckout() async {
-    if (_isProcessing || _draft == null || !_isSdkReady) return;
-    if (!_applePaySupported) {
-      setState(() => _initError =
-          'Apple Pay is not available on this device. Please use Bank Card or PayPal.');
-      return;
-    }
-    setState(() => _isProcessing = true);
-    String? paymentReference;
-    try {
-      final draft = _draft!;
-      final currency = _asString(draft['currency'], 'USD');
-      final packageId = draft['packageId']?.toString() ?? '';
-      final tripId = draft['tripId']?.toString() ?? '';
-      final travelerId = draft['travelerId']?.toString() ?? '';
-      final session = await _paymentService.createPaypalOrder(
-        packageId: packageId,
-        tripId: tripId,
-        travelerId: travelerId,
-        currency: currency,
-        insurance: draft['insurance'] == true,
-        paymentMethod: 'apple_pay',
-        customerEmail: draft['customerEmail']?.toString(),
-        additionalRequestId: draft['additionalRequestId']?.toString(),
-        additionalKg: _asDouble(draft['additionalKg']),
-      );
-      paymentReference = session.orderId;
-
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-
-      final applePayUrl = Uri.parse(ApiConstants.baseUrl)
-          .resolve(ApiConstants.paypalApplePaySheet)
-          .replace(queryParameters: {
-        'orderId': session.orderId,
-        'amount': session.amount.toStringAsFixed(2),
-        'currency': session.currency,
-      }).toString();
-
-      final result = await Navigator.push<Map<String, dynamic>>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _PaymentWebView(
-            url: applePayUrl,
-            title: 'Apple Pay',
-            callbackUrlPattern: '/api/payments/paypal/return',
-            cancelUrlPattern: '/api/payments/paypal/cancel',
-          ),
-        ),
-      );
-      if (!mounted) return;
-      if (result?['type'] == 'cancel') {
-        _failWithDraft('apple_pay', 'Payment was cancelled.',
-            paymentReference: paymentReference);
-        return;
-      }
-      if (result?['type'] != 'callback') {
-        _failWithDraft('apple_pay', 'Payment was not approved.',
-            paymentReference: paymentReference);
-        return;
-      }
-
-      setState(() => _isProcessing = true);
-      final capture =
-          await _paymentService.capturePaypalOrder(orderId: session.orderId);
-      await _completeShipmentAfterPayment(
-        draft: draft,
-        travelerId: travelerId,
-        packageId: packageId,
-        tripId: tripId,
-        currency: capture.currency,
-        paymentReference: capture.paymentReference,
-        paymentProvider: 'paypal_apple_pay',
-        paymentStatus: 'paid_escrow',
-        amountOverride:
-            capture.shipmentAmount > 0 ? capture.shipmentAmount : null,
-      );
-    } catch (e) {
-      debugPrint('Apple Pay payment error: $e');
-      _failWithDraft(
-        'apple_pay',
-        e.toString().replaceFirst('Exception: ', ''),
-        paymentReference: paymentReference,
-      );
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
-  }
-
-  Future<void> _completeShipmentAfterPayment({
-    required Map<String, dynamic> draft,
-    required String travelerId,
-    required String packageId,
-    required String tripId,
-    required String currency,
-    required String paymentReference,
-    String paymentProvider = 'paypal',
-    String paymentStatus = 'paid_escrow',
-    double? amountOverride,
-  }) async {
-    final request = await ShipmentService.instance.sendPackageRequest(
-      travelerId: travelerId,
-      packageId: packageId,
-      tripId: tripId,
-      amount: amountOverride ?? _asDouble(draft['shippingAmount']),
-      currency: currency,
-      insurance: draft['insurance'] == true,
-      insuranceCost: _asDouble(draft['insuranceAmount']),
-      estimatedDeparture: draft['estimatedDeparture']?.toString(),
-      estimatedArrival: draft['estimatedArrival']?.toString(),
-      paymentReference: paymentReference,
-      paymentProvider: paymentProvider,
-      paymentStatus: paymentStatus,
-      message: draft['message']?.toString(),
-      additionalRequestId: draft['additionalRequestId']?.toString(),
-      additionalKg: _asDouble(draft['additionalKg']),
-      travelerPayout: _asDouble(draft['travelerPayout']),
-      senderShippingFee: _asDouble(draft['shippingAmount']),
-      platformCommission: _asDouble(draft['platformCommission']),
-      processingFee: _asDouble(draft['processingFee']),
-      fxBuffer: _asDouble(draft['fxBuffer']),
-      bagoNetRevenue: _asDouble(draft['bagoNetRevenue']),
-    );
-
-    if (!mounted) return;
-    await _checkoutService.clearDraft();
-    if (!mounted) return;
-    context.go('/order-success', extra: {
-      ...draft,
-      'provider': paymentProvider,
-      'paymentReference': paymentReference,
-      'request': request,
-      if (request?['paymentPending'] == true) 'paymentPending': true,
-    });
   }
 
   // ── Shared failure helper ─────────────────────────────────────────────────
@@ -679,16 +257,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (normalized.contains('apple pay')) {
       return 'Apple Pay could not be completed. Please try again or use card payment.';
     }
-    if (normalized.contains('paypal')) {
-      final cleaned = errorMsg
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .replaceFirst('Exception: ', '')
-          .trim();
-      if (cleaned.length >= 8 && cleaned.length <= 180) {
-        return cleaned;
-      }
-      return 'PayPal payment could not be completed. Please try again.';
-    }
     if (normalized.contains('bizum')) {
       return 'Bizum could not be completed. Please try again or use card payment.';
     }
@@ -706,20 +274,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       value?.toString().trim().isNotEmpty == true
           ? value.toString().trim()
           : fallback;
-
-  Future<void> _paySelectedMethod() async {
-    switch (_selectedMethod) {
-      case _CheckoutPaymentMethod.applePay:
-        await _startApplePayCheckout();
-        break;
-      case _CheckoutPaymentMethod.card:
-        await _startCardCheckout();
-        break;
-      case _CheckoutPaymentMethod.paypal:
-        await _startPaypalCheckout();
-        break;
-    }
-  }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -882,106 +436,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 16),
         ],
       ),
-    );
-  }
-}
-
-// ── In-app card checkout form ────────────────────────────────────────────────
-
-enum _CheckoutPaymentMethod { applePay, card, paypal }
-
-class _CardCheckoutForm extends StatelessWidget {
-  const _CardCheckoutForm({
-    required this.amountLabel,
-    required this.isLoading,
-    required this.applePaySupported,
-    required this.selectedMethod,
-    required this.onSelect,
-    required this.onPay,
-  });
-
-  final String amountLabel;
-  final bool isLoading;
-  final bool applePaySupported;
-  final _CheckoutPaymentMethod selectedMethod;
-  final ValueChanged<_CheckoutPaymentMethod> onSelect;
-  final VoidCallback onPay;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (applePaySupported) ...[
-          _PaymentOptionButton(
-            icon: Icons.apple_rounded,
-            label: 'Apple Pay',
-            subtitle: 'Pay with Wallet',
-            isLoading: isLoading,
-            color: AppColors.black,
-            selected: selectedMethod == _CheckoutPaymentMethod.applePay,
-            onTap: () => onSelect(_CheckoutPaymentMethod.applePay),
-          ),
-          const SizedBox(height: 12),
-        ],
-        _PaymentOptionButton(
-          icon: Icons.credit_card_rounded,
-          label: 'Bank Card',
-          subtitle: 'Enter your card details',
-          isLoading: isLoading,
-          color: AppColors.primary,
-          selected: selectedMethod == _CheckoutPaymentMethod.card,
-          onTap: () => onSelect(_CheckoutPaymentMethod.card),
-        ),
-        const SizedBox(height: 12),
-        _PaymentOptionButton(
-          assetImage: 'assets/images/paypal-symbol.png',
-          label: 'PayPal',
-          subtitle: 'Authorize $amountLabel securely',
-          isLoading: isLoading,
-          color: const Color(0xFF003087),
-          selected: selectedMethod == _CheckoutPaymentMethod.paypal,
-          onTap: () => onSelect(_CheckoutPaymentMethod.paypal),
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          height: 58,
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: isLoading ? null : onPay,
-            icon: isLoading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.lock_outline_rounded),
-            label: Text('Pay $amountLabel'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              textStyle: AppTextStyles.buttonLg.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-              ),
-              elevation: 0,
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'You pay now. Bago holds the money in escrow and releases it after shipping is complete.',
-          style: AppTextStyles.bodySm.copyWith(
-            color: AppColors.gray500,
-            height: 1.35,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1153,131 +607,6 @@ class _SummaryRow extends StatelessWidget {
                   color: AppColors.black, fontWeight: FontWeight.w700)),
         ),
       ],
-    );
-  }
-}
-
-// ── In-app WebView for Paystack payments ─────────────────────────────────────
-
-class _PaymentWebView extends StatefulWidget {
-  const _PaymentWebView({
-    required this.url,
-    required this.title,
-    this.callbackUrlPattern,
-    this.cancelUrlPattern,
-  });
-
-  final String url;
-  final String title;
-  // Set to intercept Paystack callback redirect (e.g. '/payment/callback')
-  final String? callbackUrlPattern;
-  final String? cancelUrlPattern;
-
-  @override
-  State<_PaymentWebView> createState() => _PaymentWebViewState();
-}
-
-class _PaymentWebViewState extends State<_PaymentWebView> {
-  late final WebViewController _controller;
-  bool _isLoading = true;
-  bool _hasError = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onHttpAuthRequest: (request) => request.onCancel(),
-        onPageStarted: (_) {
-          if (mounted) setState(() => _isLoading = true);
-        },
-        onPageFinished: (_) {
-          if (mounted) setState(() => _isLoading = false);
-        },
-        onWebResourceError: (error) {
-          if (error.isForMainFrame == true && mounted) {
-            setState(() {
-              _isLoading = false;
-              _hasError = true;
-            });
-          }
-        },
-        onNavigationRequest: _onNavigationRequest,
-      ));
-
-    _controller.loadRequest(Uri.parse(widget.url));
-  }
-
-  Future<NavigationDecision> _onNavigationRequest(
-    NavigationRequest request,
-  ) async {
-    final cancelPattern = widget.cancelUrlPattern;
-    if (cancelPattern != null && request.url.contains(cancelPattern)) {
-      Navigator.of(context).pop({'type': 'cancel'});
-      return NavigationDecision.prevent;
-    }
-
-    final pattern = widget.callbackUrlPattern;
-    if (pattern != null && request.url.contains(pattern)) {
-      final uri = Uri.tryParse(request.url);
-      final ref = uri?.queryParameters['reference'] ??
-          uri?.queryParameters['trxref'] ??
-          uri?.queryParameters['payment_intent'] ??
-          '';
-      Navigator.of(context).pop({'type': 'callback', 'reference': ref});
-      return NavigationDecision.prevent;
-    }
-    final uri = Uri.tryParse(request.url);
-    if (uri != null &&
-        uri.scheme.isNotEmpty &&
-        !const {'http', 'https', 'about'}.contains(uri.scheme)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      return NavigationDecision.prevent;
-    }
-    return NavigationDecision.navigate;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title,
-            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w700)),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.black,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
-      ),
-      body: Stack(
-        children: [
-          if (!_hasError) WebViewWidget(controller: _controller),
-          if (_isLoading && !_hasError) const Center(child: AppLoading()),
-          if (_hasError)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: Colors.redAccent),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Payment page could not load. Please go back and try again.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Go back'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

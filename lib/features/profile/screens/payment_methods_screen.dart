@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -74,7 +73,7 @@ class _PaymentMethodNotice extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Bago now uses PayPal for card payments. When you use a card during checkout, PayPal securely handles and stores the card details. Bago never receives raw card numbers.',
+            'Bago uses Flutterwave for secure checkout. When you pay by card, Apple Pay, bank transfer, or mobile money, Flutterwave securely handles and stores the payment details. Bago never receives raw card numbers.',
             style: AppTextStyles.bodyMd.copyWith(
               color: AppColors.gray600,
               height: 1.4,
@@ -89,16 +88,15 @@ class _PaymentMethodNotice extends StatelessWidget {
             ),
             child: Row(
               children: [
-                SvgPicture.asset(
-                  'assets/images/paypal.svg',
-                  width: 64,
-                  height: 26,
-                  fit: BoxFit.contain,
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 26,
+                  color: AppColors.primary,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Use PayPal checkout to pay by card or PayPal balance.',
+                    'Use secure checkout to pay by card, Apple Pay, bank transfer, or mobile money.',
                     style: AppTextStyles.bodySm.copyWith(
                       color: AppColors.gray600,
                       fontWeight: FontWeight.w700,
@@ -135,7 +133,7 @@ class _SecurityNote extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Payment details are processed by PayPal. Bago stores only safe payment references for support, refunds, and shipment tracking.',
+              'Payment details are processed by Flutterwave. Bago stores only safe payment references for support, refunds, and shipment tracking.',
               style: AppTextStyles.bodySm.copyWith(color: AppColors.primary),
             ),
           ),

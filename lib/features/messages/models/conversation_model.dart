@@ -1,4 +1,5 @@
 import '../../../core/utils/json_parser.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
 
 class ChatShipmentSummary {
   const ChatShipmentSummary({
@@ -153,14 +154,14 @@ class ConversationModel {
         : json['otherUserName']?.toString() ??
             json['participantName']?.toString() ??
             'User';
-    final otherAvatar = _normalizeAvatar(
-      other != null
-          ? other['avatar']?.toString() ??
-              other['profile_picture']?.toString() ??
-              other['image']?.toString()
-          : json['otherUserAvatar']?.toString() ??
-              json['participantAvatar']?.toString(),
-    );
+    final otherAvatar = other != null
+        ? AvatarUrlParser.fromJson(other)
+        : AvatarUrlParser.normalize(
+            json['otherUserAvatar'] ??
+                json['other_user_avatar'] ??
+                json['participantAvatar'] ??
+                json['participant_avatar'],
+          );
     final package = request?['package'] as Map<String, dynamic>?;
     final activeRequestsRaw =
         json['activeRequests'] ?? json['active_requests'] ?? const [];
@@ -233,16 +234,5 @@ class ConversationModel {
     final composed = JsonParser.parseFullName(user).trim();
     if (composed.isNotEmpty) return composed;
     return user['email']?.toString() ?? 'User';
-  }
-
-  static String? _normalizeAvatar(String? raw) {
-    final value = raw?.trim() ?? '';
-    if (value.isEmpty || value.toLowerCase() == 'null') return null;
-    if (value.startsWith('http://') ||
-        value.startsWith('https://') ||
-        value.startsWith('data:image/')) {
-      return value;
-    }
-    return null;
   }
 }

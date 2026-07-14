@@ -424,9 +424,8 @@ export function getCurrencyByCountry(countryCode) {
   return COUNTRY_CURRENCY_MAP[countryCode.toUpperCase()] ?? 'USD';
 }
 
-export function choosePaymentProcessor(currency) {
-  const africanCurrencies = ['NGN', 'GHS', 'KES', 'ZAR', 'RWF', 'UGX', 'TZS'];
-  return africanCurrencies.includes(CurrencyService.normalizeCurrency(currency)) ? 'paystack' : 'paypal';
+export function choosePaymentProcessor(_currency) {
+  return 'flutterwave';
 }
 
 export async function getAllRates() {

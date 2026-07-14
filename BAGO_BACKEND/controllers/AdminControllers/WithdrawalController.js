@@ -1,6 +1,8 @@
-import { query, withTransaction } from '../../lib/postgres/db.js';
+import { query, queryOne, withTransaction } from '../../lib/postgres/db.js';
 import { sendWithdrawalProcessedEmail } from '../../services/emailNotifications.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
+import { initiateTransfer, getTransferStatus } from '../../services/flutterwaveService.js';
+import { getActiveBeneficiary } from '../../lib/postgres/flutterwavePayments.js';
 
 const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected', 'cancelled']);
 const REFUNDABLE_STATUSES = new Set(['pending', 'pending_admin_approval', 'processing', 'approved']);
@@ -30,22 +32,14 @@ function parseJsonObject(value) {
 function normalizeWithdrawalRow(row) {
   const metadata = parseJsonObject(row.metadata);
   const bankDetails = parseJsonObject(row.bank_details);
-  const paypalError = metadata.paypalError || metadata.payoutError || null;
-  const paypalPayout = metadata.paypalPayout || null;
-  const provider =
-    metadata.provider ||
-    metadata.method ||
-    row.payout_provider ||
-    row.payout_method ||
-    (bankDetails.paypalEmail || bankDetails.paypal_email ? 'paypal' : null) ||
-    (bankDetails.recipientCode || bankDetails.accountNumber || row.paystack_recipient_code ? 'paystack' : null) ||
-    (paypalPayout ? 'paypal' : row.provider || null);
+  const transferError = metadata.transferError || metadata.payoutError || null;
+  const provider = metadata.provider || row.payout_provider || row.payout_method || row.provider || null;
   const failureReason =
     row.failure_reason ||
     metadata.failure_reason ||
     metadata.error ||
-    paypalError?.message ||
-    paypalError?.name ||
+    transferError?.message ||
+    transferError?.name ||
     null;
 
   return {
@@ -58,27 +52,17 @@ function normalizeWithdrawalRow(row) {
       status: row.payout_method_status || row.payout_status || null,
       currency: row.payout_currency || row.currency || bankDetails.currency || null,
       reference: metadata.reference || row.reference || null,
-      paypalEmail: metadata.paypalEmail || bankDetails.paypalEmail || bankDetails.paypal_email || null,
       bankName: bankDetails.bankName || bankDetails.bank_name || null,
       bankCode: bankDetails.bankCode || bankDetails.bank_code || null,
       accountNumber: bankDetails.accountNumber || bankDetails.account_number || null,
       accountName: bankDetails.accountName || bankDetails.account_name || bankDetails.accountHolderName || null,
-      recipientCode: bankDetails.recipientCode || bankDetails.recipient_code || row.paystack_recipient_code || null,
+      iban: bankDetails.iban || null,
     },
     manualReviewRequired: metadata.manualReviewRequired === true,
     manualReviewReason: metadata.manualReviewReason || null,
-    paypalStatus:
-      paypalPayout?.batch_header?.batch_status ||
-      paypalPayout?.batchHeader?.batchStatus ||
-      paypalPayout?.status ||
-      null,
-    paypalBatchId:
-      paypalPayout?.batch_header?.payout_batch_id ||
-      paypalPayout?.batchHeader?.payoutBatchId ||
-      null,
-    paypalError,
-    paypalErrorMessage: paypalError?.message || paypalError?.name || null,
-    paypalDebugId: paypalError?.debugId || paypalError?.debug_id || null,
+    transferStatus: metadata.transferStatus || null,
+    transferError,
+    transferErrorMessage: transferError?.message || transferError?.name || null,
     failure_reason: failureReason,
     processed_at: row.processed_at || (['completed', 'paid'].includes(String(row.status || '').toLowerCase()) ? row.updated_at : null),
   };
@@ -86,7 +70,7 @@ function normalizeWithdrawalRow(row) {
 
 function getWithdrawalDedupeKey(row) {
   const metadata = row.metadata || {};
-  const reference = metadata.reference || metadata.paypalBatchId || metadata.paypal_batch_id;
+  const reference = metadata.reference;
   if (reference) return `ref:${reference}`;
 
   const createdAt = row.created_at ? new Date(row.created_at).getTime() : 0;
@@ -134,7 +118,6 @@ export const getAllWithdrawals = async (req, res, next) => {
                  NULL::text AS payout_method_status,
                  NULL::text AS payout_status,
                  NULL::text AS payout_currency,
-                 NULL::text AS paystack_recipient_code,
                  NULL::text AS provider,
                  NULL::text AS failure_reason,
                  NULL::timestamptz AS processed_at,
@@ -143,26 +126,6 @@ export const getAllWithdrawals = async (req, res, next) => {
           LEFT JOIN public.profiles p ON p.id = wt.user_id
           WHERE wt.type::text = 'withdrawal'
             AND coalesce(wt.metadata ->> 'duplicateCleared', 'false') <> 'true'
-          UNION ALL
-          SELECT ppw.id, ppw.user_id, ppw.amount, ppw.status::text,
-                 'Paystack bank withdrawal' AS description, ppw.currency::text,
-                 ppw.created_at, ppw.updated_at,
-                 jsonb_build_object('provider', 'paystack', 'reference', ppw.reference) AS metadata,
-                 p.first_name, p.last_name, p.email,
-                 COALESCE(p.bank_details, '{}'::jsonb) AS bank_details,
-                 NULL::text AS payout_provider,
-                 NULL::text AS payout_method,
-                 NULL::text AS payout_method_status,
-                 NULL::text AS payout_status,
-                 NULL::text AS payout_currency,
-                 NULL::text AS paystack_recipient_code,
-                 'paystack' AS provider,
-                 NULL::text AS failure_reason,
-                 NULL::timestamptz AS processed_at,
-                 'paystack_pending_withdrawals' AS source
-          FROM public.paystack_pending_withdrawals ppw
-          LEFT JOIN public.profiles p ON p.id = ppw.user_id
-          WHERE lower(coalesce(ppw.status::text, 'pending')) <> 'cancelled'
           ORDER BY created_at DESC
         `
       );
@@ -179,7 +142,7 @@ export const getAllWithdrawals = async (req, res, next) => {
                   NULL::text AS email, NULL::jsonb AS bank_details,
                   NULL::text AS payout_provider, NULL::text AS payout_method,
                   NULL::text AS payout_method_status, NULL::text AS payout_status,
-                  NULL::text AS payout_currency, NULL::text AS paystack_recipient_code,
+                  NULL::text AS payout_currency,
                   NULL::text AS provider, NULL::text AS failure_reason,
                   NULL::timestamptz AS processed_at,
                   'wallet_transactions' AS source
@@ -281,51 +244,6 @@ export const updateWithdrawalStatus = async (req, res, next) => {
             metadata,
           },
           source: 'wallet_transactions',
-          refunded: shouldRefund,
-          previousStatus: currentStatus,
-        };
-      }
-
-      const paystackPendingResult = await client.query(
-        `SELECT ppw.*, p.email, p.first_name, p.last_name
-         FROM public.paystack_pending_withdrawals ppw
-         LEFT JOIN public.profiles p ON p.id = ppw.user_id
-         WHERE ppw.id = $1
-         FOR UPDATE OF ppw`,
-        [transactionId],
-      );
-      const paystackPending = paystackPendingResult.rows[0];
-      if (paystackPending) {
-        const currentStatus = String(paystackPending.status || '').toLowerCase();
-        const shouldRefund = FINAL_FAILURE_STATUSES.has(nextStatus) && REFUNDABLE_STATUSES.has(currentStatus);
-        if (shouldRefund) {
-          await client.query(
-            `UPDATE public.profiles
-             SET available_balance = available_balance + $2,
-                 updated_at = timezone('utc', now())
-             WHERE id = $1`,
-            [paystackPending.user_id, paystackPending.amount],
-          );
-        }
-
-        const result = await client.query(
-          `UPDATE public.paystack_pending_withdrawals
-           SET status = $1,
-               updated_at = timezone('utc', now())
-           WHERE id = $2
-           RETURNING id, user_id, amount, currency, status, reference, created_at, updated_at`,
-          [nextStatus, transactionId],
-        );
-
-        return {
-          row: {
-            ...result.rows[0],
-            email: paystackPending.email,
-            first_name: paystackPending.first_name,
-            last_name: paystackPending.last_name,
-            metadata: { provider: 'paystack', reference: paystackPending.reference },
-          },
-          source: 'paystack_pending_withdrawals',
           refunded: shouldRefund,
           previousStatus: currentStatus,
         };
@@ -530,8 +448,7 @@ export const approveWithdrawal = async (req, res, next) => {
     const txResult = await query(
       `SELECT wt.*,
               wa.id AS wallet_account_id,
-              p.email, p.first_name, p.last_name,
-              p.bank_details, p.paystack_recipient_code
+              p.email, p.first_name, p.last_name
        FROM public.wallet_transactions wt
        JOIN public.wallet_accounts wa ON wa.id = wt.wallet_id
        JOIN public.profiles p ON p.id = wt.user_id
@@ -544,7 +461,6 @@ export const approveWithdrawal = async (req, res, next) => {
     }
 
     const metadata = typeof tx.metadata === 'object' ? tx.metadata : JSON.parse(tx.metadata || '{}');
-    const provider = metadata.provider || metadata.method;
     const amount = Number(tx.amount);
     const currency = tx.currency;
 
@@ -559,65 +475,42 @@ export const approveWithdrawal = async (req, res, next) => {
     );
 
     try {
-      if (provider === 'paypal') {
-        const bankDetails = typeof tx.bank_details === 'object' ? tx.bank_details : JSON.parse(tx.bank_details || '{}');
-        const paypalEmail = metadata.paypalEmail || bankDetails.paypalEmail || bankDetails.paypal_email;
-        if (!paypalEmail) throw new Error('No PayPal email on file for this user.');
-        const senderBatchId = metadata.senderBatchId || `BAGO-PAYPAL-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-        const { createPaypalPayout, getPaypalPayoutStatus } = await import('../../services/paypalService.js');
-        const payout = await createPaypalPayout({ email: paypalEmail, amount, currency, senderBatchId, note: 'Bago wallet withdrawal' });
-        const batchId = payout?.batch_header?.payout_batch_id || payout?.batchHeader?.payoutBatchId || null;
-        await query(
-          `UPDATE public.wallet_transactions
-           SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
-           WHERE id = $1`,
-          [transactionId, { paypalPayout: payout, paypalBatchId: batchId, payoutInitiatedAt: new Date().toISOString() }],
-        );
-
-        // PayPal often processes payouts immediately — check right away and mark completed if done
-        if (batchId) {
-          try {
-            const batchCheck = await getPaypalPayoutStatus(batchId);
-            const batchStatus = String(batchCheck?.batch_header?.batch_status || '').toUpperCase();
-            if (batchStatus === 'SUCCESS') {
-              await query(
-                `UPDATE public.wallet_transactions
-                 SET status = 'completed', metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
-                 WHERE id = $1`,
-                [transactionId, { paypalBatchStatus: 'SUCCESS', paypalCompletedAt: new Date().toISOString() }],
-              );
-            }
-          } catch (_) { /* non-fatal — webhook or admin sync will catch it */ }
-        }
-
-      } else if (provider === 'paystack' || provider === 'bank') {
-        const recipientCode = metadata.recipientCode || tx.paystack_recipient_code;
-        if (!recipientCode) throw new Error('No Paystack recipient code for this user.');
-        const reference = metadata.reference || `BAGO-WD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-        const { initiateTransfer } = await import('../../services/paystackService.js');
-        const result = await initiateTransfer({
-          amount: metadata.payoutAmount || amount,
-          recipientCode,
-          currency,
-          reason: 'Bago wallet withdrawal',
-          reference,
-        });
-        if (!result.success) throw new Error(result.message || 'Paystack transfer failed');
-        await query(
-          `UPDATE public.wallet_transactions
-           SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
-           WHERE id = $1`,
-          [transactionId, { transferCode: result.transferCode, payoutReference: reference, payoutInitiatedAt: new Date().toISOString() }],
-        );
-
-      } else {
-        throw new Error(`Unknown payout provider: ${provider || 'none'}`);
+      const beneficiary = await getActiveBeneficiary(tx.user_id);
+      if (!beneficiary) throw new Error('No payout account on file for this user.');
+      if (beneficiary.currency !== String(currency || '').toUpperCase()) {
+        throw new Error(`Payout account currency (${beneficiary.currency}) does not match withdrawal currency (${currency}).`);
       }
+
+      const reference = metadata.reference || `BAGO-WD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const transfer = await initiateTransfer({
+        accountBank: beneficiary.bank_code,
+        accountNumber: beneficiary.type === 'iban' ? beneficiary.iban : beneficiary.account_number,
+        swiftCode: beneficiary.swift_code,
+        amount: metadata.payoutAmount || amount,
+        currency,
+        narration: 'Bago wallet withdrawal',
+        reference,
+        beneficiaryName: beneficiary.account_holder_name,
+      });
+      if (!transfer.success) throw new Error(transfer.message || 'Transfer failed');
+
+      await query(
+        `UPDATE public.wallet_transactions
+         SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [transactionId, {
+          provider: 'flutterwave',
+          reference,
+          transferId: transfer.transferId,
+          transferStatus: transfer.status,
+          payoutInitiatedAt: new Date().toISOString(),
+        }],
+      );
 
       await sendWithdrawalProcessedEmail(
         tx.email,
         [tx.first_name, tx.last_name].filter(Boolean).join(' ').trim(),
-        { amount, currency, reference: metadata.reference || transactionId, method: provider },
+        { amount, currency, reference, method: 'bank account' },
       ).catch(() => {});
 
       return res.json({ success: true, message: 'Withdrawal approved and payout initiated.' });
@@ -632,7 +525,7 @@ export const approveWithdrawal = async (req, res, next) => {
              updated_at = timezone('utc', now())
          WHERE id = $1`,
         [transactionId, {
-          payoutError: { message: payoutError.message, name: payoutError.name || 'PayoutError', provider: provider || 'unknown' },
+          transferError: { message: payoutError.message, name: payoutError.name || 'PayoutError' },
           lastFailedAt: new Date().toISOString(),
           adminId,
         }],
@@ -648,8 +541,8 @@ export const approveWithdrawal = async (req, res, next) => {
   }
 };
 
-// ── Admin: fetch real PayPal batch status and update wallet transaction ──
-export const syncPaypalPayoutStatus = async (req, res, next) => {
+// ── Admin: fetch real Flutterwave transfer status and update wallet transaction ──
+export const syncFlutterwaveTransferStatus = async (req, res, next) => {
   const { transactionId } = req.params;
   try {
     const tx = await queryOne(
@@ -659,23 +552,21 @@ export const syncPaypalPayoutStatus = async (req, res, next) => {
     if (!tx) return res.status(404).json({ success: false, message: 'Transaction not found.' });
 
     const meta = parseJsonObject(tx.metadata);
-    const batchId =
-      meta.paypalBatchId ||
-      meta.paypalPayout?.batch_header?.payout_batch_id ||
-      meta.paypalPayout?.batchHeader?.payoutBatchId ||
-      null;
+    const transferId = meta.transferId || null;
 
-    if (!batchId) {
-      return res.status(400).json({ success: false, message: 'No PayPal batch ID found for this withdrawal.' });
+    if (!transferId) {
+      return res.status(400).json({ success: false, message: 'No Flutterwave transfer ID found for this withdrawal.' });
     }
 
-    const { getPaypalPayoutStatus } = await import('../../services/paypalService.js');
-    const batchData = await getPaypalPayoutStatus(batchId);
-    const batchStatus = String(batchData?.batch_header?.batch_status || '').toUpperCase();
+    const result = await getTransferStatus(transferId);
+    if (!result.success) {
+      return res.status(502).json({ success: false, message: result.message || 'Could not fetch transfer status.' });
+    }
+    const transferStatus = String(result.status || '').toUpperCase();
 
     let newStatus = tx.status;
-    if (batchStatus === 'SUCCESS') newStatus = 'completed';
-    else if (['DENIED', 'CANCELED'].includes(batchStatus)) newStatus = 'failed';
+    if (transferStatus === 'SUCCESSFUL') newStatus = 'completed';
+    else if (transferStatus === 'FAILED') newStatus = 'failed';
 
     if (newStatus !== tx.status) {
       await query(
@@ -684,11 +575,11 @@ export const syncPaypalPayoutStatus = async (req, res, next) => {
              metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
              updated_at = timezone('utc', now())
          WHERE id = $3`,
-        [newStatus, { paypalBatchStatus: batchStatus, paypalSyncedAt: new Date().toISOString() }, transactionId],
+        [newStatus, { transferStatus, transferSyncedAt: new Date().toISOString() }, transactionId],
       );
     }
 
-    return res.json({ success: true, batchStatus, previousStatus: tx.status, newStatus });
+    return res.json({ success: true, transferStatus, previousStatus: tx.status, newStatus });
   } catch (error) {
     next(error);
   }

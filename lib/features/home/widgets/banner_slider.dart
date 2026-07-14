@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
 import '../models/promo_banner_model.dart';
 import '../services/banner_service.dart';
 
@@ -71,7 +71,18 @@ class _BannerSliderState extends State<BannerSlider> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const SizedBox.shrink();
+      return const SizedBox(
+        height: 154,
+        child: _BannerFrame(
+          child: Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      );
     }
     if (_banners.isEmpty) {
       return const SizedBox.shrink();
@@ -79,7 +90,7 @@ class _BannerSliderState extends State<BannerSlider> {
     return Column(
       children: [
         SizedBox(
-          height: 160,
+          height: 154,
           child: PageView.builder(
             controller: _pageCtrl,
             itemCount: _banners.length,
@@ -102,19 +113,86 @@ class _BannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = banner.imageUrl;
-    if (url.isEmpty) return const SizedBox.shrink();
+    final url = _mobileImageUrl(banner.imageUrl);
+    return _BannerFrame(
+      child: url.isEmpty
+          ? _BannerFallback(title: banner.title)
+          : Image.network(
+              url,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return _BannerFallback(title: banner.title);
+              },
+              errorBuilder: (_, __, ___) =>
+                  _BannerFallback(title: banner.title),
+            ),
+    );
+  }
+
+  String _mobileImageUrl(String url) {
+    final trimmed = url.trim();
+    if (!trimmed.contains('res.cloudinary.com') ||
+        !trimmed.contains('/image/upload/')) {
+      return trimmed;
+    }
+    return trimmed.replaceFirst(
+      '/image/upload/',
+      '/image/upload/c_fill,g_auto,w_900,h_430,q_auto/',
+    );
+  }
+}
+
+class _BannerFrame extends StatelessWidget {
+  const _BannerFrame({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: CachedNetworkImage(
-          imageUrl: url,
-          fit: BoxFit.cover,
+        child: SizedBox(
           width: double.infinity,
-          fadeInDuration: const Duration(milliseconds: 120),
-          placeholder: (_, __) => const SizedBox.shrink(),
-          errorWidget: (_, __, ___) => const SizedBox.shrink(),
+          height: double.infinity,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _BannerFallback extends StatelessWidget {
+  const _BannerFallback({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [AppColors.primary, Color(0xFF9B5CF6)],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            title.isEmpty ? 'Bago' : title,
+            style: AppTextStyles.h3.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );

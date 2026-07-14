@@ -350,6 +350,7 @@ class _PremblySdkPageState extends State<_PremblySdkPage> {
       ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onHttpAuthRequest: (request) => request.onCancel(),
           onNavigationRequest: (request) {
             final uri = Uri.tryParse(request.url);
             if (uri != null && uri.path.contains('/kyc/prembly/complete')) {

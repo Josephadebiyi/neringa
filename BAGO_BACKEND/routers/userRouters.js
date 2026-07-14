@@ -1,9 +1,8 @@
 import express from 'express';
-import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, withdrawFunds, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
+import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, addFunds, uploadOrUpdateImage, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
 import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, getReferral, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs, detectLocation } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewToRequest, DeleteTrip, GetMyReviews } from '../controllers/AddaTripController.js';
-import { initializePaystackPayment, verifyPaystackPayment, getPaystackBanks, resolvePaystackAccount, addBankAccount, verifyBankOTP } from '../controllers/PaystackController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { requireKycVerification } from '../middleware/kycMiddleware.js';
 import { requireInternalWalletMutation, requireVerifiedContact } from '../middleware/securityGuards.js';
@@ -222,7 +221,6 @@ userRouter.delete('/request/:requestId', isAuthenticated, deleteRequestFromHisto
 userRouter.get('/getWallet', isAuthenticated, getWallet);
 userRouter.get('/referral', isAuthenticated, getReferral);
 userRouter.post('/withdrawal/request-otp', isAuthenticated, requireKycVerification, requireVerifiedContact, requestWithdrawalOtp);
-userRouter.post('/withdrawFunds', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFunds);
 userRouter.post('/addFunds', isAuthenticated, requireKycVerification, requireInternalWalletMutation, addFunds);
 userRouter.post('/send-to-escrow', isAuthenticated, requireKycVerification, requireInternalWalletMutation, sendToEscrow);
 userRouter.post('/release-from-escrow', isAuthenticated, requireKycVerification, requireInternalWalletMutation, releaseFromEscrow);
@@ -259,14 +257,6 @@ userRouter.post('/user/verify-phone-change', isAuthenticated, verifyPhoneChange)
 userRouter.get('/payment-methods', isAuthenticated, requireKycVerification, (_req, res) => {
   res.json({ success: true, data: { cards: [], provider: 'stripe' } });
 });
-
-// 💳 Paystack Routes
-userRouter.get('/paystack/banks', isAuthenticated, requireKycVerification, getPaystackBanks);
-userRouter.get('/paystack/resolve', isAuthenticated, requireKycVerification, resolvePaystackAccount);
-userRouter.post('/paystack/initialize', isAuthenticated, requireKycVerification, initializePaystackPayment);
-userRouter.get('/paystack/verify/:reference', isAuthenticated, requireKycVerification, verifyPaystackPayment);
-userRouter.post('/paystack/add-bank', isAuthenticated, requireKycVerification, addBankAccount);
-userRouter.post('/paystack/verify-bank-otp', isAuthenticated, requireKycVerification, verifyBankOTP);
 
 // 🎫 Support Tickets
 userRouter.post('/support/tickets', isAuthenticated, createTicket);

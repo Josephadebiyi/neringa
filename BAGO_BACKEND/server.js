@@ -20,24 +20,20 @@ import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { startBirthdayGreetings } from './cron/birthdayCron.js'
+import {
+  initializeFlutterwavePayment,
+  verifyFlutterwavePayment,
+  flutterwaveWebhook,
+  getFlutterwaveBanks,
+  resolveFlutterwaveAccount,
+  connectFlutterwaveBeneficiary,
+  verifyFlutterwaveBankOtp,
+  withdrawFundsFlutterwave,
+} from './controllers/FlutterwaveController.js';
 import { assessShipment, filterCompatibleTrips, quickCompatibilityCheck } from './services/shipmentAssessment.js';
 import { generateCustomsDeclarationPDF, generateShipmentSummaryPDF, generateShippingLabelPDF } from './services/pdfGenerator.js';
 import { getPushProviderStatus, sendPushNotification, sendPushNotificationToToken } from './services/pushNotificationService.js';
 import { startPremblySessionReconciler, trackPremblyInlineStart } from './controllers/PremblyController.js';
-import {
-  authorizePaypalOrder,
-  capturePaypalOrder,
-  connectPaypalPayout,
-  createPaypalOrder,
-  getPaypalConfig,
-  paypalCancel,
-  paypalApplePaySheet,
-  paypalCardFieldsSheet,
-  paypalReturn,
-  paypalWebhook,
-  voidPaypalAuthorization,
-  withdrawPaypalPayout,
-} from './controllers/PayPalController.js';
 
 dotenv.config();
 
@@ -260,10 +256,6 @@ app.use(express.json({
     const rawBodyRoutes = new Set([
       '/api/webhooks/stripe',
       '/api/payouts/connect/webhook',
-      '/api/paystack/webhook',
-      '/api/paystack/transfer-approval',
-      '/api/payments/paypal/webhook',
-      '/payments/paypal/webhook',
       '/api/bago/kyc/dojah/webhook',
       '/api/bago/kyc/prembly/webhook',
     ]);
@@ -287,27 +279,14 @@ app.use((err, _req, res, next) => {
   return next(err);
 });
 
-function disabledPaymentProvider(provider) {
+function disabledPaymentProvider(_provider) {
+  // Keep the provider name out of the user-facing message — this is what
+  // reaches the checkout/withdraw UI on error, and users should only ever
+  // see Bago branding, never internal provider names.
   return (_req, res) => res.status(410).json({
     success: false,
-    message: `${provider} is disabled. Bago is switching payment providers — checkout and payouts will return shortly.`,
+    message: 'This payment method is temporarily unavailable. Please update the app to continue.',
   });
-}
-
-// Feature-flag gate for providers being phased out (Paystack, PayPal) in favor of
-// Flutterwave. Defaults to disabled even if the env var is unset, so disabling a
-// provider here takes effect immediately without depending on a Render env change.
-// Only gates "start something new" routes (initialize/create-order/connect/withdraw)
-// — verify/capture/void/webhook/reconciliation routes stay reachable so any
-// transaction already in flight when the flag flips can still settle instead of
-// stranding real money.
-function requireProviderEnabled(provider, envVar) {
-  return (req, res, next) => {
-    if (String(process.env[envVar] || 'false').toLowerCase() !== 'true') {
-      return disabledPaymentProvider(provider)(req, res);
-    }
-    return next();
-  };
 }
 
 const MAX_STRING_LENGTH = 5000;
@@ -483,7 +462,7 @@ const authRoutes = [
   '/api/bago/phone/send-otp',
   '/api/bago/phone/verify',
   '/api/bago/withdrawal/request-otp',
-  '/api/bago/paystack/verify-bank-otp',
+  '/api/payouts/flutterwave/verify-bank-otp',
   '/api/Adminbaggo/AdminLogin',
   '/api/Adminbaggo/AdminSignup',
   '/api/Adminbaggo/credentials/request-change',
@@ -493,15 +472,12 @@ authRoutes.forEach(route => app.use(route, authLimiter));
 
 // Stricter limits on sensitive financial operations (not KYC — users need to retry)
 [
-  '/api/bago/withdrawFunds',
   '/api/bago/withdrawal/request-otp',
-  '/api/bago/paystack/initialize',
-  '/api/bago/paystack/add-bank',
-  '/api/paystack/add-bank',
-  '/api/paystack/verify-bank-otp',
-  '/api/paystack/withdraw',
+  '/api/payments/flutterwave/initialize',
+  '/api/payouts/flutterwave/connect',
+  '/api/payouts/flutterwave/verify-bank-otp',
+  '/api/payouts/flutterwave/withdraw',
   '/api/payouts/connect/dashboard-link',
-  '/api/payouts/paypal/withdraw',
   '/api/payouts/change-method/request-otp',
   '/api/payouts/change-method/verify-otp',
   '/api/payouts/withdraw',
@@ -752,38 +728,30 @@ schema('/api/checkout/shipment-preview', {
   booleans: ['insurance'],
   max: { tripId: 80, weight: 20, senderCurrency: 3, declaredValue: 30 },
 });
-schema('/api/paystack/initialize', {
-  allowed: ['amount', 'currency', 'requestId', 'packageId', 'tripId', 'customerEmail', 'expiresAt', 'metadata'],
+schema('/api/payments/flutterwave/initialize', {
+  allowed: ['amount', 'currency', 'packageId', 'tripId', 'requestId', 'additionalKg', 'platform', 'metadata'],
   required: ['amount'],
-  strings: ['currency', 'requestId', 'packageId', 'tripId', 'customerEmail', 'expiresAt'],
-  stringOrNumbers: ['amount'],
+  strings: ['currency', 'packageId', 'tripId', 'requestId', 'platform'],
+  stringOrNumbers: ['amount', 'additionalKg'],
   objects: ['metadata'],
-  max: { amount: 20, currency: 3, requestId: 80, packageId: 80, tripId: 80, customerEmail: 254, expiresAt: 80 },
+  max: { amount: 20, currency: 3, packageId: 80, tripId: 80, requestId: 80, platform: 20 },
 });
-schema('/api/paystack/add-bank', {
-  allowed: ['accountNumber', 'bankCode', 'bankName', 'currency', 'walletCurrency', 'preferredCurrency'],
-  required: ['accountNumber', 'bankCode'],
-  strings: ['accountNumber', 'bankCode', 'bankName', 'currency', 'walletCurrency', 'preferredCurrency'],
-  max: { accountNumber: 32, bankCode: 32, bankName: 120, currency: 3, walletCurrency: 3, preferredCurrency: 3 },
+schema('/api/payouts/flutterwave/connect', {
+  allowed: ['accountNumber', 'bankCode', 'bankName', 'accountHolderName', 'iban', 'swiftBic', 'currency', 'country'],
+  strings: ['accountNumber', 'bankCode', 'bankName', 'accountHolderName', 'iban', 'swiftBic', 'currency', 'country'],
+  max: { accountNumber: 40, bankCode: 32, bankName: 120, accountHolderName: 120, iban: 42, swiftBic: 11, currency: 3, country: 2 },
 });
-schema('/api/paystack/verify-bank-otp', {
+schema('/api/payouts/flutterwave/verify-bank-otp', {
   allowed: ['otp'],
-  required: ['otp'],
   strings: ['otp'],
   max: { otp: 12 },
 });
-schema('/api/paystack/withdraw', {
+schema('/api/payouts/flutterwave/withdraw', {
   allowed: ['amount', 'currency', 'otp'],
   required: ['amount'],
   stringOrNumbers: ['amount'],
   strings: ['currency', 'otp'],
   max: { amount: 20, currency: 3, otp: 12 },
-});
-schema('/api/paystack/transfer-approval', {
-  allowed: ['reference', 'transfer_reference', 'transferReference', 'event', 'data'],
-  objects: ['data'],
-  strings: ['reference', 'transfer_reference', 'transferReference', 'event'],
-  max: { reference: 80, transfer_reference: 80, transferReference: 80, event: 80 },
 });
 schema('/api/payments/create-intent', {
   allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
@@ -839,14 +807,6 @@ schema('/api/payouts/withdraw', {
   strings: ['currency', 'otp'],
   stringOrNumbers: ['amount'],
   max: { amount: 20, currency: 3, otp: 12 },
-});
-schema('/api/payouts/paypal/withdraw', {
-  allowed: ['amount', 'currency', 'method', 'otp'],
-  required: ['amount', 'currency'],
-  strings: ['currency', 'method', 'otp'],
-  stringOrNumbers: ['amount'],
-  enums: { method: ['paypal'] },
-  max: { amount: 20, currency: 3, method: 20, otp: 12 },
 });
 schema('/api/bago/withdrawal/request-otp', {
   allowed: [],
@@ -957,19 +917,6 @@ import { requireKycVerification } from './middleware/kycMiddleware.js';
 import { requireVerifiedContact } from './middleware/securityGuards.js';
 import { requireWithdrawalOtp } from './controllers/WithdrawalOtpController.js';
 
-// ✅ Paystack Controller
-import {
-  initializePaystackPayment,
-  verifyPaystackPayment,
-  addBankAccount,
-  verifyBankOTP,
-  withdrawFundsPaystack,
-  getPaystackBanks,
-  resolvePaystackAccount,
-  getPaystackCountries,
-  paystackWebhook,
-  paystackTransferApproval,
-} from './controllers/PaystackController.js';
 
 // ✅ IP Geolocation Service
 import { getLocationFromIP, getClientIP } from './services/ipGeolocation.js';
@@ -1014,44 +961,19 @@ app.post('/api/currency/preview', previewConversion);
 app.post('/api/currency/quote', getPaymentQuote);
 app.post('/api/checkout/shipment-preview', isAuthenticated, previewShipmentCheckout);
 
-// Paystack is disabled — Bago is migrating to Flutterwave as the sole payment/payout
-// provider (PAYSTACK_ENABLED gate). Verify/webhook/transfer-approval stay reachable
-// so any withdrawal or payment already in flight can still settle. Historical
-// Paystack records and this code remain intact for reconciliation and rollback.
-app.post('/api/paystack/initialize', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), requireKycVerification, initializePaystackPayment);
-app.get('/api/paystack/verify/:reference', isAuthenticated, verifyPaystackPayment);
-app.post('/api/paystack/add-bank', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), addBankAccount);
-app.post('/api/paystack/verify-bank-otp', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), verifyBankOTP);
-app.post('/api/paystack/withdraw', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFundsPaystack);
-app.get('/api/paystack/banks', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), getPaystackBanks);
-app.get('/api/paystack/resolve', isAuthenticated, requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), requireKycVerification, resolvePaystackAccount);
-app.get('/api/paystack/countries', requireProviderEnabled('Paystack', 'PAYSTACK_ENABLED'), getPaystackCountries);
-app.post('/api/paystack/webhook', paystackWebhook); // No auth - verified by signature
-app.post('/api/paystack/transfer-approval', paystackTransferApproval); // Called by Paystack transfer approvals
+// ✅ Flutterwave — sole active payment/payout provider. Endpoint paths match
+// what the mobile (api_constants.dart) and web (PaymentCheckout.jsx/Earnings.jsx/
+// Settings.jsx) clients already call.
+app.post('/api/payments/flutterwave/initialize', isAuthenticated, requireKycVerification, initializeFlutterwavePayment);
+app.get('/api/payments/flutterwave/verify/:txId', isAuthenticated, verifyFlutterwavePayment);
+app.post('/api/webhooks/flutterwave', flutterwaveWebhook); // No auth - verified by verif-hash header
+app.get('/api/payouts/flutterwave/banks', isAuthenticated, getFlutterwaveBanks);
+app.get('/api/payouts/flutterwave/resolve', isAuthenticated, resolveFlutterwaveAccount);
+app.post('/api/payouts/flutterwave/connect', isAuthenticated, requireKycVerification, connectFlutterwaveBeneficiary);
+app.post('/api/payouts/flutterwave/verify-bank-otp', isAuthenticated, verifyFlutterwaveBankOtp);
+app.post('/api/payouts/flutterwave/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFundsFlutterwave);
 
-// PayPal is disabled — Bago is migrating to Flutterwave as the sole payment/payout
-// provider (PAYPAL_ENABLED gate). Capture/void/webhook/return/cancel stay reachable
-// so any order already created before the cutover can still settle. Historical
-// PayPal records and this code remain intact for reconciliation and rollback.
-app.get('/api/config/paypal', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), getPaypalConfig);
-app.post('/api/payouts/paypal/connect', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), requireKycVerification, connectPaypalPayout);
-app.post('/api/payouts/paypal/withdraw', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawPaypalPayout);
-app.post('/api/payments/paypal/create-order', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), createPaypalOrder);
-app.post('/api/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
-app.post('/api/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
-app.post('/api/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
-app.post('/api/payments/paypal/webhook', paypalWebhook);
-app.get('/api/payments/paypal/apple-pay-sheet', requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), paypalApplePaySheet);
-app.get('/api/payments/paypal/card-fields', requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), paypalCardFieldsSheet);
-app.get('/api/payments/paypal/return', paypalReturn);
-app.get('/api/payments/paypal/cancel', paypalCancel);
-app.post('/payments/paypal/create-order', isAuthenticated, requireProviderEnabled('PayPal', 'PAYPAL_ENABLED'), createPaypalOrder);
-app.post('/payments/paypal/authorize', isAuthenticated, authorizePaypalOrder);
-app.post('/payments/paypal/capture', isAuthenticated, capturePaypalOrder);
-app.post('/payments/paypal/void', isAuthenticated, voidPaypalAuthorization);
-app.post('/payments/paypal/webhook', paypalWebhook);
-
-// Stripe checkout/Connect is intentionally disabled while Bago runs PayPal-only.
+// Stripe checkout/Connect is intentionally disabled while Bago runs Flutterwave-only.
 app.get('/api/payouts/status', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.post('/api/payouts/connect/onboard', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
 app.post('/api/payouts/connect/account-session', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
@@ -1066,7 +988,7 @@ app.post('/api/payments/cards/setup-intent', isAuthenticated, disabledPaymentPro
 app.get('/api/payments/cards', isAuthenticated, (_req, res) => res.json({
   success: true,
   cards: [],
-  message: 'Cards used during PayPal checkout are stored securely by PayPal when available.',
+  message: 'Cards used during checkout are stored securely by the payment provider when available.',
 }));
 app.post('/api/payments/cards/set-default', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, disabledPaymentProvider('Stripe'));
@@ -1091,7 +1013,7 @@ app.post('/api/webhooks/stripe', disabledPaymentProvider('Stripe'));
 app.get('/api/config/stripe', (_req, res) => {
   return res.status(410).json({
     success: false,
-    message: 'Stripe is disabled. Bago checkout is currently PayPal only.',
+    message: 'Stripe is disabled. Bago checkout runs on Flutterwave.',
   });
 });
 
@@ -1173,7 +1095,7 @@ app.get('/api/location/detect', async (req, res) => {
       success: true,
       ip,
       location,
-      recommendedGateway: 'paypal'
+      recommendedGateway: 'flutterwave'
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1331,48 +1253,13 @@ app.get('/api/bago/push-debug/:userId', isAuthenticated, async (req, res) => {
 
 
 
-const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET;
-if (!PAYSTACK_SECRET) console.warn("⚠️ PAYSTACK_SECRET not set");
-
-const headers = {
-  Authorization: `Bearer ${PAYSTACK_SECRET}`,
-  "Content-Type": "application/json",
-};
-
-// Convert amount to kobo (Paystack requires smallest unit)
-const toKobo = (amount) => Math.round(Number(amount) * 100);
-
-// -----------------------------
-// 1️⃣  LIST BANKS
-// -----------------------------
-// Keep both routes for safety
-app.get("/banks", adminAuthenticated, async (req, res) => {
-  // console.log('[banks] incoming request');
-  try {
-    const resp = await fetch("https://api.paystack.co/bank?currency=NGN", { method: "GET", headers });
-    const text = await resp.text();
-    // console.log('[banks] paystack raw response status:', resp.status, 'body:', text);
-
-    const data = JSON.parse(text);
-    // Forward Paystack shape to client (makes frontend simple)
-    return res.json(data);
-  } catch (err) {
-    console.error('[banks] error fetching paystack:', err);
-    res.status(500).json({ status: false, message: err.message });
-  }
-});
-
-// NOTE: /api/paystack/banks is registered earlier with getPaystackBanks (correct { success, banks } shape).
-// Do not register a duplicate here — it returned raw Paystack JSON and broke clients expecting res.data.banks.
-
 // -----------------------------
 // 2️⃣  CREATE RECIPIENT
 // -----------------------------
-// server.js (or wherever your route is)
 app.post("/create-recipient", async (_req, res) => {
   return res.status(410).json({
     success: false,
-    message: "This legacy payout endpoint is disabled. Use /api/paystack/add-bank.",
+    message: "This legacy payout endpoint is disabled. Use /api/payouts/flutterwave/connect.",
   });
 });
 
@@ -1505,7 +1392,7 @@ app.post("/send-otp", isAuthenticated, async (req, res) => {
 app.post("/verify-otp", async (_req, res) => {
   return res.status(410).json({
     success: false,
-    message: "This legacy withdrawal endpoint is disabled. Use /api/paystack/withdraw.",
+    message: "This legacy withdrawal endpoint is disabled. Use /api/payouts/flutterwave/withdraw.",
   });
 });
 
@@ -1531,101 +1418,6 @@ app.post("/transfer/finalize", async (_req, res) => {
     success: false,
     message: "This legacy transfer finalize endpoint is disabled.",
   });
-});
-
-// -----------------------------
-// 5️⃣  CHECK BALANCE
-// -----------------------------
-app.get("/balance", adminAuthenticated, async (req, res) => {
-  try {
-    const resp = await fetch("https://api.paystack.co/balance", {
-      method: "GET",
-      headers,
-    });
-    const data = await resp.json();
-    if (!data.status)
-      return res.status(400).json({ success: false, message: data.message, data });
-
-    res.json({ success: true, balance: data.data });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-
-
-app.post("/api/payment/initialize", isAuthenticated, requireKycVerification, async (req, res) => {
-  try {
-    const { amount, email, currency = "NGN", mobile_money } = req.body;
-
-    if (!amount || !email) {
-      return res.status(400).json({ error: "Amount and email are required" });
-    }
-
-    const body = {
-      email,
-      amount: amount * 100, // Paystack expects amount in kobo
-      currency,
-      callback_url: "https://sendwithbago.com/",
-      ...(mobile_money ? { mobile_money } : {}),
-    };
-
-    const response = await fetch("https://api.paystack.co/transaction/initialize", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.message || "Paystack API error");
-    }
-
-    res.json({
-      status: true,
-      message: "Authorization URL created",
-      data: data.data,
-    });
-  } catch (err) {
-    console.error("❌ Paystack init error:", err.message);
-    res.status(500).json({
-      status: false,
-      message: "Payment initialization failed",
-      error: err.message,
-    });
-  }
-});
-
-
-
-
-app.get("/api/payment/verify/:reference", isAuthenticated, async (req, res) => {
-  const { reference } = req.params;
-
-  try {
-    const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || data.data.status !== "success") {
-      return res.status(400).json({ status: false, message: "Payment not successful", data });
-    }
-
-    res.json({ status: true, message: "Payment successful", data: data.data });
-  } catch (err) {
-    console.error("❌ Paystack verify error:", err.message);
-    res.status(500).json({ status: false, message: "Verification failed", error: err.message });
-  }
 });
 
 // Admin: Manually approve KYC (for testing)

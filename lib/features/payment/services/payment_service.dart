@@ -1,14 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
-
-double _parseDouble(dynamic value) {
-  if (value is num) return value.toDouble();
-  return double.tryParse(value?.toString() ?? '') ?? 0;
-}
 
 class PaymentResult {
   const PaymentResult({
@@ -140,196 +134,11 @@ class StripeRedirectCheckoutStatus {
   }
 }
 
-class PaypalConfig {
-  const PaypalConfig({
-    required this.clientId,
-    required this.environment,
-    required this.advancedCardsEligible,
-    required this.applePayEligible,
-  });
-
-  final String clientId;
-  final String environment;
-  final bool advancedCardsEligible;
-  final bool applePayEligible;
-
-  factory PaypalConfig.fromJson(Map<String, dynamic> json) => PaypalConfig(
-        clientId: json['clientId']?.toString() ?? '',
-        environment: json['environment']?.toString() ?? 'live',
-        advancedCardsEligible: json['advancedCardsEligible'] == true,
-        applePayEligible: json['applePayEligible'] == true,
-      );
-}
-
-class PaypalOrderSession {
-  const PaypalOrderSession({
-    required this.orderId,
-    required this.approvalUrl,
-    required this.amount,
-    required this.shipmentAmount,
-    required this.currency,
-    required this.advancedCardsEligible,
-    required this.applePayEligible,
-  });
-
-  final String orderId;
-  final String approvalUrl;
-  final double amount;
-  final double shipmentAmount;
-  final String currency;
-  final bool advancedCardsEligible;
-  final bool applePayEligible;
-
-  factory PaypalOrderSession.fromJson(Map<String, dynamic> json) =>
-      PaypalOrderSession(
-        orderId: json['orderId']?.toString() ?? '',
-        approvalUrl: json['approvalUrl']?.toString() ?? '',
-        amount: _parseDouble(json['amount']),
-        shipmentAmount: _parseDouble(json['shipmentAmount']),
-        currency: json['currency']?.toString() ?? 'USD',
-        advancedCardsEligible: json['advancedCardsEligible'] == true,
-        applePayEligible: json['applePayEligible'] == true,
-      );
-}
-
-class PaypalAuthorizationResult {
-  const PaypalAuthorizationResult({
-    required this.orderId,
-    required this.authorizationId,
-    required this.paymentReference,
-    required this.amount,
-    required this.shipmentAmount,
-    required this.currency,
-  });
-
-  final String orderId;
-  final String authorizationId;
-  final String paymentReference;
-  final double amount;
-  final double shipmentAmount;
-  final String currency;
-
-  factory PaypalAuthorizationResult.fromJson(Map<String, dynamic> json) =>
-      PaypalAuthorizationResult(
-        orderId: json['orderId']?.toString() ?? '',
-        authorizationId: json['captureId']?.toString() ??
-            json['authorizationId']?.toString() ??
-            '',
-        paymentReference: json['paymentReference']?.toString() ??
-            json['orderId']?.toString() ??
-            '',
-        amount: _parseDouble(json['amount']),
-        shipmentAmount: _parseDouble(json['shipmentAmount']),
-        currency: json['currency']?.toString() ?? 'USD',
-      );
-}
-
 class PaymentService {
   PaymentService._();
   static final PaymentService instance = PaymentService._();
-  static const _paypalCardChannel = MethodChannel('bago/paypal_card');
 
   final _api = ApiService.instance;
-
-  Future<PaypalConfig> getPaypalConfig() async {
-    try {
-      debugPrint('[PayPal] GET ${ApiConstants.paypalConfig}');
-      final response = await _api.get(ApiConstants.paypalConfig);
-      final data = _extractMap(response.data);
-      return PaypalConfig.fromJson(data);
-    } on DioException catch (e) {
-      debugPrint('[PayPal] config failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<void> approveNativePaypalCard({
-    required String clientId,
-    required String environment,
-    required String orderId,
-    required double amount,
-    required String currency,
-  }) async {
-    await _paypalCardChannel.invokeMethod('approveCardOrder', {
-      'clientId': clientId,
-      'environment': environment,
-      'orderId': orderId,
-      'amount': amount,
-      'currency': currency,
-    });
-  }
-
-  Future<PaypalOrderSession> createPaypalOrder({
-    required String packageId,
-    required String tripId,
-    required String travelerId,
-    required String currency,
-    bool insurance = false,
-    String paymentMethod = 'paypal',
-    String? customerEmail,
-    String? additionalRequestId,
-    double? additionalKg,
-  }) async {
-    try {
-      debugPrint(
-        '[PayPal] POST ${ApiConstants.paypalCreateOrder} '
-        'package=$packageId trip=$tripId method=$paymentMethod',
-      );
-      final response = await _api.post(
-        ApiConstants.paypalCreateOrder,
-        data: {
-          'packageId': packageId,
-          'tripId': tripId,
-          'travelerId': travelerId,
-          'currency': currency,
-          'insurance': insurance,
-          'paymentMethod': paymentMethod,
-          if (customerEmail != null && customerEmail.trim().isNotEmpty)
-            'customerEmail': customerEmail.trim(),
-          if (additionalRequestId != null &&
-              additionalRequestId.trim().isNotEmpty)
-            'requestId': additionalRequestId.trim(),
-          if (additionalKg != null && additionalKg > 0)
-            'additionalKg': additionalKg,
-        },
-      );
-      final data = _extractMap(response.data);
-      final session = PaypalOrderSession.fromJson(data);
-      if (session.orderId.isEmpty || session.approvalUrl.isEmpty) {
-        throw StateError(
-          data['message']?.toString() ?? 'PayPal checkout could not start.',
-        );
-      }
-      return session;
-    } on DioException catch (e) {
-      debugPrint('[PayPal] create order failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<PaypalAuthorizationResult> capturePaypalOrder({
-    required String orderId,
-  }) async {
-    try {
-      debugPrint('[PayPal] POST ${ApiConstants.paypalCapture} order=$orderId');
-      final response = await _api.post(
-        ApiConstants.paypalCapture,
-        data: {'orderId': orderId},
-      );
-      final data = _extractMap(response.data);
-      final result = PaypalAuthorizationResult.fromJson(data);
-      if (result.authorizationId.isEmpty && result.paymentReference.isEmpty) {
-        throw StateError(
-          data['message']?.toString() ??
-              'PayPal payment could not be confirmed.',
-        );
-      }
-      return result;
-    } on DioException catch (e) {
-      debugPrint('[PayPal] capture failed: ${ApiService.parseError(e)}');
-      throw ApiService.parseError(e);
-    }
-  }
 
   String _parsePaymentMethodsError(DioException e) {
     final path = e.requestOptions.path;
@@ -374,7 +183,7 @@ class PaymentService {
           await _api.post('${ApiConstants.paymentMethods}/setup-intent');
       final data = _extractMap(response.data);
       debugPrint(
-          '[PayPal] saved card setup response keys=${data.keys.toList()}');
+          '[Cards] saved card setup response keys=${data.keys.toList()}');
       final setupIntentClientSecret = _firstString(
         data,
         const [
@@ -403,7 +212,7 @@ class PaymentService {
           customerId == null ||
           customerEphemeralKeySecret == null) {
         debugPrint(
-          '[PayPal] card setup missing fields '
+          '[Cards] card setup missing fields '
           'setupSecret=${setupIntentClientSecret != null} '
           'customerId=${customerId != null} '
           'ephemeralKey=${customerEphemeralKeySecret != null} '
@@ -432,77 +241,7 @@ class PaymentService {
     }
   }
 
-  Future<({String authorizationUrl, String reference})>
-      initializePaystackPayment({
-    required String packageId,
-    required String tripId,
-    required double amount,
-    required String currency,
-    bool insurance = false,
-    double insuranceCost = 0,
-  }) async {
-    try {
-      final response = await _api.post(
-        ApiConstants.paystackInitialize,
-        data: {
-          'amount': amount,
-          'currency': currency,
-          'packageId': packageId,
-          'tripId': tripId,
-          'metadata': {
-            'insurance': insurance,
-            'insuranceCost': insuranceCost,
-          },
-        },
-      );
-      final data = _extractMap(response.data);
-      final url = data['authorizationUrl']?.toString() ?? '';
-      final ref = data['reference']?.toString() ?? '';
-      if (url.isEmpty) {
-        throw StateError(
-            data['message']?.toString() ?? 'Payment initialization failed.');
-      }
-      return (authorizationUrl: url, reference: ref);
-    } on DioException catch (e) {
-      throw ApiService.parseError(e);
-    }
-  }
-
-  Future<PaymentResult> verifyPaystackPayment(String reference) async {
-    try {
-      final response =
-          await _api.get('${ApiConstants.paystackVerify}/$reference');
-      final raw = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : <String, dynamic>{};
-      final data = _extractMap(raw);
-      final successValue = raw['success'] ?? data['success'];
-      final status =
-          (data['status'] ?? raw['status'])?.toString().toLowerCase();
-      final success = successValue == true ||
-          status == 'success' ||
-          status == 'paid' ||
-          status == 'completed';
-
-      return PaymentResult(
-        success: success,
-        provider: 'paystack',
-        message: data['message']?.toString(),
-        reference: _firstString(
-          data,
-          const ['reference', 'paymentReference', 'data.reference'],
-        ),
-        raw: raw,
-      );
-    } on DioException catch (e) {
-      throw ApiService.parseError(e);
-    }
-  }
-
   // ── Flutterwave — sole active payment provider ──────────────────────────
-  // Mirrors initializePaystackPayment/verifyPaystackPayment above. Kept as a
-  // separate pair (not merged into the Paystack methods) so the Paystack path
-  // stays intact and reachable for rollback per the migration plan.
   Future<({String authorizationUrl, String reference})>
       initializeFlutterwavePayment({
     required String packageId,
@@ -520,6 +259,7 @@ class PaymentService {
           'currency': currency,
           'packageId': packageId,
           'tripId': tripId,
+          'platform': 'mobile',
           'metadata': {
             'insurance': insurance,
             'insuranceCost': insuranceCost,

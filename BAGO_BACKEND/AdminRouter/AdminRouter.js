@@ -80,7 +80,7 @@ import {
   updateWithdrawalStatus,
   approveWithdrawal,
   recalculateWalletBalance,
-  syncPaypalPayoutStatus,
+  syncFlutterwaveTransferStatus,
 } from '../controllers/AdminControllers/WithdrawalController.js';
 import {
   requestAdminCredentialChange,
@@ -240,7 +240,7 @@ AdminRouter.get("/insurance/shipments", adminAuthenticated, getInsuredShipments)
 AdminRouter.get("/withdrawals", adminAuthenticated, can('finance.withdrawals.manage'), getAllWithdrawals);
 AdminRouter.put("/withdrawals/:transactionId/status", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), audit('admin.withdrawal.status.update', 'wallet_transaction', 'transactionId'), updateWithdrawalStatus);
 AdminRouter.post("/withdrawals/:transactionId/approve", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), audit('admin.withdrawal.approve', 'wallet_transaction', 'transactionId'), approveWithdrawal);
-AdminRouter.post("/withdrawals/:transactionId/sync-paypal", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), syncPaypalPayoutStatus);
+AdminRouter.post("/withdrawals/:transactionId/sync-flutterwave", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), syncFlutterwaveTransferStatus);
 AdminRouter.post("/credentials/request-change", adminAuthenticated, requestAdminCredentialChange);
 AdminRouter.post("/credentials/verify-change", adminAuthenticated, verifyAdminCredentialChange);
 

@@ -613,7 +613,7 @@ export async function updateWithdrawalTransactionStatus({ transactionId, status,
   });
 }
 
-export async function holdEscrowForPaidRequest({ requestId, providerReference, provider = 'paystack' }) {
+export async function holdEscrowForPaidRequest({ requestId, providerReference, provider = 'flutterwave' }) {
   return withTransaction(async (client) => {
     await ensurePaymentEventsInfrastructure(client);
 
@@ -728,50 +728,6 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
 
     return request;
   });
-}
-
-export async function storePendingBankVerification(userId, details, otpCode, expiresAt) {
-  const profile = await getAccountProfile(userId);
-  const currentDetails = profile?.bankDetails || {};
-  const bankDetails = {
-    ...currentDetails,
-    pending_bank_verification: {
-      otpCode,
-      expiresAt: expiresAt.toISOString(),
-      details,
-    },
-  };
-  await updateAccountProfile(userId, { bankDetails });
-  return getAccountProfile(userId);
-}
-
-export async function getPendingBankVerification(userId) {
-  const profile = await getAccountProfile(userId);
-  return profile?.bankDetails?.pending_bank_verification || null;
-}
-
-export async function finalizeBankVerification(userId, { recipientCode, bankName, accountNumber, accountHolderName }) {
-  const profile = await getAccountProfile(userId);
-  const currentDetails = profile?.bankDetails || {};
-  const bankDetails = {
-    ...currentDetails,
-    bankName,
-    accountNumber,
-    accountHolderName,
-  };
-  delete bankDetails.pending_bank_verification;
-
-  await query(
-    `update public.profiles
-     set paystack_recipient_code = $2,
-         bank_details = $3,
-         payout_provider = 'paystack',
-         payout_method_status = 'connected',
-         updated_at = timezone('utc', now())
-     where id = $1`,
-    [userId, recipientCode, bankDetails],
-  );
-  return getAccountProfile(userId);
 }
 
 export async function getKycRecord(userId) {

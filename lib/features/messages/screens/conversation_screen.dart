@@ -31,6 +31,7 @@ class ConversationScreen extends ConsumerStatefulWidget {
 class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   late final TextEditingController _msgCtrl;
   late final ScrollController _scrollCtrl;
+  late final MessageNotifier _messageNotifier;
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isAtBottom = true;
@@ -52,15 +53,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     super.initState();
     _msgCtrl = TextEditingController();
     _scrollCtrl = ScrollController();
+    _messageNotifier = ref.read(messageProvider.notifier);
     _scrollCtrl.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(messageProvider.notifier).loadMessages(widget.conversationId);
+      if (!mounted) return;
+      _messageNotifier.loadMessages(widget.conversationId);
     });
   }
 
   @override
   void dispose() {
-    ref.read(messageProvider.notifier).detachSocketListener();
+    _messageNotifier.detachSocketListener();
     _typingDebounce?.cancel();
     _msgCtrl.dispose();
     _scrollCtrl.removeListener(_onScroll);
@@ -151,17 +154,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         width: 32,
                         height: 32,
                         fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Text(
-                          initials,
-                          style: AppTextStyles.labelMd
-                              .copyWith(color: AppColors.primary),
+                        placeholder: (_, __) => _ConversationAvatarFallback(
+                          initials: initials,
+                        ),
+                        errorWidget: (_, __, ___) =>
+                            _ConversationAvatarFallback(
+                          initials: initials,
                         ),
                       ),
                     )
-                  : Text(
-                      initials,
-                      style: AppTextStyles.labelMd
-                          .copyWith(color: AppColors.primary),
+                  : _ConversationAvatarFallback(
+                      initials: initials,
                     ),
             ),
             const SizedBox(width: 10),
@@ -559,8 +562,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         context.push('/payment', extra: draft);
                       } catch (_) {
                         if (!mounted) return;
-                        AppSnackBar.show(context,
-                          message: 'Could not load shipment details. Please try again.',
+                        AppSnackBar.show(
+                          context,
+                          message:
+                              'Could not load shipment details. Please try again.',
                           type: SnackBarType.error,
                         );
                       }
@@ -673,6 +678,32 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ConversationAvatarFallback extends StatelessWidget {
+  const _ConversationAvatarFallback({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = initials.trim();
+    if (value.isEmpty || value == '?') {
+      return const Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: AppColors.primary,
+          size: 18,
+        ),
+      );
+    }
+    return Center(
+      child: Text(
+        value,
+        style: AppTextStyles.labelMd.copyWith(color: AppColors.primary),
       ),
     );
   }

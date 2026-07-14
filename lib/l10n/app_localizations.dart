@@ -1150,12 +1150,6 @@ abstract class AppLocalizations {
   /// **'Secure payment'**
   String get securePayment;
 
-  /// No description provided for @paystackSecureHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'You will complete payment securely with Paystack.'**
-  String get paystackSecureHelp;
-
   /// No description provided for @stripeSecureHelp.
   ///
   /// In en, this message translates to:

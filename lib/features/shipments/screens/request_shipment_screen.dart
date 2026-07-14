@@ -61,7 +61,7 @@ class _CheckoutPreview {
       currency: json['senderCurrency']?.toString() ??
           json['senderPaymentCurrency']?.toString() ??
           'USD',
-      provider: json['paymentProcessor']?.toString() ?? 'paypal',
+      provider: json['paymentProcessor']?.toString() ?? 'flutterwave',
       travelerPayout: readDouble('travelerPayout'),
       baseShippingAmount: readDouble('baseShippingAmount'),
       shippingAmount: readDouble('shippingAmount'),

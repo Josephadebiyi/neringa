@@ -273,24 +273,18 @@ class _AboutTab extends StatelessWidget {
                                 child: CachedNetworkImage(
                                   imageUrl: profilePicture!,
                                   fit: BoxFit.cover,
-                                  errorWidget: (_, __, ___) => Center(
-                                    child: Text(
-                                      initials,
-                                      style: AppTextStyles.displaySm.copyWith(
-                                        color: AppColors.black,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
+                                  placeholder: (_, __) => _ProfilePhotoFallback(
+                                    initials: initials,
+                                  ),
+                                  errorWidget: (_, __, ___) =>
+                                      _ProfilePhotoFallback(
+                                    initials: initials,
                                   ),
                                 ),
                               )
                             : Center(
-                                child: Text(
-                                  initials,
-                                  style: AppTextStyles.displaySm.copyWith(
-                                    color: AppColors.black,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                                child: _ProfilePhotoFallback(
+                                  initials: initials,
                                 ),
                               ),
                   ),
@@ -509,6 +503,35 @@ class _AboutTab extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ProfilePhotoFallback extends StatelessWidget {
+  const _ProfilePhotoFallback({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = initials.trim();
+    if (value.isEmpty) {
+      return const Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: AppColors.gray500,
+          size: 44,
+        ),
+      );
+    }
+    return Center(
+      child: Text(
+        value,
+        style: AppTextStyles.displaySm.copyWith(
+          color: AppColors.black,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }
@@ -919,7 +942,7 @@ class _ProfileBalancePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 126),
+      height: 126,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: backgroundAsset == null ? color : null,

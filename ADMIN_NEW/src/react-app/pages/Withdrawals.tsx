@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Filter, CreditCard, User, Calendar, DollarSign, CheckCircle, XCircle, Clock, AlertCircle, Loader2 } from "lucide-react";
-import { approveWithdrawal as approveWithdrawalRequest, getWithdrawals, updateWithdrawalStatus as updateStatus, syncPaypalWithdrawal } from "../services/api";
+import { approveWithdrawal as approveWithdrawalRequest, getWithdrawals, updateWithdrawalStatus as updateStatus, syncFlutterwaveWithdrawal } from "../services/api";
 
 // Interface for withdrawal requests from API
 interface WithdrawalRequest {
@@ -19,21 +19,19 @@ interface WithdrawalRequest {
   provider?: string | null;
   manualReviewRequired?: boolean;
   manualReviewReason?: string | null;
-  paypalStatus?: string | null;
-  paypalErrorMessage?: string | null;
-  paypalDebugId?: string | null;
+  transferStatus?: string | null;
+  transferErrorMessage?: string | null;
   payoutDetails?: {
     provider?: string | null;
     method?: string | null;
     status?: string | null;
     currency?: string | null;
     reference?: string | null;
-    paypalEmail?: string | null;
     bankName?: string | null;
     bankCode?: string | null;
     accountNumber?: string | null;
     accountName?: string | null;
-    recipientCode?: string | null;
+    iban?: string | null;
   };
   source?: string;
 }
@@ -44,12 +42,11 @@ function payoutSearchText(withdrawal: WithdrawalRequest) {
     withdrawal.provider,
     details.provider,
     details.method,
-    details.paypalEmail,
     details.bankName,
     details.bankCode,
     details.accountNumber,
     details.accountName,
-    details.recipientCode,
+    details.iban,
     details.reference,
   ].filter(Boolean).join(' ').toLowerCase();
 }
@@ -57,9 +54,8 @@ function payoutSearchText(withdrawal: WithdrawalRequest) {
 function hasPayoutDestination(withdrawal: WithdrawalRequest) {
   const details = withdrawal.payoutDetails || {};
   return Boolean(
-    details.paypalEmail ||
     details.accountNumber ||
-    details.recipientCode ||
+    details.iban ||
     details.reference,
   );
 }
@@ -113,12 +109,11 @@ function PayoutDetailsBlock({ withdrawal }: { withdrawal: WithdrawalRequest }) {
     ['Method', details.method],
     ['Status', details.status],
     ['Currency', details.currency || withdrawal.currency],
-    ['PayPal email', details.paypalEmail],
     ['Bank name', details.bankName],
     ['Bank code', details.bankCode],
     ['Account number', details.accountNumber],
     ['Account name', details.accountName],
-    ['Recipient code', details.recipientCode],
+    ['IBAN', details.iban],
     ['Reference', details.reference],
   ].filter(([, value]) => value);
 
@@ -226,11 +221,11 @@ export default function Withdrawals() {
     }
   };
 
-  const handleSyncPaypal = async (withdrawal: WithdrawalRequest) => {
+  const handleSyncFlutterwave = async (withdrawal: WithdrawalRequest) => {
     setActionError(null);
     try {
       setLoading(true);
-      const result = await syncPaypalWithdrawal(withdrawal.id);
+      const result = await syncFlutterwaveWithdrawal(withdrawal.id);
       if (result.success) {
         await fetchWithdrawals();
       } else {
@@ -462,7 +457,7 @@ export default function Withdrawals() {
                         {withdrawal.description || 'Withdrawal'}
                       </span>
                     </div>
-                    {(withdrawal.provider || withdrawal.paypalStatus || withdrawal.manualReviewRequired || withdrawal.paypalErrorMessage) && (
+                    {(withdrawal.provider || withdrawal.transferStatus || withdrawal.manualReviewRequired || withdrawal.transferErrorMessage) && (
                       <div className="mt-2 space-y-1 text-xs">
                         {withdrawal.provider && (
                           <div className="font-semibold uppercase tracking-wide text-gray-500">
@@ -474,15 +469,14 @@ export default function Withdrawals() {
                             Manual review: {withdrawal.manualReviewReason || 'Provider action required'}
                           </div>
                         )}
-                        {withdrawal.paypalStatus && (
+                        {withdrawal.transferStatus && (
                           <div className="rounded bg-[#5C4BFD]/10 px-2 py-1 font-medium text-[#4335E0]">
-                            PayPal status: {withdrawal.paypalStatus}
+                            Transfer status: {withdrawal.transferStatus}
                           </div>
                         )}
-                        {withdrawal.paypalErrorMessage && (
+                        {withdrawal.transferErrorMessage && (
                           <div className="rounded bg-red-50 px-2 py-1 font-medium text-red-700">
-                            Transfer error: {withdrawal.paypalErrorMessage}
-                            {withdrawal.paypalDebugId ? ` (${withdrawal.paypalDebugId})` : ''}
+                            Transfer error: {withdrawal.transferErrorMessage}
                           </div>
                         )}
                       </div>
@@ -533,7 +527,7 @@ export default function Withdrawals() {
                           <button
                             onClick={() => handleApproveWithdrawal(withdrawal)}
                             disabled={!hasPayoutDestination(withdrawal)}
-                            title={!hasPayoutDestination(withdrawal) ? 'Payout destination is missing' : 'Approve — send via PayPal/Paystack'}
+                            title={!hasPayoutDestination(withdrawal) ? 'Payout destination is missing' : 'Approve — send via Flutterwave'}
                             className="text-green-600 hover:text-green-800 text-sm font-medium disabled:cursor-not-allowed disabled:text-gray-300"
                           >
                             Approve
@@ -556,14 +550,14 @@ export default function Withdrawals() {
                           </button>
                         </>
                       )}
-                      {(withdrawal.provider === 'paypal' || withdrawal.payoutDetails?.provider === 'paypal') &&
+                      {(withdrawal.provider === 'flutterwave' || withdrawal.payoutDetails?.provider === 'flutterwave') &&
                         normalizeStatus(withdrawal.status) === 'processing' && (
                         <button
-                          onClick={() => handleSyncPaypal(withdrawal)}
-                          title="Fetch latest status from PayPal"
+                          onClick={() => handleSyncFlutterwave(withdrawal)}
+                          title="Fetch latest status from Flutterwave"
                           className="text-purple-600 hover:text-purple-800 text-sm font-medium"
                         >
-                          Sync PayPal
+                          Sync Flutterwave
                         </button>
                       )}
                       <button className="text-gray-600 hover:text-gray-800 text-sm font-medium">

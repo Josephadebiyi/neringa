@@ -1,5 +1,6 @@
 import '../../../core/utils/json_parser.dart';
 import '../../../core/utils/model_enums.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
 
 class RequestModel {
   final String id;
@@ -36,6 +37,10 @@ class RequestModel {
   final String? travelerProof;
   final String? pickupAddress;
   final String? deliveryAddress;
+  final String? pickupDate;
+  final String? deliveryDate;
+  final String? estimatedDeparture;
+  final String? estimatedArrival;
   final String? receiverName;
   final String? receiverPhone;
   final String? receiverEmail;
@@ -82,6 +87,10 @@ class RequestModel {
     this.travelerProof,
     this.pickupAddress,
     this.deliveryAddress,
+    this.pickupDate,
+    this.deliveryDate,
+    this.estimatedDeparture,
+    this.estimatedArrival,
     this.receiverName,
     this.receiverPhone,
     this.receiverEmail,
@@ -194,7 +203,7 @@ class RequestModel {
           : json['senderName']?.toString(),
       senderEmail:
           sender?['email']?.toString() ?? json['senderEmail']?.toString(),
-      senderAvatar: sender?['avatar']?.toString(),
+      senderAvatar: AvatarUrlParser.fromJson(sender),
       carrierName: carrier != null
           ? JsonParser.parseFullName(carrier)
           : json['carrierName']?.toString(),
@@ -230,6 +239,26 @@ class RequestModel {
           package?['pickupAddress']?.toString(),
       deliveryAddress: json['deliveryAddress']?.toString() ??
           package?['deliveryAddress']?.toString(),
+      pickupDate: json['pickupDate']?.toString() ??
+          json['pickup_date']?.toString() ??
+          package?['pickupDate']?.toString() ??
+          package?['pickup_date']?.toString(),
+      deliveryDate: json['deliveryDate']?.toString() ??
+          json['delivery_date']?.toString() ??
+          package?['deliveryDate']?.toString() ??
+          package?['delivery_date']?.toString(),
+      estimatedDeparture: json['estimatedDeparture']?.toString() ??
+          json['estimated_departure']?.toString() ??
+          package?['estimatedDeparture']?.toString() ??
+          package?['estimated_departure']?.toString() ??
+          trip?['departureDate']?.toString() ??
+          trip?['departure_date']?.toString(),
+      estimatedArrival: json['estimatedArrival']?.toString() ??
+          json['estimated_arrival']?.toString() ??
+          package?['estimatedArrival']?.toString() ??
+          package?['estimated_arrival']?.toString() ??
+          trip?['arrivalDate']?.toString() ??
+          trip?['arrival_date']?.toString(),
       receiverName: json['receiverName']?.toString() ??
           json['receiver_name']?.toString() ??
           package?['receiverName']?.toString() ??

@@ -217,7 +217,6 @@
   "receiver": "Empfänger",
   "receiverFallback": "Empfänger",
   "securePayment": "Sichere Zahlung",
-  "paystackSecureHelp": "Du schließt die Zahlung sicher mit Paystack ab.",
   "stripeSecureHelp": "Wähle eine gespeicherte Karte oder füge eine neue hinzu, bevor du zahlst.",
   "paymentMethod": "Zahlungsmethode",
   "noSavedCardsYet": "Noch keine gespeicherten Karten. Füge eine Visa- oder Mastercard hinzu, um fortzufahren.",

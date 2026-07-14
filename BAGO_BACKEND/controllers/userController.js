@@ -3,12 +3,7 @@ import cloudinary from 'cloudinary';
 import { Resend } from 'resend';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
-import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail, sendWithdrawalAdminNotification } from '../services/emailNotifications.js';
-import { listActiveAdminEmails } from '../lib/postgres/trips.js';
-import { convertCurrency } from '../services/currencyConverter.js';
 import { updatePreferredCurrency, findProfileById, getWalletByUserId } from '../lib/postgres/profiles.js';
-import { initiateTransfer } from '../services/paystackService.js';
-import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -216,8 +211,7 @@ export const edit = async (req, res, next) => {
     // Convert wallet balance when currency changes
     if (updateKeys.includes('preferredCurrency') && updates.preferredCurrency) {
       const newCurrency = updates.preferredCurrency.toUpperCase();
-      const paymentGateway = PAYSTACK_PAYOUT_CURRENCIES.includes(newCurrency) ? 'paystack' : 'paypal';
-      await updatePreferredCurrency(userId, newCurrency, paymentGateway, oldPreferredCurrency);
+      await updatePreferredCurrency(userId, newCurrency, 'flutterwave', oldPreferredCurrency);
     }
 
     // Re-fetch full profile so wallet balance/currency reflect the conversion
@@ -325,203 +319,6 @@ export const addFunds = async (req, res) => {
     res.status(200).json({ success: true, message: 'Funds added', balance: row.available_balance });
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
-};
-
-const DAILY_WITHDRAWAL_LIMIT_USD = Number(process.env.DAILY_WITHDRAWAL_LIMIT_USD || 2000);
-const MINIMUM_WITHDRAWAL_USD = Number(process.env.MINIMUM_WITHDRAWAL_USD || 2);
-const PAYPAL_WITHDRAWAL_FEE = 0;
-const PAYSTACK_WITHDRAWAL_FEE_NGN = 200;
-const PAYSTACK_PAYOUT_CURRENCIES = [
-  'AOA', 'BIF', 'BWP', 'CDF', 'CVE', 'DJF', 'DZD', 'EGP', 'ERN', 'ETB',
-  'GHS', 'GMD', 'GNF', 'KES', 'KMF', 'LRD', 'LSL', 'LYD', 'MAD', 'MGA',
-  'MRU', 'MUR', 'MWK', 'MZN', 'NAD', 'NGN', 'RWF', 'SCR', 'SDG', 'SLE',
-  'SOS', 'SSP', 'STN', 'SZL', 'TZS', 'UGX', 'XAF', 'XOF', 'ZAR', 'ZMW',
-  'ZWL',
-];
-
-function payoutMethodForCurrency(currency = 'USD') {
-  return PAYSTACK_PAYOUT_CURRENCIES.includes(String(currency).toUpperCase()) ? 'bank' : 'paypal';
-}
-
-export const withdrawFunds = async (req, res) => {
-  try {
-    const { amount, method } = req.body;
-    const userId = req.user.id;
-
-    if (!amount || Number(amount) <= 0) {
-      return res.status(400).json({ success: false, message: 'Positive amount required' });
-    }
-
-    const account = await queryOne(
-      `SELECT
-          p.payout_currency,
-          p.payout_status,
-          p.paystack_recipient_code,
-          p.email,
-          p.first_name,
-          p.last_name,
-          wa.id as wallet_id,
-          wa.available_balance,
-          wa.currency
-       FROM public.profiles p
-       JOIN public.wallet_accounts wa ON wa.user_id = p.id
-       WHERE p.id = $1`,
-      [userId]
-    );
-
-    if (!account) return res.status(404).json({ success: false, message: 'Wallet not found' });
-
-    const walletCurrency = String(account.currency || 'USD').toUpperCase();
-    const selectedMethod = method || payoutMethodForCurrency(walletCurrency);
-
-    if (!['paypal', 'bank'].includes(selectedMethod)) {
-      return res.status(400).json({ success: false, message: "Specify payout method: 'paypal' or 'bank'" });
-    }
-    if (selectedMethod !== payoutMethodForCurrency(walletCurrency)) {
-      return res.status(400).json({
-        success: false,
-        message: `${walletCurrency} withdrawals use ${payoutMethodForCurrency(walletCurrency) === 'bank' ? 'bank/Paystack' : 'PayPal'}.`,
-      });
-    }
-
-    const minimumAmount = await convertCurrency(MINIMUM_WITHDRAWAL_USD, 'USD', walletCurrency);
-    if (Number(amount) < minimumAmount) {
-      return res.status(400).json({
-        success: false,
-        message: `Minimum withdrawal is ${walletCurrency} ${minimumAmount.toFixed(2)}.`,
-      });
-    }
-
-    if (selectedMethod === 'bank' && !account.paystack_recipient_code) {
-      return res.status(400).json({ success: false, message: 'Add and verify a bank account before withdrawing.' });
-    }
-
-    const withdrawalFee = selectedMethod === 'bank'
-      ? Number((walletCurrency === 'NGN'
-          ? PAYSTACK_WITHDRAWAL_FEE_NGN
-          : await convertCurrency(PAYSTACK_WITHDRAWAL_FEE_NGN, 'NGN', walletCurrency)).toFixed(2))
-      : PAYPAL_WITHDRAWAL_FEE;
-    const payoutAmount = Number((Number(amount) - withdrawalFee).toFixed(2));
-    if (payoutAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Withdrawal amount must be greater than the ${walletCurrency} ${withdrawalFee.toFixed(2)} withdrawal fee.`,
-      });
-    }
-
-    if (Number(account.available_balance || 0) < Number(amount)) {
-      return res.status(400).json({ success: false, message: 'Insufficient balance' });
-    }
-    await assertNoActiveWithdrawal(null, userId);
-
-    const amountUsd = walletCurrency === 'USD'
-      ? Number(amount)
-      : await convertCurrency(Number(amount), walletCurrency, 'USD');
-
-    // Daily limit — sum previous withdrawals using stored amountUsd in metadata
-    const dailyTotal = await queryOne(
-      `SELECT COALESCE(SUM(
-          CASE WHEN currency = 'USD' THEN amount
-               ELSE (metadata->>'amountUsd')::numeric
-          END
-        ), 0) AS total
-       FROM public.wallet_transactions
-       WHERE user_id = $1
-         AND type = 'withdrawal'
-         AND status != 'failed'
-         AND created_at >= NOW() - INTERVAL '24 hours'`,
-      [userId]
-    );
-    const spentToday = Number(dailyTotal?.total || 0);
-    if (spentToday + amountUsd > DAILY_WITHDRAWAL_LIMIT_USD) {
-      const remaining = Math.max(0, DAILY_WITHDRAWAL_LIMIT_USD - spentToday);
-      return res.status(429).json({
-        success: false,
-        message: `Daily withdrawal limit reached. You can withdraw up to $${remaining.toFixed(2)} more today.`,
-        code: 'DAILY_LIMIT_EXCEEDED',
-      });
-    }
-
-    const reference = `BAGO-WD-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
-
-    // Atomically deduct — WHERE available_balance >= amount prevents overdraft race
-    const updatedWallet = await queryOne(
-      `UPDATE public.wallet_accounts
-       SET available_balance = available_balance - $2, updated_at = NOW()
-       WHERE user_id = $1 AND available_balance >= $2
-       RETURNING available_balance`,
-      [userId, amount]
-    );
-    if (!updatedWallet) {
-      return res.status(400).json({ success: false, message: 'Insufficient balance' });
-    }
-
-    // Record as pending_admin_approval — admin must approve before payout API is called
-    await pgQuery(
-      `INSERT INTO public.wallet_transactions
-        (wallet_id, user_id, type, amount, currency, status, description, metadata)
-       VALUES ($1, $2, 'withdrawal', $3, $4, 'pending_admin_approval', $5, $6)`,
-      [
-        account.wallet_id, userId, amount, walletCurrency,
-        `Withdrawal via ${selectedMethod === 'bank' ? 'Bank Transfer' : 'PayPal'}`,
-        JSON.stringify({
-          method: selectedMethod,
-          provider: selectedMethod === 'bank' ? 'paystack' : 'paypal',
-          amountUsd,
-          reference,
-          requestedAmount: Number(amount),
-          withdrawalFee,
-          payoutAmount,
-          feeCurrency: walletCurrency,
-          feeRule: selectedMethod === 'bank' ? 'paystack_ngn_200' : 'paypal',
-          recipientCode: account.paystack_recipient_code,
-        }),
-      ]
-    );
-
-    const userName = [account.first_name, account.last_name].filter(Boolean).join(' ').trim();
-    await sendWithdrawalSubmittedEmail(
-      account.email,
-      userName,
-      {
-        amount: Number(amount),
-        currency: walletCurrency,
-        reference,
-        method: selectedMethod === 'bank' ? 'bank account' : 'PayPal',
-      },
-    ).catch(() => {});
-
-    // Notify admins
-    listActiveAdminEmails().then((emails) => {
-      for (const email of emails) {
-        sendWithdrawalAdminNotification(email, {
-          userName,
-          userEmail: account.email,
-          amount: Number(amount),
-          currency: walletCurrency,
-          method: selectedMethod === 'bank' ? 'Bank Transfer (Paystack)' : 'PayPal',
-          reference,
-        }).catch(() => {});
-      }
-    }).catch(() => {});
-
-    return res.status(200).json({
-      success: true,
-      message: 'Withdrawal request submitted. An admin will review and process it shortly.',
-      reference,
-      requestedAmount: Number(amount),
-      withdrawalFee,
-      payoutAmount,
-      balance: updatedWallet.available_balance,
-    });
-  } catch (error) {
-    console.error('withdrawFunds error:', error);
-    return res.status(error.statusCode || 500).json({
-      success: false,
-      code: error.code,
-      message: error.message,
-    });
   }
 };
 

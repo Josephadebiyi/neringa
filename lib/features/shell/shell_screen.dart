@@ -437,7 +437,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                   showAuthRequiredModal(context);
                   return;
                 }
-                context.push('/post-trip');
+                context.go('/post-trip');
                 return;
               }
               if (!isLoggedIn && tab.path != '/home') {

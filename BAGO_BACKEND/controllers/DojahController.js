@@ -82,8 +82,7 @@ const normalizeCountryCode = (value = '') => {
 const currencyForCountry = (countryCode = '', fallback = 'USD') =>
   COUNTRY_CURRENCY_MAP[normalizeCountryCode(countryCode)] || fallback;
 
-const paymentGatewayForCountry = (countryCode = '') =>
-  DOJAH_COUNTRIES.has(normalizeCountryCode(countryCode)) ? 'paystack' : 'stripe';
+const paymentGatewayForCountry = (_countryCode = '') => 'flutterwave';
 
 const dojahAuthHeaders = () => ({ AppId: DOJAH_APP_ID, Authorization: DOJAH_SECRET });
 

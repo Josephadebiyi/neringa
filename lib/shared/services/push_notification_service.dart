@@ -28,6 +28,10 @@ class PushNotificationService {
   bool _listening = false;
   bool _registering = false;
   String? _pendingToken;
+  String? _pendingPlatform;
+  String? _activeRegistrationKey;
+  String? _lastRegisteredKey;
+  DateTime? _lastRegisteredAt;
 
   static final _tapController = StreamController<String>.broadcast();
   static final _supportTapController = StreamController<String>.broadcast();
@@ -262,11 +266,26 @@ class PushNotificationService {
 
   Future<void> _registerIfPossible(String token,
       {required String platform}) async {
-    if (token.isEmpty) return;
-    await _storage.savePushToken(token);
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) return;
+
+    final registrationKey = '$platform:$normalizedToken';
+    if (_activeRegistrationKey == registrationKey) {
+      return;
+    }
+
+    final registeredAt = _lastRegisteredAt;
+    if (_lastRegisteredKey == registrationKey &&
+        registeredAt != null &&
+        DateTime.now().difference(registeredAt) < const Duration(hours: 12)) {
+      return;
+    }
+
+    await _storage.savePushToken(normalizedToken);
 
     if (_registering) {
-      _pendingToken = token;
+      _pendingToken = normalizedToken;
+      _pendingPlatform = platform;
       return;
     }
 
@@ -274,41 +293,65 @@ class PushNotificationService {
     final accessToken = await _storage.getAccessToken();
     if (currentUser == null || accessToken == null) {
       debugPrint('🔔 Push token deferred — not signed in yet');
-      _pendingToken = token;
+      _pendingToken = normalizedToken;
+      _pendingPlatform = platform;
       return;
     }
 
     _registering = true;
+    _activeRegistrationKey = registrationKey;
     int retries = 0;
     const maxRetries = 5;
 
-    while (retries < maxRetries) {
-      try {
-        debugPrint(
-            '🔔 Registering $platform token (attempt ${retries + 1}/$maxRetries)');
-        await AuthService.instance.registerPushToken(token, platform: platform);
-        debugPrint('✅ $platform push token registered');
-        _pendingToken = null;
-        _registering = false;
-        return;
-      } catch (e) {
-        retries++;
-        debugPrint('❌ Token registration attempt $retries failed: $e');
-        if (retries < maxRetries) {
-          await Future<void>.delayed(Duration(seconds: retries * 2));
+    try {
+      while (retries < maxRetries) {
+        try {
+          debugPrint(
+              '🔔 Registering $platform token (attempt ${retries + 1}/$maxRetries)');
+          await AuthService.instance
+              .registerPushToken(normalizedToken, platform: platform);
+          debugPrint('✅ $platform push token registered');
+          _lastRegisteredKey = registrationKey;
+          _lastRegisteredAt = DateTime.now();
+          if (_pendingToken == normalizedToken &&
+              _pendingPlatform == platform) {
+            _pendingToken = null;
+            _pendingPlatform = null;
+          }
+          return;
+        } catch (e) {
+          retries++;
+          debugPrint('❌ Token registration attempt $retries failed: $e');
+          if (retries < maxRetries) {
+            await Future<void>.delayed(Duration(seconds: retries * 2));
+          }
         }
       }
+
+      debugPrint('⚠️ Token registration failed after $maxRetries attempts');
+      _pendingToken = normalizedToken;
+      _pendingPlatform = platform;
+    } finally {
+      _registering = false;
+      _activeRegistrationKey = null;
     }
 
-    debugPrint('⚠️ Token registration failed after $maxRetries attempts');
-    _pendingToken = token;
-    _registering = false;
+    final nextToken = _pendingToken;
+    final nextPlatform = _pendingPlatform;
+    if (nextToken != null &&
+        nextPlatform != null &&
+        '$nextPlatform:$nextToken' != registrationKey) {
+      unawaited(_registerIfPossible(nextToken, platform: nextPlatform));
+    }
   }
 
   Future<void> clearLocalToken() async {
     try {
-      await _storage.savePushToken('');
+      await _storage.clearPushToken();
       _pendingToken = null;
+      _pendingPlatform = null;
+      _lastRegisteredKey = null;
+      _lastRegisteredAt = null;
       debugPrint('🔕 Local push token cleared');
     } catch (e) {
       debugPrint('❌ clearLocalToken error: $e');

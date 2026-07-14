@@ -28,8 +28,8 @@ export const isAfricanCountry = (country) => {
 };
 
 // Get payment gateway based on country
-export const getPaymentGateway = (country) => {
-  return isAfricanCountry(country) ? 'paystack' : 'stripe';
+export const getPaymentGateway = (_country) => {
+  return 'flutterwave';
 };
 
 // Currency codes by country (names and codes)

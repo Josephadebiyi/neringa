@@ -218,9 +218,7 @@ export default function Settings({ user, checkAuthStatus }) {
     const [showBankOtp, setShowBankOtp] = useState(false);
     const [bankOtp, setBankOtp] = useState('');
     const [payoutLoading, setPayoutLoading] = useState(false);
-    const [editingPayout, setEditingPayout] = useState(false);
-    const [paypalEmail, setPaypalEmail] = useState('');
-    const [paypalSaving, setPaypalSaving] = useState(false);
+    const [switchToBankPayout, setSwitchToBankPayout] = useState(false);
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
@@ -305,8 +303,10 @@ export default function Settings({ user, checkAuthStatus }) {
     );
     // Only surface the legacy PayPal panel for an account that's already
     // connected on it — no new PayPal connections are offered going forward.
-    const showConnectedPayoutOption = hasConnectedPayout;
-    const showBankOption = !hasConnectedPayout;
+    // switchToBankPayout lets an already-connected legacy user move to the
+    // new Flutterwave bank/IBAN flow (PayPal connect is no longer available).
+    const showConnectedPayoutOption = hasConnectedPayout && !switchToBankPayout;
+    const showBankOption = !hasConnectedPayout || switchToBankPayout;
 
     useEffect(() => {
         if (!showBankOption || isIbanCurrency) return;
@@ -470,35 +470,6 @@ export default function Settings({ user, checkAuthStatus }) {
             setError(err.response?.data?.message || 'Could not verify bank OTP.');
         } finally {
             setBankLoading(false);
-        }
-    };
-
-    const handleSavePaypalEmail = async () => {
-        const email = paypalEmail.trim();
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            setError('Please enter a valid PayPal email address.');
-            return;
-        }
-        setError('');
-        setSuccessMessage('');
-        setPaypalSaving(true);
-        try {
-            const res = await api.post('/api/payouts/paypal/connect', {
-                email,
-                payoutCurrency: preferredCurrency || 'USD',
-            });
-            if (res.data?.success) {
-                setSuccessMessage('PayPal payout email saved successfully.');
-                setPaypalEmail('');
-                setEditingPayout(false);
-                await checkAuthStatus?.();
-            } else {
-                setError(res.data?.message || 'Could not save PayPal email.');
-            }
-        } catch (err) {
-            setError(err.response?.data?.message || 'Could not save PayPal email.');
-        } finally {
-            setPaypalSaving(false);
         }
     };
 
@@ -808,7 +779,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                     Earnings in {preferredCurrency || 'USD'} are sent to your PayPal account after delivery is confirmed.
                                 </p>
 
-                                {hasConnectedPayout && connectedPaypalEmail && !editingPayout && (
+                                {hasConnectedPayout && connectedPaypalEmail && (
                                     <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm shrink-0">
                                             <Check size={14} strokeWidth={4} />
@@ -821,7 +792,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                     </div>
                                 )}
 
-                                {hasConnectedPayout && !connectedPaypalEmail && !editingPayout && (
+                                {hasConnectedPayout && !connectedPaypalEmail && (
                                     <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
                                         <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm shrink-0">
                                             <Check size={14} strokeWidth={4} />
@@ -833,46 +804,13 @@ export default function Settings({ user, checkAuthStatus }) {
                                     </div>
                                 )}
 
-                                {(!hasConnectedPayout || editingPayout) && (
-                                    <div className="space-y-3">
-                                        <input
-                                            type="email"
-                                            value={paypalEmail}
-                                            onChange={e => setPaypalEmail(e.target.value)}
-                                            placeholder="your@paypal.com"
-                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[11px] font-medium text-[#111827] outline-none focus:border-[#003087]/30 transition-all placeholder:text-gray-300"
-                                        />
-                                        <div className="flex gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={handleSavePaypalEmail}
-                                                disabled={paypalSaving || !paypalEmail.trim()}
-                                                className="flex-1 bg-[#003087] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#002070] transition-all flex items-center justify-center gap-2 disabled:opacity-40"
-                                            >
-                                                {paypalSaving ? <RefreshCw className="animate-spin" size={13} /> : 'Save PayPal Email'}
-                                            </button>
-                                            {editingPayout && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setEditingPayout(false); setPaypalEmail(''); }}
-                                                    className="px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {hasConnectedPayout && !editingPayout && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setEditingPayout(true); setPaypalEmail(connectedPaypalEmail); }}
-                                        className="text-[9px] font-black text-[#003087] uppercase tracking-widest hover:underline text-left"
-                                    >
-                                        Update PayPal email →
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setSwitchToBankPayout(true)}
+                                    className="text-[9px] font-black text-[#003087] uppercase tracking-widest hover:underline text-left"
+                                >
+                                    Switch to bank payout →
+                                </button>
                             </div>
                         </div>
                     )}

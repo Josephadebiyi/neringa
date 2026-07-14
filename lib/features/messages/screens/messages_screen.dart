@@ -207,19 +207,16 @@ class _ConversationTile extends StatelessWidget {
                   width: 60,
                   height: 60,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Center(
-                    child: Text(
-                      conv.initials,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
+                  placeholder: (_, __) => _ChatAvatarFallback(
+                    initials: conv.initials,
+                  ),
+                  errorWidget: (_, __, ___) => _ChatAvatarFallback(
+                    initials: conv.initials,
                   ),
                 ),
               )
-            : Center(
-                child: Text(
-                  conv.initials,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
+            : _ChatAvatarFallback(
+                initials: conv.initials,
               ),
       ),
       title: Text(
@@ -287,5 +284,31 @@ class _ConversationTile extends StatelessWidget {
     } catch (_) {
       return '';
     }
+  }
+}
+
+class _ChatAvatarFallback extends StatelessWidget {
+  const _ChatAvatarFallback({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = initials.trim();
+    if (value.isEmpty || value == '?') {
+      return const Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: AppColors.gray500,
+          size: 30,
+        ),
+      );
+    }
+    return Center(
+      child: Text(
+        value,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+    );
   }
 }

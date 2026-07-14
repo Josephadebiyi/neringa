@@ -8,7 +8,8 @@ class StorageService {
 
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+    iOptions: IOSOptions(
+        accessibility: KeychainAccessibility.first_unlock_this_device),
   );
 
   static const _accessTokenKey = 'access_token';
@@ -129,9 +130,12 @@ class StorageService {
   // ---------- Push token (Secure Storage) --------------------------------
   Future<void> savePushToken(String token) async {
     if (token.isEmpty) {
-      throw Exception('Cannot save empty push token');
+      await clearPushToken();
+      return;
     }
     try {
+      final existing = await _safeRead(_pushTokenKey);
+      if (existing == token) return;
       await _storage.write(key: _pushTokenKey, value: token);
       debugPrint(
           '💾 Push token saved to secure storage (${token.length} chars)');

@@ -30,6 +30,7 @@ export const dashboard = async (req, res, next) => {
       packageCountRow,
       requestCountRow,
       incomeRow,
+      commissionRow,
       statusDistributionRows,
       monthlyTrendsRows,
       activeTripsCountRow,
@@ -41,22 +42,47 @@ export const dashboard = async (req, res, next) => {
       safeQueryOne(`select count(*)::int as total from public.profiles`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.packages`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.shipment_requests`, [], { total: 0 }),
+      // Platform reporting base currency is EUR (see migration plan §platform_base_currency).
+      // exchange_rates only maintains a USD-base row, so amounts are converted to USD first
+      // (existing logic) then to EUR via the same row's USD->EUR rate, rather than fetching
+      // a second EUR-base row from the rate provider on every cron cycle.
       safeQueryOne(`
         SELECT COALESCE(
           SUM(
             CASE
-              WHEN sr.currency IS NULL OR sr.currency = 'USD'
+              WHEN sr.currency = 'EUR'
                 THEN COALESCE(sr.amount, sr.insurance_cost, 0)
+              WHEN sr.currency IS NULL OR sr.currency = 'USD'
+                THEN COALESCE(sr.amount, sr.insurance_cost, 0) * COALESCE((er.rates->>'EUR')::numeric, 1)
               ELSE
-                COALESCE(sr.amount, sr.insurance_cost, 0)
-                / NULLIF((er.rates->>sr.currency)::numeric, 0)
+                (COALESCE(sr.amount, sr.insurance_cost, 0) / NULLIF((er.rates->>sr.currency)::numeric, 0))
+                * COALESCE((er.rates->>'EUR')::numeric, 1)
             END
           ), 0
-        ) AS total_income
+        ) AS total_income_eur
         FROM public.shipment_requests sr
         LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
         WHERE sr.status IN ('accepted', 'intransit', 'delivering', 'completed')
-      `, [], { total_income: 0 }),
+      `, [], { total_income_eur: 0 }),
+      // Real platform commission (shipment_ledgers.bago_commission_amount), converted to
+      // EUR the same way — replaces the previous hardcoded totalIncome * 0.1 estimate.
+      safeQueryOne(`
+        SELECT COALESCE(
+          SUM(
+            CASE
+              WHEN sl.payment_currency = 'EUR'
+                THEN COALESCE(sl.bago_commission_amount, 0)
+              WHEN sl.payment_currency IS NULL OR sl.payment_currency = 'USD'
+                THEN COALESCE(sl.bago_commission_amount, 0) * COALESCE((er.rates->>'EUR')::numeric, 1)
+              ELSE
+                (COALESCE(sl.bago_commission_amount, 0) / NULLIF((er.rates->>sl.payment_currency)::numeric, 0))
+                * COALESCE((er.rates->>'EUR')::numeric, 1)
+            END
+          ), 0
+        ) AS total_commission_eur
+        FROM public.shipment_ledgers sl
+        LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
+      `, [], { total_commission_eur: 0 }),
       safeQuery(`
         select status as name, count(*)::int as count
         from public.shipment_requests
@@ -119,7 +145,8 @@ export const dashboard = async (req, res, next) => {
       value: totalRequests > 0 ? (Number(row.count || 0) / totalRequests) * 100 : 0,
     }));
 
-    const totalIncome = Number(incomeRow?.total_income || 0);
+    const totalIncome = Number(incomeRow?.total_income_eur || 0);
+    const totalCommission = Number(commissionRow?.total_commission_eur || 0);
 
     res.status(200).json({
       success: true,
@@ -129,7 +156,8 @@ export const dashboard = async (req, res, next) => {
           totalPackages: packageCountRow?.total || 0,
           totalRequests: requestCountRow?.total || 0,
           totalIncome,
-          totalCommission: totalIncome * 0.1,
+          totalIncomeCurrency: 'EUR',
+          totalCommission,
           activeTrips: activeTripsCountRow?.total || 0,
           googleUsers: googleSignupCountRow?.total || 0,
           unverifiedUsers: unverifiedUserCountRow?.total || 0,

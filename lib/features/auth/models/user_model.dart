@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/utils/json_parser.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
 import '../../../shared/utils/status_formatter.dart';
 
 class UserModel {
@@ -38,7 +39,6 @@ class UserModel {
   final String? payoutMethod;
   final String? payoutStatus;
   final String? payoutMethodStatus;
-  final String? paypalPayoutEmail;
   final String? signupMethod; // 'email' | 'google' | 'apple'
   final DateTime? termsAcceptedAt;
   final String? earningCurrency;
@@ -80,7 +80,6 @@ class UserModel {
     this.payoutMethod,
     this.payoutStatus,
     this.payoutMethodStatus,
-    this.paypalPayoutEmail,
     this.signupMethod,
     this.termsAcceptedAt,
     this.earningCurrency,
@@ -179,7 +178,6 @@ class UserModel {
     String? payoutMethod,
     String? payoutStatus,
     String? payoutMethodStatus,
-    String? paypalPayoutEmail,
     String? signupMethod,
     DateTime? termsAcceptedAt,
     String? walletCurrency,
@@ -224,7 +222,6 @@ class UserModel {
       payoutMethod: payoutMethod ?? this.payoutMethod,
       payoutStatus: payoutStatus ?? this.payoutStatus,
       payoutMethodStatus: payoutMethodStatus ?? this.payoutMethodStatus,
-      paypalPayoutEmail: paypalPayoutEmail ?? this.paypalPayoutEmail,
       signupMethod: signupMethod ?? this.signupMethod,
       termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
       earningCurrency: earningCurrency ?? this.earningCurrency,
@@ -246,9 +243,7 @@ class UserModel {
         dateOfBirth: json['dateOfBirth']?.toString() ??
             json['dob']?.toString() ??
             json['date_of_birth']?.toString(),
-        profilePicture: json['profile_picture']?.toString() ??
-            json['profilePicture']?.toString() ??
-            json['image']?.toString(),
+        profilePicture: _profileImageFrom(json),
         role: _normalizeRole(json['role']?.toString() ?? 'sender'),
         isVerified: json['is_verified'] == true || json['isVerified'] == true,
         emailVerified:
@@ -311,7 +306,6 @@ class UserModel {
             json['payout_status']?.toString(),
         payoutMethodStatus: json['payoutMethodStatus']?.toString() ??
             json['payout_method_status']?.toString(),
-        paypalPayoutEmail: _paypalEmailFromJson(json),
         signupMethod: json['signupMethod']?.toString() ??
             json['signup_method']?.toString(),
         preferredCurrency: json['preferredCurrency']?.toString() ??
@@ -364,7 +358,6 @@ class UserModel {
         'payout_method': payoutMethod,
         'payout_status': payoutStatus,
         'payout_method_status': payoutMethodStatus,
-        'paypal_payout_email': paypalPayoutEmail,
         'signupMethod': signupMethod,
         'earning_currency': earningCurrency,
         'earning_currency_locked': earningCurrencyLocked,
@@ -400,16 +393,8 @@ class UserModel {
     return null;
   }
 
-  static String? _paypalEmailFromJson(Map<String, dynamic> json) {
-    final direct = json['paypalPayoutEmail']?.toString() ??
-        json['paypal_payout_email']?.toString();
-    if (direct != null && direct.trim().isNotEmpty) return direct.trim();
-    final bankDetails = json['bankDetails'] ?? json['bank_details'];
-    if (bankDetails is Map) {
-      final email = bankDetails['paypalEmail']?.toString() ??
-          bankDetails['paypal_email']?.toString();
-      if (email != null && email.trim().isNotEmpty) return email.trim();
-    }
-    return null;
+  static String? _profileImageFrom(Map<String, dynamic> json) {
+    return AvatarUrlParser.fromJson(json);
   }
+
 }

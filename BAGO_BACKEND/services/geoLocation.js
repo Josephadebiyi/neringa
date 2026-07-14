@@ -1,6 +1,5 @@
 import geoip from 'geoip-lite';
 
-const PAYSTACK_CURRENCIES = new Set(['NGN', 'GHS', 'KES', 'ZAR']);
 const UNKNOWN_COUNTRY_VALUES = new Set(['', 'XX', 'T1', 'A1', 'A2', 'O1']);
 const countryNameFormatter =
   typeof Intl !== 'undefined' && Intl.DisplayNames
@@ -9,11 +8,11 @@ const countryNameFormatter =
 
 // ISO-3166-1 alpha-2 → currency code
 const ISO_TO_CURRENCY = {
-  // West Africa (Paystack)
+  // West Africa
   NG: 'NGN', GH: 'GHS',
-  // East Africa (Paystack)
+  // East Africa
   KE: 'KES',
-  // Southern Africa (Paystack)
+  // Southern Africa
   ZA: 'ZAR',
   // Rest of Africa
   EG: 'EGP', ET: 'ETB', TZ: 'TZS', UG: 'UGX', RW: 'RWF',
@@ -64,8 +63,8 @@ export function getCountryNameForCode(countryCode) {
   return countryNameFormatter?.of(code) || code;
 }
 
-export function getGatewayForCurrency(currency) {
-  return PAYSTACK_CURRENCIES.has((currency || '').toUpperCase()) ? 'paystack' : 'stripe';
+export function getGatewayForCurrency(_currency) {
+  return 'flutterwave';
 }
 
 function normalizeCountryCode(value) {

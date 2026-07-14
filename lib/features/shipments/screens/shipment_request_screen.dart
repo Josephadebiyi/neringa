@@ -400,6 +400,24 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   _DetailRow('Pickup', req.pickupAddress!),
                 if ((req.deliveryAddress ?? '').isNotEmpty)
                   _DetailRow('Delivery', req.deliveryAddress!),
+                if ((req.pickupDate ?? '').isNotEmpty)
+                  _DetailRow(
+                      'Pickup date', _formatShipmentDateTime(req.pickupDate!)),
+                if ((req.deliveryDate ?? '').isNotEmpty)
+                  _DetailRow('Delivery date',
+                      _formatShipmentDateTime(req.deliveryDate!)),
+                if ((req.estimatedDeparture ?? '').isNotEmpty)
+                  _DetailRow('Departs',
+                      _formatShipmentDateTime(req.estimatedDeparture!)),
+                if ((req.estimatedArrival ?? '').isNotEmpty)
+                  _DetailRow('Arrives',
+                      _formatShipmentDateTime(req.estimatedArrival!)),
+                if (req.createdAt.trim().isNotEmpty)
+                  _DetailRow(
+                      'Requested', _formatShipmentDateTime(req.createdAt)),
+                if (req.updatedAt.trim().isNotEmpty)
+                  _DetailRow(
+                      'Last updated', _formatShipmentDateTime(req.updatedAt)),
               ],
             ),
           ),
@@ -978,6 +996,33 @@ class _InfoCard extends StatelessWidget {
             color: AppColors.white, borderRadius: BorderRadius.circular(20)),
         child: child,
       );
+}
+
+String _formatShipmentDateTime(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return '';
+  final parsed = DateTime.tryParse(trimmed);
+  if (parsed == null) return trimmed;
+
+  final local = parsed.toLocal();
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final suffix = local.hour >= 12 ? 'PM' : 'AM';
+  return '${months[local.month - 1]} ${local.day}, ${local.year} at $hour12:$minute $suffix';
 }
 
 class _DetailRow extends StatelessWidget {

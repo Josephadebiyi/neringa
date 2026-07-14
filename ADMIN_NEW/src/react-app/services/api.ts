@@ -259,8 +259,8 @@ export async function approveWithdrawal(transactionId: string) {
   });
 }
 
-export async function syncPaypalWithdrawal(transactionId: string) {
-  return apiCall(`${ADMIN_API}/withdrawals/${transactionId}/sync-paypal`, {
+export async function syncFlutterwaveWithdrawal(transactionId: string) {
+  return apiCall(`${ADMIN_API}/withdrawals/${transactionId}/sync-flutterwave`, {
     method: 'POST',
   });
 }

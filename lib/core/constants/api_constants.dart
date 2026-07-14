@@ -13,9 +13,6 @@ class ApiConstants {
     defaultValue: '',
   );
 
-  static const String paystackPublicKey =
-      String.fromEnvironment('PAYSTACK_KEY', defaultValue: '');
-
   // Google OAuth
   static const String googleWebClientId = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
@@ -133,8 +130,6 @@ class ApiConstants {
   static const String walletBalance = '/api/bago/getWallet';
   static const String referral = '/api/bago/referral';
   static const String withdrawalRequestOtp = '/api/bago/withdrawal/request-otp';
-  // Backend: POST /withdrawFunds
-  static const String withdrawFunds = '/api/bago/withdrawFunds';
   static const String paymentMethods = '/api/payments/cards';
   // Braintree checkout (legacy)
   static const String braintreeClientToken =
@@ -146,21 +141,9 @@ class ApiConstants {
   static const String stripePaymentMethods = '/api/payments/methods';
   static const String stripeCreateIntent = '/api/payments/create-intent';
   static const String stripeBizumCheckout = '/api/payments/bizum-checkout';
-  // PayPal active checkout flow
   static const String shipmentCheckoutPreview =
       '/api/checkout/shipment-preview';
-  static const String paypalConfig = '/api/config/paypal';
-  static const String paypalCreateOrder = '/api/payments/paypal/create-order';
-  static const String paypalAuthorize = '/api/payments/paypal/authorize';
-  static const String paypalCapture = '/api/payments/paypal/capture';
-  static const String paypalApplePaySheet =
-      '/api/payments/paypal/apple-pay-sheet';
-  static const String paypalCardFields = '/api/payments/paypal/card-fields';
-  // Paystack payment flow
-  static const String paystackInitialize = '/api/bago/paystack/initialize';
-  static const String paystackVerify = '/api/bago/paystack/verify';
-  // Flutterwave — the only active payment provider going forward. Paystack/PayPal
-  // constants above are kept for historical reference and rollback, not deleted.
+  // Flutterwave — the only active payment provider.
   static const String flutterwaveConfig = '/api/config/flutterwave';
   static const String flutterwaveInitialize =
       '/api/payments/flutterwave/initialize';
@@ -170,11 +153,6 @@ class ApiConstants {
   // ---------------------------------------------------------------------------
   // Payouts
   // ---------------------------------------------------------------------------
-  static const String paystackBanks = '/api/bago/paystack/banks';
-  static const String paystackResolve = '/api/bago/paystack/resolve';
-  static const String paystackAddBank = '/api/bago/paystack/add-bank';
-  static const String paystackVerifyBankOtp =
-      '/api/bago/paystack/verify-bank-otp';
   static const String stripePayoutStatus = '/api/payouts/status';
   static const String stripeConnectOnboard = '/api/payouts/connect/onboard';
   static const String stripeConnectAccountSession =
@@ -182,8 +160,6 @@ class ApiConstants {
   static const String stripeConnectDashboardLink =
       '/api/payouts/connect/dashboard-link';
   static const String stripeWithdraw = '/api/payouts/withdraw';
-  static const String paypalPayoutConnect = '/api/payouts/paypal/connect';
-  static const String paypalWithdraw = '/api/payouts/paypal/withdraw';
   // Flutterwave payouts
   static const String flutterwaveBanks = '/api/payouts/flutterwave/banks';
   static const String flutterwaveResolveAccount =

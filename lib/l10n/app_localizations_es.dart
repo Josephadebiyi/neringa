@@ -570,10 +570,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get securePayment => 'Pago seguro';
 
   @override
-  String get paystackSecureHelp =>
-      'Completarás el pago de forma segura con Paystack.';
-
-  @override
   String get stripeSecureHelp =>
       'Elige una de tus tarjetas guardadas o añade una nueva antes de pagar.';
 

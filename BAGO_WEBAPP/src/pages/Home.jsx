@@ -969,7 +969,7 @@ const ProtectionPolicySection = () => {
                             Travelers know where their money is going.
                         </h2>
                         <p className="mt-7 max-w-xl text-lg font-semibold leading-relaxed text-gray-500">
-                            Show payout setup clearly before a traveler posts a route. Supported local options, currency conversion, and earning estimates should feel simple and bank-like.
+                             Show payout setup clearly before a traveler posts a route. Supported local options, currency conversion, and earning estimates should feel simple and bank-like.
                         </p>
                         <div className="mt-8 grid max-w-xl gap-3 sm:grid-cols-3">
                             {[

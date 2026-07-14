@@ -1,4 +1,5 @@
 import '../../../core/utils/json_parser.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
 import '../../../shared/utils/status_formatter.dart';
 
 class TripModel {
@@ -241,8 +242,11 @@ class TripModel {
       carrierName: user != null
           ? JsonParser.parseFullName(user)
           : json['carrierName']?.toString(),
-      carrierAvatar:
-          user?['avatar']?.toString() ?? json['carrierAvatar']?.toString(),
+      carrierAvatar: user != null
+          ? AvatarUrlParser.fromJson(user)
+          : AvatarUrlParser.normalize(
+              json['carrierAvatar'] ?? json['carrier_avatar'],
+            ),
       carrierBio: user?['bio']?.toString() ?? json['carrierBio']?.toString(),
       escrowBalance: JsonParser.parseDouble(json, 'escrowBalance') == 0.0
           ? null
