@@ -550,7 +550,8 @@ export async function activateEarningCurrency(userId, currency) {
   await withTransaction(async (client) => {
     await client.query(
       `UPDATE public.profiles SET earning_currency = $2, earning_currency_locked = $4,
-       preferred_currency = $2, payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
+       preferred_currency = $2, payout_currency = $2,
+       payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
       [userId, upper, paymentGateway, locked],
     );
   });

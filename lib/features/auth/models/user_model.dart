@@ -39,6 +39,7 @@ class UserModel {
   final String? payoutMethod;
   final String? payoutStatus;
   final String? payoutMethodStatus;
+  final Map<String, dynamic>? payoutAccount;
   final String? signupMethod; // 'email' | 'google' | 'apple'
   final DateTime? termsAcceptedAt;
   final String? earningCurrency;
@@ -80,6 +81,7 @@ class UserModel {
     this.payoutMethod,
     this.payoutStatus,
     this.payoutMethodStatus,
+    this.payoutAccount,
     this.signupMethod,
     this.termsAcceptedAt,
     this.earningCurrency,
@@ -178,6 +180,7 @@ class UserModel {
     String? payoutMethod,
     String? payoutStatus,
     String? payoutMethodStatus,
+    Map<String, dynamic>? payoutAccount,
     String? signupMethod,
     DateTime? termsAcceptedAt,
     String? walletCurrency,
@@ -222,6 +225,7 @@ class UserModel {
       payoutMethod: payoutMethod ?? this.payoutMethod,
       payoutStatus: payoutStatus ?? this.payoutStatus,
       payoutMethodStatus: payoutMethodStatus ?? this.payoutMethodStatus,
+      payoutAccount: payoutAccount ?? this.payoutAccount,
       signupMethod: signupMethod ?? this.signupMethod,
       termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
       earningCurrency: earningCurrency ?? this.earningCurrency,
@@ -306,6 +310,8 @@ class UserModel {
             json['payout_status']?.toString(),
         payoutMethodStatus: json['payoutMethodStatus']?.toString() ??
             json['payout_method_status']?.toString(),
+        payoutAccount:
+            _optionalMap(json['payoutAccount'] ?? json['payout_account']),
         signupMethod: json['signupMethod']?.toString() ??
             json['signup_method']?.toString(),
         preferredCurrency: json['preferredCurrency']?.toString() ??
@@ -325,6 +331,12 @@ class UserModel {
         companyName:
             json['companyName']?.toString() ?? json['company_name']?.toString(),
       );
+
+  static Map<String, dynamic>? _optionalMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -358,6 +370,7 @@ class UserModel {
         'payout_method': payoutMethod,
         'payout_status': payoutStatus,
         'payout_method_status': payoutMethodStatus,
+        'payout_account': payoutAccount,
         'signupMethod': signupMethod,
         'earning_currency': earningCurrency,
         'earning_currency_locked': earningCurrencyLocked,
@@ -396,5 +409,4 @@ class UserModel {
   static String? _profileImageFrom(Map<String, dynamic> json) {
     return AvatarUrlParser.fromJson(json);
   }
-
 }

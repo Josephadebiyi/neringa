@@ -28,6 +28,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   final _accountHolderCtrl = TextEditingController();
   final _ibanBankNameCtrl = TextEditingController();
   final _swiftCtrl = TextEditingController();
+  final _sortCodeCtrl = TextEditingController();
   final _addressLine1Ctrl = TextEditingController();
   final _addressLine2Ctrl = TextEditingController();
   final _cityCtrl = TextEditingController();
@@ -42,6 +43,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   bool _loading = false;
   bool _banksLoading = false;
   bool _showOtp = false;
+  String _selectedAddressCountry = '';
   String? _otpMessage;
   String? _debugOtp;
 
@@ -51,17 +53,19 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   // EUR/GBP payouts use IBAN + SWIFT/BIC (no bank-list picker — that's a
   // Nigerian-/Ghanaian-/Kenyan-style corridor). Everything else keeps the
   // existing "pick a bank from a list" flow below.
-  static const _ibanCurrencies = {'EUR', 'GBP'};
+  static const _ibanCurrencies = {'EUR'};
   String get _currency =>
       UserCurrencyHelper.resolve(ref.read(authProvider).user).toUpperCase();
   bool get _isIban => _ibanCurrencies.contains(_currency);
+  bool get _isGbp => _currency == 'GBP';
 
   @override
   void initState() {
     super.initState();
-    if (!_isIban) _fetchBanks();
+    if (!_isIban && !_isGbp) _fetchBanks();
     if (_isIban) {
-      _addressCountryCtrl.text = _currencyCountryMap[_currency] ?? '';
+      _selectedAddressCountry = _countriesForCurrency(_currency).first;
+      _addressCountryCtrl.text = _selectedAddressCountry;
     }
     _searchCtrl.addListener(() {
       final q = _searchCtrl.text.toLowerCase();
@@ -82,6 +86,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     _accountHolderCtrl.dispose();
     _ibanBankNameCtrl.dispose();
     _swiftCtrl.dispose();
+    _sortCodeCtrl.dispose();
     _addressLine1Ctrl.dispose();
     _addressLine2Ctrl.dispose();
     _cityCtrl.dispose();
@@ -102,10 +107,113 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     'GBP': 'GB',
   };
 
+  static const _payoutCountriesByCurrency = <String, List<String>>{
+    'EUR': [
+      'AT',
+      'BE',
+      'BG',
+      'HR',
+      'CY',
+      'CZ',
+      'DE',
+      'DK',
+      'EE',
+      'ES',
+      'FI',
+      'FR',
+      'GR',
+      'HU',
+      'IE',
+      'IS',
+      'IT',
+      'LI',
+      'LT',
+      'LU',
+      'LV',
+      'MC',
+      'MT',
+      'NL',
+      'NO',
+      'PL',
+      'PT',
+      'RO',
+      'SE',
+      'SI',
+      'SK'
+    ],
+    'GBP': ['GB'],
+    'GHS': ['GH'],
+    'KES': ['KE'],
+    'MWK': ['MW'],
+    'NGN': ['NG'],
+    'SLL': ['SL'],
+    'TZS': ['TZ'],
+    'UGX': ['UG'],
+    'USD': ['NG'],
+    'XAF': ['CM'],
+    'XOF': ['CI', 'SN'],
+    'ZAR': ['ZA'],
+    'ZMW': ['ZM'],
+  };
+
+  static const _countryNames = <String, String>{
+    'AT': 'Austria',
+    'BE': 'Belgium',
+    'BG': 'Bulgaria',
+    'CM': 'Cameroon',
+    'CI': "Côte d’Ivoire",
+    'HR': 'Croatia',
+    'CY': 'Cyprus',
+    'CZ': 'Czechia',
+    'DE': 'Germany',
+    'DK': 'Denmark',
+    'EE': 'Estonia',
+    'ES': 'Spain',
+    'FI': 'Finland',
+    'FR': 'France',
+    'GB': 'United Kingdom',
+    'GH': 'Ghana',
+    'GR': 'Greece',
+    'HU': 'Hungary',
+    'IE': 'Ireland',
+    'IS': 'Iceland',
+    'IT': 'Italy',
+    'KE': 'Kenya',
+    'LI': 'Liechtenstein',
+    'LT': 'Lithuania',
+    'LU': 'Luxembourg',
+    'LV': 'Latvia',
+    'MC': 'Monaco',
+    'MT': 'Malta',
+    'MW': 'Malawi',
+    'NG': 'Nigeria',
+    'NL': 'Netherlands',
+    'NO': 'Norway',
+    'PL': 'Poland',
+    'PT': 'Portugal',
+    'RO': 'Romania',
+    'SE': 'Sweden',
+    'SI': 'Slovenia',
+    'SK': 'Slovakia',
+    'SL': 'Sierra Leone',
+    'SN': 'Senegal',
+    'TZ': 'Tanzania',
+    'UG': 'Uganda',
+    'ZA': 'South Africa',
+    'ZM': 'Zambia',
+  };
+
+  List<String> _countriesForCurrency(String currency) =>
+      _payoutCountriesByCurrency[currency] ?? const ['NG'];
+
+  String _flagFor(String code) => code.codeUnits
+      .map((unit) => String.fromCharCode(0x1F1E6 + unit - 65))
+      .join();
+
   Future<void> _fetchBanks() async {
     final user = ref.read(authProvider).user;
     final currency = UserCurrencyHelper.resolve(user);
-    final country = _currencyCountryMap[currency] ?? 'NG';
+    final country = _countriesForCurrency(currency.toUpperCase()).first;
 
     setState(() => _banksLoading = true);
     try {
@@ -164,7 +272,15 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   }
 
   Future<void> _resolveAccount() async {
-    if (_accountCtrl.text.length == 10 && _bankCode.isNotEmpty) {
+    if (_currency != 'NGN') {
+      if (_accountName.isNotEmpty) setState(() => _accountName = '');
+      return;
+    }
+    final requiredLength = _currency == 'NGN' ? 10 : null;
+    final validLength = requiredLength == null
+        ? _accountCtrl.text.length >= 6
+        : _accountCtrl.text.length == requiredLength;
+    if (validLength && _bankCode.isNotEmpty) {
       setState(() => _verifying = true);
       try {
         final res = await ApiService.instance.get(
@@ -191,9 +307,21 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           type: SnackBarType.error);
       return;
     }
-    if (_accountCtrl.text.length != 10) {
+    if (_currency == 'NGN' && _accountCtrl.text.length != 10) {
       AppSnackBar.show(context,
           message: 'Account number must be 10 digits.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (_currency != 'NGN' && _accountCtrl.text.length < 6) {
+      AppSnackBar.show(context,
+          message: 'Please enter a valid account number.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (_currency != 'NGN' && _accountHolderCtrl.text.trim().isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please enter the account holder name.',
           type: SnackBarType.error);
       return;
     }
@@ -201,17 +329,21 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     try {
       final currency = UserCurrencyHelper.resolve(ref.read(authProvider).user);
       final res = await ApiService.instance
-          .post(ApiConstants.flutterwaveBeneficiaryConnect, data: {
-            'accountNumber': _accountCtrl.text,
-            'bankCode': _bankCode,
-            'bankName': _bankName,
-            'currency': currency,
-          },
-          options: Options(
-            headers: {
-              if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
-            },
-          ));
+          .post(ApiConstants.flutterwaveBeneficiaryConnect,
+              data: {
+                'accountNumber': _accountCtrl.text,
+                'bankCode': _bankCode,
+                'bankName': _bankName,
+                'accountHolderName': _currency == 'NGN'
+                    ? _accountName
+                    : _accountHolderCtrl.text.trim(),
+                'currency': currency,
+              },
+              options: Options(
+                headers: {
+                  if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
+                },
+              ));
       final data = res.data as Map<String, dynamic>?;
       if (data?['requiresOtp'] == true) {
         final message =
@@ -285,7 +417,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
         _postalCodeCtrl.text.trim().isEmpty ||
         _addressCountryCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please fill in your address (street, city, postal code, and country).',
+          message:
+              'Please fill in your address (street, city, postal code, and country).',
           type: SnackBarType.error);
       return;
     }
@@ -293,27 +426,28 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     try {
       final currency = _currency;
       final res = await ApiService.instance
-          .post(ApiConstants.flutterwaveBeneficiaryConnect, data: {
-            'accountHolderName': accountHolder,
-            'iban': iban.replaceAll(' ', '').toUpperCase(),
-            'bankName': _ibanBankNameCtrl.text.trim(),
-            'swiftBic': _swiftCtrl.text.trim().toUpperCase(),
-            'country': _currencyCountryMap[currency] ?? 'LT',
-            'currency': currency,
-            'addressLine1': _addressLine1Ctrl.text.trim(),
-            if (_addressLine2Ctrl.text.trim().isNotEmpty)
-              'addressLine2': _addressLine2Ctrl.text.trim(),
-            'city': _cityCtrl.text.trim(),
-            if (_stateCtrl.text.trim().isNotEmpty)
-              'state': _stateCtrl.text.trim(),
-            'postalCode': _postalCodeCtrl.text.trim(),
-            'addressCountry': _addressCountryCtrl.text.trim().toUpperCase(),
-          },
-          options: Options(
-            headers: {
-              if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
-            },
-          ));
+          .post(ApiConstants.flutterwaveBeneficiaryConnect,
+              data: {
+                'accountHolderName': accountHolder,
+                'iban': iban.replaceAll(' ', '').toUpperCase(),
+                'bankName': _ibanBankNameCtrl.text.trim(),
+                'swiftBic': _swiftCtrl.text.trim().toUpperCase(),
+                'country': _currencyCountryMap[currency] ?? 'LT',
+                'currency': currency,
+                'addressLine1': _addressLine1Ctrl.text.trim(),
+                if (_addressLine2Ctrl.text.trim().isNotEmpty)
+                  'addressLine2': _addressLine2Ctrl.text.trim(),
+                'city': _cityCtrl.text.trim(),
+                if (_stateCtrl.text.trim().isNotEmpty)
+                  'state': _stateCtrl.text.trim(),
+                'postalCode': _postalCodeCtrl.text.trim(),
+                'addressCountry': _selectedAddressCountry,
+              },
+              options: Options(
+                headers: {
+                  if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
+                },
+              ));
       final data = res.data as Map<String, dynamic>?;
       if (data?['requiresOtp'] == true) {
         final message =
@@ -350,6 +484,61 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 'Bank account setup could not be completed. Please try again.',
             type: SnackBarType.error);
       }
+    }
+  }
+
+  Future<void> _linkGbp() async {
+    final accountNumber = _accountCtrl.text.trim();
+    final sortCode = _sortCodeCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final accountHolder = _accountHolderCtrl.text.trim();
+    if (accountHolder.isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please enter the account holder name.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (!RegExp(r'^\d{8}$').hasMatch(accountNumber)) {
+      AppSnackBar.show(context,
+          message: 'UK account numbers must contain 8 digits.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(sortCode)) {
+      AppSnackBar.show(context,
+          message: 'UK sort codes must contain 6 digits.',
+          type: SnackBarType.error);
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final res = await ApiService.instance.post(
+        ApiConstants.flutterwaveBeneficiaryConnect,
+        data: {
+          'accountHolderName': accountHolder,
+          'accountNumber': accountNumber,
+          'bankCode': sortCode,
+          'bankName': _ibanBankNameCtrl.text.trim(),
+          'country': 'GB',
+          'currency': 'GBP',
+        },
+      );
+      final data = res.data as Map<String, dynamic>?;
+      setState(() {
+        _showOtp = data?['requiresOtp'] == true;
+        _otpMessage = data?['message']?.toString();
+      });
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: _otpMessage ?? 'Confirmation code sent to your email.',
+            type: SnackBarType.success);
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: _bankSetupErrorMessage(e), type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -423,7 +612,90 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       ),
       body: _showOtp
           ? _buildOtpStep()
-          : (_isIban ? _buildIbanForm() : _buildMainForm()),
+          : (_isIban
+              ? _buildIbanForm()
+              : (_isGbp ? _buildGbpForm() : _buildMainForm())),
+    );
+  }
+
+  Widget _buildGbpForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('UK BANK ACCOUNT',
+              style: AppTextStyles.labelSm.copyWith(
+                  color: AppColors.gray400,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1)),
+          const SizedBox(height: 8),
+          Text('GBP payouts use a UK sort code and account number.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+          const SizedBox(height: 22),
+          _IbanField(
+            label: 'Account Holder Name *',
+            controller: _accountHolderCtrl,
+            hint: 'Full name on the account',
+          ),
+          const SizedBox(height: 18),
+          _IbanField(
+            label: 'Bank Name',
+            controller: _ibanBankNameCtrl,
+            hint: 'e.g. Barclays, Lloyds, Monzo',
+          ),
+          const SizedBox(height: 18),
+          Text('Sort Code *',
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _sortCodeCtrl,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              hintText: '123456',
+              counterText: '',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text('Account Number *',
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _accountCtrl,
+            keyboardType: TextInputType.number,
+            maxLength: 8,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              hintText: '12345678',
+              counterText: '',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _loading ? null : _linkGbp,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: const StadiumBorder(),
+                elevation: 0,
+              ),
+              child: _loading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : Text('Confirm UK Bank Account',
+                      style: AppTextStyles.labelLg.copyWith(
+                          color: Colors.white, fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -529,11 +801,29 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             hint: 'e.g. 10115',
           ),
           const SizedBox(height: 18),
-          _IbanField(
-            label: 'Country *',
-            controller: _addressCountryCtrl,
-            hint: '2-letter code, e.g. DE',
-            textCapitalization: TextCapitalization.characters,
+          DropdownButtonFormField<String>(
+            initialValue: _selectedAddressCountry,
+            decoration: InputDecoration(
+              labelText: 'Bank country *',
+              filled: true,
+              fillColor: const Color(0xFFF7F7F8),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            items: _countriesForCurrency(_currency)
+                .map((code) => DropdownMenuItem(
+                      value: code,
+                      child: Text(
+                          '${_flagFor(code)}  ${_countryNames[code] ?? code}'),
+                    ))
+                .toList(),
+            onChanged: (code) {
+              if (code == null) return;
+              setState(() {
+                _selectedAddressCountry = code;
+                _addressCountryCtrl.text = code;
+              });
+            },
           ),
           const SizedBox(height: 32),
           SizedBox(
@@ -677,11 +967,11 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 child: TextField(
                   controller: _accountCtrl,
                   keyboardType: TextInputType.number,
-                  maxLength: 10,
+                  maxLength: _currency == 'NGN' ? 10 : 34,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   style: AppTextStyles.bodyMd,
                   decoration: const InputDecoration(
-                      hintText: '0123456789',
+                      hintText: 'Enter account number',
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
@@ -722,6 +1012,15 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 const Icon(Icons.check_circle_rounded,
                     color: AppColors.primary, size: 20),
               ]),
+            ),
+          ],
+
+          if (_currency != 'NGN') ...[
+            const SizedBox(height: 18),
+            _IbanField(
+              label: 'Account Holder Name *',
+              controller: _accountHolderCtrl,
+              hint: 'Full name on the bank account',
             ),
           ],
 

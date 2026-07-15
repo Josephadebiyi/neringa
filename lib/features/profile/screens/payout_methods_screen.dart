@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -21,6 +20,13 @@ class PayoutMethodsScreen extends ConsumerStatefulWidget {
 }
 
 class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
+  static const _supportedPayoutCurrencies = [
+    'EUR',
+    'GBP',
+    'KES',
+    'NGN',
+    'ZAR',
+  ];
   static const _africanPayoutCurrencies = {
     'AOA',
     'BIF',
@@ -74,9 +80,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     final user = ref.read(authProvider).user;
     final currency = UserCurrencyHelper.resolve(user).toUpperCase();
     _selectedCurrency =
-        CurrencyConversionHelper.supportedCurrencyCodes.contains(currency)
-            ? currency
-            : 'USD';
+        _supportedPayoutCurrencies.contains(currency) ? currency : 'USD';
     _hydrateFromUser(user);
   }
 
@@ -91,8 +95,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   void _hydrateFromUser(user) {
     final payoutCurrency = user?.payoutCurrency?.toString().toUpperCase();
     if (payoutCurrency != null &&
-        CurrencyConversionHelper.supportedCurrencyCodes
-            .contains(payoutCurrency)) {
+        _supportedPayoutCurrencies.contains(payoutCurrency)) {
       _selectedCurrency = payoutCurrency;
     }
   }
@@ -165,6 +168,18 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   // Paystack's.
   Future<void> _continueToAddPayoutAccount() async {
     if (_saving) return;
+    final user = ref.read(authProvider).user;
+    if (user?.hasPassedKyc != true) {
+      AppSnackBar.show(
+        context,
+        message:
+            'Complete identity verification before adding a payout account.',
+        type: SnackBarType.info,
+      );
+      await context.push('/kyc');
+      if (mounted) await ref.read(authProvider.notifier).refreshProfile();
+      return;
+    }
     final payoutCurrency = _selectedCurrency.toUpperCase();
     setState(() => _saving = true);
     try {
@@ -173,6 +188,35 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       context.push('/profile/add-bank');
     } catch (error) {
       if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: error.toString().replaceFirst('Exception: ', ''),
+        type: SnackBarType.error,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _changePayoutCurrency(String currency) async {
+    if (_saving || currency == _selectedCurrency) return;
+    final previous = _selectedCurrency;
+    setState(() {
+      _selectedCurrency = currency;
+      _saving = true;
+    });
+    try {
+      await ref.read(authProvider.notifier).activateEarning(currency);
+      await ref.read(authProvider.notifier).refreshProfile();
+      if (!mounted) return;
+      AppSnackBar.show(
+        context,
+        message: 'Wallet display and future payouts now use $currency.',
+        type: SnackBarType.success,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _selectedCurrency = previous);
       AppSnackBar.show(
         context,
         message: error.toString().replaceFirst('Exception: ', ''),
@@ -197,8 +241,18 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
 
     final user = ref.watch(authProvider).user;
     final payoutState = _payoutStateFor(user);
+    final payoutAccount = user?.payoutAccount;
+    final maskedAccount = payoutAccount?['maskedDisplay']?.toString() ??
+        payoutAccount?['masked_display']?.toString() ??
+        '';
+    final bankName = payoutAccount?['bankName']?.toString() ??
+        payoutAccount?['bank_name']?.toString() ??
+        'Bank account';
+    final accountCurrency =
+        payoutAccount?['currency']?.toString().toUpperCase() ?? '';
     const methodName = 'Bank account';
-    const providerHelp = 'This currency is paid out through Bago\'s secure payout partner.';
+    const providerHelp =
+        'This currency is paid out through Bago\'s secure payout partner.';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -234,11 +288,15 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           const SizedBox(height: 28),
           _PayoutChoiceTile(
             icon: Icons.account_balance_rounded,
-            title: payoutState.isActive
-                ? 'Bank account connected'
-                : 'Bank account',
+            title: payoutState.isActive ? bankName : 'Bank account',
             subtitle: payoutState.isActive
-                ? 'Tap to update your payout account'
+                ? [
+                    if (maskedAccount.isNotEmpty) maskedAccount,
+                    if (accountCurrency.isNotEmpty) accountCurrency,
+                    if (accountCurrency.isNotEmpty &&
+                        accountCurrency != _selectedCurrency)
+                      'Add an account for $_selectedCurrency',
+                  ].join(' · ')
                 : 'Add your bank account to receive payouts',
             enabled: !_saving,
             onTap: _continueToAddPayoutAccount,
@@ -246,12 +304,12 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           const SizedBox(height: 26),
           const _SectionLabel(
             title: 'Payout currency',
-            subtitle: 'Changing currency updates the payout provider.',
+            subtitle: 'This becomes your wallet display and payout currency.',
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             initialValue: _selectedCurrency,
-            items: CurrencyConversionHelper.supportedCurrencyCodes
+            items: _supportedPayoutCurrencies
                 .map((currency) => DropdownMenuItem(
                       value: currency,
                       child: Text(currency),
@@ -259,7 +317,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                 .toList(),
             onChanged: _saving
                 ? null
-                : (value) => setState(() => _selectedCurrency = value ?? 'USD'),
+                : (value) {
+                    if (value != null) _changePayoutCurrency(value);
+                  },
             decoration: InputDecoration(
               filled: true,
               fillColor: AppColors.white,
@@ -507,5 +567,3 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-
-

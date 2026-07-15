@@ -19,15 +19,44 @@ import {
   getActiveBeneficiary,
 } from '../lib/postgres/flutterwavePayments.js';
 import { CurrencyService } from '../services/currencyConverter.js';
-import { sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { resend } from '../services/resendClient.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+const PAYOUT_ACCOUNT_OTP_MINUTES = 10;
+
+function hashPayoutOtp(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
+function payoutOtpMatches(storedHash, value) {
+  const calculated = hashPayoutOtp(value);
+  if (!storedHash || storedHash.length !== calculated.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(storedHash), Buffer.from(calculated));
+}
+
+function maskEmail(email = '') {
+  const [local = '', domain = ''] = String(email).split('@');
+  return domain ? `${local.slice(0, 2)}***@${domain}` : 'your email';
+}
+
+async function ensurePayoutAccountOtpColumns() {
+  await pgQuery(`
+    alter table public.profiles
+      add column if not exists payout_account_otp_hash text,
+      add column if not exists payout_account_otp_expires_at timestamptz,
+      add column if not exists pending_payout_account jsonb
+  `);
+}
 
 // Currencies that require Flutterwave's orchestrated transfer flow (Transfer
 // Recipient + Transfer Sender + payment_instruction transfer) instead of the
 // flat account_bank/account_number call used for African bank corridors.
-const ORCHESTRATED_TRANSFER_CURRENCIES = new Set(['EUR', 'GBP']);
+const ORCHESTRATED_TRANSFER_CURRENCIES = new Set(['EUR']);
+const SUPPORTED_BANK_PAYOUT_CURRENCIES = new Set([
+  'EUR', 'GBP', 'KES', 'NGN', 'ZAR',
+]);
 
 // Minimal calling-code lookup for splitting a stored "+<code><number>" phone
 // string into Flutterwave's separate country_code/number fields. Not a full
@@ -257,6 +286,12 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
       addressLine1, addressLine2, city, state, postalCode, addressCountry,
     } = req.body || {};
     const normalizedCurrency = CurrencyService.normalizeCurrency(currency || 'USD');
+    if (!SUPPORTED_BANK_PAYOUT_CURRENCIES.has(normalizedCurrency)) {
+      return res.status(400).json({
+        success: false,
+        message: `${normalizedCurrency} is not supported for bank payouts.`,
+      });
+    }
     const isIban = Boolean(iban);
     const needsOrchestration = ORCHESTRATED_TRANSFER_CURRENCIES.has(normalizedCurrency);
 
@@ -269,6 +304,53 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
       }
     } else if (!accountNumber || !bankCode) {
       return res.status(400).json({ success: false, message: 'Select a bank and enter your account number.' });
+    }
+
+    // Never replace a payout destination solely from an authenticated session.
+    // Email possession must be confirmed first; the pending details expire with
+    // the OTP and are only submitted to Flutterwave after successful verification.
+    if (!req.payoutAccountOtpVerified) {
+      if (!resend) {
+        return res.status(503).json({ success: false, message: 'Email verification is temporarily unavailable.' });
+      }
+      await ensurePayoutAccountOtpColumns();
+      const profile = await queryOne(
+        `select email, first_name from public.profiles where id = $1`,
+        [user.id],
+      );
+      if (!profile?.email) {
+        return res.status(400).json({ success: false, message: 'Add a verified email before setting a payout account.' });
+      }
+      const otp = String(crypto.randomInt(100000, 1000000));
+      await pgQuery(
+        `update public.profiles
+         set payout_account_otp_hash = $2,
+             payout_account_otp_expires_at = timezone('utc', now()) + ($3::int * interval '1 minute'),
+             pending_payout_account = $4::jsonb,
+             updated_at = timezone('utc', now())
+         where id = $1`,
+        [user.id, hashPayoutOtp(otp), PAYOUT_ACCOUNT_OTP_MINUTES, JSON.stringify(req.body || {})],
+      );
+      const { error: emailError } = await resend.emails.send({
+        from: process.env.WITHDRAWAL_OTP_FROM || 'Bago <no-reply@sendwithbago.com>',
+        to: profile.email,
+        subject: 'Confirm your Bago payout account',
+        html: generateOtpEmailHtml({
+          firstName: profile.first_name || 'there',
+          otp,
+          subtitle: 'Use this code to confirm your new payout account.',
+          expiryNote: `This code expires in ${PAYOUT_ACCOUNT_OTP_MINUTES} minutes.`,
+        }),
+      });
+      if (emailError) {
+        return res.status(502).json({ success: false, message: 'Could not send the confirmation code. Please try again.' });
+      }
+      return res.status(202).json({
+        success: true,
+        requiresOtp: true,
+        message: `Confirmation code sent to ${maskEmail(profile.email)}.`,
+        expiresInMinutes: PAYOUT_ACCOUNT_OTP_MINUTES,
+      });
     }
 
     let flutterwaveRecipientId = null;
@@ -357,6 +439,15 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
       `,
       [user.id, normalizedCurrency, bankName || null, accountNumber || iban || null, accountHolderName || null],
     );
+    if (req.payoutAccountOtpVerified) {
+      await pgQuery(
+        `update public.profiles
+         set payout_account_otp_hash = null, payout_account_otp_expires_at = null,
+             pending_payout_account = null, updated_at = timezone('utc', now())
+         where id = $1`,
+        [user.id],
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -376,7 +467,38 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
 // mobile/web forms' conditional OTP-step UI has somewhere to land if that
 // changes later, rather than silently 404ing.
 export const verifyFlutterwaveBankOtp = async (req, res) => {
-  return res.status(200).json({ success: true, message: 'Bank account already linked.' });
+  try {
+    const otp = String(req.body?.otp || '').trim();
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ success: false, message: 'Enter the 6-digit confirmation code.' });
+    }
+    await ensurePayoutAccountOtpColumns();
+    const profile = await queryOne(
+      `select payout_account_otp_hash, payout_account_otp_expires_at, pending_payout_account
+       from public.profiles where id = $1`,
+      [req.user.id],
+    );
+    const expiresAt = profile?.payout_account_otp_expires_at
+      ? new Date(profile.payout_account_otp_expires_at)
+      : null;
+    if (!profile?.pending_payout_account || !expiresAt || expiresAt < new Date()) {
+      return res.status(400).json({ success: false, message: 'Confirmation code expired. Submit the account again.' });
+    }
+    if (!payoutOtpMatches(profile.payout_account_otp_hash, otp)) {
+      return res.status(400).json({ success: false, message: 'Invalid confirmation code.' });
+    }
+
+    req.body = profile.pending_payout_account;
+    req.payoutAccountOtpVerified = true;
+    return connectFlutterwaveBeneficiary(req, res, (error) => {
+      if (error && !res.headersSent) {
+        return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+      }
+    });
+  } catch (error) {
+    console.error('verifyFlutterwaveBankOtp error:', error);
+    return res.status(500).json({ success: false, message: 'Could not verify the payout account.' });
+  }
 };
 
 export const withdrawFundsFlutterwave = async (req, res) => {

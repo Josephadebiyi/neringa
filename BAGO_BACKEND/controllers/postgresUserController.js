@@ -29,6 +29,7 @@ import {
 } from '../lib/postgres/profiles.js';
 import { query, queryOne } from '../lib/postgres/db.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
+import { getActiveBeneficiary } from '../lib/postgres/flutterwavePayments.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { getCountryNameForCode, getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
@@ -129,11 +130,13 @@ async function updateLastLoginIp(userId, ip) {
 
 async function buildUserResponse(user) {
   let wallet = null;
+  let payoutBeneficiary = null;
   if (user?.id) {
     wallet = await getWalletByUserId(user.id).catch((error) => {
       console.warn('User wallet display formatting unavailable:', error.message);
       return null;
     });
+    payoutBeneficiary = await getActiveBeneficiary(user.id).catch(() => null);
   }
 
   const walletCurrency = wallet?.walletCurrency || wallet?.wallet_currency || user.walletCurrency || user.preferredCurrency || 'USD';
@@ -216,6 +219,22 @@ async function buildUserResponse(user) {
     payout_method: user.payoutMethod || null,
     payoutMethodStatus: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId || user.payoutProvider === 'flutterwave' ? 'connected' : null),
     payout_method_status: user.payoutMethodStatus || (user.paystackRecipientCode || user.stripeConnectAccountId || user.payoutProvider === 'flutterwave' ? 'connected' : null),
+    payoutAccount: payoutBeneficiary ? {
+      id: payoutBeneficiary.id,
+      currency: payoutBeneficiary.currency,
+      type: payoutBeneficiary.type,
+      bankName: payoutBeneficiary.bank_name,
+      accountHolderName: payoutBeneficiary.account_holder_name,
+      maskedDisplay: payoutBeneficiary.masked_display,
+    } : null,
+    payout_account: payoutBeneficiary ? {
+      id: payoutBeneficiary.id,
+      currency: payoutBeneficiary.currency,
+      type: payoutBeneficiary.type,
+      bank_name: payoutBeneficiary.bank_name,
+      account_holder_name: payoutBeneficiary.account_holder_name,
+      masked_display: payoutBeneficiary.masked_display,
+    } : null,
     referralCode: user.referral_code || user.referralCode || null,
     referral_code: user.referral_code || user.referralCode || null,
     // Flutterwave beneficiaries are tracked via profiles.payout_provider/payout_status

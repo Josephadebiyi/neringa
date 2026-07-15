@@ -37,6 +37,20 @@ const safeEqualText = (left = '', right = '') => {
 };
 
 const verifyPremblyWebhook = (req) => {
+  const publicKey = process.env.PREMBLY_PUBLIC_KEY;
+  const signature = req.headers['x-prembly-signature'];
+  const token = req.headers.token;
+  if (publicKey && signature && token && req.rawBody) {
+    const expected = crypto
+      .createHmac('sha256', publicKey)
+      .update(req.rawBody)
+      .digest('base64');
+    return safeEqualText(signature, expected);
+  }
+
+  // Backward compatibility for older Prembly dashboard configurations that
+  // sent a static secret header. New integrations should use the signed
+  // x-prembly-signature + token headers above.
   const secret = process.env.PREMBLY_WEBHOOK_SECRET;
   if (!secret) return process.env.NODE_ENV !== 'production';
 
@@ -74,6 +88,8 @@ const normalizePremblyStatus = (payload = {}) => {
     payload?.data?.verification_status ||
     payload?.data?.status ||
     payload?.data?.result ||
+    payload?.verification?.status ||
+    payload?.data?.verification?.status ||
     payload?.verification_status ||
     payload?.verificationStatus ||
     payload?.status ||
@@ -1222,13 +1238,19 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
       if (['approved', 'declined', 'blocked_duplicate'].includes(applied.status || status)) summary.updated += 1;
     } catch (err) {
       summary.failed += 1;
+      const errorMessage = String(err?.response?.data?.message || err.message || err).slice(0, 300);
+      console.error(
+        `❌ Prembly reconcile failed for session ${session.id} (user ${session.userId}, ref ${reference}):`,
+        `status=${err?.response?.status || 'n/a'}`,
+        errorMessage,
+      );
       await query(
         `UPDATE public.prembly_kyc_sessions
          SET last_synced_at = timezone('utc', now()),
              last_error = $2,
              updated_at = timezone('utc', now())
          WHERE id = $1`,
-        [session.id, String(err?.response?.data?.message || err.message || err).slice(0, 300)],
+        [session.id, errorMessage],
       ).catch(() => {});
     }
   }
