@@ -12,11 +12,11 @@ vi.mock('../lib/postgres/db.js', () => ({
   queryOne: queryOneMock,
 }));
 
-vi.mock('node-fetch', () => ({
-  default: vi.fn(async () => {
+const fetchMock = vi.fn(async () => {
     throw new Error('network disabled in tests');
-  }),
-}));
+});
+
+vi.mock('node-fetch', () => ({ default: fetchMock }));
 
 const { CurrencyService } = await import('../services/currencyConverter.js');
 
@@ -25,6 +25,8 @@ describe('CurrencyService cached conversion', () => {
     exchangeRateRow = null;
     queryMock.mockClear();
     queryOneMock.mockClear();
+    fetchMock.mockReset();
+    fetchMock.mockRejectedValue(new Error('network disabled in tests'));
   });
 
   it('blocks conversion when cached rates are missing', async () => {
@@ -77,5 +79,28 @@ describe('CurrencyService cached conversion', () => {
 
   it('formats money from minor units', () => {
     expect(CurrencyService.formatMoney(12345, 'USD')).toBe('$123.45');
+  });
+
+  it('falls back when a provider omits the required NGN rate', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ date: '2026-07-15', rates: { EUR: 0.86, GBP: 0.74 } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          time_last_update_utc: 'Tue, 15 Jul 2026 00:00:00 +0000',
+          rates: { USD: 1, EUR: 0.86, GBP: 0.74, NGN: 1530 },
+        }),
+      });
+
+    const refreshed = await CurrencyService.refreshRates();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(refreshed).toMatchObject({
+      source: 'open.er-api.com',
+      rates: { NGN: 1530 },
+    });
   });
 });

@@ -190,6 +190,13 @@ export class CurrencyService {
         if (Object.keys(cleanRates).length < 3) {
           throw new Error('Provider returned too few valid rates.');
         }
+        // NGN is a core wallet/payout currency. Frankfurter can return a
+        // perfectly valid-looking table without NGN; accepting that partial
+        // table prevents the broader provider below from ever being tried and
+        // makes EUR/GBP -> NGN display conversion fail until the cache expires.
+        if (!Number.isFinite(cleanRates.NGN) || cleanRates.NGN <= 0) {
+          throw new Error('Provider response is missing required NGN rate.');
+        }
 
         const timestamp = result?.asOf ? new Date(result.asOf) : new Date();
         const validTimestamp = Number.isNaN(timestamp.getTime()) ? new Date() : timestamp;
