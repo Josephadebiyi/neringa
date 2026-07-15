@@ -102,7 +102,15 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     'NGN': 'NG',
     'GHS': 'GH',
     'KES': 'KE',
+    'MWK': 'MW',
     'ZAR': 'ZA',
+    'SLL': 'SL',
+    'TZS': 'TZ',
+    'UGX': 'UG',
+    'USD': 'NG',
+    'XAF': 'CM',
+    'XOF': 'CI',
+    'ZMW': 'ZM',
     'EUR': 'LT',
     'GBP': 'GB',
   };
@@ -213,7 +221,9 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   Future<void> _fetchBanks() async {
     final user = ref.read(authProvider).user;
     final currency = UserCurrencyHelper.resolve(user);
-    final country = _countriesForCurrency(currency.toUpperCase()).first;
+    final country = _selectedAddressCountry.isNotEmpty
+        ? _selectedAddressCountry
+        : _countriesForCurrency(currency.toUpperCase()).first;
 
     setState(() => _banksLoading = true);
     try {
@@ -338,6 +348,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                     ? _accountName
                     : _accountHolderCtrl.text.trim(),
                 'currency': currency,
+                'country': _selectedAddressCountry,
               },
               options: Options(
                 headers: {
@@ -872,6 +883,37 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1)),
           const SizedBox(height: 16),
+
+          if (_countriesForCurrency(_currency).length > 1) ...[
+            DropdownButtonFormField<String>(
+              initialValue: _selectedAddressCountry,
+              decoration: InputDecoration(
+                labelText: 'Bank country *',
+                filled: true,
+                fillColor: const Color(0xFFF7F7F8),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              items: _countriesForCurrency(_currency)
+                  .map((code) => DropdownMenuItem(
+                        value: code,
+                        child: Text(
+                            '${_flagFor(code)}  ${_countryNames[code] ?? code}'),
+                      ))
+                  .toList(),
+              onChanged: (code) {
+                if (code == null || code == _selectedAddressCountry) return;
+                setState(() {
+                  _selectedAddressCountry = code;
+                  _bankCode = '';
+                  _bankName = '';
+                  _banks = [];
+                });
+                _fetchBanks();
+              },
+            ),
+            const SizedBox(height: 18),
+          ],
 
           // Bank selector
           Text('Select Bank *',

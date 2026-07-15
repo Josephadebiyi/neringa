@@ -21,12 +21,20 @@ class PayoutMethodsScreen extends ConsumerStatefulWidget {
 
 class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   static const _supportedPayoutCurrencies = [
-    'USD',
     'EUR',
     'GBP',
+    'GHS',
     'KES',
+    'MWK',
     'NGN',
+    'SLL',
+    'TZS',
+    'UGX',
+    'USD',
+    'XAF',
+    'XOF',
     'ZAR',
+    'ZMW',
   ];
   static const _africanPayoutCurrencies = {
     'AOA',

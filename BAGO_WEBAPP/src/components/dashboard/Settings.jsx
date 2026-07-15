@@ -59,13 +59,17 @@ const COUNTRY_CODES = [
     { code: 'CO', name: 'Colombia', dial: '+57', flag: '🇨🇴' },
     { code: 'EG', name: 'Egypt', dial: '+20', flag: '🇪🇬' },
     { code: 'MA', name: 'Morocco', dial: '+212', flag: '🇲🇦' },
+    { code: 'MW', name: 'Malawi', dial: '+265', flag: '🇲🇼' },
+    { code: 'SL', name: 'Sierra Leone', dial: '+232', flag: '🇸🇱' },
+    { code: 'ZM', name: 'Zambia', dial: '+260', flag: '🇿🇲' },
 ];
 
 // Maps a country of residence to Bago's supported earning currencies, so
 // picking a country auto-suggests the right currency instead of asking users
 // to guess from a bare currency-code list.
 const COUNTRY_TO_CURRENCY = {
-    NG: 'NGN', GH: 'GHS', KE: 'KES', ZA: 'ZAR',
+    NG: 'NGN', GH: 'GHS', KE: 'KES', ZA: 'ZAR', MW: 'MWK',
+    SL: 'SLL', TZ: 'TZS', UG: 'UGX', CM: 'XAF', CI: 'XOF', SN: 'XOF', ZM: 'ZMW',
     LT: 'EUR', LV: 'EUR', EE: 'EUR', FR: 'EUR', DE: 'EUR', IT: 'EUR', ES: 'EUR', PT: 'EUR', NL: 'EUR', BE: 'EUR', FI: 'EUR',
     GB: 'GBP',
     US: 'USD',
@@ -73,7 +77,10 @@ const COUNTRY_TO_CURRENCY = {
     AU: 'AUD', NZ: 'AUD',
 };
 
-const PAYOUT_CURRENCIES = ['USD', 'EUR', 'GBP', 'KES', 'NGN', 'ZAR'];
+const PAYOUT_CURRENCIES = [
+    'EUR', 'GBP', 'GHS', 'KES', 'MWK', 'NGN', 'SLL', 'TZS', 'UGX',
+    'USD', 'XAF', 'XOF', 'ZAR', 'ZMW',
+];
 
 function parsePhone(fullPhone) {
     if (!fullPhone) return { dial: '+1', local: '' };
@@ -307,11 +314,17 @@ export default function Settings({ user, checkAuthStatus }) {
 
     useEffect(() => {
         if (!showBankOption || isIbanCurrency || isGbpCurrency) return;
-        const countryByCurrency = { USD: 'NG', NGN: 'NG', KES: 'KE', ZAR: 'ZA' };
-        api.get(`/api/payouts/flutterwave/banks?country=${countryByCurrency[payoutCurrency] || 'NG'}&currency=${payoutCurrency}`)
+        const countryByCurrency = {
+            USD: 'NG', GHS: 'GH', KES: 'KE', MWK: 'MW', NGN: 'NG', SLL: 'SL',
+            TZS: 'TZ', UGX: 'UG', XAF: 'CM', XOF: 'CI', ZAR: 'ZA', ZMW: 'ZM',
+        };
+        const payoutCountry = COUNTRY_TO_CURRENCY[residenceCountry] === payoutCurrency
+            ? residenceCountry
+            : countryByCurrency[payoutCurrency] || 'NG';
+        api.get(`/api/payouts/flutterwave/banks?country=${payoutCountry}&currency=${payoutCurrency}`)
             .then((res) => setBanks(res.data?.banks || res.data?.data || []))
             .catch(() => setBanks([]));
-    }, [showBankOption, isIbanCurrency, isGbpCurrency, payoutCurrency]);
+    }, [showBankOption, isIbanCurrency, isGbpCurrency, payoutCurrency, residenceCountry]);
 
     const handlePayoutCurrencyChange = (nextCurrency, nextCountry = null) => {
         const next = String(nextCurrency || '').toUpperCase();
