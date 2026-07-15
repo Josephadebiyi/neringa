@@ -90,12 +90,6 @@ function firstNumber(...values) {
     return 0;
 }
 
-// Legacy — only rendered for a user still on a pre-Flutterwave connected
-// PayPal payout, kept for display continuity.
-function PayPalLogo({ size = 20 }) {
-    return <img src="/paypal-symbol.png" alt="PayPal" style={{ height: size, width: 'auto' }} />;
-}
-
 export default function Earnings({ user, checkAuthStatus }) {
     const { currency, t } = useLanguage();
     const navigate = useNavigate();
@@ -119,20 +113,9 @@ export default function Earnings({ user, checkAuthStatus }) {
     const sym             = getSymbol(walletCurrency);
     const minimum         = getMinimum(walletCurrency);
 
-    // Flutterwave is the sole active payout provider — bank-account linkage is
-    // no longer currency-branched. bankAccountLinked covers new Flutterwave
-    // beneficiaries; payoutProvider/payoutStatus catch an already-connected
-    // legacy PayPal account so existing users aren't shown as unlinked.
+    // Flutterwave bank transfer is the sole active payout method.
     const hasBankLinked   = !!user?.bankAccountLinked || !!user?.bankDetails?.accountNumber;
-    const payoutProvider  = (user?.payoutProvider  || '').toLowerCase();
-    const payoutMethod    = (user?.payoutMethod    || '').toLowerCase();
-    const payoutStatus    = (user?.payoutStatus    || '').toLowerCase();
-    const payoutMethodSt  = (user?.payoutMethodStatus || '').toLowerCase();
-    const hasLegacyPaypalLinked = payoutProvider === 'paypal' || payoutMethod === 'paypal';
-    const hasActiveLegacyPaypal = hasLegacyPaypalLinked && (
-        payoutStatus === 'active' || payoutMethodSt === 'connected' || payoutMethodSt === 'active'
-    );
-    const hasPayoutMethod = hasBankLinked || hasActiveLegacyPaypal;
+    const hasPayoutMethod = hasBankLinked;
 
     useEffect(() => {
         let alive = true;
@@ -233,7 +216,7 @@ export default function Earnings({ user, checkAuthStatus }) {
         try {
             // Flutterwave is the sole active payout provider — one withdrawal
             // endpoint for every currency now, instead of branching African vs
-            // PayPal.
+            // Flutterwave bank transfer.
             const res = await api.post('/api/payouts/flutterwave/withdraw', {
                 amount: amountNum,
                 currency: walletCurrency,
@@ -277,14 +260,10 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div className="flex flex-col gap-3 min-w-[200px]">
                         {/* Payout method badge */}
                         <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${hasPayoutMethod ? 'bg-white/70 border-white/60' : 'bg-red-50/80 border-red-200/60'}`}>
-                            {hasActiveLegacyPaypal ? (
-                                <PayPalLogo size={22} />
-                            ) : (
-                                <Wallet size={22} className="text-[#5C4BFD]" />
-                            )}
+                            <Wallet size={22} className="text-[#5C4BFD]" />
                             <div>
                                 <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
-                                    {hasActiveLegacyPaypal ? 'PayPal Payout (legacy)' : 'Bank Transfer'}
+                                    Flutterwave Bank Transfer
                                 </p>
                                 <p className={`text-[8px] font-bold uppercase tracking-wider ${hasPayoutMethod ? 'text-emerald-600' : 'text-red-500'}`}>
                                     {hasPayoutMethod ? 'Connected' : 'Not connected'}
@@ -419,8 +398,8 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <div className="flex justify-between text-[#111827]">
                             <span className="text-[#5C4BFD]">Method</span>
                             <span className="font-black flex items-center gap-1.5">
-                                {hasActiveLegacyPaypal ? <PayPalLogo size={13} /> : <Wallet size={14} className="text-[#5C4BFD]" />}
-                                {hasActiveLegacyPaypal ? 'PayPal' : 'Bank Transfer'}
+                                <Wallet size={14} className="text-[#5C4BFD]" />
+                                Flutterwave Bank Transfer
                             </span>
                         </div>
                         <div className="border-t border-gray-200 pt-2 flex justify-between text-[#111827]">
@@ -436,18 +415,12 @@ export default function Earnings({ user, checkAuthStatus }) {
 
                     {/* Payout method display */}
                     <div className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 ${hasPayoutMethod ? 'bg-white border border-gray-100' : 'bg-gray-50 border border-gray-100'}`}>
-                        {hasActiveLegacyPaypal ? (
-                            <div className="w-10 h-7 bg-[#5C4BFD]/6 rounded-lg flex items-center justify-center shrink-0">
-                                <PayPalLogo size={18} />
-                            </div>
-                        ) : (
-                            <div className="w-10 h-7 bg-[#5C4BFD]/6 rounded-lg flex items-center justify-center shrink-0">
-                                <Wallet size={18} className="text-[#5C4BFD]" />
-                            </div>
-                        )}
+                        <div className="w-10 h-7 bg-[#5C4BFD]/6 rounded-lg flex items-center justify-center shrink-0">
+                            <Wallet size={18} className="text-[#5C4BFD]" />
+                        </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
-                                {hasActiveLegacyPaypal ? 'PayPal' : 'Bank Transfer'}
+                                Flutterwave Bank Transfer
                             </p>
                             <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
                                 {hasPayoutMethod ? 'Funds sent after approval' : 'Setup required before withdrawing'}

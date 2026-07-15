@@ -206,7 +206,6 @@ export default function Settings({ user, checkAuthStatus }) {
     const [emailOtp, setEmailOtp] = useState('');
     const [preferredCurrency, setPreferredCurrency] = useState(user?.earningCurrency || user?.preferredCurrency || '');
     const [residenceCountry, setResidenceCountry] = useState(user?.country || '');
-    const earningLocked = user?.earningCurrencyLocked ?? false;
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [error, setError] = useState('');
@@ -220,7 +219,6 @@ export default function Settings({ user, checkAuthStatus }) {
     const [showBankOtp, setShowBankOtp] = useState(false);
     const [bankOtp, setBankOtp] = useState('');
     const [payoutLoading, setPayoutLoading] = useState(false);
-    const [switchToBankPayout, setSwitchToBankPayout] = useState(false);
     const linkedPayoutCurrency = String(
         user?.payoutAccount?.currency ||
         user?.payout_account?.currency ||
@@ -292,23 +290,11 @@ export default function Settings({ user, checkAuthStatus }) {
         }
     };
 
-    // Flutterwave is the sole active payout provider — bank/IBAN setup is no
-    // longer currency-branched between "African bank" and "PayPal email".
-    // EUR/GBP use IBAN + SWIFT/BIC instead of the bank-list picker.
-    const ibanCurrencies = ['EUR', 'GBP'];
-    const isIbanCurrency = ibanCurrencies.includes(payoutCurrency);
+    // Flutterwave is the sole payout provider.
+    // EUR uses IBAN; GBP uses its native sort-code/account-number route.
+    const isIbanCurrency = payoutCurrency === 'EUR';
+    const isGbpCurrency = payoutCurrency === 'GBP';
     const bankDetails = user?.bankDetails || user?.bank_details || {};
-    const payoutProvider = String(user?.payoutProvider || user?.payout_provider || '').toLowerCase();
-    const payoutMethod = String(user?.payoutMethod || user?.payout_method || '').toLowerCase();
-    const payoutStatus = String(user?.payoutStatus || user?.payout_status || '').toLowerCase();
-    const payoutMethodStatus = String(user?.payoutMethodStatus || user?.payout_method_status || '').toLowerCase();
-    const hasConnectedPayout = Boolean(
-        payoutProvider === 'paypal' ||
-        payoutMethod === 'paypal' ||
-        (payoutStatus === 'active' && payoutProvider === 'paypal') ||
-        (payoutMethodStatus === 'connected' && payoutProvider === 'paypal')
-    );
-    const connectedPaypalEmail = user?.bankDetails?.paypalEmail || user?.bank_details?.paypalEmail || '';
     const hasBankPayout = Boolean(
         user?.bankAccountLinked ||
         user?.bank_account_linked ||
@@ -317,24 +303,23 @@ export default function Settings({ user, checkAuthStatus }) {
         bankDetails?.accountNumber ||
         bankDetails?.account_number
     );
-    // Only surface the legacy PayPal panel for an account that's already
-    // connected on it — no new PayPal connections are offered going forward.
-    // switchToBankPayout lets an already-connected legacy user move to the
-    // new Flutterwave bank/IBAN flow (PayPal connect is no longer available).
-    const showConnectedPayoutOption = hasConnectedPayout && !switchToBankPayout;
-    const showBankOption = !hasConnectedPayout || switchToBankPayout;
+    const showBankOption = true;
 
     useEffect(() => {
-        if (!showBankOption || isIbanCurrency) return;
+        if (!showBankOption || isIbanCurrency || isGbpCurrency) return;
         const countryByCurrency = { USD: 'NG', NGN: 'NG', KES: 'KE', ZAR: 'ZA' };
         api.get(`/api/payouts/flutterwave/banks?country=${countryByCurrency[payoutCurrency] || 'NG'}&currency=${payoutCurrency}`)
             .then((res) => setBanks(res.data?.banks || res.data?.data || []))
             .catch(() => setBanks([]));
-    }, [showBankOption, isIbanCurrency, payoutCurrency]);
+    }, [showBankOption, isIbanCurrency, isGbpCurrency, payoutCurrency]);
 
-    const handlePayoutCurrencyChange = (nextCurrency) => {
+    const handlePayoutCurrencyChange = (nextCurrency, nextCountry = null) => {
         const next = String(nextCurrency || '').toUpperCase();
-        if (!next || next === payoutCurrency) return;
+        if (!next) return;
+        if (next === payoutCurrency) {
+            if (nextCountry) setResidenceCountry(nextCountry);
+            return;
+        }
         if (user?.kycStatus !== 'approved' && !user?.isKycCompleted) {
             setError('Complete identity verification before changing your payout currency.');
             navigate('/verify');
@@ -348,6 +333,7 @@ export default function Settings({ user, checkAuthStatus }) {
             setPayoutCurrency(keep);
             return;
         }
+        if (nextCountry) setResidenceCountry(nextCountry);
         setPayoutCurrency(next);
         setBankCode('');
         setBankName('');
@@ -366,10 +352,6 @@ export default function Settings({ user, checkAuthStatus }) {
         setLoading(true);
         setError('');
         try {
-            // Lock earning currency on first save if not yet locked
-            if (!earningLocked && preferredCurrency) {
-                await api.post('/api/bago/activate-earning', { currency: preferredCurrency });
-            }
             const res = await api.put('/api/bago/edit', {
                 firstName,
                 lastName,
@@ -430,8 +412,14 @@ export default function Settings({ user, checkAuthStatus }) {
     const handleStartBankSetup = async () => {
         setError('');
         setSuccessMessage('');
-        if (!accountNumber || !bankCode) {
-            setError('Select a bank and enter your account number.');
+        if (!accountNumber || !bankCode || (isGbpCurrency && !accountHolderName.trim())) {
+            setError(isGbpCurrency
+                ? 'Enter the account holder, 6-digit sort code, and account number.'
+                : 'Select a bank and enter your account number.');
+            return;
+        }
+        if (isGbpCurrency && !/^\d{6}$/.test(bankCode.replace(/\D/g, ''))) {
+            setError('UK sort codes must contain 6 digits.');
             return;
         }
         setBankLoading(true);
@@ -439,9 +427,11 @@ export default function Settings({ user, checkAuthStatus }) {
             const selectedBank = banks.find(bank => String(bank.code) === String(bankCode));
             const res = await api.post('/api/payouts/flutterwave/connect', {
                 accountNumber,
-                bankCode,
-                bankName: selectedBank?.name || bankName,
+                bankCode: isGbpCurrency ? bankCode.replace(/\D/g, '') : bankCode,
+                bankName: isGbpCurrency ? (bankName || 'UK bank') : (selectedBank?.name || bankName),
+                accountHolderName: accountHolderName.trim(),
                 currency: payoutCurrency,
+                country: residenceCountry,
             });
             if (res.data.success) {
                 setAccountHolderName(res.data.accountName || '');
@@ -459,6 +449,10 @@ export default function Settings({ user, checkAuthStatus }) {
     // EUR/GBP — IBAN + SWIFT/BIC instead of the bank-list picker above.
     const [iban, setIban] = useState('');
     const [swiftBic, setSwiftBic] = useState('');
+    const [payoutAddressLine1, setPayoutAddressLine1] = useState('');
+    const [payoutCity, setPayoutCity] = useState('');
+    const [payoutState, setPayoutState] = useState('');
+    const [payoutPostalCode, setPayoutPostalCode] = useState('');
     const handleStartIbanSetup = async () => {
         setError('');
         setSuccessMessage('');
@@ -475,6 +469,10 @@ export default function Settings({ user, checkAuthStatus }) {
             setError('Enter the SWIFT/BIC code.');
             return;
         }
+        if (!payoutAddressLine1.trim() || !payoutCity.trim() || !payoutPostalCode.trim() || !residenceCountry) {
+            setError('Enter your residence country, street, city, and postal code for EUR payouts.');
+            return;
+        }
         setBankLoading(true);
         try {
             const res = await api.post('/api/payouts/flutterwave/connect', {
@@ -483,6 +481,12 @@ export default function Settings({ user, checkAuthStatus }) {
                 bankName: bankName.trim(),
                 swiftBic: swiftBic.trim().toUpperCase(),
                 currency: payoutCurrency,
+                country: residenceCountry,
+                addressLine1: payoutAddressLine1.trim(),
+                city: payoutCity.trim(),
+                state: payoutState.trim(),
+                postalCode: payoutPostalCode.trim(),
+                addressCountry: residenceCountry,
             });
             if (res.data.success) {
                 setShowBankOtp(true);
@@ -507,6 +511,9 @@ export default function Settings({ user, checkAuthStatus }) {
             const res = await api.post('/api/payouts/flutterwave/verify-bank-otp', { otp: bankOtp.trim() });
             if (res.data.success) {
                 await api.post('/api/bago/activate-earning', { currency: payoutCurrency });
+                if (residenceCountry) {
+                    await api.put('/api/bago/edit', { country: residenceCountry });
+                }
                 setShowBankOtp(false);
                 setBankOtp('');
                 setPreferredCurrency(payoutCurrency);
@@ -585,64 +592,6 @@ export default function Settings({ user, checkAuthStatus }) {
                                 disabled={user?.kycStatus === 'approved'}
                                 className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
                             />
-                        </div>
-
-                        {!earningLocked && (
-                            <div className="pt-2 border-t border-gray-50 mt-2">
-                                <div className="bg-[#5845D8]/5 p-3 rounded-2xl border border-[#5845D8]/10 mb-2">
-                                    <label className="block text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1.5 ml-1">
-                                        Country of residence
-                                    </label>
-                                    <select
-                                        value={residenceCountry}
-                                        onChange={(e) => {
-                                            const code = e.target.value;
-                                            setResidenceCountry(code);
-                                            const suggested = COUNTRY_TO_CURRENCY[code];
-                                            if (suggested) setPreferredCurrency(suggested);
-                                        }}
-                                        className="w-full px-4 py-2 rounded-xl border border-transparent font-black text-[11px] transition-all uppercase tracking-tight bg-white focus:border-[#5845D8]/20 outline-none appearance-none"
-                                    >
-                                        <option value="">— select your country —</option>
-                                        {COUNTRY_CODES.map(c => (
-                                            <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-[7px] text-[#5845D8]/60 font-medium mt-1 uppercase tracking-wider ml-1">
-                                        * Sets your earning currency below automatically.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="pt-2 border-t border-gray-50 mt-2">
-                            <div className="bg-[#5845D8]/5 p-3 rounded-2xl border border-[#5845D8]/10 mb-2">
-                                <label className="block text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1.5 ml-1">
-                                    {t('walletReceivingCurrency') || 'Earning Currency'}
-                                </label>
-                                {earningLocked ? (
-                                    <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#5845D8]/10">
-                                        <span className="font-black text-[13px] text-[#111827] uppercase tracking-tight">{preferredCurrency}</span>
-                                        <span className="ml-auto text-[7px] font-black text-[#5845D8]/60 uppercase tracking-widest bg-[#5845D8]/10 px-2 py-0.5 rounded-full">Locked</span>
-                                    </div>
-                                ) : (
-                                    <select
-                                        value={preferredCurrency}
-                                        onChange={(e) => setPreferredCurrency(e.target.value)}
-                                        className="w-full px-4 py-2 rounded-xl border border-transparent font-black text-[11px] transition-all uppercase tracking-tight bg-white focus:border-[#5845D8]/20 outline-none appearance-none"
-                                    >
-                                        <option value="">— select your earning currency —</option>
-                                        {['USD', 'NGN', 'ZAR', 'KES', 'GHS', 'EUR', 'GBP', 'CAD', 'AUD'].map(curr => (
-                                            <option key={curr} value={curr}>{curr}</option>
-                                        ))}
-                                    </select>
-                                )}
-                                <p className="text-[7px] text-[#5845D8]/60 font-medium mt-1 uppercase tracking-wider ml-1">
-                                    {earningLocked
-                                        ? '* Earning currency is locked. Contact support to change it.'
-                                        : '* Set once — this is the currency you will receive for trip bookings.'}
-                                </p>
-                            </div>
                         </div>
 
                         <button
@@ -818,6 +767,24 @@ export default function Settings({ user, checkAuthStatus }) {
 
                 <div className="mb-6 rounded-2xl border border-[#5845D8]/10 bg-[#5845D8]/5 p-4">
                     <label className="mb-2 block text-[8px] font-black uppercase tracking-widest text-[#5845D8]">
+                        Country of residence
+                    </label>
+                    <select
+                        value={residenceCountry}
+                        onChange={(event) => {
+                            const country = event.target.value;
+                            const detectedCurrency = COUNTRY_TO_CURRENCY[country];
+                            if (detectedCurrency) handlePayoutCurrencyChange(detectedCurrency, country);
+                        }}
+                        disabled={bankLoading}
+                        className="mb-4 w-full rounded-xl border border-[#5845D8]/10 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-tight text-[#111827] outline-none focus:border-[#5845D8]/30 disabled:opacity-60"
+                    >
+                        <option value="">— select your country —</option>
+                        {COUNTRY_CODES.filter((country) => PAYOUT_CURRENCIES.includes(COUNTRY_TO_CURRENCY[country.code])).map((country) => (
+                            <option key={country.code} value={country.code}>{country.flag} {country.name}</option>
+                        ))}
+                    </select>
+                    <label className="mb-2 block text-[8px] font-black uppercase tracking-widest text-[#5845D8]">
                         Payout and wallet currency
                     </label>
                     <select
@@ -835,54 +802,7 @@ export default function Settings({ user, checkAuthStatus }) {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {showConnectedPayoutOption && (
-                        <div className="space-y-6">
-                            <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 h-full flex flex-col gap-4 group hover:border-[#5845D8]/20 transition-all">
-                                <div className="flex items-center gap-3">
-                                    <span className="w-5 h-5 rounded-full bg-[#003087] text-white flex items-center justify-center text-[8px] font-black shrink-0">P</span>
-                                    <h4 className="text-[10px] font-black text-[#111827] uppercase tracking-widest">PayPal Payout Email</h4>
-                                </div>
-                                <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-wide opacity-70">
-                                    Earnings in {payoutCurrency} are sent to your PayPal account after delivery is confirmed.
-                                </p>
-
-                                {hasConnectedPayout && connectedPaypalEmail && (
-                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
-                                        <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm shrink-0">
-                                            <Check size={14} strokeWidth={4} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">PayPal connected</p>
-                                            <p className="text-[9px] text-green-600 font-bold truncate">{connectedPaypalEmail}</p>
-                                        </div>
-                                        <ShieldCheck className="text-green-500/50 shrink-0" size={16} />
-                                    </div>
-                                )}
-
-                                {hasConnectedPayout && !connectedPaypalEmail && (
-                                    <div className="flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">
-                                        <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm shrink-0">
-                                            <Check size={14} strokeWidth={4} />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">PayPal payout active</p>
-                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">Ready for withdrawals</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <button
-                                    type="button"
-                                    onClick={() => setSwitchToBankPayout(true)}
-                                    className="text-[9px] font-black text-[#003087] uppercase tracking-widest hover:underline text-left"
-                                >
-                                    Switch to bank payout →
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
+                <div className="grid grid-cols-1 gap-8">
                     {showBankOption && (
                         <div className="space-y-4">
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
@@ -935,23 +855,67 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 placeholder="SWIFT/BIC"
                                                 className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest uppercase"
                                             />
+                                            <input
+                                                type="text"
+                                                value={payoutAddressLine1}
+                                                onChange={(e) => setPayoutAddressLine1(e.target.value)}
+                                                placeholder="Residential street address"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                            />
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                <input
+                                                    type="text"
+                                                    value={payoutCity}
+                                                    onChange={(e) => setPayoutCity(e.target.value)}
+                                                    placeholder="City"
+                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={payoutState}
+                                                    onChange={(e) => setPayoutState(e.target.value)}
+                                                    placeholder="State / region (optional)"
+                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                                />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={payoutPostalCode}
+                                                onChange={(e) => setPayoutPostalCode(e.target.value)}
+                                                placeholder="Postal code"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase"
+                                            />
                                         </>
                                     ) : (
                                         <>
-                                            <select
-                                                value={bankCode}
-                                                onChange={(e) => {
-                                                    setBankCode(e.target.value);
-                                                    const selectedBank = banks.find(bank => String(bank.code) === e.target.value);
-                                                    setBankName(selectedBank?.name || '');
-                                                }}
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
-                                            >
-                                                <option value="">Select bank</option>
-                                                {banks.map((bank) => (
-                                                    <option key={bank.code} value={bank.code}>{bank.name}</option>
-                                                ))}
-                                            </select>
+                                            {isGbpCurrency ? (
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        maxLength={8}
+                                                        value={bankCode}
+                                                        onChange={(e) => setBankCode(e.target.value)}
+                                                        placeholder="Sort code (6 digits)"
+                                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest"
+                                                    />
+                                                </>
+                                            ) : (
+                                                <select
+                                                    value={bankCode}
+                                                    onChange={(e) => {
+                                                        setBankCode(e.target.value);
+                                                        const selectedBank = banks.find(bank => String(bank.code) === e.target.value);
+                                                        setBankName(selectedBank?.name || '');
+                                                    }}
+                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
+                                                >
+                                                    <option value="">Select bank</option>
+                                                    {banks.map((bank) => (
+                                                        <option key={bank.code} value={bank.code}>{bank.name}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                             <input
                                                 type="text"
                                                 value={accountNumber}
@@ -964,7 +928,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 value={accountHolderName}
                                                 onChange={(e) => setAccountHolderName(e.target.value)}
                                                 placeholder={t('accountHolderName')}
-                                                readOnly
+                                                readOnly={!isGbpCurrency}
                                                 className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight opacity-70"
                                             />
                                         </>
