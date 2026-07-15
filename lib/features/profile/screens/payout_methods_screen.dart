@@ -21,6 +21,7 @@ class PayoutMethodsScreen extends ConsumerStatefulWidget {
 
 class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   static const _supportedPayoutCurrencies = [
+    'USD',
     'EUR',
     'GBP',
     'KES',

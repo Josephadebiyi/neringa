@@ -73,6 +73,8 @@ const COUNTRY_TO_CURRENCY = {
     AU: 'AUD', NZ: 'AUD',
 };
 
+const PAYOUT_CURRENCIES = ['USD', 'EUR', 'GBP', 'KES', 'NGN', 'ZAR'];
+
 function parsePhone(fullPhone) {
     if (!fullPhone) return { dial: '+1', local: '' };
     const sorted = [...COUNTRY_CODES].sort((a, b) => b.dial.length - a.dial.length);
@@ -219,6 +221,16 @@ export default function Settings({ user, checkAuthStatus }) {
     const [bankOtp, setBankOtp] = useState('');
     const [payoutLoading, setPayoutLoading] = useState(false);
     const [switchToBankPayout, setSwitchToBankPayout] = useState(false);
+    const linkedPayoutCurrency = String(
+        user?.payoutAccount?.currency ||
+        user?.payout_account?.currency ||
+        user?.payoutCurrency ||
+        user?.payout_currency ||
+        user?.earningCurrency ||
+        user?.preferredCurrency ||
+        'USD'
+    ).toUpperCase();
+    const [payoutCurrency, setPayoutCurrency] = useState(linkedPayoutCurrency);
 
     const phoneVerified = user?.phoneVerified || false;
     const [phoneLoading, setPhoneLoading] = useState(false);
@@ -232,6 +244,10 @@ export default function Settings({ user, checkAuthStatus }) {
             setPhone(user.phone);
         }
     }, [user?._id, user?.preferredCurrency, user?.phone]);
+
+    useEffect(() => {
+        setPayoutCurrency(linkedPayoutCurrency);
+    }, [linkedPayoutCurrency]);
 
     // Re-sync name and DOB when user data updates (e.g. after identity verification)
     useEffect(() => {
@@ -280,7 +296,7 @@ export default function Settings({ user, checkAuthStatus }) {
     // longer currency-branched between "African bank" and "PayPal email".
     // EUR/GBP use IBAN + SWIFT/BIC instead of the bank-list picker.
     const ibanCurrencies = ['EUR', 'GBP'];
-    const isIbanCurrency = ibanCurrencies.includes(preferredCurrency?.toUpperCase());
+    const isIbanCurrency = ibanCurrencies.includes(payoutCurrency);
     const bankDetails = user?.bankDetails || user?.bank_details || {};
     const payoutProvider = String(user?.payoutProvider || user?.payout_provider || '').toLowerCase();
     const payoutMethod = String(user?.payoutMethod || user?.payout_method || '').toLowerCase();
@@ -310,11 +326,40 @@ export default function Settings({ user, checkAuthStatus }) {
 
     useEffect(() => {
         if (!showBankOption || isIbanCurrency) return;
-        const countryByCurrency = { NGN: 'NG', GHS: 'GH', KES: 'KE', ZAR: 'ZA' };
-        api.get(`/api/payouts/flutterwave/banks?country=${countryByCurrency[preferredCurrency] || 'NG'}&currency=${preferredCurrency}`)
+        const countryByCurrency = { USD: 'NG', NGN: 'NG', KES: 'KE', ZAR: 'ZA' };
+        api.get(`/api/payouts/flutterwave/banks?country=${countryByCurrency[payoutCurrency] || 'NG'}&currency=${payoutCurrency}`)
             .then((res) => setBanks(res.data?.banks || res.data?.data || []))
             .catch(() => setBanks([]));
-    }, [showBankOption, isIbanCurrency, preferredCurrency]);
+    }, [showBankOption, isIbanCurrency, payoutCurrency]);
+
+    const handlePayoutCurrencyChange = (nextCurrency) => {
+        const next = String(nextCurrency || '').toUpperCase();
+        if (!next || next === payoutCurrency) return;
+        if (user?.kycStatus !== 'approved' && !user?.isKycCompleted) {
+            setError('Complete identity verification before changing your payout currency.');
+            navigate('/verify');
+            return;
+        }
+        const keep = linkedPayoutCurrency;
+        const confirmed = window.confirm(
+            `You must link and confirm a ${next} payout account before Bago changes your wallet payout currency. If you cancel setup, Bago will keep ${keep}. Continue?`
+        );
+        if (!confirmed) {
+            setPayoutCurrency(keep);
+            return;
+        }
+        setPayoutCurrency(next);
+        setBankCode('');
+        setBankName('');
+        setAccountNumber('');
+        setAccountHolderName('');
+        setIban('');
+        setSwiftBic('');
+        setShowBankOtp(false);
+        setBankOtp('');
+        setError('');
+        setSuccessMessage(`Add and confirm your ${next} account. Your stored currency remains ${keep} until OTP verification succeeds.`);
+    };
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -396,7 +441,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 accountNumber,
                 bankCode,
                 bankName: selectedBank?.name || bankName,
-                currency: preferredCurrency,
+                currency: payoutCurrency,
             });
             if (res.data.success) {
                 setAccountHolderName(res.data.accountName || '');
@@ -437,7 +482,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 iban: cleanedIban,
                 bankName: bankName.trim(),
                 swiftBic: swiftBic.trim().toUpperCase(),
-                currency: preferredCurrency,
+                currency: payoutCurrency,
             });
             if (res.data.success) {
                 setShowBankOtp(true);
@@ -461,8 +506,12 @@ export default function Settings({ user, checkAuthStatus }) {
         try {
             const res = await api.post('/api/payouts/flutterwave/verify-bank-otp', { otp: bankOtp.trim() });
             if (res.data.success) {
+                await api.post('/api/bago/activate-earning', { currency: payoutCurrency });
                 setShowBankOtp(false);
                 setBankOtp('');
+                setPreferredCurrency(payoutCurrency);
+                setCurrency(payoutCurrency);
+                localStorage.setItem('baggo_currency', payoutCurrency);
                 setSuccessMessage(res.data.message || 'Bank account linked successfully.');
                 await checkAuthStatus();
             }
@@ -767,6 +816,25 @@ export default function Settings({ user, checkAuthStatus }) {
                     </div>
                 )}
 
+                <div className="mb-6 rounded-2xl border border-[#5845D8]/10 bg-[#5845D8]/5 p-4">
+                    <label className="mb-2 block text-[8px] font-black uppercase tracking-widest text-[#5845D8]">
+                        Payout and wallet currency
+                    </label>
+                    <select
+                        value={payoutCurrency}
+                        onChange={(event) => handlePayoutCurrencyChange(event.target.value)}
+                        disabled={bankLoading}
+                        className="w-full rounded-xl border border-[#5845D8]/10 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-tight text-[#111827] outline-none focus:border-[#5845D8]/30 disabled:opacity-60"
+                    >
+                        {PAYOUT_CURRENCIES.map((code) => (
+                            <option key={code} value={code}>{code}</option>
+                        ))}
+                    </select>
+                    <p className="mt-2 text-[8px] font-bold leading-relaxed text-[#5845D8]/70">
+                        Selecting another currency starts account setup. Bago keeps {linkedPayoutCurrency} unless the new account is confirmed by email OTP.
+                    </p>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {showConnectedPayoutOption && (
                         <div className="space-y-6">
@@ -776,7 +844,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                     <h4 className="text-[10px] font-black text-[#111827] uppercase tracking-widest">PayPal Payout Email</h4>
                                 </div>
                                 <p className="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-wide opacity-70">
-                                    Earnings in {preferredCurrency || 'USD'} are sent to your PayPal account after delivery is confirmed.
+                                    Earnings in {payoutCurrency} are sent to your PayPal account after delivery is confirmed.
                                 </p>
 
                                 {hasConnectedPayout && connectedPaypalEmail && (
@@ -820,7 +888,7 @@ export default function Settings({ user, checkAuthStatus }) {
                             <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
                                 <h4 className="flex items-center gap-2 text-[10px] font-black text-[#111827] mb-4 uppercase tracking-widest">
                                     <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
-                                    Bank Transfer ({preferredCurrency})
+                                    Bank Transfer ({payoutCurrency})
                                 </h4>
                                 {hasBankPayout && (
                                     <div className="mb-4 flex items-center gap-3 bg-green-50/50 p-3 rounded-xl border border-green-500/10">

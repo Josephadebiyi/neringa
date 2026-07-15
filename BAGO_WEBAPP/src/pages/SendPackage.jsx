@@ -339,7 +339,10 @@ export default function SendPackage() {
         if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) { setError('Missing location data. Please go back and select a trip.'); setLoading(false); return; }
 
         try {
-            const preview = await fetchPricing({ silent: true });
+            // The agreement sits on the same page as a live, debounced quote.
+            // Reuse that quote instead of making the user wait for the identical
+            // pricing request a second time when they press the checkout button.
+            const preview = checkoutPreview || await fetchPricing({ silent: true });
             if (!preview) {
                 setError(previewError || 'Checkout price could not be calculated. Please try again.');
                 setLoading(false);

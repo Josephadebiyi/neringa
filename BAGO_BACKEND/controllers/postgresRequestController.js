@@ -1765,6 +1765,8 @@ export async function redeemHandoverQR(req, res) {
 // ---------------------------------------------------------------------------
 // DELETE /api/bago/request/:requestId
 // Sender or traveler can delete a rejected/cancelled request from their history.
+// Senders may also remove an unpaid draft; its unused package record is cleaned
+// up in the same transaction.
 // ---------------------------------------------------------------------------
 export async function deleteRequestFromHistory(req, res) {
   try {
@@ -1782,18 +1784,29 @@ export async function deleteRequestFromHistory(req, res) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const deletable = ['rejected', 'cancelled'];
-    if (!deletable.includes(request.status?.toLowerCase())) {
+    const normalizedStatus = request.status?.toLowerCase();
+    const normalizedPaymentStatus = String(request.paymentStatus || request.payment_status || '').toLowerCase();
+    const isUnpaidDraft = isSender && (
+      normalizedStatus === 'draft' ||
+      ['pending_payment', 'payment_pending', 'unpaid'].includes(normalizedPaymentStatus)
+    );
+    const deletable = ['rejected', 'cancelled', 'canceled'];
+    if (!deletable.includes(normalizedStatus) && !isUnpaidDraft) {
       return res.status(422).json({
         success: false,
-        message: 'Only rejected or cancelled requests can be deleted',
+        message: 'Only unpaid drafts, rejected, or cancelled requests can be deleted',
       });
     }
 
-    await query(
-      `DELETE FROM public.shipment_requests WHERE id = $1`,
-      [requestId],
-    );
+    await withTransaction(async (client) => {
+      await client.query(`DELETE FROM public.shipment_requests WHERE id = $1`, [requestId]);
+      if (isUnpaidDraft && request.packageId) {
+        await client.query(
+          `DELETE FROM public.packages WHERE id = $1 AND user_id = $2`,
+          [request.packageId, userId],
+        );
+      }
+    });
 
     return res.status(200).json({ success: true, message: 'Request removed from history' });
   } catch (err) {

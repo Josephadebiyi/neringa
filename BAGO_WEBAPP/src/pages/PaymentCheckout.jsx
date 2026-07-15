@@ -159,7 +159,7 @@ export default function PaymentCheckout() {
                             {!loading && !redirecting && !error && (
                                 <button
                                     onClick={goToFlutterwave}
-                                    className="w-full rounded-2xl bg-[#012126] py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-[#0a262c]"
+                                    className="w-full rounded-2xl bg-[#5845D8] py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-[#5845D8]/20 transition-all hover:bg-[#4838B5]"
                                 >
                                     Pay Now
                                 </button>

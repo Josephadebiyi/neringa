@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import {
@@ -114,6 +114,8 @@ export default function Shipments({ onNavigateToChat }) {
     const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
     const [downloading, setDownloading] = useState(null);
     const [confirming, setConfirming] = useState(null);
+    const [deletingDraft, setDeletingDraft] = useState(null);
+    const holdTimer = useRef(null);
 
     useEffect(() => { fetchMyRequests(); }, []);
 
@@ -122,14 +124,61 @@ export default function Shipments({ onNavigateToChat }) {
         try {
             const res = await api.get('/api/bago/recentOrder');
             const payload = res.data?.data || res.data?.requests || res.data || [];
-            const myShipments = asArray(payload).filter(r => r?.role === 'sender' && !isDraftExpired(r));
+            const senderShipments = asArray(payload).filter(r => r?.role === 'sender');
+            const expiredDrafts = senderShipments.filter(isDraftExpired);
+            const myShipments = senderShipments.filter(r => !isDraftExpired(r));
             setRequests(myShipments);
+            // Expired unpaid package records should not accumulate indefinitely.
+            // This is best-effort: filtering keeps the UI clean even if deletion
+            // is temporarily unavailable.
+            expiredDrafts.forEach((draft) => {
+                const requestId = rid(draft);
+                const packageId = pkg(draft)?._id || pkg(draft)?.id;
+                if (requestId) {
+                    api.delete(`/api/bago/request/${requestId}`).catch(() => {});
+                } else if (packageId) {
+                    api.delete(`/api/bago/package/${packageId}`).catch(() => {});
+                }
+            });
         } catch {
             // silently fail — UI shows empty state
         } finally {
             setLoading(false);
         }
     };
+
+    const deleteDraft = async (req) => {
+        const requestId = rid(req);
+        const packageId = pkg(req)?._id || pkg(req)?.id;
+        const key = requestId || packageId;
+        if (!key || !window.confirm('Delete this unpaid shipment draft?')) return;
+        setDeletingDraft(key);
+        try {
+            if (requestId) {
+                await api.delete(`/api/bago/request/${requestId}`);
+            } else {
+                await api.delete(`/api/bago/package/${packageId}`);
+            }
+            setRequests(current => current.filter(item => rid(item) !== requestId));
+        } catch (err) {
+            alert(err.response?.data?.message || 'Could not delete this draft. Please try again.');
+        } finally {
+            setDeletingDraft(null);
+        }
+    };
+
+    const startDraftHold = (event, req) => {
+        if (!isPaymentDraft(req) || event.target.closest('button, a')) return;
+        window.clearTimeout(holdTimer.current);
+        holdTimer.current = window.setTimeout(() => deleteDraft(req), 650);
+    };
+
+    const cancelDraftHold = () => {
+        window.clearTimeout(holdTimer.current);
+        holdTimer.current = null;
+    };
+
+    useEffect(() => () => window.clearTimeout(holdTimer.current), []);
 
     const handleContinuePayment = (req) => {
         const checkout = req?.resumeCheckout || req?.resume_checkout || {};
@@ -253,7 +302,14 @@ export default function Shipments({ onNavigateToChat }) {
                         const paymentDraft = isPaymentDraft(req);
                         const minutesLeft = paymentDraftMinutesLeft(req);
                         return (
-                            <div key={id || index} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
+                            <div
+                                key={id || index}
+                                onPointerDown={(event) => startDraftHold(event, req)}
+                                onPointerUp={cancelDraftHold}
+                                onPointerCancel={cancelDraftHold}
+                                onPointerLeave={cancelDraftHold}
+                                className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all"
+                            >
                                 {/* Package image */}
                                 <div
                                     onClick={() => setViewingDetails(req)}
@@ -365,13 +421,17 @@ export default function Shipments({ onNavigateToChat }) {
 
                                     <div className="flex gap-2 flex-wrap justify-center md:justify-end">
                                         {paymentDraft ? (
-                                            <button
-                                                onClick={() => handleContinuePayment(req)}
-                                                className="flex items-center gap-1.5 px-4 py-2 bg-[#5845D8] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-sm"
-                                            >
-                                                <CreditCard size={14} />
-                                                Continue Payment
-                                            </button>
+                                            <div className="flex flex-col items-center gap-1 md:items-end">
+                                                <button
+                                                    onClick={() => handleContinuePayment(req)}
+                                                    disabled={deletingDraft === id}
+                                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5845D8] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-sm disabled:opacity-60"
+                                                >
+                                                    {deletingDraft === id ? <RefreshCw size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                                                    Continue Payment
+                                                </button>
+                                                <span className="text-[7px] font-bold uppercase tracking-wider text-gray-400">Press and hold draft to delete</span>
+                                            </div>
                                         ) : (
                                         <button
                                             onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}

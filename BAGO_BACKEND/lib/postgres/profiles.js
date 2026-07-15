@@ -554,6 +554,41 @@ export async function activateEarningCurrency(userId, currency) {
        payment_gateway = $3, updated_at = NOW() WHERE id = $1`,
       [userId, upper, paymentGateway, locked],
     );
+    // A Flutterwave authorization URL is tied to its original currency and
+    // amount. Never let a user resume that stale session after changing their
+    // wallet currency: expire initiated sessions and move only unpaid package
+    // drafts to the new display currency. Checkout will create a freshly priced
+    // payment session when the draft is continued.
+    await client.query(
+      `UPDATE public.payments pay
+       SET status = 'expired',
+           raw_response = coalesce(raw_response, '{}'::jsonb) || jsonb_build_object(
+             'invalidatedReason', 'wallet_currency_changed',
+             'invalidatedAt', timezone('utc', now())
+           ),
+           updated_at = timezone('utc', now())
+       WHERE pay.user_id = $1
+         AND pay.provider = 'flutterwave'
+         AND pay.status = 'initiated'
+         AND EXISTS (
+           SELECT 1 FROM public.packages package
+           WHERE package.id = coalesce(pay.package_id, nullif(pay.raw_response ->> 'packageId', '')::uuid)
+             AND package.user_id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM public.shipment_requests request WHERE request.package_id = package.id
+             )
+         )`,
+      [userId],
+    );
+    await client.query(
+      `UPDATE public.packages package
+       SET currency = $2, updated_at = timezone('utc', now())
+       WHERE package.user_id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM public.shipment_requests request WHERE request.package_id = package.id
+         )`,
+      [userId, upper],
+    );
   });
   return findProfileById(userId);
 }

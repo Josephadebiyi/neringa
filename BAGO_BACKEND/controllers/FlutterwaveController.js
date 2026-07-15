@@ -59,7 +59,7 @@ async function ensurePayoutAccountOtpColumns() {
 // flat account_bank/account_number call used for African bank corridors.
 const ORCHESTRATED_TRANSFER_CURRENCIES = new Set(['EUR']);
 const SUPPORTED_BANK_PAYOUT_CURRENCIES = new Set([
-  'EUR', 'GBP', 'KES', 'NGN', 'ZAR',
+  'USD', 'EUR', 'GBP', 'KES', 'NGN', 'ZAR',
 ]);
 
 // Minimal calling-code lookup for splitting a stored "+<code><number>" phone
