@@ -32,6 +32,7 @@ import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../l
 import { getActiveBeneficiary } from '../lib/postgres/flutterwavePayments.js';
 import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
 import { getCountryNameForCode, getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
+import { getFlutterwavePaymentCurrencyForCountry } from '../services/currencyConverter.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
 import {
   applyReferralSignupReward,
@@ -1605,7 +1606,10 @@ export async function activateEarning(req, res, next) {
 
 export function detectLocation(req, res) {
   const location = getLocationDataFromRequest(req);
-  res.json({ success: true, ...location });
+  const currency = location.countryCode
+    ? getFlutterwavePaymentCurrencyForCountry(location.countryCode)
+    : 'USD';
+  res.json({ success: true, ...location, currency });
 }
 
 // Admin-only: directly set wallet balance + currency (data correction tool)

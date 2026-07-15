@@ -281,6 +281,19 @@ class PaymentService {
       }
       return (authorizationUrl: url, reference: ref);
     } on DioException catch (e) {
+      final responseData = e.response?.data;
+      if (responseData is Map) {
+        final code = responseData['code']?.toString() ?? '';
+        final message = responseData['message']?.toString() ?? '';
+        if (code == 'FLUTTERWAVE_CURRENCY_NOT_ENABLED' ||
+            code == 'PAYMENT_PROVIDER_AUTH_FAILED' ||
+            code == 'RESIDENCY_CURRENCY_REQUIRED' ||
+            code == 'RESIDENCY_CURRENCY_MISMATCH' ||
+            code == 'PAYMENT_CURRENCY_MISMATCH' ||
+            code == 'VERIFICATION_REQUIRED') {
+          throw message.isNotEmpty ? message : ApiService.parseError(e);
+        }
+      }
       throw ApiService.parseError(e);
     }
   }

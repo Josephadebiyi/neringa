@@ -737,9 +737,9 @@ schema('/api/payments/flutterwave/initialize', {
   max: { amount: 20, currency: 3, packageId: 80, tripId: 80, requestId: 80, platform: 20 },
 });
 schema('/api/payouts/flutterwave/connect', {
-  allowed: ['accountNumber', 'bankCode', 'bankName', 'accountHolderName', 'iban', 'swiftBic', 'currency', 'country'],
-  strings: ['accountNumber', 'bankCode', 'bankName', 'accountHolderName', 'iban', 'swiftBic', 'currency', 'country'],
-  max: { accountNumber: 40, bankCode: 32, bankName: 120, accountHolderName: 120, iban: 42, swiftBic: 11, currency: 3, country: 2 },
+  allowed: ['accountNumber', 'bankCode', 'bankName', 'accountHolderName', 'iban', 'swiftBic', 'currency', 'country', 'addressLine1', 'addressLine2', 'city', 'state', 'postalCode', 'addressCountry'],
+  strings: ['accountNumber', 'bankCode', 'bankName', 'accountHolderName', 'iban', 'swiftBic', 'currency', 'country', 'addressLine1', 'addressLine2', 'city', 'state', 'postalCode', 'addressCountry'],
+  max: { accountNumber: 40, bankCode: 32, bankName: 120, accountHolderName: 120, iban: 42, swiftBic: 11, currency: 3, country: 2, addressLine1: 160, addressLine2: 160, city: 100, state: 100, postalCode: 24, addressCountry: 2 },
 });
 schema('/api/payouts/flutterwave/verify-bank-otp', {
   allowed: ['otp'],

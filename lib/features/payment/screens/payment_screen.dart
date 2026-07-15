@@ -156,6 +156,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _failWithDraft('flutterwave', 'Payment was cancelled.');
         return;
       }
+      if (status == 'failed') {
+        _failWithDraft('flutterwave',
+            'Flutterwave could not authorize this payment. Try another available payment method.');
+        return;
+      }
       final ref = uri?.queryParameters['transaction_id'] ??
           uri?.queryParameters['tx_ref'] ??
           '';
@@ -231,6 +236,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _publicPaymentError(String errorMsg) {
     final normalized = errorMsg.toLowerCase();
     if (normalized.contains('cancel')) return 'Payment was cancelled.';
+    if (normalized.contains('country of residence') ||
+        normalized.contains('residence currency') ||
+        normalized.contains('currency mismatch')) {
+      return 'Your payment currency does not match your country of residence. Update it in Profile → Currency and retry checkout.';
+    }
+    if (normalized.contains('kyc') ||
+        normalized.contains('identity verification')) {
+      return 'Complete identity verification before making this payment.';
+    }
+    if (normalized.contains('not enabled') && normalized.contains('checkout')) {
+      return 'This currency is not enabled on Bago’s payment account yet. Please contact support or use the regional fallback shown in your profile.';
+    }
+    if (normalized.contains('not configured correctly')) {
+      return 'Payments are temporarily unavailable because the payment provider needs attention. Please contact Bago support.';
+    }
+    if (normalized.contains('could not authorize')) {
+      return 'Flutterwave could not authorize this payment. Try another available payment method.';
+    }
     if (normalized.contains('insufficient_funds')) {
       return 'The card has insufficient funds.';
     }
@@ -261,6 +284,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return 'Bizum could not be completed. Please try again or use card payment.';
     }
     return 'Payment could not be completed. Please try again or use another method.';
+  }
+
+  String _paymentMethodSubtitle(String currency) {
+    switch (currency.toUpperCase()) {
+      case 'EUR':
+      case 'GBP':
+      case 'USD':
+      case 'ZAR':
+        return 'Card & bank account';
+      case 'NGN':
+        return 'Card, bank transfer, USSD & OPay';
+      case 'GHS':
+        return 'Card & mobile money';
+      case 'KES':
+        return 'Card & M-Pesa';
+      default:
+        return 'Card & available local methods';
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -399,8 +440,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 // added under assets/images/ — using a generic icon for now so we
                 // don't reference a file that doesn't exist yet.
                 icon: Icons.lock_outline_rounded,
-                label: 'Pay securely',
-                subtitle: 'Card, Apple Pay, bank transfer & mobile money',
+                label: 'Pay Now',
+                subtitle: _paymentMethodSubtitle(currency),
                 isLoading: _isProcessing,
                 color: AppColors.black,
                 onTap: _startFlutterwaveCheckout,
@@ -449,9 +490,7 @@ class _PaymentOptionButton extends StatelessWidget {
     required this.isLoading,
     required this.onTap,
     this.icon,
-    this.assetImage,
     this.color,
-    this.selected = false,
   });
 
   final String label;
@@ -459,9 +498,7 @@ class _PaymentOptionButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onTap;
   final IconData? icon;
-  final String? assetImage;
   final Color? color;
-  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -480,8 +517,8 @@ class _PaymentOptionButton extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: selected ? AppColors.primary : AppColors.gray200,
-                width: selected ? 2 : 1,
+                color: AppColors.gray200,
+                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -511,34 +548,15 @@ class _PaymentOptionButton extends StatelessWidget {
                           color: Colors.transparent,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: selected
-                                ? AppColors.primary
-                                : AppColors.gray300,
+                            color: AppColors.gray300,
                             width: 3,
                           ),
                         ),
                         alignment: Alignment.center,
-                        child: selected
-                            ? Container(
-                                width: 14,
-                                height: 14,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                              )
-                            : null,
+                        child: null,
                       ),
                       const SizedBox(width: 14),
-                      if (assetImage != null) ...[
-                        Image.asset(
-                          assetImage!,
-                          width: 34,
-                          height: 28,
-                          fit: BoxFit.contain,
-                        ),
-                        const SizedBox(width: 10),
-                      ] else if (icon != null) ...[
+                      if (icon != null) ...[
                         Icon(icon, size: 28, color: accent),
                         const SizedBox(width: 10),
                       ],

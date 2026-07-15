@@ -15,7 +15,7 @@ const SUPPORTED_CURRENCIES = new Set([
   'USD', 'EUR', 'GBP', 'NGN', 'GHS', 'KES', 'ZAR', 'CAD', 'AUD', 'JPY',
   'CNY', 'INR', 'BRL', 'MXN', 'CHF', 'SEK', 'NOK', 'DKK', 'SGD', 'HKD',
   'AED', 'SAR', 'QAR', 'KWD', 'PKR', 'BDT', 'LKR', 'EGP', 'MAD', 'TND',
-  'RWF', 'UGX', 'TZS', 'XOF', 'XAF', 'ETB', 'MZN', 'ZMW',
+  'RWF', 'UGX', 'TZS', 'XOF', 'XAF', 'ETB', 'MZN', 'ZMW', 'MWK',
 ]);
 
 const ZERO_DECIMAL_CURRENCIES = new Set([
@@ -419,8 +419,12 @@ export function calculateTravelerPayout(totalPrice, commission) {
 const COUNTRY_CURRENCY_MAP = {
   US: 'USD', GB: 'GBP', EU: 'EUR', DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR',
   PT: 'EUR', NL: 'EUR', BE: 'EUR', AT: 'EUR', FI: 'EUR', IE: 'EUR', GR: 'EUR',
+  HR: 'EUR', CY: 'EUR', EE: 'EUR', LV: 'EUR', LT: 'EUR', LU: 'EUR', MT: 'EUR',
+  SK: 'EUR', SI: 'EUR',
   NG: 'NGN', GH: 'GHS', KE: 'KES', ZA: 'ZAR', RW: 'RWF', UG: 'UGX', TZ: 'TZS',
-  SN: 'XOF', CI: 'XOF', CM: 'XAF', ET: 'ETB', EG: 'EGP', MA: 'MAD', TN: 'TND',
+  SN: 'XOF', CI: 'XOF', ML: 'XOF', BF: 'XOF', NE: 'XOF', TG: 'XOF',
+  BJ: 'XOF', GW: 'XOF', CM: 'XAF', GA: 'XAF', CG: 'XAF', TD: 'XAF',
+  CF: 'XAF', GQ: 'XAF', MW: 'MWK', ET: 'ETB', EG: 'EGP', MA: 'MAD', TN: 'TND',
   CA: 'CAD', AU: 'AUD', NZ: 'NZD', JP: 'JPY', CN: 'CNY', IN: 'INR', BR: 'BRL',
   MX: 'MXN', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK', SG: 'SGD', HK: 'HKD',
   AE: 'AED', SA: 'SAR', QA: 'QAR', KW: 'KWD', PK: 'PKR', BD: 'BDT', LK: 'LKR',
@@ -429,6 +433,30 @@ const COUNTRY_CURRENCY_MAP = {
 export function getCurrencyByCountry(countryCode) {
   if (!countryCode) return 'USD';
   return COUNTRY_CURRENCY_MAP[countryCode.toUpperCase()] ?? 'USD';
+}
+
+export const FLUTTERWAVE_COLLECTION_CURRENCIES = new Set([
+  'USD', 'EUR', 'GBP', 'NGN', 'GHS', 'XAF', 'XOF', 'ZAR', 'MWK', 'KES',
+  'UGX', 'RWF', 'TZS', 'EGP',
+]);
+
+const EUROPE_COUNTRY_CODES = new Set([
+  'AL', 'AD', 'AT', 'BY', 'BE', 'BA', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE',
+  'FI', 'FR', 'DE', 'GR', 'HU', 'IS', 'IE', 'IT', 'XK', 'LV', 'LI', 'LT',
+  'LU', 'MT', 'MD', 'MC', 'ME', 'NL', 'MK', 'NO', 'PL', 'PT', 'RO', 'SM',
+  'RS', 'SK', 'SI', 'ES', 'SE', 'CH', 'UA', 'VA',
+]);
+
+export function getFlutterwavePaymentCurrencyForCountry(countryCode) {
+  const code = String(countryCode || '').trim().toUpperCase();
+  const nativeCurrency = getCurrencyByCountry(code);
+  if (EUROPE_COUNTRY_CODES.has(code)) {
+    return nativeCurrency === 'GBP' || nativeCurrency === 'EUR'
+      ? nativeCurrency
+      : 'EUR';
+  }
+  if (FLUTTERWAVE_COLLECTION_CURRENCIES.has(nativeCurrency)) return nativeCurrency;
+  return 'USD';
 }
 
 export function choosePaymentProcessor(_currency) {

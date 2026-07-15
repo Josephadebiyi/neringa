@@ -15,15 +15,30 @@ class CurrencySettingsScreen extends ConsumerStatefulWidget {
   const CurrencySettingsScreen({super.key});
 
   @override
-  ConsumerState<CurrencySettingsScreen> createState() => _CurrencySettingsScreenState();
+  ConsumerState<CurrencySettingsScreen> createState() =>
+      _CurrencySettingsScreenState();
 }
 
-class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen> {
+class _CurrencySettingsScreenState
+    extends ConsumerState<CurrencySettingsScreen> {
   bool _isSaving = false;
   bool _pickingCountry = false;
   String? _selectedCurrency;
   CountryCurrencyData? _selectedCountry;
   final _countrySearchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(authProvider).user;
+    final country = CurrencyConversionHelper.countryByName(user?.country) ??
+        CurrencyConversionHelper.countryByCode(user?.country);
+    if (country != null) {
+      _selectedCountry = country;
+      _selectedCurrency =
+          CurrencyConversionHelper.paymentCurrencyForCountry(country);
+    }
+  }
 
   @override
   void dispose() {
@@ -43,7 +58,7 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
     try {
       await ref.read(authProvider.notifier).confirmDetectedLocationCurrency(
             currency: currency,
-            country: _selectedCountry?.name,
+            country: _selectedCountry?.code,
           );
       if (!mounted) return;
       AppSnackBar.show(
@@ -70,7 +85,6 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
     final user = ref.watch(authProvider).user;
     final locked = user?.earningCurrencyLocked ?? false;
     final current = UserCurrencyHelper.resolve(user);
-    final currencies = CurrencyConversionHelper.supportedCurrencyCodes;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOff,
@@ -95,15 +109,18 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
             ? _buildLockedView(context, current)
             : (_pickingCountry
                 ? _buildCountryPicker(context)
-                : _buildSelectorView(context, l10n, current, currencies)),
+                : _buildSelectorView(context, l10n)),
       ),
     );
   }
 
   Widget _buildCountryPicker(BuildContext context) {
     final query = _countrySearchCtrl.text.trim().toLowerCase();
-    final countries = CurrencyConversionHelper.supportedCountries
-        .where((c) => query.isEmpty || c.name.toLowerCase().contains(query))
+    final countries = CurrencyConversionHelper.allCountries
+        .where((c) =>
+            query.isEmpty ||
+            c.name.toLowerCase().contains(query) ||
+            c.currency.toLowerCase().contains(query))
         .toList();
     return Column(
       children: [
@@ -119,7 +136,7 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
               fillColor: AppColors.white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: AppColors.border),
+                borderSide: const BorderSide(color: AppColors.border),
               ),
             ),
           ),
@@ -131,14 +148,24 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
             itemBuilder: (_, i) {
               final country = countries[i];
               return ListTile(
-                leading: Text(country.flag, style: const TextStyle(fontSize: 24)),
+                leading:
+                    Text(country.flag, style: const TextStyle(fontSize: 24)),
                 title: Text(country.name,
-                    style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700)),
-                subtitle: Text('Currency: ${country.currency}',
-                    style: AppTextStyles.bodySm.copyWith(color: AppColors.gray400)),
+                    style: AppTextStyles.bodyMd
+                        .copyWith(fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                    country.currency ==
+                            CurrencyConversionHelper.paymentCurrencyForCountry(
+                                country)
+                        ? 'Payment currency: ${country.currency}'
+                        : 'Payment currency: ${CurrencyConversionHelper.paymentCurrencyForCountry(country)} (regional fallback)',
+                    style: AppTextStyles.bodySm
+                        .copyWith(color: AppColors.gray400)),
                 onTap: () => setState(() {
                   _selectedCountry = country;
-                  _selectedCurrency = country.currency;
+                  _selectedCurrency =
+                      CurrencyConversionHelper.paymentCurrencyForCountry(
+                          country);
                   _pickingCountry = false;
                 }),
               );
@@ -163,7 +190,8 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
           ),
           child: Text(
             'Your earning currency is locked. Contact support if you need to change it.',
-            style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.45),
+            style: AppTextStyles.bodyMd
+                .copyWith(color: AppColors.gray500, height: 1.45),
           ),
         ),
         const SizedBox(height: 16),
@@ -195,10 +223,13 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(currency, style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800)),
+                child: Text(currency,
+                    style: AppTextStyles.labelLg
+                        .copyWith(fontWeight: FontWeight.w800)),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(20),
@@ -206,9 +237,12 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.lock_rounded, size: 12, color: Colors.white),
+                    const Icon(Icons.lock_rounded,
+                        size: 12, color: Colors.white),
                     const SizedBox(width: 4),
-                    Text('Locked', style: AppTextStyles.bodySm.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text('Locked',
+                        style: AppTextStyles.bodySm.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.w700)),
                   ],
                 ),
               ),
@@ -219,7 +253,7 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
     );
   }
 
-  Widget _buildSelectorView(BuildContext context, AppLocalizations l10n, String current, List<String> currencies) {
+  Widget _buildSelectorView(BuildContext context, AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -232,12 +266,14 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
           ),
           child: Text(
             'Choose your earning currency. This will be locked once confirmed and can only be changed by support.',
-            style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray500, height: 1.45),
+            style: AppTextStyles.bodyMd
+                .copyWith(color: AppColors.gray500, height: 1.45),
           ),
         ),
         const SizedBox(height: 16),
         InkWell(
-          onTap: _isSaving ? null : () => setState(() => _pickingCountry = true),
+          onTap:
+              _isSaving ? null : () => setState(() => _pickingCountry = true),
           borderRadius: BorderRadius.circular(18),
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -245,12 +281,15 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
               color: AppColors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: _selectedCountry != null ? AppColors.primary : AppColors.border,
+                color: _selectedCountry != null
+                    ? AppColors.primary
+                    : AppColors.border,
               ),
             ),
             child: Row(
               children: [
-                Text(_selectedCountry?.flag ?? '🌍', style: const TextStyle(fontSize: 28)),
+                Text(_selectedCountry?.flag ?? '🌍',
+                    style: const TextStyle(fontSize: 28)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -258,97 +297,57 @@ class _CurrencySettingsScreenState extends ConsumerState<CurrencySettingsScreen>
                     children: [
                       Text('Country of residence',
                           style: AppTextStyles.labelSm.copyWith(
-                              color: AppColors.gray400, fontWeight: FontWeight.w700)),
+                              color: AppColors.gray400,
+                              fontWeight: FontWeight.w700)),
                       const SizedBox(height: 2),
                       Text(
-                        _selectedCountry?.name ?? 'Select your country — sets the right currency automatically',
-                        style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w700),
+                        _selectedCountry?.name ??
+                            'Select your country — sets the right currency automatically',
+                        style: AppTextStyles.bodyMd
+                            .copyWith(fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.gray400),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.gray400),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          _selectedCountry != null
-              ? 'Based on ${_selectedCountry!.name}, or pick a different currency below:'
-              : 'Or pick a currency directly:',
-          style: AppTextStyles.labelSm.copyWith(color: AppColors.gray400, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 10),
+        if (_selectedCountry != null) ...[
+          Text(
+            '${_selectedCountry!.flag} ${_selectedCountry!.name} will use ${_selectedCurrency!} for payments${_selectedCountry!.currency == _selectedCurrency ? '' : ' (regional fallback from ${_selectedCountry!.currency})'}.',
+            style: AppTextStyles.bodySm.copyWith(
+                color: AppColors.gray500, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (_isSaving)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: AppLoading()),
           )
         else ...[
-          ...currencies.map((currency) {
-            final selected = (_selectedCurrency ?? current).toUpperCase() == currency.toUpperCase();
-            final symbol = CurrencyConversionHelper.symbolForCurrency(currency);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                onTap: () => setState(() => _selectedCurrency = currency),
-                borderRadius: BorderRadius.circular(18),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.primarySoft : AppColors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: selected ? AppColors.primary : AppColors.border,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.primary : AppColors.gray100,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Text(
-                            symbol,
-                            style: AppTextStyles.labelMd.copyWith(
-                              color: selected ? AppColors.white : AppColors.black,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(currency, style: AppTextStyles.labelLg.copyWith(fontWeight: FontWeight.w800)),
-                      ),
-                      if (selected)
-                        const Icon(Icons.check_circle_rounded, color: AppColors.primary),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: (_selectedCurrency == null && current.isEmpty) ? null : _confirmEarningCurrency,
+              onPressed:
+                  _selectedCountry == null ? null : _confirmEarningCurrency,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
               child: Text(
                 l10n.confirmCurrency,
-                style: AppTextStyles.labelLg.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                style: AppTextStyles.labelLg
+                    .copyWith(color: Colors.white, fontWeight: FontWeight.w700),
               ),
             ),
           ),

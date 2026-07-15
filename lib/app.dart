@@ -16,6 +16,7 @@ import 'shared/providers/app_lock_provider.dart';
 import 'shared/providers/locale_provider.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/socket_service.dart';
+import 'shared/utils/country_currency_helper.dart';
 
 class BagoApp extends ConsumerWidget {
   const BagoApp({super.key});
@@ -80,6 +81,10 @@ class _CurrencyLocationPromptHostState
 
   void _scheduleCurrencyLocationPrompt(UserModel user) {
     if (_promptOpen) return;
+    if ((user.country ?? '').trim().isNotEmpty &&
+        user.preferredCurrency.trim().isNotEmpty) {
+      return;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _promptOpen) return;
@@ -94,9 +99,13 @@ class _CurrencyLocationPromptHostState
               );
       if (!mounted) return;
 
-      final currency = (location['currency'] ?? '').trim().toUpperCase();
       final country = (location['country'] ?? '').trim();
       final countryCode = (location['countryCode'] ?? '').trim().toUpperCase();
+      final countryData = CurrencyConversionHelper.countryByCode(countryCode) ??
+          CurrencyConversionHelper.countryByName(country);
+      final currency = countryData == null
+          ? (location['currency'] ?? 'USD').trim().toUpperCase()
+          : CurrencyConversionHelper.paymentCurrencyForCountry(countryData);
       final confidence = (location['confidence'] ?? '').trim().toLowerCase();
       if (currency.isEmpty || countryCode.isEmpty || confidence == 'none') {
         return;
@@ -110,8 +119,7 @@ class _CurrencyLocationPromptHostState
           currentCountry.isNotEmpty &&
           currentCountry == detectedCountry;
 
-      final promptKey =
-          'currency_location_prompt_v3_${user.id}_${countryCode}_$currency';
+      final promptKey = 'currency_location_prompt_v4_${user.id}';
       if (_lastScheduledKey == promptKey) return;
       _lastScheduledKey = promptKey;
 
@@ -128,7 +136,7 @@ class _CurrencyLocationPromptHostState
               content: Text(
                 sameCurrency && sameCountry
                     ? 'We detected $countryCode as your current location. Confirm this so Bago keeps using $currency for your wallet.'
-                    : 'We detected ${country.isNotEmpty ? country : countryCode}. Bago will use $currency for your wallet and payments. If this looks right, confirm it.',
+                    : 'We detected ${country.isNotEmpty ? country : countryCode}. Bago will use $currency for your wallet and payments${countryData != null && countryData.currency != currency ? ' because Flutterwave does not collect ${countryData.currency}; $currency is the regional fallback' : ''}. If this looks right, confirm it.',
               ),
               actions: [
                 TextButton(
@@ -154,7 +162,7 @@ class _CurrencyLocationPromptHostState
       try {
         await ref.read(authProvider.notifier).confirmDetectedLocationCurrency(
               currency: currency,
-              country: country.isNotEmpty ? country : countryCode,
+              country: countryCode,
             );
         await prefs.setBool(promptKey, true);
         if (!mounted) return;

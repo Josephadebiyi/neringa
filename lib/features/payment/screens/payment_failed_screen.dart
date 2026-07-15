@@ -108,6 +108,21 @@ class PaymentFailedScreen extends StatelessWidget {
     if (_looksLikeDiagnosticLeak(normalized)) {
       return l10n.paymentCouldNotCompleteGeneric;
     }
+    if (normalized.contains('country of residence') ||
+        normalized.contains('residence currency') ||
+        normalized.contains('currency mismatch')) {
+      return 'Your payment currency does not match your country of residence. Update it in Profile → Currency and try again.';
+    }
+    if (normalized.contains('identity verification') ||
+        normalized.contains('kyc')) {
+      return 'Complete identity verification before making this payment.';
+    }
+    if (normalized.contains('not enabled') && normalized.contains('payment')) {
+      return 'This currency is not enabled on Bago’s payment account yet. Please contact support.';
+    }
+    if (normalized.contains('could not authorize')) {
+      return 'Flutterwave could not authorize this payment. Try another available payment method.';
+    }
     if (normalized.contains('insufficient_funds')) {
       return l10n.insufficientFundsMessage;
     }

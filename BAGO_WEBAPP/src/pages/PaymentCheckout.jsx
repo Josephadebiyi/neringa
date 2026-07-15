@@ -133,7 +133,7 @@ export default function PaymentCheckout() {
                     <main>
                         <section className="rounded-[22px] border border-gray-200 bg-white p-6 shadow-[0_18px_42px_rgba(16,24,40,0.07)]">
                             <div className="mb-5">
-                                <h1 className="text-lg font-black tracking-tight">Pay securely</h1>
+                                <h1 className="text-lg font-black tracking-tight">Pay Now</h1>
                                 <p className="mt-1 text-xs font-bold text-gray-400">
                                     Card, Apple Pay, bank transfer & mobile money — choose your method on the next page.
                                 </p>
@@ -161,7 +161,7 @@ export default function PaymentCheckout() {
                                     onClick={goToFlutterwave}
                                     className="w-full rounded-2xl bg-[#012126] py-4 text-sm font-black uppercase tracking-widest text-white transition-all hover:bg-[#0a262c]"
                                 >
-                                    Continue to payment
+                                    Pay Now
                                 </button>
                             )}
 

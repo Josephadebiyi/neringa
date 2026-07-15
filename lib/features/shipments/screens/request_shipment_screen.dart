@@ -512,6 +512,19 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
     final weight = double.tryParse(_weightCtrl.text.trim());
     final currency = UserCurrencyHelper.resolve(user);
+    final residence = CurrencyConversionHelper.countryByName(user?.country) ??
+        CurrencyConversionHelper.countryByCode(user?.country);
+
+    if (residence == null ||
+        CurrencyConversionHelper.paymentCurrencyForCountry(residence) !=
+            currency) {
+      AppSnackBar.show(context,
+          message:
+              'Set your country of residence before paying. Your payment currency is assigned from that country.',
+          type: SnackBarType.info);
+      await context.push('/profile/currency');
+      return;
+    }
 
     if (weight == null || weight <= 0) {
       AppSnackBar.show(context,

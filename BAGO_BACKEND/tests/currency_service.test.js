@@ -18,7 +18,25 @@ const fetchMock = vi.fn(async () => {
 
 vi.mock('node-fetch', () => ({ default: fetchMock }));
 
-const { CurrencyService } = await import('../services/currencyConverter.js');
+const { CurrencyService, getFlutterwavePaymentCurrencyForCountry } =
+  await import('../services/currencyConverter.js');
+
+describe('Flutterwave residence currency mapping', () => {
+  it('keeps a natively supported currency', () => {
+    expect(getFlutterwavePaymentCurrencyForCountry('GB')).toBe('GBP');
+    expect(getFlutterwavePaymentCurrencyForCountry('NG')).toBe('NGN');
+  });
+
+  it('falls unsupported European currencies back to EUR', () => {
+    expect(getFlutterwavePaymentCurrencyForCountry('PL')).toBe('EUR');
+    expect(getFlutterwavePaymentCurrencyForCountry('CH')).toBe('EUR');
+  });
+
+  it('falls other unsupported regions back to USD', () => {
+    expect(getFlutterwavePaymentCurrencyForCountry('CA')).toBe('USD');
+    expect(getFlutterwavePaymentCurrencyForCountry('JP')).toBe('USD');
+  });
+});
 
 describe('CurrencyService cached conversion', () => {
   beforeEach(() => {

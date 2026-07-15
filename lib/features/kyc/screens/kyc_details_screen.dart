@@ -117,8 +117,9 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
         },
       );
       await ref.read(authProvider.notifier).confirmDetectedLocationCurrency(
-            currency: country.currency,
-            country: country.name,
+            currency:
+                CurrencyConversionHelper.paymentCurrencyForCountry(country),
+            country: country.code,
           );
       if (!mounted) return;
       Navigator.of(context).push(
@@ -154,8 +155,11 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
         .firstWhere((value) => value.isNotEmpty, orElse: () => '');
     if (userCurrency.isEmpty) return null;
 
-    for (final country in CurrencyConversionHelper.supportedCountries) {
-      if (country.currency == userCurrency) return country;
+    for (final country in CurrencyConversionHelper.allCountries) {
+      if (CurrencyConversionHelper.paymentCurrencyForCountry(country) ==
+          userCurrency) {
+        return country;
+      }
     }
     return null;
   }
@@ -406,7 +410,7 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
                   Text(
                     country == null
                         ? 'This sets the wallet currency used for payments.'
-                        : 'Wallet currency: ${country.currency} (${country.symbol})',
+                        : 'Payment currency: ${CurrencyConversionHelper.paymentCurrencyForCountry(country)}',
                     style: AppTextStyles.bodySm.copyWith(
                       color: AppColors.gray500,
                       height: 1.35,
@@ -476,13 +480,15 @@ class _KycCountryCurrencySheetState extends State<_KycCountryCurrencySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final countries =
-        CurrencyConversionHelper.supportedCountries.where((country) {
+    final countries = CurrencyConversionHelper.allCountries.where((country) {
       final query = _query.trim().toLowerCase();
       if (query.isEmpty) return true;
       return country.name.toLowerCase().contains(query) ||
           country.code.toLowerCase().contains(query) ||
-          country.currency.toLowerCase().contains(query);
+          country.currency.toLowerCase().contains(query) ||
+          CurrencyConversionHelper.paymentCurrencyForCountry(country)
+              .toLowerCase()
+              .contains(query);
     }).toList();
 
     return SafeArea(
@@ -562,7 +568,11 @@ class _KycCountryCurrencySheetState extends State<_KycCountryCurrencySheet> {
                       ),
                     ),
                     subtitle: Text(
-                      '${country.currency} (${country.symbol})',
+                      country.currency ==
+                              CurrencyConversionHelper
+                                  .paymentCurrencyForCountry(country)
+                          ? '${country.currency} (${country.symbol})'
+                          : '${CurrencyConversionHelper.paymentCurrencyForCountry(country)} fallback',
                       style: AppTextStyles.bodySm.copyWith(
                         color: AppColors.gray500,
                       ),

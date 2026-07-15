@@ -18,7 +18,11 @@ import {
   saveBeneficiary,
   getActiveBeneficiary,
 } from '../lib/postgres/flutterwavePayments.js';
-import { CurrencyService } from '../services/currencyConverter.js';
+import {
+  CurrencyService,
+  FLUTTERWAVE_COLLECTION_CURRENCIES,
+  getFlutterwavePaymentCurrencyForCountry,
+} from '../services/currencyConverter.js';
 import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { resend } from '../services/resendClient.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
@@ -102,7 +106,48 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({ success: false, message: 'A valid amount is required.' });
     }
-    const normalizedCurrency = CurrencyService.normalizeCurrency(currency || 'USD');
+    const paymentProfile = await queryOne(
+      `select country, preferred_currency, earning_currency
+       from public.profiles where id = $1`,
+      [user.id],
+    );
+    const residenceCountry = String(paymentProfile?.country || '').trim();
+    const storedCurrency = String(
+      paymentProfile?.preferred_currency || paymentProfile?.earning_currency || '',
+    ).trim().toUpperCase();
+    if (!residenceCountry || !storedCurrency) {
+      return res.status(409).json({
+        success: false,
+        code: 'RESIDENCY_CURRENCY_REQUIRED',
+        message: 'Set your country of residence and payment currency before paying.',
+      });
+    }
+    if (!FLUTTERWAVE_COLLECTION_CURRENCIES.has(storedCurrency)) {
+      return res.status(400).json({
+        success: false,
+        code: 'PAYMENT_CURRENCY_UNSUPPORTED',
+        message: `${storedCurrency} is not currently supported for checkout. Select a supported country of residence.`,
+      });
+    }
+    if (/^[A-Za-z]{2}$/.test(residenceCountry)) {
+      const residenceCurrency =
+        getFlutterwavePaymentCurrencyForCountry(residenceCountry);
+      if (residenceCurrency !== storedCurrency) {
+        return res.status(400).json({
+          success: false,
+          code: 'RESIDENCY_CURRENCY_MISMATCH',
+          message: `Your stored payment currency must match your country of residence (${residenceCurrency}).`,
+        });
+      }
+    }
+    const normalizedCurrency = CurrencyService.normalizeCurrency(currency || storedCurrency);
+    if (normalizedCurrency !== storedCurrency) {
+      return res.status(400).json({
+        success: false,
+        code: 'PAYMENT_CURRENCY_MISMATCH',
+        message: `Payment must use your stored residence currency (${storedCurrency}). Refresh checkout and try again.`,
+      });
+    }
 
     const txRef = `BAGO-PAY-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     // Mobile opens checkout in a real Safari/Chrome-Custom-Tabs context (not an
@@ -126,7 +171,29 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
     });
 
     if (!init.success) {
-      return res.status(502).json({ success: false, message: init.message || 'Could not start checkout.' });
+      const normalizedMessage = String(init.message || '').toLowerCase();
+      const currencyUnavailable =
+        normalizedMessage.includes('currency') &&
+        (normalizedMessage.includes('not support') ||
+          normalizedMessage.includes('not enabled') ||
+          normalizedMessage.includes('not available'));
+      const authorizationFailure =
+        normalizedMessage.includes('authorization') ||
+        normalizedMessage.includes('api key') ||
+        normalizedMessage.includes('secret key');
+      return res.status(currencyUnavailable ? 422 : authorizationFailure ? 503 : 502).json({
+        success: false,
+        code: currencyUnavailable
+          ? 'FLUTTERWAVE_CURRENCY_NOT_ENABLED'
+          : authorizationFailure
+            ? 'PAYMENT_PROVIDER_AUTH_FAILED'
+            : init.code || 'FLUTTERWAVE_INITIALIZATION_FAILED',
+        message: currencyUnavailable
+          ? `${normalizedCurrency} checkout is not enabled on the connected Flutterwave merchant account.`
+          : authorizationFailure
+            ? 'The payment provider is not configured correctly. Please contact Bago support.'
+            : init.message || 'Could not start checkout.',
+      });
     }
 
     await recordPaymentInitiated({

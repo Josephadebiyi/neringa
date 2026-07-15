@@ -65,6 +65,15 @@ function client() {
  */
 export async function initializePayment({ txRef, amount, currency, redirectUrl, customerEmail, customerName, customerPhone, meta = {} }) {
   try {
+    const paymentOptionsByCurrency = {
+      EUR: 'card,account', GBP: 'card,account', USD: 'card,account',
+      NGN: 'card,ussd,banktransfer,account,opay',
+      GHS: 'card,mobilemoneyghana', KES: 'card,mpesa',
+      ZAR: 'card,account', XAF: 'card,mobilemoneyxaf',
+      XOF: 'card,mobilemoneyxof', MWK: 'card,mobilemoneymalawi',
+      UGX: 'card,mobilemoneyuganda', RWF: 'card,mobilemoneyrwanda',
+      TZS: 'card,mobilemoneytanzania', EGP: 'card,fawrypay',
+    };
     const response = await client().post('/payments', {
       tx_ref: txRef,
       amount,
@@ -75,15 +84,25 @@ export async function initializePayment({ txRef, amount, currency, redirectUrl, 
         name: customerName,
         phonenumber: customerPhone,
       },
+      payment_options: paymentOptionsByCurrency[String(currency).toUpperCase()] || 'card',
       meta,
     });
     if (response.data?.status === 'success' && response.data?.data?.link) {
       return { success: true, authorizationUrl: response.data.data.link, reference: txRef };
     }
-    return { success: false, message: response.data?.message || 'Could not start Flutterwave checkout.' };
+    return {
+      success: false,
+      code: response.data?.code || 'FLUTTERWAVE_INITIALIZATION_FAILED',
+      message: response.data?.message || 'Could not start Flutterwave checkout.',
+    };
   } catch (error) {
     console.error('❌ Flutterwave initialize error:', error.response?.data || error.message);
-    return { success: false, message: error.response?.data?.message || error.message || 'Payment initialization failed' };
+    return {
+      success: false,
+      statusCode: error.response?.status,
+      code: error.response?.data?.code || error.response?.data?.error?.code || 'FLUTTERWAVE_INITIALIZATION_FAILED',
+      message: error.response?.data?.message || error.response?.data?.error?.message || error.message || 'Payment initialization failed',
+    };
   }
 }
 

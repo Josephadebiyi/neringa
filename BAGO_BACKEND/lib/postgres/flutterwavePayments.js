@@ -80,7 +80,9 @@ export async function recordPaymentInitiated({ provider, providerReference, user
     `
       insert into public.payments (provider, provider_reference, user_id, amount, currency, status, raw_response)
       values ($1,$2,$3,$4,$5,'initiated',$6::jsonb)
-      on conflict (provider, provider_reference) do update
+      on conflict (provider, provider_reference)
+        where provider_reference is not null
+      do update
         set updated_at = timezone('utc', now())
       returning id
     `,

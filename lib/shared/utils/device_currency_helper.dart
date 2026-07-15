@@ -10,7 +10,9 @@ class DeviceCurrencyHelper {
     final countryCode = locale.countryCode?.trim() ?? '';
     if (countryCode.isNotEmpty) {
       final match = CurrencyConversionHelper.countryByCode(countryCode);
-      if (match != null) return match.currency.toUpperCase();
+      if (match != null) {
+        return CurrencyConversionHelper.paymentCurrencyForCountry(match);
+      }
     }
     return 'USD';
   }

@@ -29,6 +29,11 @@ export default function PaymentCallback() {
             setMessage('Payment was cancelled. You can try again below.');
             return;
         }
+        if (flutterwaveStatus === 'failed') {
+            setStatus('error');
+            setMessage('Flutterwave could not authorize this payment. Please try another available payment method.');
+            return;
+        }
         completePayment(transactionId);
     }, []);
 
