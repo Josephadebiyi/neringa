@@ -443,7 +443,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 label: 'Pay Now',
                 subtitle: _paymentMethodSubtitle(currency),
                 isLoading: _isProcessing,
-                color: AppColors.black,
+                color: AppColors.white,
                 onTap: _startFlutterwaveCheckout,
               ),
             ],
@@ -507,7 +507,7 @@ class _PaymentOptionButton extends StatelessWidget {
       width: double.infinity,
       height: 60,
       child: Material(
-        color: AppColors.white,
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: isLoading ? null : onTap,
@@ -517,12 +517,12 @@ class _PaymentOptionButton extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: AppColors.gray200,
+                color: AppColors.primary,
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.03),
+                  color: AppColors.primary.withValues(alpha: 0.22),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -541,21 +541,6 @@ class _PaymentOptionButton extends StatelessWidget {
                   )
                 : Row(
                     children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.gray300,
-                            width: 3,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: null,
-                      ),
-                      const SizedBox(width: 14),
                       if (icon != null) ...[
                         Icon(icon, size: 28, color: accent),
                         const SizedBox(width: 10),
@@ -570,7 +555,7 @@ class _PaymentOptionButton extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.labelMd.copyWith(
-                                color: AppColors.gray900,
+                                color: AppColors.white,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -580,7 +565,7 @@ class _PaymentOptionButton extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.labelXs.copyWith(
-                                color: AppColors.gray500,
+                                color: AppColors.white.withValues(alpha: 0.82),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -591,7 +576,7 @@ class _PaymentOptionButton extends StatelessWidget {
                       const Icon(
                         Icons.chevron_right_rounded,
                         size: 22,
-                        color: AppColors.gray400,
+                        color: AppColors.white,
                       ),
                     ],
                   ),

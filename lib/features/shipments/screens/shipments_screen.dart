@@ -386,114 +386,99 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
               await _checkoutService.clearDraft();
               return false;
             },
-            child: AppCard(
-              padding: const EdgeInsets.all(18),
-              borderColor: AppColors.primary,
-              showBorder: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySoft,
-                          borderRadius: BorderRadius.circular(16),
+            child: GestureDetector(
+              onLongPress: _deleteDraft,
+              child: AppCard(
+                padding: const EdgeInsets.all(18),
+                borderColor: AppColors.primary,
+                showBorder: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySoft,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.payments_outlined,
+                            color: AppColors.primary,
+                            size: 24,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.payments_outlined,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: AppColors.primarySoft,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                l10n.pendingPayment,
-                                style: AppTextStyles.labelXs.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.2,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primarySoft,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  l10n.pendingPayment,
+                                  style: AppTextStyles.labelXs.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.2,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              '$fromLocation → $toLocation',
-                              style: AppTextStyles.labelMd.copyWith(
-                                color: AppColors.black,
-                                fontWeight: FontWeight.w800,
+                              const SizedBox(height: 10),
+                              Text(
+                                '$fromLocation → $toLocation',
+                                style: AppTextStyles.labelMd.copyWith(
+                                  color: AppColors.black,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              l10n.finishCheckoutShipment,
-                              style: AppTextStyles.bodySm.copyWith(
-                                color: AppColors.gray500,
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.finishCheckoutShipment,
+                                style: AppTextStyles.bodySm.copyWith(
+                                  color: AppColors.gray500,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '$currency ${amount.toStringAsFixed(2)}',
-                        style: AppTextStyles.h3.copyWith(
-                          color: AppColors.black,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 6,
-                        child: SizedBox(
-                          height: 48,
-                          child: AppButton(
-                            label: l10n.continueShipment,
-                            textStyle: AppTextStyles.labelMd.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                            ),
-                            onPressed: () => context.go('/payment'),
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 4,
-                        child: SizedBox(
-                          height: 48,
-                          child: AppButton(
-                            label: l10n.delete,
-                            variant: AppButtonVariant.outline,
-                            textStyle: AppTextStyles.labelMd.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            onPressed: _deleteDraft,
+                        const SizedBox(width: 12),
+                        Text(
+                          '$currency ${amount.toStringAsFixed(2)}',
+                          style: AppTextStyles.h3.copyWith(
+                            color: AppColors.black,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    AppButton(
+                      label: l10n.continueShipment,
+                      textStyle: AppTextStyles.labelMd.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  ),
-                ],
+                      onPressed: () => context.go('/payment'),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Text(
+                        'Press and hold this draft to delete it',
+                        style: AppTextStyles.labelXs
+                            .copyWith(color: AppColors.gray400),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

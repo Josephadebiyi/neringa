@@ -181,16 +181,50 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       return;
     }
     final payoutCurrency = _selectedCurrency.toUpperCase();
+    final previousCurrency = (user?.payoutAccount?['currency']?.toString() ??
+            user?.payoutCurrency?.toString() ??
+            UserCurrencyHelper.resolve(user))
+        .toUpperCase();
     setState(() => _saving = true);
     try {
       await ref.read(authProvider.notifier).activateEarning(payoutCurrency);
       if (!mounted) return;
-      context.push('/profile/add-bank');
+      await context.push('/profile/add-bank');
+      await ref.read(authProvider.notifier).refreshProfile();
+      if (!mounted) return;
+      final refreshed = ref.read(authProvider).user;
+      final linkedCurrency =
+          refreshed?.payoutAccount?['currency']?.toString().toUpperCase();
+      if (linkedCurrency != payoutCurrency) {
+        await ref.read(authProvider.notifier).activateEarning(previousCurrency);
+        await ref.read(authProvider.notifier).refreshProfile();
+        if (!mounted) return;
+        setState(() => _selectedCurrency = previousCurrency);
+        AppSnackBar.show(
+          context,
+          message:
+              'Payout setup was not completed. Currency restored to $previousCurrency.',
+          type: SnackBarType.info,
+        );
+      } else {
+        setState(() => _selectedCurrency = payoutCurrency);
+        AppSnackBar.show(
+          context,
+          message: '$payoutCurrency payout account linked.',
+          type: SnackBarType.success,
+        );
+      }
     } catch (error) {
       if (!mounted) return;
+      try {
+        await ref.read(authProvider.notifier).activateEarning(previousCurrency);
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() => _selectedCurrency = previousCurrency);
       AppSnackBar.show(
         context,
-        message: error.toString().replaceFirst('Exception: ', ''),
+        message:
+            '${error.toString().replaceFirst('Exception: ', '')} Currency restored to $previousCurrency.',
         type: SnackBarType.error,
       );
     } finally {
@@ -201,30 +235,39 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
   Future<void> _changePayoutCurrency(String currency) async {
     if (_saving || currency == _selectedCurrency) return;
     final previous = _selectedCurrency;
-    setState(() {
-      _selectedCurrency = currency;
-      _saving = true;
-    });
-    try {
-      await ref.read(authProvider.notifier).activateEarning(currency);
-      await ref.read(authProvider.notifier).refreshProfile();
-      if (!mounted) return;
+    final proceed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text('Set up $currency payouts?'),
+            content: Text(
+              'You must link a $currency payout account to use this currency. If setup is cancelled, Bago will keep $previous.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text('Keep $previous'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Set up account'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!proceed || !mounted) return;
+    if (ref.read(authProvider).user?.hasPassedKyc != true) {
       AppSnackBar.show(
         context,
-        message: 'Wallet display and future payouts now use $currency.',
-        type: SnackBarType.success,
+        message:
+            'Complete identity verification before changing payout currency.',
+        type: SnackBarType.info,
       );
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _selectedCurrency = previous);
-      AppSnackBar.show(
-        context,
-        message: error.toString().replaceFirst('Exception: ', ''),
-        type: SnackBarType.error,
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
+      await context.push('/kyc');
+      return;
     }
+    setState(() => _selectedCurrency = currency);
+    await _continueToAddPayoutAccount();
   }
 
   @override

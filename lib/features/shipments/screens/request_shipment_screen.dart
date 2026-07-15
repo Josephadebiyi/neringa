@@ -610,7 +610,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final preview = await _refreshCheckoutPreview(force: true);
+      final preview = await _refreshCheckoutPreview();
       if (preview == null) {
         if (mounted) {
           AppSnackBar.show(

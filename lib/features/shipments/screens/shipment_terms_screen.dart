@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,9 +54,9 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
     setState(() => _isAccepting = true);
     try {
       await SenderOnboardingService.instance.acceptTerms();
-      await ref.read(authProvider.notifier).refreshProfile();
       if (!mounted) return;
       if (widget.onAccepted != null) {
+        unawaited(ref.read(authProvider.notifier).refreshProfile());
         await widget.onAccepted!();
         return;
       }

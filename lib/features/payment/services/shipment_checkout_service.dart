@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -15,9 +16,11 @@ class ShipmentCheckoutService {
 
   final StorageService _storage = StorageService.instance;
   final ValueNotifier<int> draftVersion = ValueNotifier<int>(0);
+  Timer? _expiryTimer;
 
   Future<void> saveDraft(Map<String, dynamic> draft) async {
     await _storage.write(_draftKey, jsonEncode(draft));
+    _scheduleExpiry(draft);
     draftVersion.value++;
   }
 
@@ -27,6 +30,11 @@ class ShipmentCheckoutService {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
+        if (isExpired(decoded)) {
+          await clearDraft();
+          return null;
+        }
+        _scheduleExpiry(decoded);
         return decoded;
       }
     } catch (_) {}
@@ -34,8 +42,22 @@ class ShipmentCheckoutService {
   }
 
   Future<void> clearDraft() async {
+    _expiryTimer?.cancel();
+    _expiryTimer = null;
     await _storage.delete(_draftKey);
     draftVersion.value++;
+  }
+
+  void _scheduleExpiry(Map<String, dynamic> draft) {
+    _expiryTimer?.cancel();
+    final expiresAt = DateTime.tryParse(draft['expiresAt']?.toString() ?? '');
+    if (expiresAt == null) return;
+    final remaining = expiresAt.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      unawaited(clearDraft());
+      return;
+    }
+    _expiryTimer = Timer(remaining, () => unawaited(clearDraft()));
   }
 
   bool isExpired(Map<String, dynamic> draft) {
