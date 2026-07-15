@@ -539,7 +539,7 @@ export const startPremblySession = async (req, res) => {
         activeSession: true,
         kycStatus: 'pending',
         verificationUrl: activeSession.verificationUrl,
-        verificationRef: activeSession.premblyRef || activeSession.verificationRef || activeSession.sessionId || activeSession.userRef,
+        verificationRef: activeSession.sessionId || activeSession.premblyRef || activeSession.verificationRef || activeSession.userRef,
         callbackUrl: PREMBLY_CALLBACK_URL,
         message: 'A verification session is already active. Please finish that session or wait before starting another.',
       });
@@ -1026,7 +1026,7 @@ export const syncExistingPremblyResult = async (req, res) => {
         source: 'prembly_session',
         canStartNewSession: false,
         activeSession: true,
-        verificationRef: activeSession.premblyRef || activeSession.verificationRef || activeSession.sessionId || activeSession.userRef,
+        verificationRef: activeSession.sessionId || activeSession.premblyRef || activeSession.verificationRef || activeSession.userRef,
       });
     }
 
@@ -1131,21 +1131,25 @@ export async function syncPremblyForUser(userId, { notify = true } = {}) {
   }
 
   const verificationRef =
-    existing?.kycVerifiedData?.verificationRef ||
+    existing?.kycVerifiedData?.sessionId ||
+    existing?.kycVerifiedData?.session_id ||
     existing?.kycVerifiedData?.premblyRef ||
+    existing?.kycVerifiedData?.verificationRef ||
     existing?.kycVerifiedData?.referenceId ||
     (await queryOne(
       `SELECT COALESCE(
-                NULLIF(verification_ref, user_id::text),
+                NULLIF(session_id, user_id::text),
                 NULLIF(prembly_ref, user_id::text),
-                NULLIF(session_id, user_id::text)
+                NULLIF(verification_ref, user_id::text),
+                NULLIF(user_ref, user_id::text)
               ) AS "reference"
        FROM public.prembly_kyc_sessions
        WHERE user_id = $1
          AND COALESCE(
-               NULLIF(verification_ref, user_id::text),
+               NULLIF(session_id, user_id::text),
                NULLIF(prembly_ref, user_id::text),
-               NULLIF(session_id, user_id::text)
+               NULLIF(verification_ref, user_id::text),
+               NULLIF(user_ref, user_id::text)
              ) IS NOT NULL
        ORDER BY updated_at DESC
        LIMIT 1`,
@@ -1166,9 +1170,10 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
   const result = await query(
     `SELECT s.id, s.user_id AS "userId",
             COALESCE(
-              NULLIF(s.verification_ref, s.user_id::text),
+              NULLIF(s.session_id, s.user_id::text),
               NULLIF(s.prembly_ref, s.user_id::text),
-              NULLIF(s.session_id, s.user_id::text)
+              NULLIF(s.verification_ref, s.user_id::text),
+              NULLIF(s.user_ref, s.user_id::text)
             ) AS "reference",
             s.status
      FROM public.prembly_kyc_sessions s
@@ -1176,9 +1181,10 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
      WHERE s.status IN ('started', 'pending', 'processing', 'manual_review')
        AND COALESCE(p.kyc_status, 'not_started') NOT IN ('approved', 'blocked_duplicate', 'declined')
        AND COALESCE(
-             NULLIF(s.verification_ref, s.user_id::text),
+             NULLIF(s.session_id, s.user_id::text),
              NULLIF(s.prembly_ref, s.user_id::text),
-             NULLIF(s.session_id, s.user_id::text)
+             NULLIF(s.verification_ref, s.user_id::text),
+             NULLIF(s.user_ref, s.user_id::text)
            ) IS NOT NULL
        AND s.updated_at < timezone('utc', now()) - INTERVAL '2 minutes'
      ORDER BY s.created_at ASC
@@ -1239,6 +1245,7 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
     } catch (err) {
       summary.failed += 1;
       const errorMessage = String(err?.response?.data?.message || err.message || err).slice(0, 300);
+      const terminalNotFound = err?.response?.status === 404;
       console.error(
         `❌ Prembly reconcile failed for session ${session.id} (user ${session.userId}, ref ${reference}):`,
         `status=${err?.response?.status || 'n/a'}`,
@@ -1246,11 +1253,12 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
       );
       await query(
         `UPDATE public.prembly_kyc_sessions
-         SET last_synced_at = timezone('utc', now()),
+         SET status = CASE WHEN $3::boolean THEN 'not_found' ELSE status END,
+             last_synced_at = timezone('utc', now()),
              last_error = $2,
              updated_at = timezone('utc', now())
          WHERE id = $1`,
-        [session.id, errorMessage],
+        [session.id, errorMessage, terminalNotFound],
       ).catch(() => {});
     }
   }
