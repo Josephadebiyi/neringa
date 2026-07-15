@@ -344,28 +344,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                   if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
                 },
               ));
-      final data = res.data as Map<String, dynamic>?;
-      if (data?['requiresOtp'] == true) {
-        final message =
-            data?['message'] as String? ?? 'OTP sent to your email.';
-        final debugOtp = data?['debugOtp']?.toString();
-        setState(() {
-          _showOtp = true;
-          _loading = false;
-          _otpMessage = message;
-          _debugOtp = debugOtp;
-        });
-        if (mounted) {
-          AppSnackBar.show(context,
-              message: message, type: SnackBarType.success);
-        }
-      } else {
-        setState(() => _loading = false);
-        if (mounted) {
-          AppSnackBar.show(context,
-              message: 'Bank account linked!', type: SnackBarType.success);
-        }
-      }
+      _showOtpChallenge(res.data);
     } on DioException catch (e) {
       setState(() => _loading = false);
       if (mounted) {
@@ -448,28 +427,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                   if (kDebugMode) 'X-Debug-Bank-Otp': 'true',
                 },
               ));
-      final data = res.data as Map<String, dynamic>?;
-      if (data?['requiresOtp'] == true) {
-        final message =
-            data?['message'] as String? ?? 'OTP sent to your email.';
-        final debugOtp = data?['debugOtp']?.toString();
-        setState(() {
-          _showOtp = true;
-          _loading = false;
-          _otpMessage = message;
-          _debugOtp = debugOtp;
-        });
-        if (mounted) {
-          AppSnackBar.show(context,
-              message: message, type: SnackBarType.success);
-        }
-      } else {
-        setState(() => _loading = false);
-        if (mounted) {
-          AppSnackBar.show(context,
-              message: 'Bank account linked!', type: SnackBarType.success);
-        }
-      }
+      _showOtpChallenge(res.data);
     } on DioException catch (e) {
       setState(() => _loading = false);
       if (mounted) {
@@ -522,16 +480,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           'currency': 'GBP',
         },
       );
-      final data = res.data as Map<String, dynamic>?;
-      setState(() {
-        _showOtp = data?['requiresOtp'] == true;
-        _otpMessage = data?['message']?.toString();
-      });
-      if (mounted) {
-        AppSnackBar.show(context,
-            message: _otpMessage ?? 'Confirmation code sent to your email.',
-            type: SnackBarType.success);
-      }
+      _showOtpChallenge(res.data);
     } on DioException catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
@@ -540,6 +489,26 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showOtpChallenge(dynamic responseData) {
+    if (!mounted) return;
+    final data = responseData is Map
+        ? Map<String, dynamic>.from(responseData)
+        : <String, dynamic>{};
+    if (data['requiresOtp'] != true) {
+      throw StateError(
+          'The server did not request email confirmation. The payout account was not accepted by this app.');
+    }
+    final message = data['message']?.toString() ??
+        'We sent a 6-digit confirmation code to your email.';
+    setState(() {
+      _showOtp = true;
+      _loading = false;
+      _otpMessage = message;
+      _debugOtp = data['debugOtp']?.toString();
+    });
+    AppSnackBar.show(context, message: message, type: SnackBarType.success);
   }
 
   Future<void> _verifyOtp() async {
@@ -1209,7 +1178,13 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 ? null
                 : () {
                     _otpCtrl.clear();
-                    _isIban ? _linkIban() : _linkBank();
+                    if (_isIban) {
+                      _linkIban();
+                    } else if (_isGbp) {
+                      _linkGbp();
+                    } else {
+                      _linkBank();
+                    }
                   },
             child: Text('Resend code',
                 style: AppTextStyles.primary(AppTextStyles.labelMd)),

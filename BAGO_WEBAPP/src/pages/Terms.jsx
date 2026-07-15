@@ -1,119 +1,48 @@
 import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useLanguage } from '../context/LanguageContext';
-import { ChevronLeft, Shield, Scale, Package, ShieldCheck } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronLeft, Scale } from 'lucide-react';
 
-const Navbar = () => {
-    const navigate = useNavigate();
-    const { t } = useLanguage();
-    return (
-        <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8] transition-all font-bold text-xs">
-                <ChevronLeft size={20} />
-                <span>{t('back')}</span>
-            </button>
-            <Link to="/">
-                <img src="/bago_logo.png" alt="Bago" className="h-7 md:h-8" />
-            </Link>
-            <div className="w-16 hidden md:block"></div>
-        </nav>
-    );
-};
+const sections = [
+  ['1. Introduction and Acceptance', 'These Terms form a legally binding agreement between you and the Bago entity identified below. By creating an account or using the sendwithbago.com website, mobile app, APIs or services, you accept these Terms, our Privacy Policy and referenced policies. If acting for an organisation, you confirm that you may bind it.'],
+  ['2. Definitions', 'BAGO Ltd is incorporated in England and Wales. Send With Bago Enterprise is incorporated in Nigeria and is a subsidiary of BAGO Ltd. The Platform is Bago’s apps, website, APIs and services. A Sender lists a Shipment; a Traveller or Carrier offers to transport it; KYC means identity verification; Escrow means the safeguarded payment flow.'],
+  ['3. Your Contracting Entity', 'Users registered, resident or habitually located in Nigeria contract with Send With Bago Enterprise. Users in the United Kingdom and every other country contract with BAGO Ltd. On cross-entity routes, each User contracts only with their own entity, while carriage remains a direct contract between Sender and Traveller.'],
+  ['4. Marketplace, Not a Carrier', 'Bago provides technology connecting Senders and Travellers. It is not a courier, freight forwarder, customs broker, carrier, logistics company or postal operator and does not transport, inspect or take custody of Shipments. No partnership, agency, employment, fiduciary or joint-venture relationship is created.'],
+  ['5. Eligibility, Registration and KYC', 'You must be at least 18, legally able to contract, permitted to use the Platform and complete KYC when required. Information must remain accurate. Bago may suspend accounts for failed KYC, fraud, identity mismatch or sanctions exposure. You are responsible for account security and activity.'],
+  ['6. Prohibited Items and Legal Compliance', 'You must not list, accept or transport illegal drugs; weapons, firearms, ammunition or explosives; counterfeit, pirated or stolen goods; unlawfully carried currency; human remains or body parts; unlawfully traded wildlife; hazardous, flammable, toxic or radioactive materials; sanctioned or otherwise unlawful goods; or items connected to trafficking, smuggling or exploitation. Every Shipment must satisfy origin, transit, destination, customs and airline rules. Bago may request information, remove listings and report suspected illegality.'],
+  ['7. Sender Obligations', 'A Sender warrants lawful ownership or authority, accurate contents, weight, dimensions and value, all necessary permits, prescriptions and certificates, respect for third-party rights, and cooperation with inspection.'],
+  ['8. Traveller Obligations', 'A Traveller must reasonably inspect Shipments, decline undisclosed, suspicious or unlawful contents, comply with customs and tax formalities, hold required travel authorisations and never facilitate smuggling or duty evasion. Travellers bear personal legal responsibility for Shipments they knowingly carry.'],
+  ['9. Customs and Cross-Border Compliance', 'Users alone are responsible for customs declarations, duties, VAT, licences and quantity or value restrictions in every relevant jurisdiction, including UK, Nigerian and EU rules where applicable. Bago is not a customs broker or declarant.'],
+  ['10. International Users and Trip Listings', 'Users must determine legality in every affected country. A Trip Listing describes independent travel plans; Bago does not arrange or guarantee travel and is not responsible for cancellation, delay, rerouting, visa refusal or denial of entry. Compliance screening reduces risk but is not legal clearance.'],
+  ['11. Fees, Payments and Escrow', 'Fees are shown at booking. Payments and payout safeguards use third-party payment partners available for the transaction. Sender funds may be held pending delivery confirmation. Bago is not a bank or deposit-taking institution. Refunds follow the Refund and Cancellation Policy.'],
+  ['12. Insurance', 'Optional cover may be offered through MyCover.ai or another insurance partner. The partner, not Bago, underwrites and administers the policy, limits, exclusions and claims.'],
+  ['13. Open-Box Verification', 'A Traveller may request and a Sender may permit inspection before acceptance. A Traveller may decline when a reasonable request is refused. Bago does not supervise or guarantee inspection. Inspection, KYC and AI screening reduce risk but do not guarantee legality, accuracy or safety.'],
+  ['14. User Disputes', 'Bago may offer an informal dispute mechanism but does not legally adjudicate carriage disputes. Claims concerning carriage, conduct or misrepresentation remain between Users, without limiting independent legal remedies.'],
+  ['15. Limitation of Liability', 'To the maximum extent allowed by law, Bago is not liable for loss, theft, damage, delay, seizure, prohibited goods, government action, User conduct, travel disruption or insurance-partner decisions. Aggregate liability is limited to service fees received from that User during the three months before the event, except where law prohibits limitation.'],
+  ['16. Indemnification', 'Each User indemnifies their contracting entity, the Group and personnel against claims, fines, losses and reasonable legal costs arising from that User’s breach, unlawful goods, violation of law, third-party dispute or Trip Listing. This survives termination.'],
+  ['17. Disclaimer of Warranties', 'The Platform is provided “as is” and “as available”. Bago does not guarantee uninterrupted operation, User identity or conduct, or Shipment legality, safety or condition. Mandatory statutory rights are not excluded.'],
+  ['18. Data Protection and Privacy', 'BAGO Ltd processes data under the UK GDPR and Data Protection Act 2018; Send With Bago Enterprise under the Nigeria Data Protection Act 2023. Data may be shared lawfully with KYC providers, payment processors, insurers and authorities. Appropriate mechanisms apply to cross-border transfers. See the Privacy Policy for full details.'],
+  ['19. Intellectual Property', 'Platform software, branding and content, excluding User content, are owned by or licensed to BAGO Ltd. Users receive a limited, revocable, non-exclusive and non-transferable licence.'],
+  ['20. Suspension and Termination', 'Bago may suspend or terminate accounts for breach, fraud, illegality, prohibited goods, failed KYC or risk to Users or the Platform. Users may close accounts subject to outstanding transactions and disputes.'],
+  ['21. Force Majeure', 'Bago is not liable for delay or failure caused by events beyond reasonable control, including disasters, war, civil unrest, government action, strikes, network failures or pandemics.'],
+  ['22. Governing Law and Disputes', 'BAGO Ltd Users are governed by England and Wales law and courts; Send With Bago Enterprise Users by Nigerian law and courts, subject to mandatory consumer rights. The parties may agree to negotiation and, if unresolved after 30 days, applicable arbitration in London or Lagos. Data-protection complaint rights remain unaffected.'],
+  ['23. Miscellaneous', 'Invalid provisions are modified only as needed and the remainder survives. These Terms and referenced policies are the entire agreement. Material amendments will be notified at least 30 days before taking effect. Users may not assign without consent; Bago may assign during a transaction or Group restructuring. Failure to enforce is not a waiver.'],
+  ['24. Contact', 'BAGO Ltd (United Kingdom) and Send With Bago Enterprise (Nigeria): send@sendwithbago.com'],
+];
 
 export default function Terms() {
-    const { t } = useLanguage();
-    return (
-        <div className="min-h-screen bg-[#F8F6F3]">
-            <Navbar />
-            <div className="max-w-4xl mx-auto py-12 px-6 font-sans">
-                <div className="mb-10 text-center">
-                    <h1 className="text-3xl md:text-3xl font-black text-[#012126] mb-3 tracking-tight">{t('termsConditions')}</h1>
-                    <p className="text-[#6B7280] font-bold text-[10px] uppercase tracking-[2px] opacity-60">Last Updated: March 6, 2026</p>
-                </div>
-
-                <div className="bg-white rounded-[32px] p-8 md:p-12 shadow-sm border border-gray-100 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#5845D8]/5 rounded-bl-[60px]"></div>
-
-                    <div className="prose prose-slate max-w-none space-y-12">
-                        <section>
-                            <div className="flex items-center gap-2.5 mb-5 text-[#5845D8]">
-                                <Scale size={18} />
-                                <h2 className="text-base font-black m-0 tracking-tight uppercase">{t('acceptanceTerms')}</h2>
-                            </div>
-                            <p className="text-[#6B7280] leading-relaxed font-bold text-[12px] uppercase tracking-wide opacity-80 px-2 lg:px-4">
-                                {t('acceptanceDesc')}
-                            </p>
-                        </section>
-
-                        <section className="bg-blue-50/40 -mx-8 md:-mx-12 p-8 md:p-12 border-y border-blue-50/50">
-                            <div className="flex items-center gap-2.5 mb-5 text-blue-600">
-                                <Package size={18} />
-                                <h2 className="text-base font-black m-0 tracking-tight uppercase">{t('openPackagePolicy')}</h2>
-                            </div>
-                            <p className="text-[#012126] leading-relaxed font-black text-[11px] mb-5 uppercase tracking-widest px-2 lg:px-4">
-                                {t('safetyCompliance')}
-                            </p>
-                            <ul className="text-[#6B7280] leading-relaxed font-bold space-y-3 list-none p-0 px-2 lg:px-4">
-                                {[t('openPackageDesc1'),
-                                t('openPackageDesc2'),
-                                t('openPackageDesc3'),
-                                t('openPackageDesc4')].map((item, idx) => (
-                                    <li key={idx} className="flex gap-3 text-[11px] uppercase tracking-wide opacity-70">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1 flex-shrink-0"></span>
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
-
-                        <section>
-                            <div className="flex items-center gap-2.5 mb-5 text-amber-600">
-                                <ShieldCheck size={18} />
-                                <h2 className="text-base font-black m-0 tracking-tight uppercase">{t('verificationKYC')}</h2>
-                            </div>
-                            <p className="text-[#6B7280] leading-relaxed font-bold text-[12px] uppercase tracking-wide opacity-80 px-2 lg:px-4">
-                                {t('verificationDesc')}
-                                <br /><br />
-                                <strong className="text-[#012126] font-black">Duplicate Accounts:</strong> {t('duplicateAccounts')}
-                            </p>
-                        </section>
-
-                        <section className="bg-purple-50/40 -mx-8 md:-mx-12 p-8 md:p-12 border-y border-purple-50/50 text-[12px]">
-                            <div className="flex items-center gap-2.5 mb-5 text-purple-600">
-                                <Shield size={18} />
-                                <h2 className="text-base font-black m-0 tracking-tight uppercase">{t('protectionPolicy')}</h2>
-                            </div>
-                            <p className="text-[#6B7280] leading-relaxed font-bold uppercase tracking-wide opacity-80 px-2 lg:px-4 mb-5">
-                                {t('protectionDesc')}
-                            </p>
-                            <ul className="text-[#6B7280] leading-relaxed font-bold space-y-3 list-none p-0 px-2 lg:px-4">
-                                {[t('protectionPolicy1'),
-                                t('protectionPolicy2'),
-                                t('protectionPolicy3')].map((item, idx) => (
-                                    <li key={idx} className="flex gap-3 text-[11px] uppercase tracking-wide opacity-70">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1 flex-shrink-0"></span>
-                                        {item}
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
-
-                        <section className="px-2 lg:px-4">
-                            <h2 className="text-base font-black text-[#012126] mb-4 uppercase tracking-tight">{t('prohibitions')}</h2>
-                            <p className="text-[#6B7280] leading-relaxed font-bold text-[12px] uppercase tracking-wide opacity-70">
-                                {t('prohibitionsDesc')}
-                            </p>
-                        </section>
-
-                        <section className="pt-8 border-t border-gray-100 text-center">
-                            <p className="text-[#6B7280] font-black text-[10px] uppercase tracking-[2px]">
-                                {t('questions')}
-                                <Link to="/help" className="text-[#5845D8] ml-2 underline hover:text-[#4838B5] transition-colors">{t('questionsHelpCenter')}</Link>
-                            </p>
-                        </section>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+  const navigate = useNavigate();
+  return <div className="min-h-screen bg-[#F8F6F3]">
+    <nav className="sticky top-0 z-50 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-3 md:px-12">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-xs font-bold text-[#012126]"><ChevronLeft size={20}/>Back</button>
+      <Link to="/"><img src="/bago_logo.png" alt="Bago" className="h-8"/></Link><div className="w-16"/>
+    </nav>
+    <main className="mx-auto max-w-4xl px-6 py-12">
+      <header className="mb-10 text-center"><h1 className="text-3xl font-black text-[#012126]">Terms &amp; Conditions</h1><p className="mt-3 text-[10px] font-bold uppercase tracking-[2px] text-gray-500">Last updated: July 15, 2026</p></header>
+      <div className="rounded-[32px] border border-gray-100 bg-white p-8 shadow-sm md:p-12">
+        <div className="mb-10 flex gap-3 rounded-2xl bg-[#5845D8]/5 p-5 text-sm leading-6 text-[#012126]"><Scale className="mt-1 shrink-0 text-[#5845D8]" size={20}/><p>Please read these Terms carefully. They govern use of the Bago marketplace and identify the entity you contract with based on your location.</p></div>
+        <div className="space-y-9">{sections.map(([title, body]) => <section key={title}><h2 className="mb-3 text-base font-black uppercase tracking-tight text-[#012126]">{title}</h2><p className="text-sm font-medium leading-7 text-gray-600">{body}</p></section>)}</div>
+        <p className="mt-12 border-t border-gray-100 pt-8 text-center text-xs font-bold text-gray-500">Questions? <Link to="/help" className="text-[#5845D8] underline">Visit the Help Centre</Link></p>
+      </div>
+    </main>
+  </div>;
 }

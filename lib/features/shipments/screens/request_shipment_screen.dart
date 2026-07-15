@@ -27,6 +27,74 @@ import '../../trips/services/trip_service.dart';
 import '../services/shipment_service.dart';
 import 'shipment_terms_screen.dart';
 
+class _ItemDeclarationPanel extends StatelessWidget {
+  const _ItemDeclarationPanel({
+    required this.factorySealed,
+    required this.personalSealed,
+    required this.wrapped,
+    required this.travellerMayInspect,
+    required this.hasBatteries,
+    required this.hasLiquids,
+    required this.fragile,
+    required this.hasPrescriptionMedicine,
+    required this.receiptProvided,
+    required this.productLabelProvided,
+    required this.barcodeProvided,
+    required this.onChanged,
+  });
+
+  final bool factorySealed, personalSealed, wrapped, travellerMayInspect;
+  final bool hasBatteries, hasLiquids, fragile, hasPrescriptionMedicine;
+  final bool receiptProvided, productLabelProvided, barcodeProvided;
+  final void Function(String key, bool value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget check(String key, String title, bool value) => CheckboxListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          value: value,
+          title: Text(title, style: AppTextStyles.bodySm),
+          onChanged: (next) => onChanged(key, next == true),
+        );
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('PACKAGE DECLARATION',
+            style: AppTextStyles.labelSm.copyWith(fontWeight: FontWeight.w900)),
+        check('factory', 'Factory sealed', factorySealed),
+        check('personal', 'Personal sealed box or bag', personalSealed),
+        check('wrapped', 'Wrapped, taped or covered', wrapped),
+        check('inspect', 'Traveller is allowed to open and inspect',
+            travellerMayInspect),
+        check('battery', 'Contains batteries', hasBatteries),
+        check('liquid', 'Contains liquids', hasLiquids),
+        check('fragile', 'Contains fragile items', fragile),
+        check('medicine', 'Contains prescription medicine',
+            hasPrescriptionMedicine),
+        if (factorySealed) ...[
+          const Divider(),
+          Text('Factory-sealed evidence',
+              style:
+                  AppTextStyles.labelSm.copyWith(fontWeight: FontWeight.w800)),
+          check('receipt', 'Receipt available', receiptProvided),
+          check('label', 'Product label visible', productLabelProvided),
+          check('barcode', 'Barcode visible', barcodeProvided),
+        ],
+        Text(
+          'Wrapped or sealed packages are not rejected, but they must be inspected before collection.',
+          style: AppTextStyles.caption.copyWith(color: AppColors.gray500),
+        ),
+      ]),
+    );
+  }
+}
+
 class _CheckoutPreview {
   const _CheckoutPreview({
     required this.currency,
@@ -106,6 +174,18 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
   Timer? _previewDebounce;
   _CheckoutPreview? _checkoutPreview;
   String _category = 'Documents';
+  final Set<String> _selectedContents = {};
+  bool _factorySealed = false;
+  bool _personalSealed = false;
+  bool _wrapped = false;
+  bool _travellerMayInspect = true;
+  bool _hasBatteries = false;
+  bool _hasLiquids = false;
+  bool _fragile = false;
+  bool _hasPrescriptionMedicine = false;
+  bool _receiptProvided = false;
+  bool _productLabelProvided = false;
+  bool _barcodeProvided = false;
   CountryCurrencyData _receiverPhoneCountry =
       CurrencyConversionHelper.countryByCode('US')!;
 
@@ -117,14 +197,132 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     }
   }
 
-  static const _categories = [
-    ('Documents', Icons.description_outlined),
-    ('Clothing', Icons.checkroom_outlined),
-    ('Electronics', Icons.devices_outlined),
-    ('Food', Icons.restaurant_outlined),
-    ('Beauty', Icons.face_retouching_natural_outlined),
-    ('Other', Icons.category_outlined),
-  ];
+  static const _itemCatalog = <String, List<String>>{
+    'Fashion': [
+      'Clothes',
+      'Shoes',
+      'Jackets',
+      'Bags',
+      'Hats',
+      'Belts',
+      'Sunglasses',
+      'Wallets'
+    ],
+    'Electronics': [
+      'Phones',
+      'Tablets',
+      'Laptops',
+      'Smartwatches',
+      'Cameras',
+      'Headphones',
+      'Chargers',
+      'Power banks',
+      'Gaming consoles',
+      'Computer accessories'
+    ],
+    'Home': [
+      'Kitchen utensils',
+      'Plates',
+      'Cups',
+      'Decorations',
+      'Bedding',
+      'Towels',
+      'Curtains'
+    ],
+    'Books': ['Books', 'Documents', 'Magazines', 'Stationery', 'Notebooks'],
+    'Baby Items': [
+      'Baby clothes',
+      'Toys',
+      'Baby bottles',
+      'Diapers',
+      'Strollers',
+      'Baby carriers'
+    ],
+    'Beauty': ['Makeup', 'Skincare', 'Shampoo', 'Soap', 'Hair products'],
+    'Sports': ['Jerseys', 'Sports shoes', 'Balls', 'Fitness accessories'],
+    'Gifts': ['Souvenirs', 'Greeting cards', 'Gift boxes'],
+    'Food': [
+      'Chocolate',
+      'Coffee',
+      'Tea',
+      'Biscuits',
+      'Candy',
+      'Dry packaged food',
+      'Factory sealed snacks'
+    ],
+  };
+
+  Future<void> _showContentsPicker() async {
+    final working = Set<String>.from(_selectedContents);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * .82,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
+                  child: Row(children: [
+                    Expanded(
+                        child: Text('What is inside?',
+                            style: AppTextStyles.h3
+                                .copyWith(fontWeight: FontWeight.w900))),
+                    TextButton(
+                      onPressed: working.isEmpty
+                          ? null
+                          : () {
+                              setState(() {
+                                _selectedContents
+                                  ..clear()
+                                  ..addAll(working);
+                                _category = _itemCatalog.entries
+                                    .firstWhere(
+                                        (entry) =>
+                                            entry.value.contains(working.first),
+                                        orElse: () =>
+                                            const MapEntry('Other', []))
+                                    .key;
+                              });
+                              Navigator.pop(sheetContext);
+                            },
+                      child: Text('Done (${working.length})'),
+                    ),
+                  ]),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: _itemCatalog.entries
+                        .expand((entry) => [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 18, 20, 4),
+                                child: Text(entry.key.toUpperCase(),
+                                    style: AppTextStyles.labelSm.copyWith(
+                                        color: AppColors.gray500,
+                                        fontWeight: FontWeight.w900)),
+                              ),
+                              ...entry.value.map((item) => CheckboxListTile(
+                                    value: working.contains(item),
+                                    title: Text(item),
+                                    onChanged: (checked) => setSheetState(() =>
+                                        checked == true
+                                            ? working.add(item)
+                                            : working.remove(item)),
+                                  )),
+                            ])
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -145,7 +343,10 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             ? w.toInt().toString()
             : w.toStringAsFixed(2);
       }
-      if (d['category'] != null) _category = d['category'] as String;
+      if (d['category'] != null) {
+        _category = d['category'] as String;
+        _selectedContents.add(_category);
+      }
       if (d['photo'] != null) _itemImage = d['photo'] as File;
       if (d['description'] != null && (d['description'] as String).isNotEmpty) {
         _messageCtrl.text = d['description'] as String;
@@ -340,6 +541,18 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           type: SnackBarType.error);
       return;
     }
+    if (_selectedContents.isEmpty && widget.preFilledData == null) {
+      AppSnackBar.show(context,
+          message: 'Select every item contained in the package.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (!_travellerMayInspect) {
+      AppSnackBar.show(context,
+          message: 'The traveller must be allowed to inspect the package.',
+          type: SnackBarType.error);
+      return;
+    }
     if (_itemImage == null && widget.preFilledData == null) {
       AppSnackBar.show(context,
           message: 'Add an item image before continuing.',
@@ -436,6 +649,21 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               images: _itemImage != null ? [_itemImage!] : [],
               insurance: _insurance,
               currency: currency,
+              contents: _selectedContents.toList(),
+              declaration: {
+                'factorySealed': _factorySealed,
+                'personalSealed': _personalSealed,
+                'wrapped': _wrapped,
+                'travellerMayInspect': _travellerMayInspect,
+                'refusesInspection': !_travellerMayInspect,
+                'hasBatteries': _hasBatteries,
+                'hasLiquids': _hasLiquids,
+                'fragile': _fragile,
+                'hasPrescriptionMedicine': _hasPrescriptionMedicine,
+                'receiptProvided': _receiptProvided,
+                'productLabelProvided': _productLabelProvided,
+                'barcodeProvided': _barcodeProvided,
+              },
             );
 
       final draft = <String, dynamic>{
@@ -651,10 +879,66 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
                         controller: _itemValueCtrl, currency: currency)),
               ]),
               const SizedBox(height: 16),
-              _CategoryGrid(
-                categories: _categories,
-                selected: _category,
-                onSelect: (cat) => setState(() => _category = cat),
+              OutlinedButton.icon(
+                onPressed: _showContentsPicker,
+                icon: const Icon(Icons.playlist_add_check_rounded),
+                label: Text(_selectedContents.isEmpty
+                    ? 'Select everything inside'
+                    : '${_selectedContents.length} item types selected'),
+              ),
+              if (_selectedContents.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: _selectedContents
+                      .map((item) => InputChip(
+                            label: Text(item),
+                            onDeleted: () =>
+                                setState(() => _selectedContents.remove(item)),
+                          ))
+                      .toList(),
+                ),
+              ],
+              const SizedBox(height: 16),
+              _ItemDeclarationPanel(
+                factorySealed: _factorySealed,
+                personalSealed: _personalSealed,
+                wrapped: _wrapped,
+                travellerMayInspect: _travellerMayInspect,
+                hasBatteries: _hasBatteries,
+                hasLiquids: _hasLiquids,
+                fragile: _fragile,
+                hasPrescriptionMedicine: _hasPrescriptionMedicine,
+                receiptProvided: _receiptProvided,
+                productLabelProvided: _productLabelProvided,
+                barcodeProvided: _barcodeProvided,
+                onChanged: (key, value) => setState(() {
+                  switch (key) {
+                    case 'factory':
+                      _factorySealed = value;
+                    case 'personal':
+                      _personalSealed = value;
+                    case 'wrapped':
+                      _wrapped = value;
+                    case 'inspect':
+                      _travellerMayInspect = value;
+                    case 'battery':
+                      _hasBatteries = value;
+                    case 'liquid':
+                      _hasLiquids = value;
+                    case 'fragile':
+                      _fragile = value;
+                    case 'medicine':
+                      _hasPrescriptionMedicine = value;
+                    case 'receipt':
+                      _receiptProvided = value;
+                    case 'label':
+                      _productLabelProvided = value;
+                    case 'barcode':
+                      _barcodeProvided = value;
+                  }
+                }),
               ),
               const SizedBox(height: 16),
               _ImagePickerTile(image: _itemImage, onTap: _pickImage),
@@ -1251,65 +1535,6 @@ class _ValueField extends StatelessWidget {
           ),
         ),
       ]),
-    );
-  }
-}
-
-// ── Category grid ─────────────────────────────────────────────────────────────
-
-class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid(
-      {required this.categories,
-      required this.selected,
-      required this.onSelect});
-  final List<(String, IconData)> categories;
-  final String selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 3,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 1.8,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: categories.map(((String, IconData) cat) {
-        final isSelected = selected == cat.$1;
-        return GestureDetector(
-          onTap: () => onSelect(cat.$1),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : AppColors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isSelected ? AppColors.primary : const Color(0xFFE8EAED),
-                width: isSelected ? 0 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(cat.$2,
-                    size: 18,
-                    color: isSelected ? Colors.white : AppColors.gray400),
-                const SizedBox(height: 4),
-                Text(
-                  cat.$1,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected ? Colors.white : AppColors.gray600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 }

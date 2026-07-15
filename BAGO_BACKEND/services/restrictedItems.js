@@ -1,194 +1,90 @@
-/**
- * Restricted and Prohibited Items Validation Service
- * Checks if items are allowed for shipping based on international regulations
- */
+/** Bago shipment-content policy. Keep deterministic declarations authoritative;
+ * AI uncertainty must never become an automatic rejection. */
 
-// List of restricted/prohibited items by category
+export const ITEM_CATALOG = {
+  Fashion: ['Clothes', 'Shoes', 'Jackets', 'Bags', 'Hats', 'Belts', 'Sunglasses', 'Wallets'],
+  Electronics: ['Phones', 'Tablets', 'Laptops', 'Smartwatches', 'Cameras', 'Headphones', 'Chargers', 'Power banks (within airline limits)', 'Gaming consoles', 'Computer accessories'],
+  Home: ['Kitchen utensils', 'Plates', 'Cups', 'Decorations', 'Bedding', 'Towels', 'Curtains'],
+  Books: ['Books', 'Documents', 'Magazines', 'Stationery', 'Notebooks'],
+  'Baby Items': ['Baby clothes', 'Toys', 'Baby bottles', 'Diapers', 'Strollers', 'Baby carriers'],
+  Beauty: ['Makeup', 'Skincare', 'Shampoo', 'Soap', 'Hair products'],
+  Sports: ['Jerseys', 'Sports shoes', 'Balls', 'Fitness accessories'],
+  Gifts: ['Souvenirs', 'Greeting cards', 'Gift boxes'],
+  Food: ['Chocolate', 'Coffee', 'Tea', 'Biscuits', 'Candy', 'Dry packaged food', 'Factory sealed snacks'],
+};
+
 export const RESTRICTED_ITEMS = {
   prohibited: [
-    'weapons',
-    'firearms',
-    'explosives',
-    'ammunition',
-    'drugs',
-    'narcotics',
-    'illegal substances',
-    'counterfeit goods',
-    'stolen items',
-    'radioactive materials',
-    'hazardous chemicals',
-    'biological hazards',
-    'flammable liquids',
-    'compressed gases',
-    'poisonous substances',
-    'tobacco products (bulk)',
-    'alcohol (bulk)',
-    'live animals',
-    'human remains',
-    'ivory',
-    'endangered species products',
+    'illegal drugs', 'cocaine', 'heroin', 'meth', 'fake passports', 'fake ids',
+    'counterfeit goods', 'weapons', 'firearms', 'ammunition', 'explosives',
+    'fireworks', 'fuel', 'gas cylinders', 'poison', 'hazardous chemicals',
+    'radioactive materials', 'human organs', 'human remains', 'live animals',
+    'endangered species', 'stolen goods', 'cash', 'gold bullion',
+    'large quantities of precious metals', 'extremist material',
   ],
-  restricted: [
-    'lithium batteries (standalone)',
-    'perfume (over 500ml)',
-    'aerosols',
-    'nail polish',
-    'matches',
-    'lighters',
-    'dry ice',
-    'medical specimens',
-    'sharp objects',
-    'power banks (over 100Wh)',
-    'magnets (strong)',
-    'mercury thermometers',
-    'vehicle batteries',
+  conditional: [
+    'perfume', 'cologne', 'nail polish', 'alcohol', 'tobacco', 'vitamins',
+    'supplements', 'prescription medicine',
   ],
+  manualReview: [
+    'luxury watches', 'luxury handbags', 'gold jewellery', 'gold jewelry',
+    'diamonds', 'artwork', 'antiques', 'commercial inventory', 'drones',
+    'high value electronics', 'multiple identical products',
+    'lithium batteries by themselves', 'standalone lithium batteries',
+    'refrigerated food', 'large quantities',
+  ],
+  // Backward-compatible alias consumed by the vision prompt.
+  get restricted() { return [...this.conditional, ...this.manualReview]; },
 };
 
-// Category-specific rules
-export const CATEGORY_RULES = {
-  electronics: {
-    maxValue: 5000, // USD
+export const CATEGORY_RULES = Object.fromEntries(
+  Object.keys(ITEM_CATALOG).map((name) => [name.toLowerCase(), {
+    maxValue: name === 'Electronics' ? 5000 : 2000,
     requiresDeclaration: true,
-    notes: 'Lithium batteries must be under 100Wh. Devices with built-in batteries are usually acceptable.',
-  },
-  food: {
-    maxValue: 500,
-    requiresDeclaration: true,
-    notes: 'Perishable items not recommended. Check destination country import restrictions.',
-  },
-  cosmetics: {
-    maxValue: 1000,
-    requiresDeclaration: true,
-    notes: 'Liquids must be properly sealed. Aerosols and perfumes over 500ml restricted.',
-  },
-  medical: {
-    maxValue: 2000,
-    requiresDeclaration: true,
-    notes: 'Prescription medications require documentation. Controlled substances prohibited.',
-  },
-  jewelry: {
-    maxValue: 10000,
-    requiresDeclaration: true,
-    notes: 'High-value items require insurance and proper declaration.',
-  },
-  documents: {
-    maxValue: 100,
-    requiresDeclaration: false,
-    notes: 'Personal documents generally unrestricted.',
-  },
-  clothing: {
-    maxValue: 2000,
-    requiresDeclaration: false,
-    notes: 'Used clothing acceptable. Counterfeit brands prohibited.',
-  },
-  books: {
-    maxValue: 500,
-    requiresDeclaration: false,
-    notes: 'Generally unrestricted unless content is illegal in destination country.',
-  },
-  toys: {
-    maxValue: 1000,
-    requiresDeclaration: true,
-    notes: 'Must meet safety standards. Battery-operated toys subject to battery rules.',
-  },
-  other: {
-    maxValue: 2000,
-    requiresDeclaration: true,
-    notes: 'Provide detailed description for customs clearance.',
-  },
-};
+    notes: 'Country legality, customs rules, airline limits and quantity limits apply.',
+  }]),
+);
+CATEGORY_RULES.other = { maxValue: 2000, requiresDeclaration: true, notes: 'Detailed declaration and inspection required.' };
 
-/**
- * Validate if an item is restricted or prohibited
- * @param {String} description - Item description
- * @param {String} category - Item category
- * @param {Number} value - Item value in USD
- * @returns {Object} - Validation result
- */
-export function validateItem(description, category, value) {
-  const descriptionLower = description.toLowerCase();
-
-  // Check for prohibited items
-  for (const prohibitedItem of RESTRICTED_ITEMS.prohibited) {
-    if (descriptionLower.includes(prohibitedItem.toLowerCase())) {
-      return {
-        allowed: false,
-        isRestricted: true,
-        severity: 'prohibited',
-        reason: `This item is prohibited: ${prohibitedItem}. It cannot be shipped under any circumstances.`,
-        requiresReview: false,
-      };
-    }
-  }
-
-  // Check for restricted items (may be allowed with conditions)
-  for (const restrictedItem of RESTRICTED_ITEMS.restricted) {
-    if (descriptionLower.includes(restrictedItem.toLowerCase())) {
-      return {
-        allowed: true,
-        isRestricted: true,
-        severity: 'restricted',
-        reason: `This item is restricted: ${restrictedItem}. Special handling and documentation required.`,
-        requiresReview: true,
-      };
-    }
-  }
-
-  // Check category-specific rules
-  const categoryRule = CATEGORY_RULES[category] || CATEGORY_RULES.other;
-
-  if (value > categoryRule.maxValue) {
-    return {
-      allowed: true,
-      isRestricted: true,
-      severity: 'high_value',
-      reason: `Item value ($${value}) exceeds typical maximum for ${category} category ($${categoryRule.maxValue}). Insurance strongly recommended.`,
-      requiresReview: true,
-      notes: categoryRule.notes,
-    };
-  }
-
-  // Item is generally allowed
-  return {
-    allowed: true,
-    isRestricted: false,
-    severity: 'none',
-    reason: null,
-    requiresReview: false,
-    requiresDeclaration: categoryRule.requiresDeclaration,
-    notes: categoryRule.notes,
-  };
+function containsAny(text, terms) {
+  return terms.find((term) => {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|\\b)${escaped}(?:\\b|$)`, 'i').test(text);
+  });
 }
 
-/**
- * Get category rules for a specific category
- * @param {String} category - Item category
- * @returns {Object} - Category rules
- */
+export function validateItem(description = '', category = 'other', value = 0, declaration = {}) {
+  const text = `${description} ${(declaration.items || []).join(' ')}`.toLowerCase();
+  if (declaration.refusesInspection || declaration.lockedBox) {
+    return { allowed: false, outcome: 'rejected', severity: 'prohibited', requiresReview: false, reason: 'Locked packages and refusal of inspection are not accepted.' };
+  }
+  const prohibited = containsAny(text, RESTRICTED_ITEMS.prohibited);
+  if (prohibited) {
+    return { allowed: false, outcome: 'rejected', severity: 'prohibited', requiresReview: false, reason: `Prohibited content declared: ${prohibited}.` };
+  }
+  const manual = containsAny(text, RESTRICTED_ITEMS.manualReview);
+  if (manual || Number(value) > 5000 || declaration.commercialQuantity) {
+    return { allowed: true, outcome: 'manual_review', severity: 'manual_review', requiresReview: true, reason: `Manual review required${manual ? `: ${manual}` : ''}.` };
+  }
+  const conditional = containsAny(text, RESTRICTED_ITEMS.conditional);
+  if (conditional || declaration.hasBatteries || declaration.hasLiquids || declaration.hasPrescriptionMedicine) {
+    return { allowed: true, outcome: 'approved_with_conditions', severity: 'conditional', requiresReview: false, reason: 'Country legality, airline compliance and quantity limits must be confirmed.', conditions: ['Country legality', 'Airline compliance', 'Quantity limits'] };
+  }
+  if (declaration.factorySealed && !(declaration.receiptProvided && declaration.productLabelProvided && declaration.barcodeProvided && declaration.photoProvided)) {
+    return { allowed: true, outcome: 'approved_with_conditions', severity: 'conditional', requiresReview: false, reason: 'Factory-sealed goods require receipt, label, barcode and photo.' };
+  }
+  if (declaration.personalSealed || declaration.wrapped) {
+    return { allowed: true, outcome: 'approved_with_conditions', severity: 'inspection_required', requiresReview: false, reason: 'Inspection required before collection.', conditions: ['Traveller must inspect contents', 'Sender must agree to inspection'] };
+  }
+  return { allowed: true, outcome: 'approved', severity: 'none', requiresReview: false, reason: null, requiresDeclaration: true };
+}
+
 export function getCategoryRules(category) {
-  return CATEGORY_RULES[category] || CATEGORY_RULES.other;
+  return CATEGORY_RULES[String(category).toLowerCase()] || CATEGORY_RULES.other;
 }
 
-/**
- * Get all available categories
- * @returns {Array} - List of categories
- */
-export function getAvailableCategories() {
-  return Object.keys(CATEGORY_RULES);
-}
+export function getAvailableCategories() { return Object.keys(ITEM_CATALOG); }
 
-/**
- * Check if item requires customs declaration
- * @param {String} category - Item category
- * @param {Number} value - Item value in USD
- * @returns {Boolean}
- */
-export function requiresCustomsDeclaration(category, value) {
-  const categoryRule = CATEGORY_RULES[category] || CATEGORY_RULES.other;
+export function getItemCatalog() { return ITEM_CATALOG; }
 
-  // Always require declaration for high-value items (over $800)
-  if (value > 800) return true;
-
-  return categoryRule.requiresDeclaration;
-}
+export function requiresCustomsDeclaration() { return true; }

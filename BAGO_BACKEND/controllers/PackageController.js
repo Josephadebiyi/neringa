@@ -2,6 +2,7 @@ import cloudinary from 'cloudinary';
 import { createPackageRecord, deletePackageRecord, getPackageById } from '../lib/postgres/shipping.js';
 import { queryOne } from '../lib/postgres/db.js';
 import { scanItemImageForSafety } from '../services/itemImageSafetyService.js';
+import { validateItem } from '../services/restrictedItems.js';
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -47,6 +48,13 @@ export const createPackage = async (req, res) => {
     const packageWeight = package_details?.package_weight ?? req.body.packageWeight ?? req.body.weight;
     const category = (package_details?.category || req.body.category || 'other')?.trim();
     const value = package_details?.package_value ?? req.body.value ?? 0;
+    const parseJsonField = (input, fallback) => {
+      if (input == null) return fallback;
+      if (typeof input !== 'string') return input;
+      try { return JSON.parse(input); } catch { return fallback; }
+    };
+    const contents = parseJsonField(package_details?.contents ?? req.body.contents, []);
+    const declaration = parseJsonField(package_details?.declaration ?? req.body.declaration, {});
 
     const description = package_details?.package_description ||
       (package_details?.package_name
@@ -72,6 +80,8 @@ export const createPackage = async (req, res) => {
     if (!receiverName) missingFields.push('receiverName');
     if (!receiverPhone) missingFields.push('receiverPhone');
     if (!category) missingFields.push('category');
+    if (!Array.isArray(contents) || contents.length === 0) missingFields.push('contents');
+    if (declaration.travellerMayInspect !== true) missingFields.push('travellerMayInspect');
 
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -110,14 +120,27 @@ export const createPackage = async (req, res) => {
         })
       : { skipped: true, reason: 'no_image' };
 
-    if (imageSafetyScan?.allowed === false) {
+    const declaredSafety = validateItem(description, category, value, {
+      ...declaration,
+      items: contents,
+      photoProvided: Boolean(rawImageData),
+    });
+
+    if (declaredSafety.allowed === false || imageSafetyScan?.allowed === false) {
       return res.status(403).json({
         success: false,
         code: 'ITEM_IMAGE_BLOCKED',
-        message: 'The uploaded item photo appears to show a prohibited or unsafe item. Please contact support if this is incorrect.',
+        message: declaredSafety.reason || 'A high-confidence prohibited item was detected.',
         imageSafetyScan,
+        declaredSafety,
       });
     }
+
+    const safetyOutcome = declaredSafety.outcome === 'manual_review' || imageSafetyScan?.outcome === 'manual_review'
+      ? 'manual_review'
+      : declaredSafety.outcome === 'approved_with_conditions' || imageSafetyScan?.outcome === 'approved_with_conditions'
+        ? 'approved_with_conditions'
+        : 'approved';
 
     const imageUrl = rawImageData ? await uploadPackageImage(rawImageData, userId) : null;
 
@@ -140,12 +163,18 @@ export const createPackage = async (req, res) => {
       pickupAddress,
       deliveryAddress,
       imageSafetyScan,
+      contents,
+      declaration,
+      safetyOutcome,
+      declaredSafety,
     });
 
     return res.status(201).json({
       message: 'Package created successfully',
       package: pkg,
       imageSafetyScan,
+      safetyOutcome,
+      declaredSafety,
     });
   } catch (err) {
     console.error('Error creating package:', err);

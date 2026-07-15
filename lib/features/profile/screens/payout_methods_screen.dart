@@ -301,6 +301,52 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
             enabled: !_saving,
             onTap: _continueToAddPayoutAccount,
           ),
+          if (payoutState.isActive && payoutAccount != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('LINKED PAYOUT ACCOUNT',
+                      style: AppTextStyles.labelSm.copyWith(
+                          color: AppColors.gray400,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .8)),
+                  const SizedBox(height: 14),
+                  _AccountDetailRow(label: 'Bank', value: bankName),
+                  if ((payoutAccount['accountHolderName'] ??
+                              payoutAccount['account_holder_name'])
+                          ?.toString()
+                          .isNotEmpty ==
+                      true)
+                    _AccountDetailRow(
+                      label: 'Account holder',
+                      value: (payoutAccount['accountHolderName'] ??
+                              payoutAccount['account_holder_name'])
+                          .toString(),
+                    ),
+                  if (maskedAccount.isNotEmpty)
+                    _AccountDetailRow(label: 'Account', value: maskedAccount),
+                  if (accountCurrency.isNotEmpty)
+                    _AccountDetailRow(
+                        label: 'Currency', value: accountCurrency),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Changing this account requires a confirmation code sent to your email.',
+                    style: AppTextStyles.bodySm
+                        .copyWith(color: AppColors.gray500, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 26),
           const _SectionLabel(
             title: 'Payout currency',
@@ -340,6 +386,36 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
               color: AppColors.gray500,
               height: 1.4,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountDetailRow extends StatelessWidget {
+  const _AccountDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 112,
+            child: Text(label,
+                style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500)),
+          ),
+          Expanded(
+            child: Text(value,
+                textAlign: TextAlign.right,
+                style: AppTextStyles.bodySm.copyWith(
+                    color: AppColors.black, fontWeight: FontWeight.w800)),
           ),
         ],
       ),

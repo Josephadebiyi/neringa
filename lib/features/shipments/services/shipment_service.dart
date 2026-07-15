@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
@@ -73,6 +74,8 @@ class ShipmentService {
     List<File>? images,
     bool insurance = false,
     String currency = 'USD',
+    List<String> contents = const [],
+    Map<String, dynamic> declaration = const {},
   }) async {
     try {
       final fields = <String, dynamic>{
@@ -92,6 +95,8 @@ class ShipmentService {
         'description': description ?? '',
         'insurance': insurance.toString(),
         'currency': currency,
+        'contents': jsonEncode(contents),
+        'declaration': jsonEncode(declaration),
       };
 
       if (images != null && images.isNotEmpty) {

@@ -3,8 +3,6 @@ import { askClaude, isAiEnabled } from './aiService.js';
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_VISION_MODEL || process.env.AI_IMAGE_SCAN_MODEL || 'claude-haiku-4-5';
 
-const BLOCKED_LABELS = new Set(['prohibited', 'unsafe']);
-
 function scanRequired() {
   return process.env.AI_IMAGE_SCAN_REQUIRED === 'true';
 }
@@ -60,13 +58,25 @@ function normalizeScanResult(raw = {}) {
   const detectedItems = Array.isArray(raw.detectedItems)
     ? raw.detectedItems.map((item) => String(item).slice(0, 80)).filter(Boolean).slice(0, 8)
     : [];
+  const confidence = Number.isFinite(Number(raw.confidence))
+    ? Math.max(0, Math.min(1, Number(raw.confidence)))
+    : 0;
+  const claimsProhibited = normalizedLabel === 'prohibited' || normalizedLabel === 'unsafe';
+  const outcome = claimsProhibited
+    ? (confidence > 0.95 ? 'rejected' : confidence >= 0.70 ? 'manual_review' : 'approved')
+    : normalizedLabel === 'restricted'
+      ? 'approved_with_conditions'
+      : normalizedLabel === 'review'
+        ? 'manual_review'
+        : 'approved';
   return {
     provider: 'anthropic',
     model: DEFAULT_MODEL,
     label: normalizedLabel,
-    allowed: !BLOCKED_LABELS.has(normalizedLabel),
-    requiresReview: normalizedLabel === 'restricted' || normalizedLabel === 'review' || Boolean(raw.requiresReview),
-    confidence: Number.isFinite(Number(raw.confidence)) ? Math.max(0, Math.min(1, Number(raw.confidence))) : null,
+    outcome,
+    allowed: outcome !== 'rejected',
+    requiresReview: outcome === 'manual_review',
+    confidence,
     detectedItems,
     reason: String(raw.reason || 'Image safety scan completed.').slice(0, 500),
   };
@@ -83,9 +93,10 @@ export async function scanItemImageForSafety({
     if (scanRequired()) {
       return {
         skipped: false,
-        allowed: false,
+        allowed: true,
         requiresReview: true,
-        label: 'unsafe',
+        label: 'review',
+        outcome: 'manual_review',
         reason: 'AI image safety scanning is required but ANTHROPIC_API_KEY is not configured.',
       };
     }
@@ -97,9 +108,10 @@ export async function scanItemImageForSafety({
     if (scanRequired()) {
       return {
         skipped: false,
-        allowed: false,
+        allowed: true,
         requiresReview: true,
-        label: 'unsafe',
+        label: 'review',
+        outcome: 'manual_review',
         reason: 'AI image safety scanning requires uploaded image bytes, not only a remote URL.',
       };
     }
@@ -116,8 +128,8 @@ export async function scanItemImageForSafety({
     `Declared value: ${declaredValue || 0}.`,
     `Prohibited examples: ${RESTRICTED_ITEMS.prohibited.join(', ')}.`,
     `Restricted examples: ${RESTRICTED_ITEMS.restricted.join(', ')}.`,
-    'If the photo clearly shows weapons, drugs, pills, IDs/passports, cash, bank cards, alcohol, tobacco/vapes, animals, hazardous materials, unknown powders, counterfeit goods, or exposed private documents, use prohibited or unsafe.',
-    'If uncertain, use review with requiresReview true.',
+    'Use prohibited only when the image clearly shows an explicitly prohibited item. Medicine, alcohol, tobacco, sealed, boxed, wrapped, or unclear contents are not automatically prohibited.',
+    'Never invent dangerous items. If uncertain, use review; uncertainty alone is never prohibited.',
   ].join('\n');
 
   try {
@@ -141,9 +153,10 @@ export async function scanItemImageForSafety({
       if (scanRequired()) {
         return {
           skipped: false,
-          allowed: false,
+          allowed: true,
           requiresReview: true,
-          label: 'unsafe',
+          label: 'review',
+          outcome: 'manual_review',
           reason: 'AI image safety scan returned an unreadable result.',
         };
       }
@@ -155,9 +168,10 @@ export async function scanItemImageForSafety({
     if (scanRequired()) {
       return {
         skipped: false,
-        allowed: false,
+        allowed: true,
         requiresReview: true,
-        label: 'unsafe',
+        label: 'review',
+        outcome: 'manual_review',
         reason: error?.message || 'AI image safety scan failed.',
       };
     }

@@ -462,10 +462,8 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
   }
 };
 
-// No OTP step for Flutterwave beneficiary connection today (single-step, unlike
-// Paystack's email-OTP-gated bank linking) — kept as a real endpoint so the
-// mobile/web forms' conditional OTP-step UI has somewhere to land if that
-// changes later, rather than silently 404ing.
+// Complete the pending beneficiary only after possession of the account email
+// has been proved with the short-lived OTP created by the connect endpoint.
 export const verifyFlutterwaveBankOtp = async (req, res) => {
   try {
     const otp = String(req.body?.otp || '').trim();

@@ -700,14 +700,21 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
 }
 
 export async function createPackageRecord(data) {
+  await query(`
+    alter table public.packages
+      add column if not exists contents jsonb not null default '[]'::jsonb,
+      add column if not exists item_declaration jsonb not null default '{}'::jsonb,
+      add column if not exists safety_status text not null default 'approved'
+  `);
   const row = await queryOne(
     `
       insert into public.packages (
         user_id, from_country, from_city, to_country, to_city, package_weight, declared_value,
         receiver_name, receiver_email, receiver_phone, receiver_phone_country_code,
-        description, image_url, images, category, pickup_address, delivery_address
+        description, image_url, images, category, pickup_address, delivery_address,
+        contents, item_declaration, safety_status
       )
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
       returning *
     `,
     [
@@ -728,6 +735,9 @@ export async function createPackageRecord(data) {
       data.category,
       data.pickupAddress,
       data.deliveryAddress,
+      JSON.stringify(data.contents ?? []),
+      JSON.stringify(data.declaration ?? {}),
+      data.safetyOutcome || 'approved',
     ],
   );
   await recordOperationalEvent(null, {
@@ -750,6 +760,10 @@ export async function createPackageRecord(data) {
       toCity: data.toCity,
       hasImages: Array.isArray(data.images) && data.images.length > 0,
       imageSafetyScan: data.imageSafetyScan || null,
+      declaredSafety: data.declaredSafety || null,
+      contents: data.contents || [],
+      declaration: data.declaration || {},
+      safetyOutcome: data.safetyOutcome || 'approved',
     },
   });
   return normalizePackage(row);
