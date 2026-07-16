@@ -11,8 +11,8 @@ const api = axios.create({
 
 const ACCESS_TOKEN_KEY = 'bago_access_token';
 const REFRESH_TOKEN_KEY = 'bago_refresh_token';
-let inMemoryAccessToken = null;
-let inMemoryRefreshToken = null;
+let inMemoryAccessToken = sessionStorage.getItem(ACCESS_TOKEN_KEY);
+let inMemoryRefreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
 
 export const getStoredTokens = () => ({
     accessToken: inMemoryAccessToken,
@@ -23,6 +23,10 @@ export const setAuthSession = ({ token, accessToken, refreshToken } = {}) => {
     const nextAccessToken = token || accessToken;
     inMemoryAccessToken = nextAccessToken || null;
     inMemoryRefreshToken = refreshToken || null;
+    if (inMemoryAccessToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, inMemoryAccessToken);
+    else sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+    if (inMemoryRefreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, inMemoryRefreshToken);
+    else sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
@@ -30,6 +34,8 @@ export const setAuthSession = ({ token, accessToken, refreshToken } = {}) => {
 export const clearAuthSession = () => {
     inMemoryAccessToken = null;
     inMemoryRefreshToken = null;
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem('bago_access_token');
