@@ -28,7 +28,7 @@ export default function Privacy() {
             <div className="max-w-4xl mx-auto py-12 px-6 font-sans">
                 <div className="mb-10 text-center">
                     <h1 className="text-3xl md:text-3xl font-black text-[#012126] mb-3 tracking-tight">{t('privacyPolicy')}</h1>
-                    <p className="text-[#6B7280] font-bold text-[10px] uppercase tracking-[2px] opacity-60">Last Updated: March 6, 2026</p>
+                    <p className="text-[#6B7280] font-bold text-[10px] uppercase tracking-[2px] opacity-60">{t('privacyLastUpdated')}</p>
                 </div>
 
                 <div className="bg-white rounded-[32px] p-8 md:p-12 shadow-sm border border-gray-100 overflow-hidden relative">
@@ -80,6 +80,16 @@ export default function Privacy() {
                             </div>
                             <p className="text-[#6B7280] leading-relaxed font-bold text-[12px] uppercase tracking-wide opacity-80 px-2 lg:px-4">
                                 {t('useOfDataDesc')}
+                            </p>
+                        </section>
+
+                        <section className="bg-blue-50/30 -mx-8 md:-mx-12 p-8 md:p-12 border-y border-blue-50/60">
+                            <div className="flex items-center gap-2.5 mb-5 text-[#5845D8]">
+                                <Lock size={18} />
+                                <h2 className="text-base font-black m-0 tracking-tight uppercase">{t('paymentsApplePay')}</h2>
+                            </div>
+                            <p className="text-[#6B7280] leading-relaxed font-bold text-[12px] uppercase tracking-wide opacity-80 px-2 lg:px-4">
+                                {t('paymentsApplePayDesc')}
                             </p>
                         </section>
 
