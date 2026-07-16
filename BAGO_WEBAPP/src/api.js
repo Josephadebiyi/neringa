@@ -11,8 +11,19 @@ const api = axios.create({
 
 const ACCESS_TOKEN_KEY = 'bago_access_token';
 const REFRESH_TOKEN_KEY = 'bago_refresh_token';
-let inMemoryAccessToken = sessionStorage.getItem(ACCESS_TOKEN_KEY);
-let inMemoryRefreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+const sessionGet = (key) => {
+    try { return window.sessionStorage.getItem(key); } catch { return null; }
+};
+const sessionSet = (key, value) => {
+    try {
+        if (value) window.sessionStorage.setItem(key, value);
+        else window.sessionStorage.removeItem(key);
+    } catch { /* Cookies can still provide the session when storage is restricted. */ }
+};
+const sessionRemove = (key) => sessionSet(key, null);
+
+let inMemoryAccessToken = sessionGet(ACCESS_TOKEN_KEY);
+let inMemoryRefreshToken = sessionGet(REFRESH_TOKEN_KEY);
 
 export const getStoredTokens = () => ({
     accessToken: inMemoryAccessToken,
@@ -23,10 +34,8 @@ export const setAuthSession = ({ token, accessToken, refreshToken } = {}) => {
     const nextAccessToken = token || accessToken;
     inMemoryAccessToken = nextAccessToken || null;
     inMemoryRefreshToken = refreshToken || null;
-    if (inMemoryAccessToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, inMemoryAccessToken);
-    else sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-    if (inMemoryRefreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, inMemoryRefreshToken);
-    else sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionSet(ACCESS_TOKEN_KEY, inMemoryAccessToken);
+    sessionSet(REFRESH_TOKEN_KEY, inMemoryRefreshToken);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
@@ -34,8 +43,8 @@ export const setAuthSession = ({ token, accessToken, refreshToken } = {}) => {
 export const clearAuthSession = () => {
     inMemoryAccessToken = null;
     inMemoryRefreshToken = null;
-    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionRemove(ACCESS_TOKEN_KEY);
+    sessionRemove(REFRESH_TOKEN_KEY);
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem('bago_access_token');
@@ -57,7 +66,6 @@ const AUTH_REFRESH_EXEMPT_PATHS = [
     '/api/bago/verify-otp',
     '/api/bago/forgot-password',
     '/api/bago/reset-password',
-    '/api/bago/getuser',
 ];
 
 function requestPath(url = '') {
@@ -124,6 +132,11 @@ api.interceptors.response.use(
 
             const refreshResponse = await refreshPromise;
             setAuthSession(refreshResponse.data);
+            const { accessToken } = getStoredTokens();
+            if (accessToken) {
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            }
             return api(originalRequest);
         } catch (refreshError) {
             // Both tokens are expired/missing — session is dead

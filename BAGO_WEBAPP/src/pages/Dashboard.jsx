@@ -252,16 +252,16 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#5845D8]">
+            <div className="min-h-screen flex items-center justify-center bg-[#F5F4FC]">
                 <div className="flex flex-col items-center gap-6">
                     <div className="relative">
-                        <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-[#5845D8]" />
+                        <div className="animate-spin rounded-full h-14 w-14 border-4 border-[#5845D8]/20 border-t-[#5845D8]" />
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="h-6 w-6 bg-[#5845D8]/20 rounded-full animate-pulse" />
                         </div>
                     </div>
                     <div className="text-center">
-                        <p className="font-black text-white/50 uppercase tracking-widest text-xs mb-1">Bago</p>
+                        <p className="font-black text-[#111827] uppercase tracking-widest text-xs mb-1">Bago</p>
                         <p className="text-[#5845D8] font-bold animate-pulse text-sm">Preparing your dashboard…</p>
                     </div>
                 </div>

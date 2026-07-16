@@ -5,6 +5,30 @@ import App from './App.jsx';
 import './index.css';
 import { AuthProvider } from './AuthContext.jsx';
 
+class AppErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { error };
+    }
+
+    render() {
+        if (!this.state.error) return this.props.children;
+        return (
+            <main className="min-h-screen flex items-center justify-center bg-[#F8F7FF] p-8 text-center">
+                <div className="max-w-sm">
+                    <h1 className="text-2xl font-black text-[#111827] mb-3">Bago could not load</h1>
+                    <p className="text-gray-500 mb-6">Please reload to reconnect to the latest version.</p>
+                    <button onClick={() => window.location.reload()} className="bg-[#5845D8] text-white font-bold px-6 py-3 rounded-xl">Reload Bago</button>
+                </div>
+            </main>
+        );
+    }
+}
+
 window.__BAGO_WEB_BUILD__ = '2026-07-09-google-auth-1';
 
 if (typeof document !== 'undefined') {
@@ -28,9 +52,11 @@ try {
 
     ReactDOM.createRoot(root).render(
         <React.StrictMode>
-            <AuthProvider>
-                <App />
-            </AuthProvider>
+            <AppErrorBoundary>
+                <AuthProvider>
+                    <App />
+                </AuthProvider>
+            </AppErrorBoundary>
         </React.StrictMode>,
     );
 } catch (error) {
