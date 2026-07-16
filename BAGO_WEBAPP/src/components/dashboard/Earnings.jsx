@@ -7,6 +7,7 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 import { cacheWallet, getCachedWallet, getUserPayoutCurrency } from '../../utils/userCurrency';
+import { convertWallet } from '../../utils/currencyConversion';
 
 const CURRENCY_SYMBOLS = { USD:'$', EUR:'€', GBP:'£', NGN:'₦', GHS:'₵', KES:'KSh', ZAR:'R' };
 // Approximate exchange rates vs USD for minimum calculation
@@ -122,11 +123,12 @@ export default function Earnings({ user, checkAuthStatus }) {
     useEffect(() => {
         let alive = true;
         setLoading(true);
-        api.get('/api/bago/getWallet').then(res => {
+        api.get('/api/bago/getWallet').then(async res => {
             if (!alive) return;
             const d = res.data?.data || res.data || {};
             const root = res.data || {};
-            const confirmedBalance = firstNumber(
+            const rawWallet = {
+                balance: firstNumber(
                 d.balance,
                 d.walletBalance,
                 d.wallet_balance,
@@ -137,18 +139,24 @@ export default function Earnings({ user, checkAuthStatus }) {
                 root.wallet_balance,
                 user?.walletBalance,
                 user?.wallet_balance,
-            );
-            const confirmedEscrow = firstNumber(d.escrowBalance, d.escrow_balance, root.escrowBalance, root.escrow_balance);
-            const confirmedHistory = Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []);
-            setBalance(confirmedBalance);
-            setEscrow(confirmedEscrow);
-            setHistory(confirmedHistory);
-            cacheWallet(user, { balance: confirmedBalance, escrow: confirmedEscrow, history: confirmedHistory });
+                ),
+                escrow: firstNumber(d.escrowBalance, d.escrow_balance, root.escrowBalance, root.escrow_balance),
+                history: Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []),
+                allTimeReceived: firstNumber(d.allTimeReceived, root.allTimeReceived),
+                allTimeExpenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
+                currency: d.currency || root.currency || walletCurrency,
+            };
+            const confirmedWallet = await convertWallet(rawWallet, walletCurrency);
+            if (!alive) return;
+            setBalance(confirmedWallet.balance);
+            setEscrow(confirmedWallet.escrow);
+            setHistory(confirmedWallet.history);
+            cacheWallet(user, confirmedWallet);
             setTotals({
-                received: firstNumber(d.allTimeReceived, root.allTimeReceived),
-                expenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
+                received: confirmedWallet.allTimeReceived,
+                expenses: confirmedWallet.allTimeExpenses,
             });
-            if (d.currency || root.currency) setWalletApiCurrency((d.currency || root.currency).toUpperCase());
+            setWalletApiCurrency(confirmedWallet.currency);
         }).catch(() => {
             // Keep the earnings page usable if wallet history is temporarily unavailable.
         }).finally(() => { if (alive) setLoading(false); });

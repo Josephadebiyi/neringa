@@ -18,7 +18,8 @@ export function getCachedWallet(user) {
     if (!id) return null;
     try {
         const cached = JSON.parse(sessionStorage.getItem(`bago_wallet_${id}`));
-        return cached?.confirmed === true ? cached : null;
+        const expectedCurrency = getUserPayoutCurrency(user, '');
+        return cached?.confirmed === true && cached?.currency === expectedCurrency ? cached : null;
     } catch {
         return null;
     }

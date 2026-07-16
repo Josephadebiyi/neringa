@@ -6,6 +6,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { cacheWallet, getCachedWallet, getUserPayoutCurrency } from '../../utils/userCurrency';
+import { convertWallet } from '../../utils/currencyConversion';
 
 const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -120,11 +121,11 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
         let mounted = true;
         setLoadingWallet(true);
         api.get('/api/bago/getWallet')
-            .then(res => {
+            .then(async res => {
                 if (!mounted) return;
                 const d = res.data?.data || res.data || {};
                 const root = res.data || {};
-                const confirmedWallet = {
+                const rawWallet = {
                     balance: firstNumber(
                         d.balance,
                         d.walletBalance,
@@ -141,8 +142,10 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     history: Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []),
                     allTimeReceived: firstNumber(d.allTimeReceived, root.allTimeReceived),
                     allTimeExpenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
-                    currency: profileCurrency,
+                    currency: d.currency || root.currency || profileCurrency,
                 };
+                const confirmedWallet = await convertWallet(rawWallet, profileCurrency);
+                if (!mounted) return;
                 setWalletData(confirmedWallet);
                 cacheWallet(user, confirmedWallet);
             })
