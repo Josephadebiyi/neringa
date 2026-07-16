@@ -20,6 +20,7 @@ import {
     Search,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { getUserPayoutCurrency } from '../utils/userCurrency';
 
 
 const TAB_LABELS = {
@@ -101,11 +102,11 @@ export default function Dashboard() {
 
     // Sync display currency from user's wallet profile — overrides IP/localStorage guesses
     useEffect(() => {
-        const profileCurrency = user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency;
+        const profileCurrency = getUserPayoutCurrency(user, '');
         if (profileCurrency) {
             setCurrency(profileCurrency.toUpperCase());
         }
-    }, [user?.walletCurrency, user?.wallet_currency, user?.earningCurrency, user?.preferredCurrency, user?.preferred_currency, user?.currency, setCurrency]);
+    }, [user?.payoutAccount?.currency, user?.payout_account?.currency, user?.payoutCurrency, user?.payout_currency, user?.walletCurrency, user?.wallet_currency, user?.earningCurrency, user?.preferredCurrency, user?.preferred_currency, user?.currency, setCurrency]);
 
     const fetchUserStats = async () => {
         try {

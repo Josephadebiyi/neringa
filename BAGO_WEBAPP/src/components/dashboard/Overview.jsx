@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
+import { cacheWallet, getCachedWallet, getUserPayoutCurrency } from '../../utils/userCurrency';
 
 const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -95,12 +96,13 @@ function Sparkline({ data, color = '#5845D8', height = 40 }) {
 export default function Overview({ user, kycStatus, handleStartKyc, userStats }) {
     const navigate = useNavigate();
 
-    const profileCurrency = (user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency || 'USD').toUpperCase();
+    const profileCurrency = getUserPayoutCurrency(user);
+    const cachedWallet = getCachedWallet(user);
 
     const [walletData, setWalletData] = useState({
-        balance: firstNumber(user?.walletBalance, user?.wallet_balance, user?.balance),
-        escrow: firstNumber(user?.escrowBalance, user?.escrow_balance),
-        history: user?.balanceHistory || user?.balance_history || [],
+        balance: cachedWallet?.balance ?? null,
+        escrow: cachedWallet?.escrow ?? 0,
+        history: cachedWallet?.history || [],
         allTimeReceived: 0,
         currency: profileCurrency,
     });
@@ -122,7 +124,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                 if (!mounted) return;
                 const d = res.data?.data || res.data || {};
                 const root = res.data || {};
-                setWalletData({
+                const confirmedWallet = {
                     balance: firstNumber(
                         d.balance,
                         d.walletBalance,
@@ -140,7 +142,9 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     allTimeReceived: firstNumber(d.allTimeReceived, root.allTimeReceived),
                     allTimeExpenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
                     currency: profileCurrency,
-                });
+                };
+                setWalletData(confirmedWallet);
+                cacheWallet(user, confirmedWallet);
             })
             .catch(() => {
                 // Keep the dashboard usable if wallet history is temporarily unavailable.
@@ -299,7 +303,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     <div>
                         <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Wallet Balance</p>
                         <p className="text-2xl font-black text-[#111827] tracking-tight leading-none">
-                            {`${sym}${walletData.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                            {walletData.balance === null ? <span className="text-sm opacity-40 animate-pulse">Loading balance…</span> : `${sym}${walletData.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                         </p>
                         {walletData.escrow > 0 && (
                             <p className="text-[9px] text-amber-600 font-medium mt-1">

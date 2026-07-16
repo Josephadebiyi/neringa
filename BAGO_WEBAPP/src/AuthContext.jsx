@@ -1,13 +1,13 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import api, { clearAuthSession, setSessionExpiredHandler } from './api';
+import { getUserPayoutCurrency } from './utils/userCurrency';
 
 const AuthContext = createContext({});
 
 const persistUserCurrency = (userData) => {
-    const value = userData?.walletCurrency || userData?.wallet_currency || userData?.earningCurrency || userData?.preferredCurrency || userData?.preferred_currency || userData?.currency;
-    if (typeof value === 'string' && value.trim()) {
-        const currency = value.trim().toUpperCase();
+    const currency = getUserPayoutCurrency(userData, '');
+    if (currency) {
         localStorage.setItem('baggo_currency', currency);
         window.dispatchEvent(new CustomEvent('bago:currency', { detail: currency }));
     }

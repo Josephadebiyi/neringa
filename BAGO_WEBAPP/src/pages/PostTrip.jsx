@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getUserPayoutCurrency } from '../utils/userCurrency';
 import {
     MapPin,
     Calendar,
@@ -141,6 +142,7 @@ export default function PostTrip() {
     });
     const [showCurrencyModal, setShowCurrencyModal] = useState(false);
     const [selectedCurrency, setSelectedCurrency] = useState('');
+    const activeCurrency = getUserPayoutCurrency(user, selectedCurrency || '');
     const [documentPreview, setDocumentPreview] = useState(null);
 
     useEffect(() => {
@@ -266,7 +268,7 @@ export default function PostTrip() {
             setError('Please upload your travel document (flight/bus ticket).');
             return;
         }
-        if (!user?.preferredCurrency && !selectedCurrency) {
+        if (!activeCurrency) {
             setShowCurrencyModal(true);
             return;
         }
@@ -291,7 +293,7 @@ export default function PostTrip() {
                 availableKg: parseFloat(formData.availableWeight),
                 travelMeans: formData.transportMode,
                 pricePerKg: parseFloat(formData.pricePerKg),
-                currency: user?.preferredCurrency || selectedCurrency || 'USD',
+                currency: activeCurrency,
                 landmark: formData.landmark,
                 notes: formData.additionalNotes,
                 travelDocument: formData.travelDocument
@@ -487,7 +489,7 @@ export default function PostTrip() {
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('pricePerKg')} ({user?.preferredCurrency || selectedCurrency || 'USD'}) <span className="text-red-500">*</span></label>
+                                            <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('pricePerKg')} ({activeCurrency}) <span className="text-red-500">*</span></label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
@@ -497,7 +499,7 @@ export default function PostTrip() {
                                                     placeholder="0.00"
                                                     className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
                                                 />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">{user?.preferredCurrency || selectedCurrency || 'USD'}</div>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">{activeCurrency}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -690,7 +692,7 @@ export default function PostTrip() {
                                 <div className="grid grid-cols-2 gap-8 pt-8 border-t border-gray-50">
                                     <div className="text-center md:text-left">
                                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">{t('pricePerKg')}</p>
-                                        <p className="text-xl font-black text-[#012126]">{formData.pricePerKg} {user?.preferredCurrency || selectedCurrency || 'USD'}</p>
+                                        <p className="text-xl font-black text-[#012126]">{formData.pricePerKg} {activeCurrency}</p>
                                     </div>
                                     <div className="text-center md:text-right">
                                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">{t('landmark')}</p>

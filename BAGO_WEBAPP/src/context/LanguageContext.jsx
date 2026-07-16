@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
+import { getUserPayoutCurrency } from '../utils/userCurrency';
 
 const LanguageContext = createContext();
 
@@ -1445,12 +1446,11 @@ export function LanguageProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        const value = user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency;
-        if (typeof value === 'string' && value.trim()) {
-            const normalized = value.trim().toUpperCase();
+        const normalized = getUserPayoutCurrency(user, '');
+        if (normalized) {
             setCurrency(current => current === normalized ? current : normalized);
         }
-    }, [user?.walletCurrency, user?.wallet_currency, user?.earningCurrency, user?.preferredCurrency, user?.preferred_currency, user?.currency]);
+    }, [user?.payoutAccount?.currency, user?.payout_account?.currency, user?.payoutCurrency, user?.payout_currency, user?.walletCurrency, user?.wallet_currency, user?.earningCurrency, user?.preferredCurrency, user?.preferred_currency, user?.currency]);
 
     useEffect(() => {
         localStorage.setItem('baggo_language', currentLanguage);

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
+import { cacheWallet, getCachedWallet, getUserPayoutCurrency } from '../../utils/userCurrency';
 
 const CURRENCY_SYMBOLS = { USD:'$', EUR:'€', GBP:'£', NGN:'₦', GHS:'₵', KES:'KSh', ZAR:'R' };
 // Approximate exchange rates vs USD for minimum calculation
@@ -94,9 +95,10 @@ export default function Earnings({ user, checkAuthStatus }) {
     const { currency, t } = useLanguage();
     const navigate = useNavigate();
 
-    const [balance, setBalance]         = useState(() => firstNumber(user?.walletBalance, user?.wallet_balance, user?.balance));
-    const [escrow, setEscrow]           = useState(() => firstNumber(user?.escrowBalance, user?.escrow_balance));
-    const [history, setHistory]         = useState(() => user?.balanceHistory || user?.balance_history || []);
+    const cachedWallet = getCachedWallet(user);
+    const [balance, setBalance]         = useState(() => cachedWallet?.balance ?? null);
+    const [escrow, setEscrow]           = useState(() => cachedWallet?.escrow ?? 0);
+    const [history, setHistory]         = useState(() => cachedWallet?.history || []);
     const [allTimeTotals, setTotals]    = useState({ received: 0, expenses: 0 });
     const [walletApiCurrency, setWalletApiCurrency] = useState(null);
     const [loadingWallet, setLoading]   = useState(false);
@@ -109,7 +111,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [otpCode, setOtpCode]       = useState('');
     const [otpDestination, setOtpDestination] = useState('');
 
-    const walletCurrency = (user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency || currency || walletApiCurrency || 'USD').toUpperCase();
+    const walletCurrency = getUserPayoutCurrency(user, currency || walletApiCurrency || 'USD');
     const sym             = getSymbol(walletCurrency);
     const minimum         = getMinimum(walletCurrency);
 
@@ -124,7 +126,7 @@ export default function Earnings({ user, checkAuthStatus }) {
             if (!alive) return;
             const d = res.data?.data || res.data || {};
             const root = res.data || {};
-            setBalance(firstNumber(
+            const confirmedBalance = firstNumber(
                 d.balance,
                 d.walletBalance,
                 d.wallet_balance,
@@ -135,9 +137,13 @@ export default function Earnings({ user, checkAuthStatus }) {
                 root.wallet_balance,
                 user?.walletBalance,
                 user?.wallet_balance,
-            ));
-            setEscrow(firstNumber(d.escrowBalance, d.escrow_balance, root.escrowBalance, root.escrow_balance, user?.escrowBalance, user?.escrow_balance));
-            setHistory(Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []));
+            );
+            const confirmedEscrow = firstNumber(d.escrowBalance, d.escrow_balance, root.escrowBalance, root.escrow_balance);
+            const confirmedHistory = Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []);
+            setBalance(confirmedBalance);
+            setEscrow(confirmedEscrow);
+            setHistory(confirmedHistory);
+            cacheWallet(user, { balance: confirmedBalance, escrow: confirmedEscrow, history: confirmedHistory });
             setTotals({
                 received: firstNumber(d.allTimeReceived, root.allTimeReceived),
                 expenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
@@ -187,8 +193,8 @@ export default function Earnings({ user, checkAuthStatus }) {
 
     const amountNum = Number(amount) || 0;
     const belowMin   = amountNum > 0 && amountNum < minimum;
-    const aboveBal   = amountNum > balance;
-    const canSubmit  = hasPayoutMethod && !submitting && amountNum >= minimum && !aboveBal;
+    const aboveBal   = balance !== null && amountNum > balance;
+    const canSubmit  = balance !== null && hasPayoutMethod && !submitting && amountNum >= minimum && !aboveBal;
 
     const handleWithdraw = async (e) => {
         e?.preventDefault();
@@ -249,7 +255,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div>
                         <p className="text-[9px] font-black text-[#111827]/50 uppercase tracking-widest mb-2">Available Balance</p>
                         <p className="text-5xl font-black text-[#111827] tracking-tighter leading-none">
-                            {`${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
+                            {balance === null ? <span className="text-2xl opacity-40 animate-pulse">Loading balance…</span> : `${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
                         </p>
                         <div className="flex items-center gap-1.5 mt-3">
                             <Lock size={11} className="text-[#111827]/50" />

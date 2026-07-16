@@ -6,6 +6,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { GOOGLE_CLIENT_ID } from '../config/googleAuth';
+import { loadDashboard } from '../routeLoaders';
 
 function GoogleLoginButton({ loading, onStart, onDone, onSuccess, onError, label }) {
     const handleGoogleLogin = useGoogleLogin({
@@ -49,6 +50,11 @@ export default function Login() {
     const redirectPath = searchParams.get('redirect')?.startsWith('/')
         ? searchParams.get('redirect')
         : '/dashboard';
+
+    useEffect(() => {
+        // Download dashboard code while credentials are being entered, not after login.
+        loadDashboard();
+    }, []);
 
     useEffect(() => {
         if (searchParams.get('reason') !== 'session_expired') return;
