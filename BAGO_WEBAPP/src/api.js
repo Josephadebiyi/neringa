@@ -85,7 +85,11 @@ function handleSessionExpired() {
     clearAuthSession();
     if (_sessionExpiredHandler) _sessionExpiredHandler();
     if (!window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login?reason=session_expired';
+        // Keep navigation inside the SPA. A hard navigation asks the web host
+        // for `/login` and can show the host's 404 page when rewrite rules are
+        // unavailable or have not yet been applied.
+        window.history.replaceState(null, '', '/login?reason=session_expired');
+        window.dispatchEvent(new PopStateEvent('popstate'));
     }
 }
 

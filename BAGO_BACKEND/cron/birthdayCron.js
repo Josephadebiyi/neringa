@@ -3,8 +3,10 @@ import { query as pgQuery } from '../lib/postgres/db.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import { sendBirthdayEmail } from '../services/emailNotifications.js';
 
-// Same "has passed KYC" definition as middleware/kycMiddleware.js.
-const KYC_PASSED_STATUSES = ['approved', 'verified', 'completed'];
+// `kyc_status` is a PostgreSQL enum. The production enum's successful state
+// is `approved`; legacy UI labels such as `verified` and `completed` must not
+// be passed to an enum comparison because PostgreSQL rejects unknown values.
+const KYC_PASSED_STATUSES = ['approved'];
 
 async function ensureBirthdayGreetingColumn() {
   await pgQuery(`

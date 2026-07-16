@@ -1520,7 +1520,10 @@ const DiscountPromo = ({ inside = false }) => {
     const content = (
             <button
                 type="button"
-                onClick={() => window.location.assign('/search')}
+                onClick={() => {
+                    window.history.pushState(null, '', '/search');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                }}
                 className="block w-full overflow-hidden rounded-3xl shadow-[0_18px_45px_rgba(88,69,216,0.18)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
                 aria-label="Explore faster shipping"
             >
