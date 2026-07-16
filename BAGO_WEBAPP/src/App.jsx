@@ -1,12 +1,12 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
-import Home from './pages/Home';
-import Login from './pages/Login';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { GOOGLE_CLIENT_ID } from './config/googleAuth';
 
 const Signup = lazy(() => import('./pages/Signup'));
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
 const SignupTest = lazy(() => import('./pages/SignupTest'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Search = lazy(() => import('./pages/Search'));

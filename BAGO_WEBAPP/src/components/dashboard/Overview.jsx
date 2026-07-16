@@ -95,25 +95,28 @@ function Sparkline({ data, color = '#5845D8', height = 40 }) {
 export default function Overview({ user, kycStatus, handleStartKyc, userStats }) {
     const navigate = useNavigate();
 
+    const profileCurrency = (user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency || 'USD').toUpperCase();
+
     const [walletData, setWalletData] = useState({
-        balance: 0,
-        escrow: 0,
-        history: [],
+        balance: firstNumber(user?.walletBalance, user?.wallet_balance, user?.balance),
+        escrow: firstNumber(user?.escrowBalance, user?.escrow_balance),
+        history: user?.balanceHistory || user?.balance_history || [],
         allTimeReceived: 0,
-        currency: 'USD',
+        currency: profileCurrency,
     });
-    const [loadingWallet, setLoadingWallet] = useState(true);
+    const [loadingWallet, setLoadingWallet] = useState(false);
     const [chartTab, setChartTab] = useState('earnings');
 
     const effectiveKycStatus =
         user?.kycStatus === 'approved' || user?.isKycCompleted ? 'approved' : kycStatus;
 
-    const walletCurrency = (walletData.currency || user?.walletCurrency || user?.preferredCurrency || 'USD').toUpperCase();
+    const walletCurrency = profileCurrency;
     const sym = CURRENCY_SYMBOLS[walletCurrency] || walletCurrency;
     const firstName = user?.firstName || user?.name?.split(' ')[0] || 'there';
 
     useEffect(() => {
         let mounted = true;
+        setLoadingWallet(true);
         api.get('/api/bago/getWallet')
             .then(res => {
                 if (!mounted) return;
@@ -136,7 +139,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     history: Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []),
                     allTimeReceived: firstNumber(d.allTimeReceived, root.allTimeReceived),
                     allTimeExpenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
-                    currency: d.currency || root.currency || user?.walletCurrency || user?.wallet_currency || 'USD',
+                    currency: profileCurrency,
                 });
             })
             .catch(() => {
@@ -144,7 +147,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
             })
             .finally(() => { if (mounted) setLoadingWallet(false); });
         return () => { mounted = false; };
-    }, []);
+    }, [profileCurrency]);
 
     const chartData = (() => {
         const today = new Date();
@@ -296,9 +299,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     <div>
                         <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Wallet Balance</p>
                         <p className="text-2xl font-black text-[#111827] tracking-tight leading-none">
-                            {loadingWallet
-                                ? <span className="opacity-30 animate-pulse">—</span>
-                                : `${sym}${walletData.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                            {`${sym}${walletData.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                         </p>
                         {walletData.escrow > 0 && (
                             <p className="text-[9px] text-amber-600 font-medium mt-1">

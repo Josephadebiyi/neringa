@@ -101,11 +101,11 @@ export default function Dashboard() {
 
     // Sync display currency from user's wallet profile — overrides IP/localStorage guesses
     useEffect(() => {
-        const profileCurrency = user?.walletCurrency || user?.wallet_currency || user?.preferredCurrency || user?.preferred_currency;
+        const profileCurrency = user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency;
         if (profileCurrency) {
             setCurrency(profileCurrency.toUpperCase());
         }
-    }, [user?.walletCurrency, user?.wallet_currency, user?.preferredCurrency, user?.preferred_currency, setCurrency]);
+    }, [user?.walletCurrency, user?.wallet_currency, user?.earningCurrency, user?.preferredCurrency, user?.preferred_currency, user?.currency, setCurrency]);
 
     const fetchUserStats = async () => {
         try {

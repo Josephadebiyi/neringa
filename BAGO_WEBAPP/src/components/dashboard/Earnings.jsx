@@ -109,7 +109,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [otpCode, setOtpCode]       = useState('');
     const [otpDestination, setOtpDestination] = useState('');
 
-    const walletCurrency = (walletApiCurrency || user?.walletCurrency || user?.preferredCurrency || currency || 'USD').toUpperCase();
+    const walletCurrency = (user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency || currency || walletApiCurrency || 'USD').toUpperCase();
     const sym             = getSymbol(walletCurrency);
     const minimum         = getMinimum(walletCurrency);
 
@@ -249,7 +249,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div>
                         <p className="text-[9px] font-black text-[#111827]/50 uppercase tracking-widest mb-2">Available Balance</p>
                         <p className="text-5xl font-black text-[#111827] tracking-tighter leading-none">
-                            {loadingWallet ? <span className="opacity-30 animate-pulse">—</span> : `${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
+                            {`${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
                         </p>
                         <div className="flex items-center gap-1.5 mt-3">
                             <Lock size={11} className="text-[#111827]/50" />

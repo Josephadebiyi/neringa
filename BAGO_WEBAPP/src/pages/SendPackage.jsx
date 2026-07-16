@@ -168,7 +168,7 @@ export default function SendPackage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [currency, setCurrency] = useState(user?.preferredCurrency || 'USD');
+    const [currency, setCurrency] = useState(() => (user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency || 'USD').toUpperCase());
     const [kycStatus, setKycStatus] = useState(user?.kycStatus || 'not_started');
     const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
     const [checkoutPreview, setCheckoutPreview] = useState(null);
@@ -237,7 +237,7 @@ export default function SendPackage() {
     const fetchPricing = async ({ silent = false } = {}) => {
         const weight = parseFloat(formData.packageWeight);
         const declaredValue = parseFloat(formData.packageValue) || 0;
-        const senderCurrency = (user?.preferredCurrency || currency || 'USD').toUpperCase();
+        const senderCurrency = (user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency || currency || 'USD').toUpperCase();
         const tripId = tripIdFrom(selectedTrip);
         if (!tripId || !Number.isFinite(weight) || weight <= 0) {
             setCheckoutPreview(null);
