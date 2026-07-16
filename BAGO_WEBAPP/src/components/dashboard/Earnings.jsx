@@ -94,12 +94,12 @@ export default function Earnings({ user, checkAuthStatus }) {
     const { currency, t } = useLanguage();
     const navigate = useNavigate();
 
-    const [balance, setBalance]         = useState(0);
-    const [escrow, setEscrow]           = useState(0);
-    const [history, setHistory]         = useState([]);
+    const [balance, setBalance]         = useState(() => firstNumber(user?.walletBalance, user?.wallet_balance, user?.balance));
+    const [escrow, setEscrow]           = useState(() => firstNumber(user?.escrowBalance, user?.escrow_balance));
+    const [history, setHistory]         = useState(() => user?.balanceHistory || user?.balance_history || []);
     const [allTimeTotals, setTotals]    = useState({ received: 0, expenses: 0 });
     const [walletApiCurrency, setWalletApiCurrency] = useState(null);
-    const [loadingWallet, setLoading]   = useState(true);
+    const [loadingWallet, setLoading]   = useState(false);
 
     const [amount, setAmount]         = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -113,12 +113,13 @@ export default function Earnings({ user, checkAuthStatus }) {
     const sym             = getSymbol(walletCurrency);
     const minimum         = getMinimum(walletCurrency);
 
-    // Flutterwave bank transfer is the sole active payout method.
+    // Bank transfer is the active payout method.
     const hasBankLinked   = !!user?.bankAccountLinked || !!user?.bankDetails?.accountNumber;
     const hasPayoutMethod = hasBankLinked;
 
     useEffect(() => {
         let alive = true;
+        setLoading(true);
         api.get('/api/bago/getWallet').then(res => {
             if (!alive) return;
             const d = res.data?.data || res.data || {};
@@ -214,9 +215,7 @@ export default function Earnings({ user, checkAuthStatus }) {
         setSubmitting(true);
         setStatus({ type:'', msg:'' });
         try {
-            // Flutterwave is the sole active payout provider — one withdrawal
-            // endpoint for every currency now, instead of branching African vs
-            // Flutterwave bank transfer.
+            // One bank-withdrawal endpoint supports every wallet currency.
             const res = await api.post('/api/payouts/flutterwave/withdraw', {
                 amount: amountNum,
                 currency: walletCurrency,
@@ -228,7 +227,9 @@ export default function Earnings({ user, checkAuthStatus }) {
                 setAmount('');
                 setOtpCode('');
                 setShowModal(false);
-                if (checkAuthStatus) await checkAuthStatus();
+                const nextBalance = firstNumber(res.data?.balance, res.data?.newBalance);
+                setBalance(nextBalance || Math.max(0, balance - amountNum));
+                if (checkAuthStatus) checkAuthStatus();
             }
         } catch (err) {
             setStatus({ type:'error', msg: moneyMovementErrorMessage(err, 'Withdrawal failed. Please try again.') });
@@ -263,7 +264,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             <Wallet size={22} className="text-[#5C4BFD]" />
                             <div>
                                 <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
-                                    Flutterwave Bank Transfer
+                                    Bank Transfer ({walletCurrency})
                                 </p>
                                 <p className={`text-[8px] font-bold uppercase tracking-wider ${hasPayoutMethod ? 'text-emerald-600' : 'text-red-500'}`}>
                                     {hasPayoutMethod ? 'Connected' : 'Not connected'}
@@ -399,7 +400,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             <span className="text-[#5C4BFD]">Method</span>
                             <span className="font-black flex items-center gap-1.5">
                                 <Wallet size={14} className="text-[#5C4BFD]" />
-                                Flutterwave Bank Transfer
+                                Bank Transfer
                             </span>
                         </div>
                         <div className="border-t border-gray-200 pt-2 flex justify-between text-[#111827]">
@@ -420,7 +421,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
-                                Flutterwave Bank Transfer
+                                Bank Transfer ({walletCurrency})
                             </p>
                             <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
                                 {hasPayoutMethod ? 'Funds sent after approval' : 'Setup required before withdrawing'}

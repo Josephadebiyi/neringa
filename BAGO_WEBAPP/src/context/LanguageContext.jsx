@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '../AuthContext';
 
 const LanguageContext = createContext();
 
@@ -1424,6 +1425,7 @@ const languages = [
 ];
 
 export function LanguageProvider({ children }) {
+    const { user } = useAuth();
     // Capture initial localStorage state BEFORE any effects can write defaults
     const _hadStoredLanguage = !!localStorage.getItem('baggo_language');
     const _hadStoredCurrency = !!localStorage.getItem('baggo_currency');
@@ -1435,6 +1437,20 @@ export function LanguageProvider({ children }) {
     const [currency, setCurrency] = useState(() => {
         return localStorage.getItem('baggo_currency') || 'USD';
     });
+
+    useEffect(() => {
+        const syncCurrency = (event) => event.detail && setCurrency(event.detail);
+        window.addEventListener('bago:currency', syncCurrency);
+        return () => window.removeEventListener('bago:currency', syncCurrency);
+    }, []);
+
+    useEffect(() => {
+        const value = user?.walletCurrency || user?.wallet_currency || user?.earningCurrency || user?.preferredCurrency || user?.preferred_currency || user?.currency;
+        if (typeof value === 'string' && value.trim()) {
+            const normalized = value.trim().toUpperCase();
+            setCurrency(current => current === normalized ? current : normalized);
+        }
+    }, [user?.walletCurrency, user?.wallet_currency, user?.earningCurrency, user?.preferredCurrency, user?.preferred_currency, user?.currency]);
 
     useEffect(() => {
         localStorage.setItem('baggo_language', currentLanguage);
@@ -1451,8 +1467,8 @@ export function LanguageProvider({ children }) {
                 // Use our own backend — avoids ipapi.co rate limits and works for all regions
                 const response = await fetch('/api/bago/detect-location');
                 const data = await response.json();
-                if (data.currency) {
-                    setCurrency(data.currency);
+                if (data.currency && currencies.some(item => item.code === data.currency.toUpperCase())) {
+                    setCurrency(data.currency.toUpperCase());
                 }
             } catch (e) {}
         };

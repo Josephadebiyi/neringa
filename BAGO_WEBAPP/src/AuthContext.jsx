@@ -4,6 +4,15 @@ import api, { clearAuthSession, setSessionExpiredHandler } from './api';
 
 const AuthContext = createContext({});
 
+const persistUserCurrency = (userData) => {
+    const value = userData?.walletCurrency || userData?.wallet_currency || userData?.earningCurrency || userData?.preferredCurrency || userData?.preferred_currency || userData?.currency;
+    if (typeof value === 'string' && value.trim()) {
+        const currency = value.trim().toUpperCase();
+        localStorage.setItem('baggo_currency', currency);
+        window.dispatchEvent(new CustomEvent('bago:currency', { detail: currency }));
+    }
+};
+
 // Loads the Cuoral support widget once the user is authenticated.
 // Key is fetched from the backend at runtime so it is never in the bundle.
 const loadCuoral = async (userData) => {
@@ -48,6 +57,7 @@ export const AuthProvider = ({ children }) => {
             if (response.data.success) {
                 if (authVersion !== authVersionRef.current) return;
                 const userData = response.data.user;
+                persistUserCurrency(userData);
                 setUser(userData);
                 setIsAuthenticated(true);
                 setLoading(false);
@@ -66,6 +76,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = (userData) => {
         authVersionRef.current += 1;
+        persistUserCurrency(userData);
         setUser(userData);
         setIsAuthenticated(true);
         setLoading(false);
@@ -77,6 +88,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await api.get('/api/bago/getuser');
             if (response.data.success) {
+                persistUserCurrency(response.data.user);
                 setUser(response.data.user);
             }
         } catch {

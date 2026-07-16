@@ -207,7 +207,7 @@ export default function Login() {
                                 disabled={loading}
                                 className="w-full bg-[#5845D8] hover:bg-[#4838B5] text-white py-4 rounded-xl font-bold text-base mt-2 transition-all shadow-lg shadow-[#5845D8]/20 hover:shadow-[#5845D8]/40 hover:-translate-y-0.5 disabled:opacity-70 disabled:translate-y-0 flex items-center justify-center gap-3"
                             >
-                                {loading ? t('securityCheck') : t('signInBtn')}
+                                {loading ? 'Signing in…' : t('signInBtn')}
                                 {!loading && <ArrowRight size={18} />}
                             </button>
 

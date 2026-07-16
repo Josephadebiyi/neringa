@@ -1,38 +1,40 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
-import SignupTest from './pages/SignupTest';
-import Dashboard from './pages/Dashboard';
-import Search from './pages/Search';
-import PostTrip from './pages/PostTrip';
-import SendPackage from './pages/SendPackage';
-import ForgotPassword from './pages/ForgotPassword';
-import VerifyOtp from './pages/VerifyOtp';
-import ResetPassword from './pages/ResetPassword';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import AboutUs from './pages/AboutUs';
-import HowToUse from './pages/HowToUse';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import HelpCenter from './pages/HelpCenter';
-import TrackShipment from './pages/TrackShipment';
-import Banned from './pages/Banned';
-import Verify from './pages/Verify';
-import Support from './pages/Support';
-import ShippingSuccess from './pages/ShippingSuccess';
-import PaymentCallback from './pages/PaymentCallback';
-import PaymentCheckout from './pages/PaymentCheckout';
-import Test from './Test';
 import { GOOGLE_CLIENT_ID } from './config/googleAuth';
+
+const Signup = lazy(() => import('./pages/Signup'));
+const SignupTest = lazy(() => import('./pages/SignupTest'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Search = lazy(() => import('./pages/Search'));
+const PostTrip = lazy(() => import('./pages/PostTrip'));
+const SendPackage = lazy(() => import('./pages/SendPackage'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const AboutUs = lazy(() => import('./pages/AboutUs'));
+const HowToUse = lazy(() => import('./pages/HowToUse'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const HelpCenter = lazy(() => import('./pages/HelpCenter'));
+const TrackShipment = lazy(() => import('./pages/TrackShipment'));
+const Banned = lazy(() => import('./pages/Banned'));
+const Verify = lazy(() => import('./pages/Verify'));
+const Support = lazy(() => import('./pages/Support'));
+const ShippingSuccess = lazy(() => import('./pages/ShippingSuccess'));
+const PaymentCallback = lazy(() => import('./pages/PaymentCallback'));
+const PaymentCheckout = lazy(() => import('./pages/PaymentCheckout'));
+const Test = lazy(() => import('./Test'));
 
 function App() {
     return (
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <LanguageProvider>
                 <BrowserRouter>
+                    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F6F3] text-[#5845D8] font-bold">Loading Bago…</div>}>
                     <Routes>
                         <Route path="/test" element={<Test />} />
                         <Route path="/" element={<Home />} />
@@ -60,6 +62,7 @@ function App() {
                         <Route path="/checkout/payment" element={<PaymentCheckout />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
+                    </Suspense>
                 </BrowserRouter>
             </LanguageProvider>
         </GoogleOAuthProvider>
