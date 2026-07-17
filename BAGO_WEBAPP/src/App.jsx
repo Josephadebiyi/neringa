@@ -4,6 +4,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { GOOGLE_CLIENT_ID } from './config/googleAuth';
 import { loadDashboard } from './routeLoaders';
+import AppDownloadBanner from './components/AppDownloadBanner';
 
 const Signup = lazy(() => import('./pages/Signup'));
 const Home = lazy(() => import('./pages/Home'));
@@ -35,6 +36,7 @@ function App() {
         <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <LanguageProvider>
                 <BrowserRouter>
+                    <AppDownloadBanner />
                     <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F6F3] text-[#5845D8] font-bold">Loading Bago…</div>}>
                     <Routes>
                         <Route path="/test" element={<Test />} />
