@@ -1350,7 +1350,9 @@ const PhoneMockup = ({ className = '' }) => (
 
 const AppStoreBadge = () => (
     <a
-        href="#"
+        href="https://apps.apple.com/ng/app/bago/id6758903056"
+        target="_blank"
+        rel="noopener noreferrer"
         className="block"
     >
         <img src="/app-store.svg" alt="Download on App Store" className="h-10 hover:opacity-80 transition" />

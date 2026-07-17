@@ -192,7 +192,7 @@ const HeroSection = () => {
 
                         {/* App Store Buttons In Hero */}
                         <div className="flex items-center gap-4">
-                            <a href="#" className="hover:scale-105 transition-transform duration-300">
+                            <a href="https://apps.apple.com/ng/app/bago/id6758903056" target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform duration-300">
                                 <img src="/app-store.svg" alt="App Store" className="h-9 w-auto" />
                             </a>
                             <a

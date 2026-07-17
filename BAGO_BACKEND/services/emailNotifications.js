@@ -307,7 +307,7 @@ function generateEmailTemplate(title, content, ctaText = null, ctaLink = null) {
                 <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin:0 auto;">
                   <tr>
                     <td style="padding-right:6px; vertical-align:middle;">
-                      <a href="${FRONTEND_URL}" target="_blank" style="display:inline-block; text-decoration:none;">
+                      <a href="https://apps.apple.com/ng/app/bago/id6758903056" target="_blank" style="display:inline-block; text-decoration:none;">
                         <img src="https://sendwithbago.com/app-store.svg" alt="Download on the App Store" width="120" height="40" style="display:block; border:0;"/>
                       </a>
                     </td>

@@ -117,8 +117,10 @@ export default function Login() {
                     </p>
 
                     {/* App download teasers */}
-                    <div className="flex items-center gap-4 opacity-70 grayscale pointer-events-none mb-10">
-                        <img src="/app-store.svg" alt="" className="h-7 w-auto" />
+                    <div className="flex items-center gap-4 opacity-70 grayscale mb-10">
+                        <a href="https://apps.apple.com/ng/app/bago/id6758903056" target="_blank" rel="noopener noreferrer">
+                            <img src="/app-store.svg" alt="Download Bago on the App Store" className="h-7 w-auto" />
+                        </a>
                         <img src="/google-play.svg" alt="" className="h-7 w-auto" />
                     </div>
                 </div>

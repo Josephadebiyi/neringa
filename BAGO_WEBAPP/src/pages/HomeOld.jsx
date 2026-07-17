@@ -354,14 +354,14 @@ const Footer = () => {
                         <a href="#" className="hover:text-[#5845D8]">Press</a>
                         <a href="#" className="hover:text-[#5845D8]">We're Hiring!</a>
 
-                        <a
-                            href="https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind&hl=en"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-4 inline-block"
-                        >
-                            <img src="/app_store_buttons.png" alt="Download on App Store and Google Play" className="h-10 w-auto cursor-pointer" />
-                        </a>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                            <a href="https://apps.apple.com/ng/app/bago/id6758903056" target="_blank" rel="noopener noreferrer">
+                                <img src="/app-store.svg" alt="Download on the App Store" className="h-10 w-auto cursor-pointer" />
+                            </a>
+                            <a href="https://play.google.com/store/apps/details?id=com.deracali.boltexponativewind&hl=en" target="_blank" rel="noopener noreferrer">
+                                <img src="/google-play.svg" alt="Get it on Google Play" className="h-10 w-auto cursor-pointer" />
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
