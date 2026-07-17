@@ -47,8 +47,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppSnackBar.show(context,
-            message: 'Failed to upload photo', type: SnackBarType.error);
+        final message = e.toString().replaceFirst('Exception: ', '').trim();
+        AppSnackBar.show(
+          context,
+          message: message.isEmpty ? 'Failed to upload photo' : message,
+          type: SnackBarType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);

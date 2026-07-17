@@ -26,13 +26,27 @@ export const uploadOrUpdateImage = async (req, res) => {
     let imageUrl = null;
 
     if (req.files && req.files.image) {
-      const fileObj = req.files.image;
+      const fileObj = Array.isArray(req.files.image) ? req.files.image[0] : req.files.image;
+      if (!fileObj?.data?.length) {
+        return res.status(400).json({ success: false, message: 'The selected image is empty.' });
+      }
       const mime = fileObj.mimetype || 'image/jpeg';
+      const allowedImageTypes = new Set([
+        'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+      ]);
+      if (!allowedImageTypes.has(mime.toLowerCase())) {
+        return res.status(415).json({
+          success: false,
+          message: 'Please select a JPEG, PNG, WebP, or HEIC image.',
+        });
+      }
       const base64 = fileObj.data.toString('base64');
       const dataUri = `data:${mime};base64,${base64}`;
       const result = await cloudinary.v2.uploader.upload(dataUri, {
         folder: 'bago/profile_images',
         public_id: `profile_${userId}_${Date.now()}`,
+        resource_type: 'image',
+        transformation: [{ width: 1024, height: 1024, crop: 'limit', quality: 'auto' }],
       });
       imageUrl = result.secure_url;
     } else if (req.body.image) {
@@ -94,6 +108,7 @@ export const uploadOrUpdateImage = async (req, res) => {
       success: true,
       message: imageUrl ? 'Image updated successfully' : 'Avatar updated successfully',
       image: row?.image_url,
+      imageUrl: row?.image_url,
       selectedAvatar: row?.selected_avatar,
     });
   } catch (error) {

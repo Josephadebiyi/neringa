@@ -11,6 +11,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/services/storage_service.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../models/user_model.dart';
 
@@ -467,13 +468,26 @@ class AuthService {
 
   Future<UserModel> uploadAvatar(File file) async {
     try {
-      await _api.uploadFile(
+      if (!await file.exists()) {
+        throw Exception('The selected photo is no longer available.');
+      }
+      final response = await _api.uploadFile<Map<String, dynamic>>(
         ApiConstants.uploadAvatar,
         file: file,
         fieldName: 'image',
       );
-      // Backend returns only {success, image} — fetch fresh profile to get full user
-      return await getProfile();
+      final imageUrl = AvatarUrlParser.fromJson(response.data);
+      if (imageUrl == null) {
+        throw Exception('The server did not return the uploaded photo.');
+      }
+
+      final stored = await _storage.getUser();
+      final existing = stored == null ? null : UserModel.fromJsonString(stored);
+      if (existing == null) return await getProfile();
+
+      final updated = existing.copyWith(profilePicture: imageUrl);
+      await _storage.saveUser(updated.toJsonString());
+      return updated;
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
