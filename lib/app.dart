@@ -136,7 +136,7 @@ class _CurrencyLocationPromptHostState
               content: Text(
                 sameCurrency && sameCountry
                     ? 'We detected $countryCode as your current location. Confirm this so Bago keeps using $currency for your wallet.'
-                    : 'We detected ${country.isNotEmpty ? country : countryCode}. Bago will use $currency for your wallet and payments${countryData != null && countryData.currency != currency ? ' because Flutterwave does not collect ${countryData.currency}; $currency is the regional fallback' : ''}. If this looks right, confirm it.',
+                    : 'We detected ${country.isNotEmpty ? country : countryCode}. Bago will use $currency for your wallet and payments. If this looks right, confirm it.',
               ),
               actions: [
                 TextButton(

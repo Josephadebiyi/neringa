@@ -568,11 +568,9 @@ class _KycCountryCurrencySheetState extends State<_KycCountryCurrencySheet> {
                       ),
                     ),
                     subtitle: Text(
-                      country.currency ==
-                              CurrencyConversionHelper
-                                  .paymentCurrencyForCountry(country)
-                          ? '${country.currency} (${country.symbol})'
-                          : '${CurrencyConversionHelper.paymentCurrencyForCountry(country)} fallback',
+                      CurrencyConversionHelper.paymentCurrencyForCountry(
+                        country,
+                      ),
                       style: AppTextStyles.bodySm.copyWith(
                         color: AppColors.gray500,
                       ),

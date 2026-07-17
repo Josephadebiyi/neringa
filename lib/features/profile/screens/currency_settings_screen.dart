@@ -154,11 +154,7 @@ class _CurrencySettingsScreenState
                     style: AppTextStyles.bodyMd
                         .copyWith(fontWeight: FontWeight.w700)),
                 subtitle: Text(
-                    country.currency ==
-                            CurrencyConversionHelper.paymentCurrencyForCountry(
-                                country)
-                        ? 'Payment currency: ${country.currency}'
-                        : 'Payment currency: ${CurrencyConversionHelper.paymentCurrencyForCountry(country)} (regional fallback)',
+                    'Payment currency: ${CurrencyConversionHelper.paymentCurrencyForCountry(country)}',
                     style: AppTextStyles.bodySm
                         .copyWith(color: AppColors.gray400)),
                 onTap: () => setState(() {
@@ -318,7 +314,7 @@ class _CurrencySettingsScreenState
         const SizedBox(height: 16),
         if (_selectedCountry != null) ...[
           Text(
-            '${_selectedCountry!.flag} ${_selectedCountry!.name} will use ${_selectedCurrency!} for payments${_selectedCountry!.currency == _selectedCurrency ? '' : ' (regional fallback from ${_selectedCountry!.currency})'}.',
+            '${_selectedCountry!.flag} ${_selectedCountry!.name} will use ${_selectedCurrency!} for payments.',
             style: AppTextStyles.bodySm.copyWith(
                 color: AppColors.gray500, fontWeight: FontWeight.w700),
           ),
