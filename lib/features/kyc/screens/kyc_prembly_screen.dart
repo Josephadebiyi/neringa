@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:prembly_identity_kyc/prembly_identity_kyc.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/api_constants.dart';
@@ -83,60 +81,29 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
         // Non-fatal: if the preflight fails, let the SDK attempt continue.
       }
 
-      // Fetch widget keys from backend at runtime — never bundled in app
-      final res = await ApiService.instance
-          .get(ApiConstants.appConfig)
-          .timeout(const Duration(seconds: 10));
-
-      final widgetKey = res.data?['premblyWidgetKey']?.toString() ?? '';
-      final widgetId = res.data?['premblyWidgetId']?.toString() ?? '';
-
-      if (widgetKey.isEmpty || widgetId.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _hasError = true;
-          _errorMessage =
-              'Verification service is not available right now. Please try again later.';
-        });
-        return;
+      // Create the Prembly session on the backend and open its hosted URL.
+      // This avoids relying on the inline JavaScript SDK inside the app, which
+      // can fail before rendering and report that startup failure as a callback.
+      final res = await ApiService.instance.post<Map<String, dynamic>>(
+        ApiConstants.kycPremblyStart,
+        data: {'country': widget.countryCode.toUpperCase()},
+      ).timeout(const Duration(seconds: 20));
+      final verificationUrl =
+          res.data?['verificationUrl']?.toString().trim() ?? '';
+      if (verificationUrl.isEmpty) {
+        throw StateError('Prembly did not return a verification URL.');
       }
-
       if (!mounted) return;
-      final user = ref.read(authProvider).user;
-      final deviceFingerprint =
-          await StorageService.instance.getDeviceFingerprint();
-      if (!mounted) return;
-      final startedAt = DateTime.now().toUtc().toIso8601String();
-
-      final options = IdentityKycOptions(
-        widgetKey: widgetKey,
-        widgetId: widgetId,
-        firstName: user?.firstName ?? '',
-        lastName: user?.lastName ?? '',
-        email: user?.email ?? '',
-        userRef: widget.userId,
-        // Tells the Prembly widget which country this user is from so it can
-        // skip the internal country-selection step and go straight to capture.
-        metadata: {
-          'provider': 'prembly',
-          'source': 'bago_flutter',
-          'userId': widget.userId,
-          'user_ref': widget.userId,
-          'country': widget.countryCode.toUpperCase(),
-          'platform': Platform.isIOS ? 'ios' : 'android',
-          'startedAt': startedAt,
-          if (deviceFingerprint != null && deviceFingerprint.isNotEmpty)
-            'deviceFingerprint': deviceFingerprint,
-        },
-        callback: _onSdkComplete,
-      );
 
       // Use our local wrapper (not the package's static call) so we can:
-      //  1. Grant camera via setOnPermissionRequest
-      //  2. Await dismissal and detect if the user cancelled (pressed ✕)
+      //  1. Grant camera/mic via setOnPermissionRequest
+      //  2. Detect the backend completion redirect
       await Navigator.of(context).push<bool>(
         MaterialPageRoute(
-          builder: (_) => _PremblySdkPage(options: options),
+          builder: (_) => _PremblyHostedPage(
+            verificationUrl: verificationUrl,
+            onComplete: _onSdkComplete,
+          ),
           fullscreenDialog: true,
         ),
       );
@@ -322,19 +289,21 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
   }
 }
 
-// ── Local Prembly WebView ─────────────────────────────────────────────────────
-// Replaces PremblyIdentityKyc.verify() so we can:
-//   • Grant camera/mic via setOnPermissionRequest (fixes Android camera block)
-//   • Return a result when dismissed (true = completed, false/null = cancelled)
-class _PremblySdkPage extends StatefulWidget {
-  const _PremblySdkPage({required this.options});
-  final IdentityKycOptions options;
+// ── Hosted Prembly WebView ────────────────────────────────────────────────────
+class _PremblyHostedPage extends StatefulWidget {
+  const _PremblyHostedPage({
+    required this.verificationUrl,
+    required this.onComplete,
+  });
+
+  final String verificationUrl;
+  final ValueChanged<Map<String, dynamic>> onComplete;
 
   @override
-  State<_PremblySdkPage> createState() => _PremblySdkPageState();
+  State<_PremblyHostedPage> createState() => _PremblyHostedPageState();
 }
 
-class _PremblySdkPageState extends State<_PremblySdkPage> {
+class _PremblyHostedPageState extends State<_PremblyHostedPage> {
   late final WebViewController _controller;
   bool _completed = false;
 
@@ -365,77 +334,17 @@ class _PremblySdkPageState extends State<_PremblySdkPage> {
           },
         ),
       )
-      ..addJavaScriptChannel(
-        'FlutterChannel',
-        onMessageReceived: (msg) {
-          try {
-            final Map<String, dynamic> response = jsonDecode(msg.message);
-            _complete(response);
-          } catch (_) {}
-        },
-      )
-      ..loadHtmlString(
-        _buildHtml(),
-        baseUrl: ApiConstants.baseUrl,
-      );
+      ..loadRequest(Uri.parse(widget.verificationUrl));
   }
 
   void _complete(Map<String, dynamic> response) {
     if (_completed) return;
     _completed = true;
-    widget.options.callback(response);
+    widget.onComplete(response);
     // Pop with true so _start() knows the callback fired
     if (mounted && Navigator.canPop(context)) {
       Navigator.pop(context, true);
     }
-  }
-
-  String _buildHtml() {
-    final optionsJson = jsonEncode(widget.options.toJson());
-    return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Identity KYC</title>
-  <script src="https://js.prembly.com/v1/inline/widget-v3.js"></script>
-  <style>
-    body { margin: 0; padding: 0; background: white; }
-    #identity-container { width: 100vw; height: 100vh; }
-  </style>
-</head>
-<body>
-  <div id="identity-container"></div>
-  <script>
-    (function() {
-      const originalCreateElement = document.createElement.bind(document);
-      document.createElement = function(tagName) {
-        const element = originalCreateElement(tagName);
-        if (String(tagName).toLowerCase() === 'iframe') {
-          element.setAttribute('allow', 'camera; microphone; clipboard-read; clipboard-write; fullscreen');
-          element.setAttribute('allowfullscreen', 'true');
-        }
-        return element;
-      };
-    })();
-
-    function invokeKYC() {
-      const options = $optionsJson;
-      options.callback = function(response) {
-        FlutterChannel.postMessage(JSON.stringify(response));
-      };
-      if (window.IdentityKYC && typeof window.IdentityKYC.verify === 'function') {
-        window.IdentityKYC.verify(options);
-      } else {
-        FlutterChannel.postMessage(JSON.stringify({ error: "SDK script not loaded" }));
-      }
-    }
-    window.onload = function() { setTimeout(invokeKYC, 100); };
-  </script>
-</body>
-</html>
-''';
   }
 
   @override
