@@ -347,9 +347,13 @@ async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
 export async function signUp(req, res) {
   try {
     let { firstName, lastName, fullName, email, phone, password, confirmPassword, referralCode, promoCode, dateOfBirth, country,
-      accountType, companyName, tradingName, businessRegistrationNumber, businessType, businessAddress, businessTaxId, representativeRole } = req.body;
+      accountType, companyName, tradingName, businessRegistrationNumber, businessType, businessAddress, businessTaxId, representativeRole, operationalCurrency } = req.body;
 
     accountType = accountType === 'company' ? 'company' : 'individual';
+    operationalCurrency = String(operationalCurrency || '').trim().toUpperCase();
+    if (operationalCurrency && !/^[A-Z]{3}$/.test(operationalCurrency)) {
+      return res.status(400).json({ message: 'Operational currency must be a valid three-letter currency code.' });
+    }
 
     if (!firstName && fullName) {
       const parts = fullName.trim().split(/\s+/);
@@ -428,6 +432,7 @@ export async function signUp(req, res) {
         businessAddress: businessAddress?.trim() || null,
         businessTaxId: businessTaxId?.trim() || null,
         representativeRole: representativeRole?.trim() || null,
+        operationalCurrency: operationalCurrency || null,
         otp: activationOtp,
       },
       process.env.JWT_SECRET,
@@ -506,8 +511,9 @@ export async function verifySignupOtp(req, res) {
     const passwordHash = decoded.passwordHash || await bcrypt.hash(decoded.password, 10);
     let preferredCurrency = getCurrencyByCountry(decoded.country);
     let paymentGateway = getPaymentGateway(decoded.country);
+    if (decoded.operationalCurrency) preferredCurrency = decoded.operationalCurrency;
     // If country wasn't recognized (falls back to USD), use IP geolocation
-    if (preferredCurrency === 'USD' && !decoded.country?.match(/^US$/i) && decoded.country !== 'United States') {
+    if (!decoded.operationalCurrency && preferredCurrency === 'USD' && !decoded.country?.match(/^US$/i) && decoded.country !== 'United States') {
       const ipLocation = getLocationDataFromRequest(req);
       if (ipLocation.currency) {
         preferredCurrency = ipLocation.currency;

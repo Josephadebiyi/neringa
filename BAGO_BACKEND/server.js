@@ -616,11 +616,11 @@ schema('/api/bago/signin', {
   max: { email: 254, password: 256 },
 });
 schema('/api/bago/signup', {
-  allowed: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'promoCode', 'role', 'dateOfBirth', 'accountType', 'companyName', 'tradingName', 'businessRegistrationNumber', 'businessType', 'businessAddress', 'businessTaxId', 'representativeRole'],
+  allowed: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'operationalCurrency', 'referralCode', 'promoCode', 'role', 'dateOfBirth', 'accountType', 'companyName', 'tradingName', 'businessRegistrationNumber', 'businessType', 'businessAddress', 'businessTaxId', 'representativeRole'],
   required: ['email', 'password'],
-  strings: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'referralCode', 'promoCode', 'role', 'dateOfBirth', 'accountType', 'companyName', 'tradingName', 'businessRegistrationNumber', 'businessType', 'businessAddress', 'businessTaxId', 'representativeRole'],
+  strings: ['email', 'password', 'confirmPassword', 'firstName', 'lastName', 'fullName', 'phone', 'country', 'currency', 'operationalCurrency', 'referralCode', 'promoCode', 'role', 'dateOfBirth', 'accountType', 'companyName', 'tradingName', 'businessRegistrationNumber', 'businessType', 'businessAddress', 'businessTaxId', 'representativeRole'],
   enums: { accountType: ['individual', 'company'] },
-  max: { email: 254, password: 256, confirmPassword: 256, firstName: 80, lastName: 80, fullName: 160, phone: 40, country: 80, currency: 3, referralCode: 32, promoCode: 32, role: 24, dateOfBirth: 40, accountType: 20, companyName: 180, tradingName: 180, businessRegistrationNumber: 100, businessType: 100, businessAddress: 500, businessTaxId: 100, representativeRole: 100 },
+  max: { email: 254, password: 256, confirmPassword: 256, firstName: 80, lastName: 80, fullName: 160, phone: 40, country: 80, currency: 3, operationalCurrency: 3, referralCode: 32, promoCode: 32, role: 24, dateOfBirth: 40, accountType: 20, companyName: 180, tradingName: 180, businessRegistrationNumber: 100, businessType: 100, businessAddress: 500, businessTaxId: 100, representativeRole: 100 },
 });
 schema('/api/bago/signup/check-email', {
   allowed: ['email'],
