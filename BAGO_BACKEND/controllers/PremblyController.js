@@ -340,6 +340,10 @@ async function activePremblySessionForUser(userId) {
      FROM public.prembly_kyc_sessions
      WHERE user_id = $1
        AND status IN ('started', 'pending', 'processing', 'manual_review')
+       -- /api/config/app records launch telemetry before the widget opens.
+       -- That row is not a resumable Prembly session and must never block a
+       -- subsequent launch or make the client treat KYC as pending.
+       AND source <> 'app_config'
        AND created_at > timezone('utc', now()) - INTERVAL '30 minutes'
      ORDER BY created_at DESC
      LIMIT 1`,
