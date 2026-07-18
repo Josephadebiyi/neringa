@@ -1001,7 +1001,7 @@ export const updateLegalName = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false });
 
-    const { firstName, lastName, dateOfBirth, country, countryCode, currency } = req.body;
+    const { firstName, lastName, dateOfBirth, country, countryCode, currency } = req.body || {};
     const { validateLegalName } = await import('../services/securityService.js');
 
     const nameCheck = validateLegalName(`${firstName || ''} ${lastName || ''}`.trim());
@@ -1025,44 +1025,50 @@ export const updateLegalName = async (req, res) => {
     }
 
     const normalizedCountry = normalizeCountryCode(countryCode || country);
-    if (!normalizedCountry) {
-      return res.status(400).json({ success: false, message: 'Please choose your country before continuing.' });
-    }
     const requestedCurrency = String(currency || '').trim().toUpperCase();
-    const walletCurrency = currencyForCountry(
-      normalizedCountry,
-      /^[A-Z]{3}$/.test(requestedCurrency) ? requestedCurrency : 'USD',
-    );
-    const paymentGateway = paymentGatewayForCountry(normalizedCountry);
+    const walletCurrency = normalizedCountry
+      ? currencyForCountry(
+          normalizedCountry,
+          /^[A-Z]{3}$/.test(requestedCurrency) ? requestedCurrency : 'USD',
+        )
+      : null;
+    const paymentGateway = normalizedCountry
+      ? paymentGatewayForCountry(normalizedCountry)
+      : null;
 
     await query(
       `UPDATE public.profiles
        SET first_name  = $2,
            last_name   = $3,
            date_of_birth = COALESCE($4::date, date_of_birth),
-           country = $5,
-           preferred_currency = $6,
-           payment_gateway = $7,
+           country = COALESCE($5, country),
+           preferred_currency = COALESCE($6, preferred_currency),
+           payment_gateway = COALESCE($7, payment_gateway),
            updated_at  = NOW()
        WHERE id = $1`,
       [userId, firstName.trim(), lastName.trim(), dobValue, normalizedCountry, walletCurrency, paymentGateway],
     );
 
-    const wallet = await queryOne(
-      `SELECT id, available_balance, escrow_balance FROM public.wallet_accounts WHERE user_id = $1`,
-      [userId],
-    );
-    if (!wallet) {
-      await query(
-        `INSERT INTO public.wallet_accounts (user_id, available_balance, escrow_balance, currency)
-         VALUES ($1, 0, 0, $2)`,
-        [userId, walletCurrency],
+    // Older released clients save legal details first, then persist their
+    // selected country/currency through /user/edit and /activate-earning.
+    // Only update the wallet here when this request includes a country.
+    if (normalizedCountry && walletCurrency) {
+      const wallet = await queryOne(
+        `SELECT id, available_balance, escrow_balance FROM public.wallet_accounts WHERE user_id = $1`,
+        [userId],
       );
-    } else if (Number(wallet.available_balance || 0) === 0 && Number(wallet.escrow_balance || 0) === 0) {
-      await query(
-        `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
-        [userId, walletCurrency],
-      );
+      if (!wallet) {
+        await query(
+          `INSERT INTO public.wallet_accounts (user_id, available_balance, escrow_balance, currency)
+           VALUES ($1, 0, 0, $2)`,
+          [userId, walletCurrency],
+        );
+      } else if (Number(wallet.available_balance || 0) === 0 && Number(wallet.escrow_balance || 0) === 0) {
+        await query(
+          `UPDATE public.wallet_accounts SET currency = $2, updated_at = NOW() WHERE user_id = $1`,
+          [userId, walletCurrency],
+        );
+      }
     }
 
     // Best-effort: clear pending_name status and record submission (columns may not exist on older DBs)
@@ -1077,9 +1083,9 @@ export const updateLegalName = async (req, res) => {
     return res.json({
       success: true,
       message: 'Details updated successfully',
-      country: normalizedCountry,
-      currency: walletCurrency,
-      paymentGateway,
+      ...(normalizedCountry && { country: normalizedCountry }),
+      ...(walletCurrency && { currency: walletCurrency }),
+      ...(paymentGateway && { paymentGateway }),
     });
   } catch (err) {
     console.error('updateLegalName error:', err);

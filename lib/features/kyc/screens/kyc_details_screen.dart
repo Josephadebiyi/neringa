@@ -108,17 +108,20 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
     });
     try {
       final country = _selectedCountry!;
+      final currency =
+          CurrencyConversionHelper.paymentCurrencyForCountry(country);
       await ApiService.instance.post(
         ApiConstants.kycUpdateLegalName,
         data: {
           'firstName': _firstNameCtrl.text.trim(),
           'lastName': _lastNameCtrl.text.trim(),
           'dateOfBirth': _formattedDob,
+          'countryCode': country.code,
+          'currency': currency,
         },
       );
       await ref.read(authProvider.notifier).confirmDetectedLocationCurrency(
-            currency:
-                CurrencyConversionHelper.paymentCurrencyForCountry(country),
+            currency: currency,
             country: country.code,
           );
       if (!mounted) return;

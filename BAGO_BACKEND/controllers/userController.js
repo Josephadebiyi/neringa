@@ -23,6 +23,10 @@ cloudinary.v2.config({
 export const uploadOrUpdateImage = async (req, res) => {
   try {
     const userId = req.user.id;
+    // express-fileupload does not guarantee `req.body` exists for multipart
+    // requests that contain only a file. Keep the legacy image/avatar payload
+    // handling safe for those uploads.
+    const body = req.body || {};
     let imageUrl = null;
 
     if (req.files && req.files.image) {
@@ -49,8 +53,8 @@ export const uploadOrUpdateImage = async (req, res) => {
         transformation: [{ width: 1024, height: 1024, crop: 'limit', quality: 'auto' }],
       });
       imageUrl = result.secure_url;
-    } else if (req.body.image) {
-      const imageInput = req.body.image;
+    } else if (body.image) {
+      const imageInput = body.image;
       if (/^https?:\/\//i.test(imageInput)) {
         imageUrl = imageInput;
       } else {
@@ -66,10 +70,10 @@ export const uploadOrUpdateImage = async (req, res) => {
     }
 
     let selectedAvatar = undefined;
-    if (req.body.selectedAvatar !== undefined) {
-      selectedAvatar = (req.body.selectedAvatar === null || req.body.selectedAvatar === 'null')
+    if (body.selectedAvatar !== undefined) {
+      selectedAvatar = (body.selectedAvatar === null || body.selectedAvatar === 'null')
         ? null
-        : parseInt(req.body.selectedAvatar);
+        : parseInt(body.selectedAvatar);
       if (selectedAvatar) imageUrl = null; // clear image when using avatar
     }
 
@@ -120,7 +124,7 @@ export const uploadOrUpdateImage = async (req, res) => {
 export const updateAvatar = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { selectedAvatar } = req.body;
+    const { selectedAvatar } = req.body || {};
 
     if (!selectedAvatar || selectedAvatar < 1 || selectedAvatar > 6) {
       return res.status(400).json({ success: false, message: 'Invalid avatar selection (1–6)' });
