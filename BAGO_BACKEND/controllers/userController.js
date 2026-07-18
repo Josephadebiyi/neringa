@@ -161,11 +161,24 @@ export const edit = async (req, res, next) => {
       }
     }
 
-    const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'country'];
+    const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'preferredLanguage', 'country', 'bio'];
     const updateKeys = Object.keys(updates).filter(k => allowed.includes(k));
 
     if (updateKeys.length === 0) {
       return res.status(400).json({ message: 'No valid update fields provided' });
+    }
+
+    if (updateKeys.includes('bio')) {
+      updates.bio = String(updates.bio || '').trim();
+      if (updates.bio.length > 250) {
+        return res.status(400).json({ success: false, message: 'Bio must be 250 characters or fewer.' });
+      }
+    }
+    if (updateKeys.includes('preferredLanguage')) {
+      updates.preferredLanguage = String(updates.preferredLanguage || '').trim().toLowerCase();
+      if (!['en', 'de', 'fr', 'es', 'pt', 'it'].includes(updates.preferredLanguage)) {
+        return res.status(400).json({ success: false, message: 'Unsupported language.' });
+      }
     }
 
     // Read old preferred currency BEFORE the update so wallet conversion has a fallback
@@ -207,7 +220,9 @@ export const edit = async (req, res, next) => {
         dateOfBirth: 'date_of_birth',
         bankDetails: 'bank_details',
         preferredCurrency: 'preferred_currency',
+        preferredLanguage: 'preferred_language',
         country: 'country',
+        bio: 'bio',
       };
       const col = colMap[key];
       if (!col) continue;
@@ -219,7 +234,7 @@ export const edit = async (req, res, next) => {
     const row = await queryOne(
       `UPDATE public.profiles SET ${sets.join(', ')} WHERE id = $1
        RETURNING id, first_name, last_name, email, phone, date_of_birth,
-                 preferred_currency, country, bank_details, image_url, selected_avatar`,
+                 preferred_currency, preferred_language, country, bank_details, image_url, selected_avatar, bio`,
       params
     );
 
@@ -253,10 +268,12 @@ export const edit = async (req, res, next) => {
         phone: row.phone,
         dateOfBirth: row.date_of_birth,
         preferredCurrency: row.preferred_currency,
+        preferredLanguage: row.preferred_language || 'en',
         country: row.country,
         bankDetails: row.bank_details,
         image: row.image_url,
         selectedAvatar: row.selected_avatar,
+        bio: updatedProfile?.bio || '',
         walletBalance: displayBalance,
         wallet_balance: displayBalance,
         availableBalance: displayBalance,

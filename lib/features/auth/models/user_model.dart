@@ -24,6 +24,7 @@ class UserModel {
   final double? escrowDisplayBalance;
   final String currency;
   final String preferredCurrency;
+  final String preferredLanguage;
   final String walletCurrency;
   final String? walletDisplayCurrency;
   final String? bio;
@@ -66,6 +67,7 @@ class UserModel {
     this.escrowDisplayBalance,
     this.currency = '',
     this.preferredCurrency = '',
+    this.preferredLanguage = 'en',
     this.walletCurrency = '',
     this.walletDisplayCurrency,
     this.bio,
@@ -166,6 +168,7 @@ class UserModel {
     double? escrowDisplayBalance,
     String? currency,
     String? preferredCurrency,
+    String? preferredLanguage,
     String? walletDisplayCurrency,
     String? bio,
     double? rating,
@@ -208,6 +211,7 @@ class UserModel {
       escrowDisplayBalance: escrowDisplayBalance ?? this.escrowDisplayBalance,
       currency: currency ?? this.currency,
       preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       walletCurrency: walletCurrency ?? this.walletCurrency,
       walletDisplayCurrency:
           walletDisplayCurrency ?? this.walletDisplayCurrency,
@@ -318,6 +322,9 @@ class UserModel {
             json['preferred_currency']?.toString() ??
             json['currency']?.toString() ??
             '',
+        preferredLanguage: json['preferredLanguage']?.toString() ??
+            json['preferred_language']?.toString() ??
+            'en',
         termsAcceptedAt: json['termsAcceptedAt'] != null
             ? DateTime.tryParse(json['termsAcceptedAt'].toString())
             : null,
@@ -360,6 +367,7 @@ class UserModel {
         'wallet_display_currency': walletDisplayCurrency,
         'preferredCurrency':
             preferredCurrency.isNotEmpty ? preferredCurrency : currency,
+        'preferredLanguage': preferredLanguage,
         'bio': bio,
         'rating': rating,
         'rating_count': ratingCount,

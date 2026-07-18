@@ -36,6 +36,7 @@ class TripModel {
   final double travelerEarnings;
   final double payoutAmount;
   final String payoutStatus;
+  final int completedTripCount;
 
   const TripModel({
     required this.id,
@@ -71,6 +72,7 @@ class TripModel {
     this.travelerEarnings = 0,
     this.payoutAmount = 0,
     this.payoutStatus = 'pending',
+    this.completedTripCount = 0,
   });
 
   bool get isActive =>
@@ -156,6 +158,7 @@ class TripModel {
     double? travelerEarnings,
     double? payoutAmount,
     String? payoutStatus,
+    int? completedTripCount,
   }) {
     return TripModel(
       id: id ?? this.id,
@@ -191,6 +194,7 @@ class TripModel {
       travelerEarnings: travelerEarnings ?? this.travelerEarnings,
       payoutAmount: payoutAmount ?? this.payoutAmount,
       payoutStatus: payoutStatus ?? this.payoutStatus,
+      completedTripCount: completedTripCount ?? this.completedTripCount,
     );
   }
 
@@ -276,6 +280,11 @@ class TripModel {
         altKey: 'payout_status',
         fallback: 'pending',
       ),
+      completedTripCount: JsonParser.parseInt(
+        json,
+        'completedTripCount',
+        altKey: 'completed_trip_count',
+      ),
     );
   }
 
@@ -310,5 +319,6 @@ class TripModel {
         'travelerEarnings': travelerEarnings,
         'payoutAmount': payoutAmount,
         'payoutStatus': payoutStatus,
+        'completedTripCount': completedTripCount,
       };
 }

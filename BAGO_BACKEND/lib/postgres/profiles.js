@@ -103,6 +103,7 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS verified_last_name TEXT,
       ADD COLUMN IF NOT EXISTS verified_full_legal_name TEXT,
       ADD COLUMN IF NOT EXISTS verified_date_of_birth DATE,
+      ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT 'en',
       ADD COLUMN IF NOT EXISTS kyc_provider TEXT,
       ADD COLUMN IF NOT EXISTS verification_provider TEXT,
       ADD COLUMN IF NOT EXISTS identity_fields_locked BOOLEAN NOT NULL DEFAULT FALSE
@@ -158,6 +159,7 @@ function normalizeProfileRow(row) {
     kycStatus: row.kyc_status,
     paymentGateway: row.payment_gateway,
     preferredCurrency: row.preferred_currency,
+    preferredLanguage: row.preferred_language || 'en',
     earningCurrency: row.earning_currency || row.preferred_currency || null,
     earningCurrencyLocked: row.earning_currency_locked ?? false,
     stripeAccountId: row.stripe_account_id,
@@ -238,6 +240,7 @@ const baseSelect = `
     p.payout_method,
     p.payment_gateway,
     p.preferred_currency,
+    p.preferred_language,
     p.earning_currency,
     p.earning_currency_locked,
     p.completed_trips,

@@ -383,7 +383,7 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
       }
       await ensurePayoutAccountOtpColumns();
       const profile = await queryOne(
-        `select email, first_name from public.profiles where id = $1`,
+        `select email, first_name, preferred_language from public.profiles where id = $1`,
         [user.id],
       );
       if (!profile?.email) {
@@ -399,15 +399,28 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
          where id = $1`,
         [user.id, hashPayoutOtp(otp), PAYOUT_ACCOUNT_OTP_MINUTES, JSON.stringify(req.body || {})],
       );
+      const language = ['en', 'de', 'fr', 'es', 'pt', 'it'].includes(profile.preferred_language)
+        ? profile.preferred_language
+        : 'en';
+      const payoutEmailCopy = {
+        en: { subject: 'Confirm your Bago payout account', subtitle: 'Use this code to confirm your new payout account.', expiry: `This code expires in ${PAYOUT_ACCOUNT_OTP_MINUTES} minutes.` },
+        de: { subject: 'Bestätigen Sie Ihr Bago-Auszahlungskonto', subtitle: 'Verwenden Sie diesen Code, um Ihr neues Auszahlungskonto zu bestätigen.', expiry: `Dieser Code läuft in ${PAYOUT_ACCOUNT_OTP_MINUTES} Minuten ab.` },
+        fr: { subject: 'Confirmez votre compte de paiement Bago', subtitle: 'Utilisez ce code pour confirmer votre nouveau compte de paiement.', expiry: `Ce code expire dans ${PAYOUT_ACCOUNT_OTP_MINUTES} minutes.` },
+        es: { subject: 'Confirma tu cuenta de pagos de Bago', subtitle: 'Usa este código para confirmar tu nueva cuenta de pagos.', expiry: `Este código caduca en ${PAYOUT_ACCOUNT_OTP_MINUTES} minutos.` },
+        pt: { subject: 'Confirme a sua conta de pagamentos Bago', subtitle: 'Use este código para confirmar a sua nova conta de pagamentos.', expiry: `Este código expira em ${PAYOUT_ACCOUNT_OTP_MINUTES} minutos.` },
+        it: { subject: 'Conferma il tuo conto pagamenti Bago', subtitle: 'Usa questo codice per confermare il tuo nuovo conto pagamenti.', expiry: `Questo codice scade tra ${PAYOUT_ACCOUNT_OTP_MINUTES} minuti.` },
+      };
+      const emailCopy = payoutEmailCopy[language];
       const { error: emailError } = await resend.emails.send({
         from: process.env.WITHDRAWAL_OTP_FROM || 'Bago <no-reply@sendwithbago.com>',
         to: profile.email,
-        subject: 'Confirm your Bago payout account',
+        subject: emailCopy.subject,
         html: generateOtpEmailHtml({
           firstName: profile.first_name || 'there',
           otp,
-          subtitle: 'Use this code to confirm your new payout account.',
-          expiryNote: `This code expires in ${PAYOUT_ACCOUNT_OTP_MINUTES} minutes.`,
+          subtitle: emailCopy.subtitle,
+          expiryNote: emailCopy.expiry,
+          language,
         }),
       });
       if (emailError) {

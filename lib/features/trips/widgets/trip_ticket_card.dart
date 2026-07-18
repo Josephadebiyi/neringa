@@ -169,6 +169,15 @@ class TripTicketCard extends ConsumerWidget {
                               icon: Icons.star_rounded,
                               label: trip.averageRating!.toStringAsFixed(1),
                             ),
+                          if (!ownerView)
+                            _MiniPill(
+                              icon: trip.completedTripCount > 0
+                                  ? Icons.verified_rounded
+                                  : Icons.person_add_alt_1_rounded,
+                              label: trip.completedTripCount > 0
+                                  ? '${trip.completedTripCount} completed ${trip.completedTripCount == 1 ? 'trip' : 'trips'}'
+                                  : 'New traveler',
+                            ),
                         ],
                       ),
                     ),

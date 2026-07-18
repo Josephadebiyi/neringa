@@ -1109,17 +1109,33 @@ class _TravelerHeroCard extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         )),
                     const SizedBox(height: 4),
-                    Row(children: [
-                      const Icon(Icons.star_rounded,
-                          size: 14, color: Color(0xFFFFD700)),
-                      const SizedBox(width: 4),
-                      Text(
-                        rating > 0 ? rating.toStringAsFixed(1) : 'New',
-                        style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600),
-                      ),
+                    Wrap(spacing: 10, runSpacing: 4, children: [
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.star_rounded,
+                            size: 14, color: Color(0xFFFFD700)),
+                        const SizedBox(width: 4),
+                        Text(
+                          rating > 0 ? rating.toStringAsFixed(1) : 'No ratings',
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ]),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.verified_rounded,
+                            size: 14, color: Colors.white70),
+                        const SizedBox(width: 4),
+                        Text(
+                          trip.completedTripCount > 0
+                              ? '${trip.completedTripCount} completed ${trip.completedTripCount == 1 ? 'trip' : 'trips'}'
+                              : 'New traveler',
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ]),
                     ]),
                   ],
                 ),

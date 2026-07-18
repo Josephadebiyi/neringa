@@ -53,6 +53,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
         message: 'Bio updated successfully',
         type: SnackBarType.success,
       );
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(

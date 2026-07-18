@@ -206,6 +206,7 @@ export default function Settings({ user, checkAuthStatus }) {
     });
     const [email, setEmail] = useState(user?.email || '');
     const [phone, setPhone] = useState(user?.phone || '');
+    const [bio, setBio] = useState(user?.bio || '');
     const [showPhoneOtp, setShowPhoneOtp] = useState(false);
     const [phoneOtp, setPhoneOtp] = useState('');
     const [newEmail, setNewEmail] = useState('');
@@ -248,7 +249,8 @@ export default function Settings({ user, checkAuthStatus }) {
         if (user?.phone) {
             setPhone(user.phone);
         }
-    }, [user?._id, user?.preferredCurrency, user?.phone]);
+        setBio(user?.bio || '');
+    }, [user?._id, user?.preferredCurrency, user?.phone, user?.bio]);
 
     useEffect(() => {
         setPayoutCurrency(linkedPayoutCurrency);
@@ -365,17 +367,18 @@ export default function Settings({ user, checkAuthStatus }) {
         setLoading(true);
         setError('');
         try {
-            const res = await api.put('/api/bago/edit', {
-                firstName,
-                lastName,
-                dateOfBirth,
+            const identityLocked = user?.kycStatus === 'approved' || user?.isKycCompleted;
+            const payload = {
+                ...(!identityLocked ? { firstName, lastName, dateOfBirth } : {}),
                 country: residenceCountry,
+                bio: bio.trim(),
                 bankDetails: {
                     bankName,
                     accountNumber,
                     accountHolderName
                 }
-            });
+            };
+            const res = await api.put('/api/bago/edit', payload);
             if (res.data.status === 'success') {
                 setCurrency(preferredCurrency);
                 localStorage.setItem('baggo_currency', preferredCurrency);
@@ -604,6 +607,21 @@ export default function Settings({ user, checkAuthStatus }) {
                                 onChange={(e) => setDateOfBirth(e.target.value)}
                                 disabled={user?.kycStatus === 'approved'}
                                 className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
+                            />
+                        </div>
+
+                        <div>
+                            <div className="mb-1.5 ml-1 flex items-center justify-between">
+                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest">Bio</label>
+                                <span className="text-[8px] font-bold text-gray-400">{bio.length}/250</span>
+                            </div>
+                            <textarea
+                                value={bio}
+                                onChange={(e) => setBio(e.target.value)}
+                                maxLength={250}
+                                rows={4}
+                                placeholder="Tell people a little about yourself"
+                                className="w-full resize-none px-4 py-3 rounded-xl border bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none font-semibold text-[11px] text-[#111827] transition-all"
                             />
                         </div>
 

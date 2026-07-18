@@ -454,8 +454,9 @@ class AuthService {
     try {
       final res = await _api.put(ApiConstants.updateProfile, data: updates);
       final data = res.data as Map<String, dynamic>;
+      final profileData = data['user'] ?? data['data'] ?? data;
       final user = await _applyStoredRole(
-        UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+        UserModel.fromJson(profileData as Map<String, dynamic>),
       );
       await _storage.saveRole(user.role);
       await _storage.saveUser(user.toJsonString());

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/storage_service.dart';
+import '../services/api_service.dart';
 
 class AppLanguage {
   const AppLanguage({
@@ -55,13 +56,29 @@ class LocaleNotifier extends Notifier<Locale?> {
   }
 
   Future<void> setLocale(Locale locale) async {
-    state = locale;
-    await _storage.saveLanguageCode(locale.languageCode);
+    final languageCode = resolveAppLanguage(locale.languageCode).code;
+    state = Locale(languageCode);
+    await _storage.saveLanguageCode(languageCode);
+    try {
+      await ApiService.instance.put(
+        '/api/bago/edit',
+        data: {'preferredLanguage': languageCode},
+      );
+    } catch (_) {
+      // Keep the local selection when signed out or temporarily offline.
+    }
   }
 
   Future<void> clearLocale() async {
     state = null;
     await _storage.deleteLanguageCode();
+  }
+
+  Future<void> syncFromProfile(String? languageCode) async {
+    final resolved = resolveAppLanguage(languageCode).code;
+    if (state?.languageCode == resolved) return;
+    state = Locale(resolved);
+    await _storage.saveLanguageCode(resolved);
   }
 }
 

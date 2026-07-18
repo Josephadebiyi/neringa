@@ -151,6 +151,7 @@ function normalizeTrip(row) {
     travelerEarnings: toNumber(row.traveler_earnings),
     payoutAmount: toNumber(row.traveler_earnings),
     payoutStatus: row.payout_status || 'pending',
+    completedTripCount: toNumber(row.traveler_completed_trip_count),
     user: row.user_id ? maskPublicUserName(normalizeProfile({
       id: row.user_id,
       first_name: row.first_name,
@@ -645,6 +646,7 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
         p.image_url,
         p.kyc_status,
         p.selected_avatar,
+        coalesce(traveler_stats.completed_trip_count, 0) as traveler_completed_trip_count,
         trip_stats.active_shipment_count,
         trip_stats.booking_status_summary,
         coalesce(trip_stats.traveler_earnings, 0) as gross_sales,
@@ -657,6 +659,13 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
         end as payout_status
       from public.trips t
       join public.profiles p on p.id = t.user_id
+      left join lateral (
+        select count(distinct sr.trip_id)::int as completed_trip_count
+        from public.shipment_requests sr
+        where sr.traveler_id = t.user_id
+          and sr.status = 'completed'
+          and sr.trip_id is not null
+      ) traveler_stats on true
       left join lateral (
         select
           coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
@@ -797,6 +806,7 @@ export async function getTripById(id) {
              t.travel_document_verified,
              t.created_at as trip_created_at, t.updated_at as trip_updated_at,
              p.first_name, p.last_name, p.email, p.image_url, p.kyc_status, p.selected_avatar,
+             coalesce(traveler_stats.completed_trip_count, 0) as traveler_completed_trip_count,
              trip_stats.active_shipment_count,
              trip_stats.booking_status_summary,
              coalesce(trip_stats.traveler_earnings, 0) as gross_sales,
@@ -809,6 +819,13 @@ export async function getTripById(id) {
              end as payout_status
       from public.trips t
       join public.profiles p on p.id = t.user_id
+      left join lateral (
+        select count(distinct sr.trip_id)::int as completed_trip_count
+        from public.shipment_requests sr
+        where sr.traveler_id = t.user_id
+          and sr.status = 'completed'
+          and sr.trip_id is not null
+      ) traveler_stats on true
       left join lateral (
         select
           coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,

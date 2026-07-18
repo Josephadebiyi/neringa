@@ -11,10 +11,19 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
 /**
  * Generate standard Bago OTP email HTML
  */
-export function generateOtpEmailHtml({ firstName, otp, subtitle, expiryNote = 'This code expires in 1 hour.' }) {
+export function generateOtpEmailHtml({ firstName, otp, subtitle, expiryNote, language = 'en' }) {
+  const copy = {
+    en: { hi: 'Hi', expiry: 'This code expires in 1 hour.', ignore: 'If you did not request this, you can safely ignore this email.', title: 'Verify Your Account' },
+    de: { hi: 'Hallo', expiry: 'Dieser Code läuft in 1 Stunde ab.', ignore: 'Wenn Sie dies nicht angefordert haben, können Sie diese E-Mail ignorieren.', title: 'Konto bestätigen' },
+    fr: { hi: 'Bonjour', expiry: 'Ce code expire dans 1 heure.', ignore: "Si vous n’êtes pas à l’origine de cette demande, ignorez cet e-mail.", title: 'Vérifiez votre compte' },
+    es: { hi: 'Hola', expiry: 'Este código caduca en 1 hora.', ignore: 'Si no solicitaste esto, puedes ignorar este correo.', title: 'Verifica tu cuenta' },
+    pt: { hi: 'Olá', expiry: 'Este código expira em 1 hora.', ignore: 'Se não solicitou isto, pode ignorar este e-mail.', title: 'Verifique a sua conta' },
+    it: { hi: 'Ciao', expiry: 'Questo codice scade tra 1 ora.', ignore: 'Se non hai richiesto questa operazione, puoi ignorare questa e-mail.', title: 'Verifica il tuo account' },
+  };
+  const text = copy[language] || copy.en;
   const content = `
     <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
-      Hi <strong style="color:#111827;">${firstName}</strong>,
+      ${text.hi} <strong style="color:#111827;">${firstName}</strong>,
     </p>
     <p style="margin:0 0 24px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
       ${subtitle}
@@ -24,10 +33,10 @@ export function generateOtpEmailHtml({ firstName, otp, subtitle, expiryNote = 'T
         <span style="font-size:36px; font-weight:900; letter-spacing:12px; color:#5240E8; font-family:monospace;">${otp}</span>
       </div>
     </div>
-    <p style="margin:0 0 8px; font-family:Arial, sans-serif; font-size:13px; color:#6b7280; text-align:center;">${expiryNote}</p>
-    <p style="margin:16px 0 0; font-family:Arial, sans-serif; font-size:13px; color:#9ca3af; text-align:center;">If you did not request this, you can safely ignore this email.</p>
+    <p style="margin:0 0 8px; font-family:Arial, sans-serif; font-size:13px; color:#6b7280; text-align:center;">${expiryNote || text.expiry}</p>
+    <p style="margin:16px 0 0; font-family:Arial, sans-serif; font-size:13px; color:#9ca3af; text-align:center;">${text.ignore}</p>
   `;
-  return generateEmailTemplate('Verify Your Account', content);
+  return generateEmailTemplate(text.title, content);
 }
 
 /**

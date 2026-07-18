@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { getUserPayoutCurrency } from '../utils/userCurrency';
+import api from '../api';
 
 const LanguageContext = createContext();
 
@@ -1428,7 +1429,8 @@ const languages = [
     { code: 'es', name: 'Español', flag: '🇪🇸' },
     { code: 'fr', name: 'Français', flag: '🇫🇷' },
     { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
-    { code: 'pt', name: 'Português', flag: '🇵🇹' }
+    { code: 'pt', name: 'Português', flag: '🇵🇹' },
+    { code: 'it', name: 'Italiano', flag: '🇮🇹' }
 ];
 
 export function LanguageProvider({ children }) {
@@ -1463,6 +1465,21 @@ export function LanguageProvider({ children }) {
     }, [currentLanguage]);
 
     useEffect(() => {
+        const preferred = user?.preferredLanguage || user?.preferred_language;
+        if (!_hadStoredLanguage && languages.some(item => item.code === preferred)) {
+            setCurrentLanguage(preferred);
+        }
+    }, [user?.preferredLanguage, user?.preferred_language]);
+
+    const setLanguage = (languageCode) => {
+        const normalized = languages.some(item => item.code === languageCode) ? languageCode : 'en';
+        setCurrentLanguage(normalized);
+        if (user) {
+            api.put('/api/bago/edit', { preferredLanguage: normalized }).catch(() => {});
+        }
+    };
+
+    useEffect(() => {
         localStorage.setItem('baggo_currency', currency);
     }, [currency]);
 
@@ -1495,7 +1512,7 @@ export function LanguageProvider({ children }) {
 
     const value = {
         currentLanguage,
-        setLanguage: setCurrentLanguage,
+        setLanguage,
         currency,
         setCurrency,
         t,

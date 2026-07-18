@@ -25,6 +25,14 @@ class BagoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final locale = ref.watch(localeProvider);
+    ref.listen<String?>(
+      authProvider.select((state) => state.user?.preferredLanguage),
+      (previous, next) {
+        if (next != null && next != previous) {
+          unawaited(ref.read(localeProvider.notifier).syncFromProfile(next));
+        }
+      },
+    );
 
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
