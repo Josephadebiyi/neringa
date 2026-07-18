@@ -121,6 +121,52 @@ export const uploadOrUpdateImage = async (req, res) => {
   }
 };
 
+export const uploadBusinessDocument = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const profile = await queryOne(
+      `SELECT account_type FROM public.profiles WHERE id = $1`,
+      [userId],
+    );
+    if (profile?.account_type !== 'company') {
+      return res.status(403).json({ success: false, message: 'Business documents can only be added to business accounts.' });
+    }
+
+    const uploaded = req.files?.document;
+    const document = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+    if (!document?.data?.length) {
+      return res.status(400).json({ success: false, message: 'Please upload a CAC or business registration certificate.' });
+    }
+    if (document.data.length > 10 * 1024 * 1024) {
+      return res.status(413).json({ success: false, message: 'The registration certificate must be 10 MB or smaller.' });
+    }
+
+    const mime = String(document.mimetype || '').toLowerCase();
+    const allowed = new Set(['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+    if (!allowed.has(mime)) {
+      return res.status(415).json({ success: false, message: 'Upload a PDF, JPEG, PNG, or WebP certificate.' });
+    }
+
+    const dataUri = `data:${mime};base64,${document.data.toString('base64')}`;
+    const result = await cloudinary.v2.uploader.upload(dataUri, {
+      folder: 'bago/business_documents',
+      public_id: `registration_${userId}_${Date.now()}`,
+      resource_type: 'auto',
+      type: 'authenticated',
+    });
+    await pgQuery(
+      `UPDATE public.profiles
+       SET business_document_url = $2, business_document_status = 'pending_review', updated_at = NOW()
+       WHERE id = $1`,
+      [userId, result.secure_url],
+    );
+    return res.status(200).json({ success: true, message: 'Business registration certificate uploaded.', documentStatus: 'pending_review' });
+  } catch (error) {
+    console.error('Business document upload error:', error);
+    return res.status(500).json({ success: false, message: 'Could not upload the business certificate. Please try again.' });
+  }
+};
+
 export const updateAvatar = async (req, res) => {
   try {
     const userId = req.user.id;

@@ -161,6 +161,8 @@ async function buildUserResponse(user) {
     businessAddress: user.businessAddress || null,
     businessTaxId: user.businessTaxId || null,
     representativeRole: user.representativeRole || null,
+    businessDocumentUrl: user.businessDocumentUrl || null,
+    businessDocumentStatus: user.businessDocumentStatus || 'not_uploaded',
     businessStatus: user.businessStatus || null,
     email: user.email,
     phone: user.phone,

@@ -115,6 +115,8 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS business_address TEXT,
       ADD COLUMN IF NOT EXISTS business_tax_id TEXT,
       ADD COLUMN IF NOT EXISTS representative_role TEXT,
+      ADD COLUMN IF NOT EXISTS business_document_url TEXT,
+      ADD COLUMN IF NOT EXISTS business_document_status TEXT NOT NULL DEFAULT 'not_uploaded',
       ADD COLUMN IF NOT EXISTS business_status TEXT NOT NULL DEFAULT 'not_started'
   `);
   // Currency changes also update unpaid package drafts. Older production
@@ -174,6 +176,8 @@ function normalizeProfileRow(row) {
     businessAddress: row.business_address || null,
     businessTaxId: row.business_tax_id || null,
     representativeRole: row.representative_role || null,
+    businessDocumentUrl: row.business_document_url || null,
+    businessDocumentStatus: row.business_document_status || 'not_uploaded',
     businessStatus: row.business_status || null,
     accountStatus: row.account_status || 'active',
     googleSub: row.google_sub || null,
@@ -238,6 +242,8 @@ const baseSelect = `
     p.business_address,
     p.business_tax_id,
     p.representative_role,
+    p.business_document_url,
+    p.business_document_status,
     p.business_status,
     p.phone,
     p.image_url,

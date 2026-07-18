@@ -7,6 +7,8 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS business_address TEXT,
   ADD COLUMN IF NOT EXISTS business_tax_id TEXT,
   ADD COLUMN IF NOT EXISTS representative_role TEXT,
+  ADD COLUMN IF NOT EXISTS business_document_url TEXT,
+  ADD COLUMN IF NOT EXISTS business_document_status TEXT NOT NULL DEFAULT 'not_uploaded',
   ADD COLUMN IF NOT EXISTS business_status TEXT NOT NULL DEFAULT 'not_started';
 
 CREATE INDEX IF NOT EXISTS profiles_account_type_idx ON public.profiles (account_type);
