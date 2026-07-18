@@ -1,0 +1,2 @@
+ALTER TABLE public.packages
+  ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD';

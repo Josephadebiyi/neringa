@@ -108,6 +108,13 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS verification_provider TEXT,
       ADD COLUMN IF NOT EXISTS identity_fields_locked BOOLEAN NOT NULL DEFAULT FALSE
   `);
+  // Currency changes also update unpaid package drafts. Older production
+  // databases predate this column, so ensure it before any currency update
+  // transaction tries to reference packages.currency.
+  await query(`
+    ALTER TABLE public.packages
+      ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD'
+  `);
   await query(`
     CREATE INDEX IF NOT EXISTS profiles_referral_code_idx
       ON public.profiles (upper(referral_code))
