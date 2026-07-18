@@ -106,7 +106,16 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT 'en',
       ADD COLUMN IF NOT EXISTS kyc_provider TEXT,
       ADD COLUMN IF NOT EXISTS verification_provider TEXT,
-      ADD COLUMN IF NOT EXISTS identity_fields_locked BOOLEAN NOT NULL DEFAULT FALSE
+      ADD COLUMN IF NOT EXISTS identity_fields_locked BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'individual',
+      ADD COLUMN IF NOT EXISTS company_name TEXT,
+      ADD COLUMN IF NOT EXISTS trading_name TEXT,
+      ADD COLUMN IF NOT EXISTS business_registration_number TEXT,
+      ADD COLUMN IF NOT EXISTS business_type TEXT,
+      ADD COLUMN IF NOT EXISTS business_address TEXT,
+      ADD COLUMN IF NOT EXISTS business_tax_id TEXT,
+      ADD COLUMN IF NOT EXISTS representative_role TEXT,
+      ADD COLUMN IF NOT EXISTS business_status TEXT NOT NULL DEFAULT 'not_started'
   `);
   // Currency changes also update unpaid package drafts. Older production
   // databases predate this column, so ensure it before any currency update
@@ -152,6 +161,15 @@ function normalizeProfileRow(row) {
     id: row.id,
     firstName: row.first_name,
     lastName: row.last_name,
+    accountType: row.account_type || 'individual',
+    companyName: row.company_name || null,
+    tradingName: row.trading_name || row.company_name || null,
+    businessRegistrationNumber: row.business_registration_number || null,
+    businessType: row.business_type || null,
+    businessAddress: row.business_address || null,
+    businessTaxId: row.business_tax_id || null,
+    representativeRole: row.representative_role || null,
+    businessStatus: row.business_status || null,
     accountStatus: row.account_status || 'active',
     googleSub: row.google_sub || null,
     deviceFingerprint: row.device_fingerprint || null,
@@ -207,6 +225,15 @@ const baseSelect = `
     p.email,
     p.first_name,
     p.last_name,
+    p.account_type,
+    p.company_name,
+    p.trading_name,
+    p.business_registration_number,
+    p.business_type,
+    p.business_address,
+    p.business_tax_id,
+    p.representative_role,
+    p.business_status,
     p.phone,
     p.image_url,
     p.selected_avatar,
@@ -330,6 +357,14 @@ export async function createProfileWithWallet({
   signupSource = 'app',
   emailVerified = true,
   imageUrl = null,
+  accountType = 'individual',
+  companyName = null,
+  tradingName = null,
+  businessRegistrationNumber = null,
+  businessType = null,
+  businessAddress = null,
+  businessTaxId = null,
+  representativeRole = null,
 }) {
   await ensureEarningCurrencyColumns();
   return withTransaction(async (client) => {
@@ -351,9 +386,13 @@ export async function createProfileWithWallet({
           signup_source,
           email_verified,
           image_url,
-          status
+          status,
+          account_type, company_name, trading_name, business_registration_number,
+          business_type, business_address, business_tax_id, representative_role,
+          business_status
         )
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,'verified')
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,'verified',
+                $15,$16,$17,$18,$19,$20,$21,$22,$23)
         returning id
       `,
       [
@@ -371,6 +410,15 @@ export async function createProfileWithWallet({
         signupSource,
         emailVerified,
         imageUrl,
+        accountType === 'company' ? 'company' : 'individual',
+        companyName,
+        tradingName || companyName,
+        businessRegistrationNumber,
+        businessType,
+        businessAddress,
+        businessTaxId,
+        representativeRole,
+        accountType === 'company' ? 'representative_kyc_required' : 'not_applicable',
       ],
     );
 

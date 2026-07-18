@@ -63,7 +63,9 @@ const AUTH_REFRESH_EXEMPT_PATHS = [
     '/api/bago/signin',
     '/api/bago/google-auth',
     '/api/bago/signup',
+    '/api/bago/verify-signup-otp',
     '/api/bago/verify-otp',
+    '/api/bago/getuser',
     '/api/bago/forgot-password',
     '/api/bago/reset-password',
 ];

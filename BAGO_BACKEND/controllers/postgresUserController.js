@@ -152,6 +152,15 @@ async function buildUserResponse(user) {
     _id: user.id,
     firstName: user.firstName,
     lastName: user.lastName,
+    accountType: user.accountType || 'individual',
+    companyName: user.companyName || null,
+    tradingName: user.tradingName || user.companyName || null,
+    businessRegistrationNumber: user.businessRegistrationNumber || null,
+    businessType: user.businessType || null,
+    businessAddress: user.businessAddress || null,
+    businessTaxId: user.businessTaxId || null,
+    representativeRole: user.representativeRole || null,
+    businessStatus: user.businessStatus || null,
     email: user.email,
     phone: user.phone,
     dateOfBirth: user.dateOfBirth,
@@ -334,7 +343,10 @@ async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
 
 export async function signUp(req, res) {
   try {
-    let { firstName, lastName, fullName, email, phone, password, confirmPassword, referralCode, promoCode, dateOfBirth, country } = req.body;
+    let { firstName, lastName, fullName, email, phone, password, confirmPassword, referralCode, promoCode, dateOfBirth, country,
+      accountType, companyName, tradingName, businessRegistrationNumber, businessType, businessAddress, businessTaxId, representativeRole } = req.body;
+
+    accountType = accountType === 'company' ? 'company' : 'individual';
 
     if (!firstName && fullName) {
       const parts = fullName.trim().split(/\s+/);
@@ -348,6 +360,9 @@ export async function signUp(req, res) {
 
     if (!email || !phone || !password || !confirmPassword || !country) {
       return res.status(400).json({ message: 'Please fill in all required fields: email, phone, country, and password' });
+    }
+    if (accountType === 'company' && (!companyName?.trim() || !tradingName?.trim() || !businessRegistrationNumber?.trim())) {
+      return res.status(400).json({ message: 'Company name, trading name, and registration number are required.' });
     }
 
     if (password !== confirmPassword) {
@@ -402,6 +417,14 @@ export async function signUp(req, res) {
         dateOfBirth,
         country,
         signupSource,
+        accountType,
+        companyName: companyName?.trim() || null,
+        tradingName: tradingName?.trim() || companyName?.trim() || null,
+        businessRegistrationNumber: businessRegistrationNumber?.trim() || null,
+        businessType: businessType?.trim() || null,
+        businessAddress: businessAddress?.trim() || null,
+        businessTaxId: businessTaxId?.trim() || null,
+        representativeRole: representativeRole?.trim() || null,
         otp: activationOtp,
       },
       process.env.JWT_SECRET,
@@ -503,6 +526,14 @@ export async function verifySignupOtp(req, res) {
       signupMethod: 'email',
       signupSource: decoded.signupSource || 'app',
       emailVerified: true,
+      accountType: decoded.accountType,
+      companyName: decoded.companyName,
+      tradingName: decoded.tradingName,
+      businessRegistrationNumber: decoded.businessRegistrationNumber,
+      businessType: decoded.businessType,
+      businessAddress: decoded.businessAddress,
+      businessTaxId: decoded.businessTaxId,
+      representativeRole: decoded.representativeRole,
     });
 
     await storeDeviceFingerprint(newUser.id, fp);

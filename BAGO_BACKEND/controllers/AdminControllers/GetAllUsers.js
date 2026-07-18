@@ -7,6 +7,15 @@ function normalizeUser(row) {
     id: row.id,
     firstName: row.first_name,
     lastName: row.last_name,
+    accountType: row.account_type || 'individual',
+    companyName: row.company_name || null,
+    tradingName: row.trading_name || row.company_name || null,
+    businessRegistrationNumber: row.business_registration_number || null,
+    businessType: row.business_type || null,
+    businessAddress: row.business_address || null,
+    businessTaxId: row.business_tax_id || null,
+    representativeRole: row.representative_role || null,
+    businessStatus: row.business_status || null,
     email: row.email,
     phone: row.phone,
     dateOfBirth: row.date_of_birth,
@@ -47,6 +56,7 @@ export const GetAllUsers = async (req, res, next) => {
     const banned = req.query.banned;
     const kycStatus = req.query.kycStatus;
     const signupMethod = req.query.signupMethod;
+    const accountType = req.query.accountType;
     const search = (req.query.search || '').trim();
 
     const conditions = [];
@@ -65,11 +75,17 @@ export const GetAllUsers = async (req, res, next) => {
       conditions.push(`p.signup_method = $${index++}`);
       params.push(signupMethod);
     }
+    if (accountType) {
+      conditions.push(`p.account_type = $${index++}`);
+      params.push(accountType);
+    }
     if (search) {
       conditions.push(`(
         lower(coalesce(p.first_name, '')) like lower($${index})
         or lower(coalesce(p.last_name, '')) like lower($${index})
         or lower(p.email) like lower($${index})
+        or lower(coalesce(p.company_name, '')) like lower($${index})
+        or lower(coalesce(p.trading_name, '')) like lower($${index})
       )`);
       params.push(`%${search}%`);
       index += 1;
@@ -83,6 +99,15 @@ export const GetAllUsers = async (req, res, next) => {
           p.id,
           p.first_name,
           p.last_name,
+          p.account_type,
+          p.company_name,
+          p.trading_name,
+          p.business_registration_number,
+          p.business_type,
+          p.business_address,
+          p.business_tax_id,
+          p.representative_role,
+          p.business_status,
           p.email,
           p.phone,
           p.date_of_birth,
@@ -201,6 +226,15 @@ export const updateUser = async (req, res, next) => {
     signupMethod: 'signup_method',
     image: 'image_url',
     imageUrl: 'image_url',
+    accountType: 'account_type',
+    companyName: 'company_name',
+    tradingName: 'trading_name',
+    businessRegistrationNumber: 'business_registration_number',
+    businessType: 'business_type',
+    businessAddress: 'business_address',
+    businessTaxId: 'business_tax_id',
+    representativeRole: 'representative_role',
+    businessStatus: 'business_status',
   };
 
   try {

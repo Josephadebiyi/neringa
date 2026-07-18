@@ -113,6 +113,10 @@ export async function getAllUsers() {
   return apiCall(`${ADMIN_API}/GetAllUsers`);
 }
 
+export async function getBusinesses() {
+  return apiCall(`${ADMIN_API}/GetAllUsers?accountType=company&limit=100`);
+}
+
 export async function getUsers(page = 1, limit = 20, banned = false) {
   return apiCall(`${ADMIN_API}/GetAllUsers?page=${page}&limit=${limit}&banned=${banned}`);
 }

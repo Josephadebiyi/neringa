@@ -7,6 +7,7 @@ import { loadDashboard } from './routeLoaders';
 import AppDownloadBanner from './components/AppDownloadBanner';
 
 const Signup = lazy(() => import('./pages/Signup'));
+const BusinessPartnership = lazy(() => import('./pages/BusinessPartnership'));
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
 const SignupTest = lazy(() => import('./pages/SignupTest'));
@@ -45,6 +46,7 @@ function App() {
                         <Route path="/how-it-works" element={<HowToUse />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/signup" element={<Signup />} />
+                        <Route path="/business" element={<BusinessPartnership />} />
                         <Route path="/terms" element={<Terms />} />
                         <Route path="/privacy" element={<Privacy />} />
                         <Route path="/help" element={<HelpCenter />} />

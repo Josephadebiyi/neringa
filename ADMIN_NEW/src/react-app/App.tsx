@@ -4,6 +4,7 @@ import { AdminSocketProvider } from "./hooks/useAdminSocket";
 import Login from "./pages/Login";
 import DashboardPage from "./pages/Dashboard";
 import UsersPage from "./pages/Users";
+import BusinessesPage from "./pages/Businesses";
 import TrackingPage from "./pages/Tracking";
 import SupportPage from "./pages/Support";
 import WithdrawalsPage from "./pages/Withdrawals";
@@ -88,6 +89,10 @@ export default function App() {
                 </DashboardLayout>
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/businesses"
+            element={<ProtectedRoute><DashboardLayout><BusinessesPage /></DashboardLayout></ProtectedRoute>}
           />
           <Route
             path="/tracking"

@@ -32,6 +32,7 @@ import {
   Package,
   UserX,
   ShieldCheck,
+  Building2,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -52,6 +53,7 @@ interface NavItemDef extends NavItem {
 const allNavItems: NavItemDef[] = [
   { icon: LayoutDashboard, label: "Dashboard",         path: "/dashboard" },
   { icon: User,            label: "Users",              path: "/users",            roles: ["SUPER_ADMIN"] },
+  { icon: Building2,       label: "Businesses",         path: "/businesses",       roles: ["SUPER_ADMIN"] },
   { icon: Users,           label: "Staff / Sub-Admins", path: "/staff",           roles: ["SUPER_ADMIN"] },
   { icon: Plane,           label: "Listed Trips",       path: "/trips",            roles: ["SUPER_ADMIN"] },
   { icon: IdCard,          label: "KYC Management",     path: "/kyc",              roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },

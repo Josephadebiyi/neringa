@@ -65,8 +65,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.watch(authProvider).user;
     final currentRole = user?.isCarrier == true ? 'carrier' : 'sender';
     final isCarrier = currentRole == 'carrier';
-    final fullName = user?.fullName.trim().isNotEmpty == true
-        ? user!.fullName
+    final fullName = user?.displayName.trim().isNotEmpty == true
+        ? user!.displayName
         : l10n.profileFallbackUser;
     final initials = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U';
     final isVerified = user?.hasPassedKyc == true;

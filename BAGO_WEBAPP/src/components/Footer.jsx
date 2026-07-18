@@ -55,6 +55,7 @@ export default function Footer() {
                         <Link to="/help" className="hover:text-[#5845D8] transition-colors">Help Centre</Link>
                         <Link to="/terms" className="hover:text-[#5845D8] transition-colors">Terms and Conditions</Link>
                         <Link to="/privacy" className="hover:text-[#5845D8] transition-colors">Privacy Policy</Link>
+                        <Link to="/business" className="hover:text-[#5845D8] transition-colors">Business partnership</Link>
                     </div>
                 </div>
                 <div className="flex flex-col gap-8">
