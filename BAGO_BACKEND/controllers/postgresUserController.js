@@ -30,7 +30,7 @@ import {
 import { query, queryOne } from '../lib/postgres/db.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getActiveBeneficiary } from '../lib/postgres/flutterwavePayments.js';
-import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.js';
+import { getPaymentGateway, getCurrencyByCountry, FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES } from '../constants/countries.js';
 import { getCountryNameForCode, getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
 import { getFlutterwavePaymentCurrencyForCountry } from '../services/currencyConverter.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
@@ -351,8 +351,8 @@ export async function signUp(req, res) {
 
     accountType = accountType === 'company' ? 'company' : 'individual';
     operationalCurrency = String(operationalCurrency || '').trim().toUpperCase();
-    if (operationalCurrency && !/^[A-Z]{3}$/.test(operationalCurrency)) {
-      return res.status(400).json({ message: 'Operational currency must be a valid three-letter currency code.' });
+    if (operationalCurrency && !FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES.includes(operationalCurrency)) {
+      return res.status(400).json({ message: 'Please select a Flutterwave-supported payout currency.' });
     }
 
     if (!firstName && fullName) {

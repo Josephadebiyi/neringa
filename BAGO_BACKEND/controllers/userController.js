@@ -4,6 +4,7 @@ import { Resend } from 'resend';
 import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { updatePreferredCurrency, findProfileById, getWalletByUserId } from '../lib/postgres/profiles.js';
+import { FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES } from '../constants/countries.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -164,6 +165,47 @@ export const uploadBusinessDocument = async (req, res) => {
   } catch (error) {
     console.error('Business document upload error:', error);
     return res.status(500).json({ success: false, message: 'Could not upload the business certificate. Please try again.' });
+  }
+};
+
+export const saveBusinessPayoutDraft = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const currency = String(req.body?.currency || '').trim().toUpperCase();
+    const accountHolderName = String(req.body?.accountHolderName || '').trim();
+    const accountNumber = String(req.body?.accountNumber || '').replace(/\s+/g, '');
+    const bankCode = String(req.body?.bankCode || '').replace(/\s+/g, '');
+    const bankName = String(req.body?.bankName || '').trim();
+    const iban = String(req.body?.iban || '').replace(/\s+/g, '').toUpperCase();
+    const swiftBic = String(req.body?.swiftBic || '').replace(/\s+/g, '').toUpperCase();
+    if (!FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES.includes(currency)) {
+      return res.status(400).json({ success: false, message: 'Select a supported payout currency.' });
+    }
+    if (!accountHolderName || (currency === 'EUR' ? (!iban || !swiftBic) : (!accountNumber || !bankCode))) {
+      return res.status(400).json({ success: false, message: currency === 'EUR'
+        ? 'Account holder, IBAN, and SWIFT/BIC are required.'
+        : 'Account holder, account number, and bank code are required.' });
+    }
+    const profile = await queryOne(
+      `SELECT account_type, preferred_currency FROM public.profiles WHERE id = $1`, [userId],
+    );
+    if (profile?.account_type !== 'company') {
+      return res.status(403).json({ success: false, message: 'This payout draft is only available to business accounts.' });
+    }
+    if (String(profile.preferred_currency || '').toUpperCase() !== currency) {
+      return res.status(400).json({ success: false, message: 'Payout currency must match the business wallet currency.' });
+    }
+    const details = { accountHolderName, accountNumber, bankCode, bankName, iban, swiftBic, currency };
+    await pgQuery(
+      `UPDATE public.profiles SET bank_details = $2::jsonb, payout_currency = $3,
+       payout_provider = 'flutterwave', payout_status = 'pending_kyc', payout_method_status = 'draft', updated_at = NOW()
+       WHERE id = $1`,
+      [userId, JSON.stringify(details), currency],
+    );
+    return res.status(200).json({ success: true, message: 'Payout details saved. They can be confirmed after identity verification.' });
+  } catch (error) {
+    console.error('Business payout draft error:', error);
+    return res.status(500).json({ success: false, message: 'Could not save payout details.' });
   }
 };
 

@@ -22,6 +22,7 @@ export const countries = [
     { label: 'Japan', value: 'JP', flag: '🇯🇵' },
     { label: 'Kenya', value: 'KE', flag: '🇰🇪' },
     { label: 'Malaysia', value: 'MY', flag: '🇲🇾' },
+    { label: 'Malawi', value: 'MW', flag: '🇲🇼' },
     { label: 'Mexico', value: 'MX', flag: '🇲🇽' },
     { label: 'Morocco', value: 'MA', flag: '🇲🇦' },
     { label: 'Netherlands', value: 'NL', flag: '🇳🇱' },
@@ -34,6 +35,7 @@ export const countries = [
     { label: 'Saudi Arabia', value: 'SA', flag: '🇸🇦' },
     { label: 'Senegal', value: 'SN', flag: '🇸🇳' },
     { label: 'Singapore', value: 'SG', flag: '🇸🇬' },
+    { label: 'Sierra Leone', value: 'SL', flag: '🇸🇱' },
     { label: 'South Africa', value: 'ZA', flag: '🇿🇦' },
     { label: 'South Korea', value: 'KR', flag: '🇰🇷' },
     { label: 'Spain', value: 'ES', flag: '🇪🇸' },
@@ -48,6 +50,7 @@ export const countries = [
     { label: 'United Kingdom', value: 'GB', flag: '🇬🇧' },
     { label: 'United States', value: 'US', flag: '🇺🇸' },
     { label: 'Vietnam', value: 'VN', flag: '🇻🇳' },
+    { label: 'Zambia', value: 'ZM', flag: '🇿🇲' },
     { label: 'Zimbabwe', value: 'ZW', flag: '🇿🇼' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 

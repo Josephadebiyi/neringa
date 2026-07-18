@@ -32,6 +32,13 @@ export const getPaymentGateway = (_country) => {
   return 'flutterwave';
 };
 
+// Flutterwave bank-transfer payout currencies. Keep this list aligned with
+// https://developer.flutterwave.com/v3.0/docs/bank-account
+export const FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES = Object.freeze([
+  'EUR', 'GBP', 'GHS', 'KES', 'MWK', 'NGN', 'SLL', 'TZS', 'UGX',
+  'USD', 'XAF', 'XOF', 'ZAR', 'ZMW',
+]);
+
 // Currency codes by country (names and codes)
 export const COUNTRY_CURRENCIES = {
   'Nigeria': 'NGN', 'NG': 'NGN',
