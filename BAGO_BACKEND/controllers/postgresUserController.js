@@ -34,6 +34,7 @@ import { getPaymentGateway, getCurrencyByCountry } from '../constants/countries.
 import { getCountryNameForCode, getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
 import { getFlutterwavePaymentCurrencyForCountry } from '../services/currencyConverter.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
+import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
   applyReferralSignupReward,
   getReferralSummary,
@@ -556,14 +557,20 @@ export async function verifySignupOtp(req, res) {
       );
     }
 
-    if (resend) {
-      await resend.emails.send({
-        from: 'Bago Team <no-reply@sendwithbago.com>',
-        to: decoded.email,
-        subject: `Welcome to Bago, ${decoded.firstName}!`,
-        html: `<p>Welcome to Bago, ${decoded.firstName}.</p>`,
-      });
-    }
+    const welcomeName = newUser.accountType === 'company'
+      ? (newUser.tradingName || newUser.companyName || decoded.firstName)
+      : decoded.firstName;
+    await Promise.allSettled([
+      sendWelcomeEmail(decoded.email, welcomeName, 'email'),
+      sendPushNotification(
+        newUser.id,
+        `Welcome to Bago, ${welcomeName}!`,
+        newUser.accountType === 'company'
+          ? 'Your business account is ready. Complete representative KYC to start using Bago.'
+          : 'Your account is ready. Complete verification to start using Bago.',
+        { type: 'welcome', accountType: newUser.accountType || 'individual', route: '/verify' },
+      ),
+    ]);
 
     const { accessToken, refreshToken } = signUserToken(newUser);
 
