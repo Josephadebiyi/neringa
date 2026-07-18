@@ -87,6 +87,7 @@
     "concurrently": "^8.2.2"
   },
   "overrides": {
-    "ip-address": "^10.2.0"
+    "ip-address": "^10.2.0",
+    "vite": "^7.3.6"
   }
 }

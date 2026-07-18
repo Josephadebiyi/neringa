@@ -12,9 +12,9 @@
     "postinstall": "expo-doctor || true"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.49.1",
+    "@supabase/supabase-js": "^2.110.7",
     "axios": "^1.7.9",
-    "expo": "55.0.8",
+    "expo": "^55.0.28",
     "expo-auth-session": "~55.0.9",
     "expo-constants": "~55.0.9",
     "expo-crypto": "~55.0.10",
