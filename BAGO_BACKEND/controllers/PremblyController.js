@@ -877,6 +877,19 @@ export const syncPremblyResult = async (req, res) => {
       clientFootprint,
     };
 
+    // The inline SDK reports script/configuration failures through the same
+    // callback used for completed verification. They are startup failures,
+    // not KYC submissions; returning pending makes the released onboarding
+    // client close the verifier and route straight back home.
+    if (callbackError && !callbackRef && !callbackSessionId) {
+      return res.json({
+        success: false,
+        kycStatus: 'not_started',
+        source: 'sdk_start_error',
+        message: String(callbackError).slice(0, 200),
+      });
+    }
+
     const verificationRef =
       existing?.kycVerifiedData?.verificationRef ||
       existing?.kycVerifiedData?.premblyRef ||
@@ -1018,24 +1031,29 @@ export const syncExistingPremblyResult = async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const currentStatus = user.kycStatus || 'not_started';
-    if (['approved', 'blocked_duplicate', 'declined'].includes(currentStatus)) {
-      return res.json({ success: true, kycStatus: currentStatus, source: 'db', canStartNewSession: currentStatus === 'declined' });
+    if (['approved', 'blocked_duplicate'].includes(currentStatus)) {
+      return res.json({ success: true, kycStatus: currentStatus, source: 'db', canStartNewSession: false });
     }
 
     const activeSession = await activePremblySessionForUser(userId);
     if (activeSession) {
       return res.json({
         success: true,
-        kycStatus: 'pending',
+        // The released inline-widget client redirects onboarding users home
+        // when preflight returns pending + cannot-start. It cannot resume a
+        // backend session URL from this response, so allow it to reopen the
+        // Prembly widget instead of trapping the user outside KYC.
+        kycStatus: 'not_started',
         source: 'prembly_session',
-        canStartNewSession: false,
+        canStartNewSession: true,
         activeSession: true,
         verificationRef: activeSession.sessionId || activeSession.premblyRef || activeSession.verificationRef || activeSession.userRef,
       });
     }
 
-    const canStartNewSession = !['approved', 'blocked_duplicate'].includes(currentStatus);
-    return res.json({ success: true, kycStatus: currentStatus, source: 'db', canStartNewSession });
+    // Declined and stale pending attempts are retryable. Normalize them for
+    // older clients that otherwise call _finishWithStatus() and navigate home.
+    return res.json({ success: true, kycStatus: 'not_started', previousKycStatus: currentStatus, source: 'db', canStartNewSession: true });
   } catch (err) {
     console.error('syncExistingPremblyResult error:', err);
     return res.status(500).json({ success: false, message: 'Failed to check existing result' });
