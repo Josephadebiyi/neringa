@@ -11,3 +11,25 @@ ALTER TABLE public.profiles
 
 CREATE INDEX IF NOT EXISTS profiles_account_type_idx ON public.profiles (account_type);
 CREATE INDEX IF NOT EXISTS profiles_business_status_idx ON public.profiles (business_status) WHERE account_type = 'company';
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_business_registration_unique_idx
+  ON public.profiles (lower(trim(business_registration_number)))
+  WHERE account_type = 'company' AND nullif(trim(business_registration_number), '') IS NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_account_type_check') THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_account_type_check
+      CHECK (account_type IN ('individual', 'company'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_company_identity_check') THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_company_identity_check
+      CHECK (
+        account_type <> 'company'
+        OR (
+          nullif(trim(company_name), '') IS NOT NULL
+          AND nullif(trim(trading_name), '') IS NOT NULL
+          AND nullif(trim(business_registration_number), '') IS NOT NULL
+        )
+      ) NOT VALID;
+  END IF;
+END $$;

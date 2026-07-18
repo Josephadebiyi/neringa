@@ -135,6 +135,11 @@ async function ensureEarningCurrencyColumns() {
       WHERE referred_by IS NOT NULL
   `);
   await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS profiles_business_registration_unique_idx
+      ON public.profiles (lower(trim(business_registration_number)))
+      WHERE account_type = 'company' AND nullif(trim(business_registration_number), '') IS NOT NULL
+  `);
+  await query(`
     UPDATE public.profiles
     SET earning_currency = preferred_currency
     WHERE earning_currency IS NULL AND preferred_currency IS NOT NULL
@@ -411,13 +416,13 @@ export async function createProfileWithWallet({
         emailVerified,
         imageUrl,
         accountType === 'company' ? 'company' : 'individual',
-        companyName,
-        tradingName || companyName,
-        businessRegistrationNumber,
-        businessType,
-        businessAddress,
-        businessTaxId,
-        representativeRole,
+        companyName?.trim() || null,
+        tradingName?.trim() || companyName?.trim() || null,
+        businessRegistrationNumber?.trim() || null,
+        businessType?.trim() || null,
+        businessAddress?.trim() || null,
+        businessTaxId?.trim() || null,
+        representativeRole?.trim() || null,
         accountType === 'company' ? 'representative_kyc_required' : 'not_applicable',
       ],
     );
