@@ -87,11 +87,11 @@ const formatTripRate = (trip, viewerCurrency, settings) => {
     const converted = convertDisplayCurrency(senderPrice, baseCurrency, displayCurrency, settings);
     const primaryAmount = converted ?? senderPrice;
     const primaryCurrency = converted == null ? baseCurrency : displayCurrency;
-    const baseLabel = `${formatMoney(senderPrice, baseCurrency)}/kg base`;
+    const travelerRate = `${formatMoney(pricePerKg, baseCurrency)}/kg traveler rate`;
 
     return {
         primary: `${formatMoney(primaryAmount, primaryCurrency)}/kg`,
-        secondary: primaryCurrency === baseCurrency ? '' : baseLabel,
+        secondary: `Includes Bago fees · ${travelerRate}`,
     };
 };
 

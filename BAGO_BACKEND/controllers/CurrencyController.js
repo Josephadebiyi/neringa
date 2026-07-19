@@ -262,35 +262,40 @@ export const getPaymentQuote = async (req, res) => {
  * POST /api/checkout/shipment-preview
  * Backend-owned shipment checkout preview for frontend display.
  */
-export const previewShipmentCheckout = async (req, res) => {
-  try {
-    const { tripId, weight, senderCurrency, declaredValue = 0, insurance = false } = req.body || {};
-    if (!tripId || !weight || !senderCurrency) {
-      return res.status(400).json({
-        success: false,
-        message: 'tripId, weight, and senderCurrency are required.',
-      });
-    }
-
+export const buildShipmentCheckoutPreview = async ({
+  tripId,
+  weight,
+  senderCurrency,
+  declaredValue = 0,
+  insurance = false,
+}) => {
     const numericWeight = Number(weight);
     const numericDeclaredValue = Number(declaredValue || 0);
     if (!Number.isFinite(numericWeight) || numericWeight <= 0) {
-      return res.status(400).json({ success: false, message: 'Weight must be greater than zero.' });
+      const error = new Error('Weight must be greater than zero.');
+      error.statusCode = 400;
+      throw error;
     }
     if (!Number.isFinite(numericDeclaredValue) || numericDeclaredValue < 0) {
-      return res.status(400).json({ success: false, message: 'Declared value must be zero or greater.' });
+      const error = new Error('Declared value must be zero or greater.');
+      error.statusCode = 400;
+      throw error;
     }
 
     const trip = await getTripById(tripId);
     if (!trip?.id || !trip?.userId) {
-      return res.status(404).json({ success: false, message: 'Trip not found.' });
+      const error = new Error('Trip not found.');
+      error.statusCode = 404;
+      throw error;
     }
 
     const travelerCurrency = CurrencyService.normalizeCurrency(trip.currency || senderCurrency);
     const checkoutCurrency = CurrencyService.normalizeCurrency(senderCurrency);
     const pricePerKg = Number(trip.pricePerKg || 0);
     if (!Number.isFinite(pricePerKg) || pricePerKg <= 0) {
-      return res.status(400).json({ success: false, message: 'Trip price is not available.' });
+      const error = new Error('Trip price is not available.');
+      error.statusCode = 400;
+      throw error;
     }
 
     const config = await getFullPricingConfig();
@@ -302,6 +307,16 @@ export const previewShipmentCheckout = async (req, res) => {
     const convertedTravelerPayout = travelerCurrency === checkoutCurrency
       ? Number(pricing.travelerPayout)
       : Number((await convertWithFallback(pricing.travelerPayout, travelerCurrency, checkoutCurrency)).toFixed(2));
+    const convertBreakdownAmount = async (value) => travelerCurrency === checkoutCurrency
+      ? Number(value)
+      : Number((await convertWithFallback(value, travelerCurrency, checkoutCurrency)).toFixed(2));
+    const platformFee = await convertBreakdownAmount(pricing.platformCommission || 0);
+    const processingFee = await convertBreakdownAmount(pricing.processingFee || 0);
+    const fxBuffer = await convertBreakdownAmount(pricing.fxBuffer || 0);
+    // Derive the displayed Bago revenue from the authoritative sender amount so
+    // independently rounded FX conversions can never make the breakdown differ
+    // from the amount collected at checkout.
+    const bagoNetRevenue = Number((shippingAmount - convertedTravelerPayout).toFixed(2));
     const insuranceAmount = insurance === true
       ? Number((numericDeclaredValue * (Number(config.senderInsurancePercent || 0) / 100)).toFixed(2))
       : 0;
@@ -310,9 +325,7 @@ export const previewShipmentCheckout = async (req, res) => {
       ? { rate: 1, source: 'same_currency', timestamp: new Date().toISOString() }
       : await getExchangeRateWithFallback(travelerCurrency, checkoutCurrency);
 
-    return res.status(200).json({
-      success: true,
-      preview: {
+    return {
         tripId: trip.id,
         travelerId: trip.userId,
         weight: numericWeight,
@@ -327,10 +340,13 @@ export const previewShipmentCheckout = async (req, res) => {
         shippingAmount,
         insuranceAmount,
         totalAmount,
-        platformFee: Number(pricing.platformCommission || 0),
-        processingFee: Number(pricing.processingFee || 0),
-        fxBuffer: Number(pricing.fxBuffer || 0),
-        bagoNetRevenue: Number(pricing.bagoNetRevenue || 0),
+        platformFee,
+        processingFee,
+        fxBuffer,
+        bagoNetRevenue,
+        platformFeeTravelerCurrency: Number(pricing.platformCommission || 0),
+        processingFeeTravelerCurrency: Number(pricing.processingFee || 0),
+        fxBufferTravelerCurrency: Number(pricing.fxBuffer || 0),
         senderInsurancePercent: Number(config.senderInsurancePercent || 0),
         exchangeRate: exchangeRate.rate,
         exchangeRateSource: exchangeRate.source,
@@ -342,8 +358,26 @@ export const previewShipmentCheckout = async (req, res) => {
           totalAmount: formatCurrency(totalAmount, checkoutCurrency),
           travelerPayout: formatCurrency(travelerPayout, travelerCurrency),
         },
-      },
+    };
+};
+
+export const previewShipmentCheckout = async (req, res) => {
+  try {
+    const { tripId, weight, senderCurrency, declaredValue = 0, insurance = false } = req.body || {};
+    if (!tripId || !weight || !senderCurrency) {
+      return res.status(400).json({
+        success: false,
+        message: 'tripId, weight, and senderCurrency are required.',
+      });
+    }
+    const preview = await buildShipmentCheckoutPreview({
+      tripId,
+      weight,
+      senderCurrency,
+      declaredValue,
+      insurance,
     });
+    return res.status(200).json({ success: true, preview });
   } catch (error) {
     console.error('Shipment checkout preview error:', error);
     return res.status(error.statusCode || 500).json({

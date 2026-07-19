@@ -310,7 +310,8 @@ export default function SendPackage() {
         }
     };
 
-    const shippingCost = readPreviewNumber(checkoutPreview, 'shippingAmount');
+    const travelerCost = readPreviewNumber(checkoutPreview, 'convertedTravelerPayout');
+    const bagoFee = readPreviewNumber(checkoutPreview, 'bagoNetRevenue');
     const insuranceCost = readPreviewNumber(checkoutPreview, 'insuranceAmount');
     const totalCostNumber = readPreviewNumber(checkoutPreview, 'totalAmount');
     const totalCost = totalCostNumber.toFixed(2);
@@ -790,9 +791,15 @@ export default function SendPackage() {
                                             </>
                                         )}
                                         <div className="flex justify-between items-center">
-                                            <span className="text-sm text-white/60 font-medium">Shipping</span>
+                                            <span className="text-sm text-white/60 font-medium">Traveler delivery rate</span>
                                             <span className="text-sm font-black">
-                                                {checkoutPreview ? `${previewCurrency} ${shippingCost.toFixed(2)}` : '--'}
+                                                {checkoutPreview ? `${previewCurrency} ${travelerCost.toFixed(2)}` : '--'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-white/60 font-medium">Bago service and payment fees</span>
+                                            <span className="text-sm font-black">
+                                                {checkoutPreview ? `${previewCurrency} ${bagoFee.toFixed(2)}` : '--'}
                                             </span>
                                         </div>
                                         {formData.insuranceProtection && insuranceCost > 0 && (

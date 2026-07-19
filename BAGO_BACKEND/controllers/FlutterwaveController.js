@@ -26,6 +26,7 @@ import {
 import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { resend } from '../services/resendClient.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
+import { buildShipmentCheckoutPreview } from './CurrencyController.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
 const PAYOUT_ACCOUNT_OTP_MINUTES = 10;
@@ -103,7 +104,8 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
     const { amount, currency, packageId, tripId, requestId, additionalKg, metadata = {}, platform } = req.body || {};
     const user = req.user;
 
-    const numericAmount = Number(amount);
+    let numericAmount = Number(amount);
+    const requestedAmount = numericAmount;
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({ success: false, message: 'A valid amount is required.' });
     }
@@ -150,6 +152,35 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       });
     }
 
+    let authoritativePreview = null;
+    if (!requestId && packageId && tripId) {
+      const packageRow = await queryOne(
+        `select package_weight, declared_value
+         from public.packages
+         where id = $1 and user_id = $2`,
+        [packageId, user.id],
+      );
+      if (!packageRow) {
+        return res.status(404).json({ success: false, message: 'Package not found.' });
+      }
+      authoritativePreview = await buildShipmentCheckoutPreview({
+        tripId,
+        weight: packageRow.package_weight,
+        senderCurrency: normalizedCurrency,
+        declaredValue: packageRow.declared_value || 0,
+        insurance: metadata?.insurance === true,
+      });
+      numericAmount = authoritativePreview.totalAmount;
+      if (Math.abs(requestedAmount - numericAmount) > 0.01) {
+        return res.status(409).json({
+          success: false,
+          code: 'CHECKOUT_PRICE_CHANGED',
+          message: 'The checkout price changed. Refresh the price summary before paying.',
+          preview: authoritativePreview,
+        });
+      }
+    }
+
     const txRef = `BAGO-PAY-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     // Mobile opens checkout in a real Safari/Chrome-Custom-Tabs context (not an
     // embedded webview) so Apple Pay actually works — Flutterwave/Apple both
@@ -168,7 +199,18 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       customerEmail: user.email,
       customerName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email,
       customerPhone: user.phone,
-      meta: { packageId, tripId, requestId, additionalKg, userId: user.id, ...metadata },
+      meta: {
+        packageId,
+        tripId,
+        requestId,
+        additionalKg,
+        userId: user.id,
+        ...metadata,
+        ...(authoritativePreview && {
+          authoritativeAmount: authoritativePreview.totalAmount,
+          travelerPayout: authoritativePreview.travelerPayout,
+        }),
+      },
     });
 
     if (!init.success) {
@@ -203,13 +245,16 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       userId: user.id,
       amount: numericAmount,
       currency: normalizedCurrency,
-      rawResponse: { packageId, tripId, requestId, additionalKg },
+      rawResponse: { packageId, tripId, requestId, additionalKg, authoritativePreview },
     }).catch((e) => console.warn('Failed to record payment_intent:', e.message));
 
     return res.status(200).json({
       success: true,
       authorizationUrl: init.authorizationUrl,
       reference: txRef,
+      amount: numericAmount,
+      currency: normalizedCurrency,
+      ...(authoritativePreview && { preview: authoritativePreview }),
     });
   } catch (error) {
     next(error);
