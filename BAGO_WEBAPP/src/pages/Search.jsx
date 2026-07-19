@@ -145,11 +145,11 @@ const Navbar = () => {
     );
 };
 
-const TripCard = ({ trip, weight, pricingSettings }) => {
+const TripCard = ({ trip, weight, pricingSettings, authoritativeRate }) => {
     const navigate = useNavigate();
     const { isAuthenticated, user } = useAuth();
     const { t, currency } = useLanguage();
-    const rate = formatTripRate(trip, currency, pricingSettings);
+    const rate = authoritativeRate || formatTripRate(trip, currency, pricingSettings);
     const travelDate = formatTravelDate(trip.departureDate, true);
     const isVerified = trip.isVerified === true ||
         trip.kycStatus === 'approved' ||
@@ -370,12 +370,13 @@ const FilterPanel = ({ filters, setFilters, onApply }) => {
 };
 
 export default function Search() {
-    const { t } = useLanguage();
+    const { t, currency } = useLanguage();
     const { user, isAuthenticated } = useAuth();
     const [searchParams] = useSearchParams();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
     const [pricingSettings, setPricingSettings] = useState(FALLBACK_PRICING_SETTINGS);
+    const [authoritativeRates, setAuthoritativeRates] = useState({});
 
     const findInitialLocation = (cityParam, countryParam) => {
         if (!cityParam && !countryParam) return null;
@@ -409,6 +410,40 @@ export default function Search() {
     useEffect(() => {
         fetchTrips();
     }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        const senderCurrency = normalizeCurrency(currency, 'USD');
+        if (!trips.length) {
+            setAuthoritativeRates({});
+            return undefined;
+        }
+
+        Promise.all(trips.map(async (trip) => {
+            try {
+                const response = await api.post('/api/checkout/shipment-preview', {
+                    tripId: trip.id || trip._id,
+                    weight: 1,
+                    senderCurrency,
+                    declaredValue: 0,
+                    insurance: false,
+                });
+                const preview = response.data?.preview;
+                if (!preview || !Number.isFinite(Number(preview.shippingAmount))) return null;
+                const travelerCurrency = normalizeCurrency(preview.travelerCurrency || trip.currency);
+                return [trip.id || trip._id, {
+                    primary: `${formatMoney(preview.shippingAmount, senderCurrency)}/kg`,
+                    secondary: `Includes Bago fees · ${formatMoney(preview.travelerPricePerKg, travelerCurrency)}/kg traveler rate`,
+                }];
+            } catch (_) {
+                return null;
+            }
+        })).then((entries) => {
+            if (!cancelled) setAuthoritativeRates(Object.fromEntries(entries.filter(Boolean)));
+        });
+
+        return () => { cancelled = true; };
+    }, [trips, currency]);
 
     useEffect(() => {
         let cancelled = false;
@@ -691,6 +726,7 @@ export default function Search() {
                                         trip={trip}
                                         weight={filters.weight}
                                         pricingSettings={pricingSettings}
+                                        authoritativeRate={authoritativeRates[trip.id || trip._id]}
                                     />
                                 ))}
                             </div>

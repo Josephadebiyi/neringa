@@ -960,7 +960,9 @@ app.get('/api/currency/rates', getAllExchangeRates);
 app.get('/api/currency/supported', getSupportedCurrencies);
 app.post('/api/currency/preview', previewConversion);
 app.post('/api/currency/quote', getPaymentQuote);
-app.post('/api/checkout/shipment-preview', isAuthenticated, previewShipmentCheckout);
+// Pricing contains no account-private data. Keeping this public lets search
+// results use the exact same live FX and fee calculation as checkout.
+app.post('/api/checkout/shipment-preview', previewShipmentCheckout);
 
 // ✅ Flutterwave — sole active payment/payout provider. Endpoint paths match
 // what the mobile (api_constants.dart) and web (PaymentCheckout.jsx/Earnings.jsx/
