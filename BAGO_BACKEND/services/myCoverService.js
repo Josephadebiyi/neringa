@@ -1,10 +1,13 @@
 import axios from 'axios';
 import { query } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
+import { convertDeclaredValueToNgn } from './myCoverPricing.js';
 
 const MYCOVER_SECRET_KEY = process.env.MYCOVER_SECRET_KEY;
+export const MYCOVER_CAPPED_GIT_PRODUCT_ID =
+  '4ca89151-78e9-4cda-9a3b-20f759f89a41';
 const MYCOVER_PRODUCT_ID =
-  process.env.MYCOVER_GIT_PRODUCT_ID || process.env.MYCOVER_PRODUCT_ID;
+  process.env.MYCOVER_GIT_CAPPED_PRODUCT_ID || MYCOVER_CAPPED_GIT_PRODUCT_ID;
 const MYCOVER_BASE_URL =
   process.env.MYCOVER_API_URL || 'https://api.mycover.ai';
 const MYCOVER_GIT_PATH =
@@ -37,6 +40,49 @@ function splitName(profile, fallbackName = '') {
   };
 }
 
+function findIdentityValue(value, keys, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return '';
+  seen.add(value);
+  for (const key of keys) {
+    if (value[key] != null && String(value[key]).trim()) return value[key];
+  }
+  for (const nested of Object.values(value)) {
+    const match = findIdentityValue(nested, keys, seen);
+    if (match !== '') return match;
+  }
+  return '';
+}
+
+function senderGender(sender) {
+  const raw = cleanText(
+    sender?.gender ||
+      findIdentityValue(sender?.kycVerifiedData || sender?.kyc_verified_data, [
+        'gender',
+        'sex',
+      ]),
+  ).toLowerCase();
+  if (['male', 'm'].includes(raw)) return 'Male';
+  if (['female', 'f'].includes(raw)) return 'Female';
+  return '';
+}
+
+function senderDateOfBirth(sender) {
+  const raw =
+    sender?.verifiedDateOfBirth ||
+    sender?.verified_date_of_birth ||
+    sender?.dateOfBirth ||
+    sender?.date_of_birth ||
+    findIdentityValue(sender?.kycVerifiedData || sender?.kyc_verified_data, [
+      'date_of_birth',
+      'dateOfBirth',
+      'dob',
+      'birth_date',
+    ]);
+  if (!raw) return '';
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().split('T')[0];
+}
+
 function vehicleTypeFor(request) {
   const raw = cleanText(
     request.trip?.travelMeans ||
@@ -54,7 +100,7 @@ function vehicleTypeFor(request) {
   return process.env.MYCOVER_DEFAULT_VEHICLE_TYPE || 'Car';
 }
 
-function policyPayload({ request, sender, traveler }) {
+export async function policyPayload({ request, sender, traveler }) {
   const senderName = splitName(sender, request.senderName);
   const packageModel = request.package || {};
   const fromRoute =
@@ -71,19 +117,36 @@ function policyPayload({ request, sender, traveler }) {
       .join(', ') ||
     [request.toLocation, request.destinationCountry].filter(Boolean).join(', ') ||
     'Bago delivery';
-  const declaredValue = Number(packageModel.value || request.insuranceCost || 0);
-  const itemValue = Math.max(1, Math.round(declaredValue || request.amount || 1));
+  const declaredValue = Number(packageModel.value || request.amount || 0);
+  const itemValue = await convertDeclaredValueToNgn(
+    declaredValue,
+    request.currency || 'NGN',
+  );
   const itemImage = Array.isArray(packageModel.images)
     ? packageModel.images.find((image) => cleanText(image))
     : packageModel.image;
   const tracking = cleanText(request.trackingNumber || request.id);
+  const gender = senderGender(sender);
+  const dateOfBirth = senderDateOfBirth(sender);
+  const phoneNumber = cleanText(sender?.phone || request.senderPhone);
+
+  const missing = [];
+  if (!cleanText(sender?.email || request.senderEmail)) missing.push('email');
+  if (!phoneNumber) missing.push('phone_number');
+  if (!gender) missing.push('gender');
+  if (!dateOfBirth) missing.push('date_of_birth');
+  if (missing.length) {
+    throw new Error(`MyCover required sender fields are missing: ${missing.join(', ')}`);
+  }
 
   return {
     product_id: MYCOVER_PRODUCT_ID,
     first_name: senderName.firstName,
     last_name: senderName.lastName,
     email: cleanText(sender?.email || request.senderEmail),
-    phone_number: cleanText(sender?.phone || '0000000000'),
+    phone_number: phoneNumber,
+    gender,
+    date_of_birth: dateOfBirth,
     address: cleanText(packageModel.pickupAddress || fromRoute),
     pickup_location: fromRoute,
     drop_off_location: toRoute,
@@ -93,11 +156,10 @@ function policyPayload({ request, sender, traveler }) {
     vehicle_plate_number: cleanText(
       request.vehiclePlateNumber ||
         request.trip?.vehiclePlateNumber ||
-        `BAGO-${tracking}`.replace(/[^a-z0-9-]/gi, '').slice(0, 20),
+        `BAGO-${request.senderId || tracking}`.replace(/[^a-z0-9-]/gi, '').slice(0, 20),
       'BAGO-SHIPMENT',
     ),
     vehicle_type: vehicleTypeFor(request),
-    item_value: itemValue,
     item_details: [
       {
         description: cleanText(
@@ -105,9 +167,11 @@ function policyPayload({ request, sender, traveler }) {
         ),
         value: itemValue,
         quantity: 1,
-        image: cleanText(itemImage, 'https://neringa.onrender.com/favicon.ico'),
+        image_url: cleanText(itemImage, 'https://neringa.onrender.com/favicon.ico'),
       },
     ],
+    total_value: itemValue,
+    bought_for_self: true,
     metadata: {
       request_id: request.id,
       tracking_number: request.trackingNumber || null,
@@ -129,6 +193,8 @@ function policyPayload({ request, sender, traveler }) {
       package_weight: packageModel.packageWeight || request.packageWeight || null,
       category: packageModel.category || null,
       declared_value: packageModel.value || null,
+      declared_value_currency: request.currency || null,
+      insured_value_ngn: itemValue,
       insurance_cost: request.insuranceCost || 0,
       currency: request.currency || null,
     },
@@ -138,10 +204,12 @@ function policyPayload({ request, sender, traveler }) {
 function extractPolicy(responseData) {
   const policy = responseData?.data?.policy || responseData?.policy || {};
   const meta = policy.meta || responseData?.data?.meta || {};
+  const essential = responseData?.data?.essential || {};
   return {
     policy,
     policyId:
       policy.id ||
+      essential.policy_id ||
       responseData?.data?.policy_id ||
       responseData?.policy_id ||
       responseData?.data?.id ||
@@ -154,11 +222,13 @@ function extractPolicy(responseData) {
     policyNumber:
       meta.policy_number ||
       meta?.data?.policy_number ||
+      essential.policy_number ||
       policy.policy_number ||
       null,
     certificateUrl:
       meta.certificate_url ||
       meta?.data?.cert_url ||
+      essential.certificate_url ||
       policy.certificate_url ||
       null,
   };
@@ -198,8 +268,8 @@ export async function purchaseMyCoverPolicy(request) {
     return null;
   }
 
-  if (!MYCOVER_SECRET_KEY || !MYCOVER_PRODUCT_ID) {
-    const error = 'MYCOVER_SECRET_KEY or MYCOVER_GIT_PRODUCT_ID is not configured';
+  if (!MYCOVER_SECRET_KEY) {
+    const error = 'MYCOVER_SECRET_KEY is not configured';
     await updateInsuranceState(request.id, { status: 'failed', error });
     console.warn(`MyCover: ${error}`);
     return null;
@@ -226,7 +296,7 @@ export async function purchaseMyCoverPolicy(request) {
     throw new Error(`MyCover: ${error}`);
   }
 
-  const payload = policyPayload({ request, sender, traveler });
+  const payload = await policyPayload({ request, sender, traveler });
 
   let responseData;
   try {

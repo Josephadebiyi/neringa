@@ -39,6 +39,7 @@ import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { recordOperationalEvent } from '../lib/postgres/operationalRecords.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
+import { getMyCoverPremium } from '../services/myCoverPricing.js';
 import { applyReferralShipmentReward } from '../services/referralService.js';
 
 function normalizePaymentProvider(paymentInfo = {}) {
@@ -724,15 +725,12 @@ export async function RequestPackage(req, res) {
           currency: requestCurrency,
           imageUrl: typeof image === 'string' ? image : null,
           insurance: insurance === 'yes' || insurance === true,
-          insuranceCost: (() => {
-            if (!(insurance === 'yes' || insurance === true)) return 0;
-            const settings = global._appSettingsCache || {};
-            if (settings.insuranceType === 'fixed') return Number(settings.insuranceFixedAmount) || 0;
-            const pct = Number(settings.insurancePercentage) || 3;
-            const clientCost = Number(insuranceCost) || 0;
-            const serverCost = (requestAmount * pct) / 100;
-            return Math.abs(clientCost - serverCost) / Math.max(serverCost, 1) < 0.05 ? clientCost : serverCost;
-          })(),
+          insuranceCost: (insurance === 'yes' || insurance === true)
+            ? await getMyCoverPremium(
+                Number(packageDoc.declaredValue ?? packageDoc.value ?? 0),
+                requestCurrency,
+              )
+            : 0,
           estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
           estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : null,
           termsAccepted: true,

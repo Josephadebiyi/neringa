@@ -3,8 +3,10 @@ import { query, queryOne } from '../../lib/postgres/db.js';
 const DEFAULTS = {
   insuranceStatus: true,
   insuranceType: 'percentage',
-  insurancePercentage: 3,
-  insuranceFixedAmount: 6,
+  insurancePercentage: 0.5,
+  insuranceFixedAmount: 3000,
+  insuranceCurrency: 'NGN',
+  insuranceCapAmount: 3000,
   commissionPercentage: 10,
   // All-inclusive sender pricing (surcharge on top of traveler payout)
   platformCommissionPercent: 15,

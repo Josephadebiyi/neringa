@@ -1,5 +1,5 @@
 import { query as pgQuery, queryOne, query } from '../lib/postgres/db.js';
-import { convertCurrency } from '../services/currencyConverter.js';
+import { MYCOVER_PREMIUM_CAP_NGN, getMyCoverPremium } from '../services/myCoverPricing.js';
 
 let _tableEnsured = false;
 async function ensureTable() {
@@ -21,9 +21,9 @@ ensureTable().catch((err) => console.error('[insurance] table migration failed:'
 
 const DEFAULT_SETTINGS = {
   enabled: true,
-  global: { fixedPrice: 6, maxCoverageAmount: 5000, commissionPercentage: 15, currency: 'USD', enabled: true },
-  africa: { fixedPrice: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
-  europe: { fixedPrice: 6, maxCoverageAmount: 10000, commissionPercentage: 15, currency: 'USD', enabled: true },
+  global: { ratePercent: 0.5, premiumCap: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
+  africa: { ratePercent: 0.5, premiumCap: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
+  europe: { ratePercent: 0.5, premiumCap: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
 };
 
 async function getSettings() {
@@ -67,20 +67,12 @@ export const calculateInsurance = async (req, res) => {
       return res.status(200).json({ success: true, available: false, message: `Insurance unavailable for ${region}` });
     }
 
-    const baseCurrency = (config.currency || 'USD').toUpperCase();
-    const insuranceCost = Number(config.fixedPrice || 6);
+    const baseCurrency = 'NGN';
+    const insuranceCost = await getMyCoverPremium(Number(itemValue), userCurrency);
 
     // Convert from the config base currency to the user's currency
-    let convertedCost = insuranceCost;
-    let exchangeRate = 1;
-    if (userCurrency !== baseCurrency) {
-      try {
-        convertedCost = Number((await convertCurrency(insuranceCost, baseCurrency, userCurrency)).toFixed(2));
-        exchangeRate = Number((convertedCost / insuranceCost).toFixed(6));
-      } catch (_) {
-        // leave as base price if conversion fails
-      }
-    }
+    const convertedCost = insuranceCost;
+    const exchangeRate = null;
 
     return res.status(200).json({
       success: true,
@@ -91,8 +83,9 @@ export const calculateInsurance = async (req, res) => {
         exchangeRate,
         coverageAmount: parseFloat(itemValue),
         region,
-        fixedPrice: config.fixedPrice,
+        premiumCap: MYCOVER_PREMIUM_CAP_NGN,
         baseCurrency,
+        ratePercent: 0.5,
         commissionPercentage: config.commissionPercentage || 15,
       },
     });

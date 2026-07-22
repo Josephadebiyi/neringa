@@ -9,6 +9,7 @@ import {
 } from '../services/currencyConverter.js';
 import { calculateAllInclusivePrice, getFullPricingConfig } from '../services/pricingService.js';
 import { getTripById } from '../lib/postgres/shipping.js';
+import { getMyCoverPremium, MYCOVER_PREMIUM_CAP_NGN } from '../services/myCoverPricing.js';
 
 // Degrade path when the live rate service is down, same trade-off AddaTripController
 // already makes for trip pricing: show an approximate price instead of blocking checkout.
@@ -318,7 +319,7 @@ export const buildShipmentCheckoutPreview = async ({
     // from the amount collected at checkout.
     const bagoNetRevenue = Number((shippingAmount - convertedTravelerPayout).toFixed(2));
     const insuranceAmount = insurance === true
-      ? Number((numericDeclaredValue * (Number(config.senderInsurancePercent || 0) / 100)).toFixed(2))
+      ? await getMyCoverPremium(numericDeclaredValue, checkoutCurrency)
       : 0;
     const totalAmount = Number((shippingAmount + insuranceAmount).toFixed(2));
     const exchangeRate = travelerCurrency === checkoutCurrency
@@ -348,6 +349,9 @@ export const buildShipmentCheckoutPreview = async ({
         processingFeeTravelerCurrency: Number(pricing.processingFee || 0),
         fxBufferTravelerCurrency: Number(pricing.fxBuffer || 0),
         senderInsurancePercent: Number(config.senderInsurancePercent || 0),
+        insuranceBaseAmount: insurance === true ? MYCOVER_PREMIUM_CAP_NGN : 0,
+        insuranceBaseCurrency: 'NGN',
+        insuranceRatePercent: 0.5,
         exchangeRate: exchangeRate.rate,
         exchangeRateSource: exchangeRate.source,
         exchangeRateTimestamp: exchangeRate.timestamp,

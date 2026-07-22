@@ -1,17 +1,28 @@
+import crypto from 'crypto';
 import { query, queryOne } from '../lib/postgres/db.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
+
+export function validSignature(body, incomingSignature, secret) {
+  if (!incomingSignature || !secret) return false;
+  const expected = crypto
+    .createHmac('sha512', secret)
+    .update(JSON.stringify(body || {}))
+    .digest('hex');
+  const incoming = String(incomingSignature).trim().toLowerCase();
+  if (incoming.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(incoming), Buffer.from(expected));
+}
 
 // POST /api/bago/insurance/mycover/webhook
 // Called by MyCover.ai when policy status changes. No auth — verified by shared secret.
 export const myCoverWebhook = async (req, res) => {
   try {
-    // Verify shared secret if configured
-    const secret = process.env.MYCOVER_WEBHOOK_SECRET;
-    if (secret) {
-      const incomingSecret = req.headers['x-mycover-secret'] || req.headers['x-webhook-secret'];
-      if (incomingSecret !== secret) {
-        return res.status(401).json({ success: false, message: 'Invalid webhook secret' });
-      }
+    // MyCover signs the JSON payload with the distributor secret key using
+    // HMAC-SHA512 and sends it in x-mycoverai-signature.
+    const secret = process.env.MYCOVER_SECRET_KEY;
+    const incomingSignature = req.headers['x-mycoverai-signature'];
+    if (!validSignature(req.body, incomingSignature, secret)) {
+      return res.status(401).json({ success: false, message: 'Invalid webhook signature' });
     }
 
     const { event, data } = req.body || {};
@@ -19,7 +30,8 @@ export const myCoverWebhook = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid webhook payload' });
     }
 
-    const policyId = data.id || data.policy_id;
+    const essential = data.essential || {};
+    const policyId = essential.policy_id || data.policy_id || data.id;
     if (!policyId) {
       return res.status(200).json({ success: true, message: 'No policy_id in payload — ignored' });
     }
@@ -39,12 +51,17 @@ export const myCoverWebhook = async (req, res) => {
     const existing = request.insurance_policy_data || {};
     const merged = { ...existing, lastEvent: event, lastEventData: data, lastEventAt: new Date().toISOString() };
     const statusMap = {
+      'purchase.successful': 'active',
+      'purchase.renewed': 'active',
+      'renewal.successful': 'active',
+      'policy.updated': 'active',
       'policy.issued': 'active',
       'policy.activated': 'active',
       'policy.cancelled': 'cancelled',
       'policy.canceled': 'cancelled',
       'claim.approved': 'claim_approved',
       'claim.declined': 'claim_declined',
+      'claim.disapproved': 'claim_declined',
     };
     const nextStatus = statusMap[event] || existing.insuranceStatus || null;
 
@@ -59,9 +76,13 @@ export const myCoverWebhook = async (req, res) => {
     );
 
     // Notify the sender on meaningful events
-    const notifyEvents = ['policy.issued', 'policy.activated', 'policy.cancelled', 'claim.approved', 'claim.declined'];
+    const notifyEvents = ['purchase.successful', 'purchase.renewed', 'renewal.successful', 'policy.updated', 'policy.issued', 'policy.activated', 'policy.cancelled', 'claim.approved', 'claim.declined', 'claim.disapproved'];
     if (notifyEvents.includes(event) && request.sender_id) {
       const titleMap = {
+        'purchase.successful': 'Insurance Policy Issued',
+        'purchase.renewed': 'Insurance Policy Renewed',
+        'renewal.successful': 'Insurance Policy Renewed',
+        'policy.updated': 'Insurance Policy Updated',
         'policy.issued':    'Insurance Policy Issued',
         'policy.activated': 'Item Protection Active',
         'policy.cancelled': 'Insurance Cancelled',
@@ -69,6 +90,10 @@ export const myCoverWebhook = async (req, res) => {
         'claim.declined':   'Claim Declined',
       };
       const bodyMap = {
+        'purchase.successful': 'Your item protection policy has been issued.',
+        'purchase.renewed': 'Your item protection policy has been renewed.',
+        'renewal.successful': 'Your item protection policy has been renewed.',
+        'policy.updated': 'Your item protection policy has been updated.',
         'policy.issued':    'Your item protection policy has been issued.',
         'policy.activated': 'Your item is now covered in transit.',
         'policy.cancelled': 'Your item protection policy was cancelled.',
