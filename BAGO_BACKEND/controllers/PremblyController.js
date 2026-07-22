@@ -223,6 +223,7 @@ async function ensurePremblySessionTable() {
       WHERE status NOT IN ('approved', 'declined', 'blocked_duplicate');
     CREATE INDEX IF NOT EXISTS idx_prembly_kyc_sessions_refs
       ON public.prembly_kyc_sessions (verification_ref, prembly_ref, session_id, user_ref);
+    ALTER TABLE public.prembly_kyc_sessions ENABLE ROW LEVEL SECURITY;
   `).catch((err) => {
     sessionTableReady = null;
     throw err;
@@ -250,6 +251,7 @@ async function ensurePremblyWebhookEventTable() {
     CREATE INDEX IF NOT EXISTS idx_prembly_webhook_events_unhandled
       ON public.prembly_webhook_events (handled, updated_at DESC)
       WHERE handled = false;
+    ALTER TABLE public.prembly_webhook_events ENABLE ROW LEVEL SECURITY;
   `).catch((err) => {
     webhookEventTableReady = null;
     throw err;
