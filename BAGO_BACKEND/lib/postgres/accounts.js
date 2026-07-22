@@ -651,17 +651,28 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       return request;
     }
 
-    try {
-      await client.query(
-        `
-          insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
-          values ($1, $2, $3, $4, $5)
-          on conflict (provider, event_type, provider_reference) do nothing
-        `,
-        [provider, 'payment_confirmed', providerReference, requestId, { requestId, providerReference }],
+    // SECURITY: this insert is the single-use guard on `providerReference`.
+    // The unique index on (provider, event_type, provider_reference) means a
+    // reference that already funded escrow for *any* request (this one or a
+    // different one — e.g. a replayed/reused Flutterwave transaction id)
+    // conflicts here and inserts nothing. Unlike before, that result now
+    // gates whether we proceed: without it, a single real payment could be
+    // replayed against unlimited new requestIds to mint free escrow.
+    const paymentEventInsert = await client.query(
+      `
+        insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
+        values ($1, $2, $3, $4, $5)
+        on conflict (provider, event_type, provider_reference) do nothing
+        returning id
+      `,
+      [provider, 'payment_confirmed', providerReference, requestId, { requestId, providerReference }],
+    );
+
+    if (paymentEventInsert.rowCount === 0) {
+      console.warn(
+        `holdEscrowForPaidRequest: provider_reference "${providerReference}" for provider "${provider}" was already consumed by a prior payment_confirmed event; refusing to re-grant escrow for request ${requestId}.`,
       );
-    } catch (error) {
-      console.warn('Payment confirmation event logging failed, continuing:', error.message);
+      return null;
     }
 
     await client.query(

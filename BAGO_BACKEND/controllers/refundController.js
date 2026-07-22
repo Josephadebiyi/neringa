@@ -83,9 +83,27 @@ export const getAllRefunds = async (req, res) => {
   try {
     await ensureRefundsTable();
     const { status } = req.query;
-    const rows = status
-      ? await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id WHERE r.status = $1 ORDER BY r.created_at DESC`, [status])
-      : await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id ORDER BY r.created_at DESC`);
+    // SECURITY: this handler is shared between the admin route
+    // (AdminRouter "/refunds", gated by adminAuthenticated + can('refunds.manage'))
+    // and the end-user route ("/get-refund", isAuthenticated only). It used
+    // to run the same unfiltered "every user's refunds" query for both,
+    // letting any logged-in user dump every other user's refund reason,
+    // status, name, and email. Non-admin callers are now scoped to their own
+    // refunds only.
+    const isAdminCaller = Boolean(req.admin);
+    const userId = req.user?.id || req.user?._id;
+
+    let rows;
+    if (isAdminCaller) {
+      rows = status
+        ? await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id WHERE r.status = $1 ORDER BY r.created_at DESC`, [status])
+        : await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id ORDER BY r.created_at DESC`);
+    } else {
+      if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
+      rows = status
+        ? await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id WHERE r.user_id = $1 AND r.status = $2 ORDER BY r.created_at DESC`, [userId, status])
+        : await query(`SELECT r.*, p.first_name, p.last_name, p.email FROM public.refunds r LEFT JOIN public.profiles p ON p.id = r.user_id WHERE r.user_id = $1 ORDER BY r.created_at DESC`, [userId]);
+    }
     res.status(200).json({ success: true, message: 'Refunds fetched', data: rows.rows });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

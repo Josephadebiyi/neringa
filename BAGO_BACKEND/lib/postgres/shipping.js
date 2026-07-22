@@ -1251,7 +1251,18 @@ export async function updateTravelerProof({ requestId, travelerId, travelerProof
   return getShipmentRequestById(requestId);
 }
 
-export async function updatePaymentInfo({ requestId, paymentInfo }) {
+export async function updatePaymentInfo({ requestId, paymentInfo, callerId }) {
+  const current = await getShipmentRequestById(requestId);
+  if (!current) return null;
+  // SECURITY: this previously had no ownership check at all — any
+  // authenticated user could overwrite another user's payment metadata by
+  // guessing/enumerating a requestId. Only the sender or traveler on the
+  // shipment may update it.
+  if (callerId && current.senderId !== callerId && current.travelerId !== callerId) {
+    const error = new Error('Unauthorized');
+    error.code = 'UNAUTHORIZED';
+    throw error;
+  }
   await query(
     `update public.shipment_requests set payment_info = $2, updated_at = timezone('utc', now()) where id = $1`,
     [requestId, paymentInfo],
@@ -1703,6 +1714,23 @@ export async function updateRequestImage({ requestId, senderId, imageUrl }) {
 }
 
 export async function raiseShipmentDispute({ requestId, raisedBy, reason }) {
+  const current = await getShipmentRequestById(requestId);
+  if (!current) return null;
+  // SECURITY: previously any authenticated user could fabricate or silently
+  // overwrite a dispute on a shipment they have nothing to do with. Only the
+  // sender or traveler on the shipment may raise one, and an existing open
+  // dispute can't be clobbered by a second unrelated caller.
+  if (current.senderId !== raisedBy && current.travelerId !== raisedBy) {
+    const error = new Error('You are not a party to this shipment request.');
+    error.code = 'UNAUTHORIZED';
+    throw error;
+  }
+  if (current.dispute && current.dispute.status === 'open' && current.dispute.raisedBy !== raisedBy) {
+    const error = new Error('This shipment already has an open dispute.');
+    error.code = 'DISPUTE_EXISTS';
+    throw error;
+  }
+
   const dispute = {
     raisedBy,
     reason,

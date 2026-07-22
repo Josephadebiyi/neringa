@@ -419,6 +419,33 @@ async function findPremblyUserId(reference = '') {
   return match?.[1] || '';
 }
 
+// Trust boundary: only resolve a userId from a reference we ourselves issued
+// and recorded server-side when starting the session (`recordPremblySession`,
+// called from the authenticated `startPremblySession`). Unlike
+// `findPremblyUserId`, this deliberately does NOT fall back to treating the
+// reference as a raw profile UUID or extracting one via regex — those
+// shortcuts let anyone who merely knows a target's id resolve straight to
+// their profile with no session ever having been created. Safe to use only
+// from contexts where the *status* being applied is independently verified
+// (HMAC-signed webhook, or a fresh server-to-server Prembly API check) —
+// never from an unauthenticated redirect where the status itself is
+// attacker-suppliable.
+async function findPremblyUserIdFromSession(reference = '') {
+  if (!reference) return '';
+
+  await ensurePremblySessionTable().catch(() => {});
+  const session = await queryOne(
+    `SELECT user_id AS "userId" FROM public.prembly_kyc_sessions
+     WHERE verification_ref = $1
+        OR prembly_ref = $1
+        OR session_id = $1
+        OR user_ref = $1
+     ORDER BY updated_at DESC LIMIT 1`,
+    [reference],
+  ).catch(() => null);
+  return session?.userId || '';
+}
+
 // ---------------------------------------------------------------------------
 // Apply a Prembly result to a user profile — shared by webhook + sync
 // ---------------------------------------------------------------------------
@@ -684,19 +711,27 @@ export const premblyComplete = async (req, res) => {
     ...(req.query || {}),
     ...(req.body || {}),
   };
+  // SECURITY: this is a public, unauthenticated GET redirect target — the
+  // browser lands here with whatever query string Prembly (or anyone else)
+  // appended, so nothing in `payload` can be trusted as-is. We only use it
+  // to look up a *reference we issued*, then re-verify the real result
+  // straight from Prembly's API (see syncPremblyReferenceForUser) instead of
+  // trusting a client-suppliable `response_code`/status value. The
+  // authoritative status application still happens in the HMAC-verified
+  // `premblyWebhook` handler; this is best-effort for users who close the
+  // tab before the async webhook lands.
   const verificationRef = verificationRefFromPayload(payload);
-  const status = normalizePremblyStatus(payload);
 
-  if (verificationRef && status !== 'unknown') {
+  if (verificationRef) {
     try {
-      const userId = await findPremblyUserId(verificationRef);
+      const userId = await findPremblyUserIdFromSession(verificationRef);
       if (userId) {
-        await applyPremblyResult(userId, status, payload, { referenceId: verificationRef, notify: true });
+        await syncPremblyReferenceForUser(userId, verificationRef, { notify: true });
       } else {
-        console.warn('Prembly complete: cannot resolve userId from ref', verificationRef);
+        console.warn('Prembly complete: cannot resolve userId from a known session for ref', verificationRef);
       }
     } catch (err) {
-      console.error('premblyComplete apply result error:', err?.message || err);
+      console.error('premblyComplete sync error:', err?.message || err);
     }
   }
 

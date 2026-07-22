@@ -124,7 +124,14 @@ const validateUuidParam = (...params) => (req, res, next) => {
   next();
 };
 
-AdminRouter.post("/AdminSignup", adminAuthenticated, AdminSignup)
+// SECURITY: AdminSignup mints a new admin_users row with role 'admin', which
+// services/supportAutomationService.js treats as a SUPER_ADMIN_ROLES member
+// (unconditional full access). It previously required only "is logged in as
+// *some* admin" (adminAuthenticated) with no permission check, unlike every
+// other privileged admin route — any low-privilege admin (e.g. support)
+// could mint themselves a full superadmin account. Gated the same as
+// /staff, which is the equivalent operation.
+AdminRouter.post("/AdminSignup", adminAuthenticated, can('staff.manage'), AdminSignup)
 AdminRouter.post("/AdminLogin", AdminLogin)
 AdminRouter.get("/CheckAdmin", adminAuthenticated, CheckAdmin)
 AdminRouter.get("/GetAllUsers", adminAuthenticated, can('users.read'), GetAllUsers)

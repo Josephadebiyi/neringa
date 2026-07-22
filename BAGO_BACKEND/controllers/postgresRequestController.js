@@ -824,11 +824,27 @@ export async function RequestPackage(req, res) {
       }
 
       try {
-        await holdEscrowForPaidRequest({
+        const escrowResult = await holdEscrowForPaidRequest({
           requestId: newRequest.id,
           providerReference: paymentReference,
           provider: paymentProvider || 'flutterwave',
         });
+        // `null` here (with the shipment request already created above) means
+        // this providerReference was already consumed by a prior escrow grant
+        // — i.e. a replayed/reused payment reference, not a first-time payment.
+        // Refuse to leave a shipment sitting in a fake "paid_escrow" state
+        // with no real escrow behind it.
+        if (!escrowResult) {
+          await query(
+            `update public.shipment_requests set payment_status = 'payment_reuse_blocked', updated_at = timezone('utc', now()) where id = $1`,
+            [newRequest.id],
+          ).catch(() => {});
+          return res.status(409).json({
+            success: false,
+            message: 'This payment reference has already been used to fund a shipment. Please start a new payment.',
+            code: 'PAYMENT_REFERENCE_ALREADY_USED',
+          });
+        }
       } catch (escrowError) {
         console.error('Paid request created but escrow hold failed:', {
           requestId: newRequest.id,
@@ -1247,6 +1263,7 @@ export async function confirmReceivedBySender(req, res) {
 export async function updatePaymentStatus(req, res) {
   try {
     const { requestId } = req.params;
+    const callerId = req.user?.id || req.user?._id;
     const { method, status, requestReference, gateway } = req.body;
     const paymentInfo = {
       method: method || gateway || null,
@@ -1254,12 +1271,15 @@ export async function updatePaymentStatus(req, res) {
       requestId: requestReference || null,
       gateway: gateway || method || null,
     };
-    const updated = await updatePaymentInfo({ requestId, paymentInfo });
+    const updated = await updatePaymentInfo({ requestId, paymentInfo, callerId });
     if (!updated) {
       return res.status(404).json({ message: 'Request not found' });
     }
     return res.status(200).json({ success: true, data: updated, message: 'Payment status updated successfully' });
   } catch (error) {
+    if (error.code === 'UNAUTHORIZED') {
+      return res.status(403).json({ success: false, message: 'You are not a party to this shipment request.' });
+    }
     console.error('updatePaymentStatus error:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -1523,6 +1543,12 @@ export async function raiseDispute(req, res) {
 
     return res.json({ success: true, message: 'Dispute raised successfully', data: updated });
   } catch (error) {
+    if (error.code === 'UNAUTHORIZED') {
+      return res.status(403).json({ success: false, message: error.message });
+    }
+    if (error.code === 'DISPUTE_EXISTS') {
+      return res.status(409).json({ success: false, message: error.message });
+    }
     console.error('raiseDispute error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }

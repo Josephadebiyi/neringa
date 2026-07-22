@@ -11,7 +11,7 @@ import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
 import { createPackage, updatePackage, deletePackage } from '../controllers/PackageController.js';
-import { getPublicTracking, getNotifications, getCompletedRequests, getDisputes, updatePaymentStatus, updateDispute, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory } from '../controllers/postgresRequestController.js';
+import { getPublicTracking, getNotifications, getCompletedRequests, updatePaymentStatus, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
@@ -206,8 +206,12 @@ userRouter.get("/recentOrder", isAuthenticated, recentOrder)
 userRouter.get("/getRequests", isAuthenticated, getRequests)
 userRouter.get("/getRequests/:tripId", isAuthenticated, getRequests)
 userRouter.get("/incoming-requests", isAuthenticated, getIncomingRequests)
-userRouter.get("/disputes", isAuthenticated, requireKycVerification, getDisputes);
-userRouter.put("/disputes/:id", isAuthenticated, requireKycVerification, updateDispute);
+// SECURITY: dispute listing/resolution is admin-only (see AdminRouter.js
+// "/disputes" and "/disputes/:id", gated by adminAuthenticated + can('disputes.manage')).
+// These identical routes used to also be mounted here with only isAuthenticated +
+// requireKycVerification, which let any logged-in user list every user's disputes
+// (PII + wallet balances + handover PINs) and resolve/close disputes filed
+// against them. No client app calls these user-router paths — removed.
 userRouter.get('/completed', isAuthenticated, requireKycVerification, getCompletedRequests);
 userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, requireKycVerification, updateRequestStatus)
 userRouter.put('/request/:requestId/image', isAuthenticated, requireKycVerification, uploadRequestImage);
