@@ -18,9 +18,10 @@ TripPriceDisplay formatTripPriceForViewer(
   TripModel trip,
   String viewerCurrency, {
   int decimals = 2,
-  bool includeBaseSecondary = true,
+  bool includeBaseSecondary = false,
 }) {
-  final surcharge = AppSettingsService.instance.cachedOrFallback.surchargeMultiplier;
+  final surcharge =
+      AppSettingsService.instance.cachedOrFallback.surchargeMultiplier;
   final senderPricePerKg = trip.pricePerKg * surcharge;
 
   final baseCurrency = trip.currency.trim().toUpperCase();
@@ -61,7 +62,8 @@ TripPriceDisplay formatTripPriceForViewer(
   final effectiveDecimals = converted < 10 ? 2 : decimals;
 
   return TripPriceDisplay(
-    primary: '$preferredCurrency ${converted.toStringAsFixed(effectiveDecimals)}/kg',
+    primary:
+        '$preferredCurrency ${converted.toStringAsFixed(effectiveDecimals)}/kg',
     secondary: includeBaseSecondary ? '$baseLabel base' : null,
     usesViewerCurrency: true,
   );
