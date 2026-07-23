@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/auth_required_modal.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -34,6 +35,8 @@ class SearchResultsScreen extends ConsumerStatefulWidget {
 class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
   Map<String, String> _matchBadges = {};
   bool _scoresFetched = false;
+  Map<String, _SenderPriceQuote> _senderPrices = {};
+  bool _senderPricesFetched = false;
 
   @override
   void initState() {
@@ -80,6 +83,51 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     } catch (_) {}
   }
 
+  Future<void> _fetchSenderPrices(List<TripModel> results) async {
+    if (_senderPricesFetched) return;
+    _senderPricesFetched = true;
+    final currency = UserCurrencyHelper.resolve(ref.read(authProvider).user);
+    if (currency.isEmpty) return;
+
+    final entries = await Future.wait(results.map((trip) async {
+      try {
+        final response = await ApiService.instance.post<Map<String, dynamic>>(
+          ApiConstants.shipmentCheckoutPreview,
+          data: {
+            'tripId': trip.id,
+            'weight': 1,
+            'senderCurrency': currency,
+            'declaredValue': 0,
+            'insurance': false,
+          },
+        ).timeout(const Duration(seconds: 15));
+        final raw = response.data?['preview'];
+        if (raw is! Map) return null;
+        final amount = num.tryParse(raw['shippingAmount']?.toString() ?? '');
+        final quotedCurrency = raw['senderCurrency']?.toString().trim();
+        if (amount == null ||
+            quotedCurrency == null ||
+            quotedCurrency.isEmpty) {
+          return null;
+        }
+        return MapEntry(
+          trip.id,
+          _SenderPriceQuote(quotedCurrency.toUpperCase(), amount.toDouble()),
+        );
+      } catch (_) {
+        return null;
+      }
+    }));
+
+    if (!mounted) return;
+    setState(() {
+      _senderPrices = {
+        for (final entry in entries)
+          if (entry != null) entry.key: entry.value,
+      };
+    });
+  }
+
   void _goBack(BuildContext context) {
     if (context.canPop()) {
       context.pop();
@@ -95,9 +143,14 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     final results = state.searchResults;
 
     ref.listen<TripState>(tripProvider, (prev, next) {
-      if ((prev?.isSearching ?? false) && !next.isSearching && next.searchResults.isNotEmpty) {
+      if ((prev?.isSearching ?? false) &&
+          !next.isSearching &&
+          next.searchResults.isNotEmpty) {
         _scoresFetched = false;
+        _senderPricesFetched = false;
+        _senderPrices = {};
         _fetchMatchScores(next.searchResults);
+        _fetchSenderPrices(next.searchResults);
       }
     });
     final hasRequiredCities = widget.fromCity != null &&
@@ -192,9 +245,10 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 12),
                               itemBuilder: (_, i) => _TripCard(
-                                    trip: results[i],
-                                    badge: _matchBadges[results[i].id],
-                                  ),
+                                trip: results[i],
+                                badge: _matchBadges[results[i].id],
+                                senderPrice: _senderPrices[results[i].id],
+                              ),
                             ),
                           ),
           ),
@@ -341,9 +395,10 @@ class _MissingCitiesState extends StatelessWidget {
 }
 
 class _TripCard extends ConsumerWidget {
-  const _TripCard({required this.trip, this.badge});
+  const _TripCard({required this.trip, this.badge, this.senderPrice});
   final TripModel trip;
   final String? badge;
+  final _SenderPriceQuote? senderPrice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -361,6 +416,9 @@ class _TripCard extends ConsumerWidget {
       trip: trip,
       onTap: startShipment,
       actionLabel: 'Send package',
+      authoritativeSenderPrice: senderPrice == null
+          ? 'Loading price…'
+          : '${senderPrice!.currency} ${senderPrice!.amount.toStringAsFixed(2)}/kg',
     );
 
     if (badge == null) return card;
@@ -377,6 +435,13 @@ class _TripCard extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _SenderPriceQuote {
+  const _SenderPriceQuote(this.currency, this.amount);
+
+  final String currency;
+  final double amount;
 }
 
 class _MatchBadge extends StatelessWidget {

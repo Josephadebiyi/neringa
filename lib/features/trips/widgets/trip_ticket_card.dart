@@ -17,12 +17,14 @@ class TripTicketCard extends ConsumerWidget {
     required this.onTap,
     this.actionLabel,
     this.ownerView = false,
+    this.authoritativeSenderPrice,
   });
 
   final TripModel trip;
   final VoidCallback onTap;
   final String? actionLabel;
   final bool ownerView;
+  final String? authoritativeSenderPrice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -90,7 +92,7 @@ class TripTicketCard extends ConsumerWidget {
                         Text(
                           ownerView
                               ? '${trip.currency} ${trip.pricePerKg.toStringAsFixed(0)}/kg'
-                              : price.primary,
+                              : authoritativeSenderPrice ?? price.primary,
                           style: AppTextStyles.h3.copyWith(
                             color: AppColors.black,
                             fontWeight: FontWeight.w900,
