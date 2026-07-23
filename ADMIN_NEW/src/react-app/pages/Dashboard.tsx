@@ -15,6 +15,8 @@ interface DashboardStats {
   googleUsers: number;
   unverifiedUsers: number;
   verifiedUsers: number;
+  pendingTripApprovals: number;
+  pendingProtectionReviews: number;
 }
 
 // Interface for package data
@@ -74,6 +76,12 @@ interface DashboardResponse {
   message: string;
   data: {
     stats: DashboardStats;
+    notifications?: Array<{
+      type: string;
+      count: number;
+      title: string;
+      path: string;
+    }>;
     trackingData: TrackingData[];
     statusDistribution: StatusDistribution[];
     monthlyTrends: MonthlyTrend[];
@@ -88,6 +96,7 @@ interface DashboardResponse {
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
+  const [notifications, setNotifications] = useState<NonNullable<DashboardResponse['data']['notifications']>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage] = useState(1);
@@ -109,6 +118,7 @@ export default function Dashboard() {
 
       setStats(data.data.stats || null);
       setMonthlyTrends(data.data.monthlyTrends || []);
+      setNotifications(data.data.notifications || []);
     } catch (error: any) {
       console.error('Failed to fetch dashboard data:', error);
       setError(error.message || 'Failed to fetch dashboard data');
@@ -169,6 +179,29 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {notifications.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {notifications.map((notification) => (
+            <Link
+              key={notification.type}
+              to={notification.path}
+              className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 transition hover:border-amber-300 hover:shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-amber-500 px-2 text-sm font-black text-white">
+                  {notification.count > 99 ? '99+' : notification.count}
+                </span>
+                <div>
+                  <p className="text-sm font-black text-amber-950">{notification.title}</p>
+                  <p className="text-xs font-medium text-amber-700">Open the review queue</p>
+                </div>
+              </div>
+              <ArrowUpRight className="h-5 w-5 text-amber-700" />
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Primary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

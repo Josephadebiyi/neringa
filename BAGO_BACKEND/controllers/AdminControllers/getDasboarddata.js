@@ -37,6 +37,8 @@ export const dashboard = async (req, res, next) => {
       googleSignupCountRow,
       unverifiedUserCountRow,
       verifiedUserCountRow,
+      pendingTripCountRow,
+      pendingProtectionCountRow,
       packagesRows,
     ] = await Promise.all([
       safeQueryOne(`select count(*)::int as total from public.profiles`, [], { total: 0 }),
@@ -102,6 +104,13 @@ export const dashboard = async (req, res, next) => {
       safeQueryOne(`select count(*)::int as total from public.profiles where signup_method = 'google'`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.profiles where coalesce(kyc_status, 'pending') <> 'approved'`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.profiles where kyc_status = 'approved'`, [], { total: 0 }),
+      safeQueryOne(`select count(*)::int as total from public.trips where status in ('pending_admin_review', 'pending')`, [], { total: 0 }),
+      safeQueryOne(`
+        select count(*)::int as total
+        from public.shipment_requests
+        where insurance = true
+          and coalesce(insurance_status, 'pending_purchase') in ('pending_purchase', 'failed')
+      `, [], { total: 0 }),
       safeQuery(`select * from public.packages order by created_at desc limit $1 offset $2`, [limit, skip], []),
     ]);
 
@@ -162,7 +171,23 @@ export const dashboard = async (req, res, next) => {
           googleUsers: googleSignupCountRow?.total || 0,
           unverifiedUsers: unverifiedUserCountRow?.total || 0,
           verifiedUsers: verifiedUserCountRow?.total || 0,
+          pendingTripApprovals: pendingTripCountRow?.total || 0,
+          pendingProtectionReviews: pendingProtectionCountRow?.total || 0,
         },
+        notifications: [
+          {
+            type: 'trip_approval',
+            count: pendingTripCountRow?.total || 0,
+            title: 'Trips awaiting approval',
+            path: '/trips',
+          },
+          {
+            type: 'insurance_protection',
+            count: pendingProtectionCountRow?.total || 0,
+            title: 'Protection requests needing attention',
+            path: '/insurance',
+          },
+        ].filter((item) => item.count > 0),
         trackingData,
         statusDistribution: statusData,
         monthlyTrends: monthlyData,
