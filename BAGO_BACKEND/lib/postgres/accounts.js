@@ -260,10 +260,7 @@ async function ensurePaymentEventsInfrastructure(client) {
 }
 
 function getCommissionRate() {
-  const raw = process.env.BAGO_COMMISSION_RATE || process.env.BAGO_COMMISSION_PERCENT || '0.10';
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) return 0.10;
-  return parsed > 1 ? parsed / 100 : parsed;
+  return 0.15;
 }
 
 async function upsertShipmentLedger(client, {

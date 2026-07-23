@@ -39,7 +39,7 @@ import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { recordOperationalEvent } from '../lib/postgres/operationalRecords.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
-import { getMyCoverPremium } from '../services/myCoverPricing.js';
+import { getRouteProtectionFee } from '../services/myCoverPricing.js';
 import { applyReferralShipmentReward } from '../services/referralService.js';
 
 function normalizePaymentProvider(paymentInfo = {}) {
@@ -726,10 +726,11 @@ export async function RequestPackage(req, res) {
           imageUrl: typeof image === 'string' ? image : null,
           insurance: insurance === 'yes' || insurance === true,
           insuranceCost: (insurance === 'yes' || insurance === true)
-            ? await getMyCoverPremium(
-                Number(packageDoc.declaredValue ?? packageDoc.value ?? 0),
-                requestCurrency,
-              )
+            ? (await getRouteProtectionFee({
+                fromCountry: tripDoc.fromCountry,
+                toCountry: tripDoc.toCountry,
+                currency: requestCurrency,
+              })).amount
             : 0,
           estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
           estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : null,

@@ -1,22 +1,10 @@
 import { queryOne } from '../lib/postgres/db.js';
 
-// Legacy 10% commission rate — kept for backward compat with WalletController
-export const DEFAULT_COMMISSION_RATE = 0.10;
+// Bago's platform commission is intentionally fixed across every client and route.
+export const DEFAULT_COMMISSION_RATE = 0.15;
+export const FIXED_PLATFORM_COMMISSION_PERCENT = 15;
 
 export async function getCommissionRate() {
-  try {
-    const row = await queryOne(
-      `SELECT value FROM public.bago_config WHERE key = 'app_settings'`,
-    );
-    if (row?.value) {
-      const settings = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
-      const rate = settings?.commissionRate ?? settings?.commissionPercentage;
-      if (typeof rate === 'number' && rate > 0 && rate <= 1) return rate;
-      if (typeof rate === 'number' && rate > 1 && rate <= 100) return rate / 100;
-    }
-  } catch (e) {
-    console.warn('pricingService: could not read commission from bago_config:', e.message);
-  }
   return DEFAULT_COMMISSION_RATE;
 }
 
@@ -32,7 +20,7 @@ export function calculateTravelerPayout(totalPrice, commission) {
 
 const DEFAULT_PRICING_CONFIG = {
   platformCommissionPercent: 15,
-  processingFeePercent: 5,
+  processingFeePercent: 0,
   fxBufferPercent: 0,
   senderInsurancePercent: 0.5,
 };
@@ -56,9 +44,9 @@ export async function getFullPricingConfig() {
     if (row?.value) {
       const s = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
       return {
-        platformCommissionPercent: _toPercent(s?.platformCommissionPercent, DEFAULT_PRICING_CONFIG.platformCommissionPercent),
-        processingFeePercent: _toPercent(s?.processingFeePercent, DEFAULT_PRICING_CONFIG.processingFeePercent),
-        fxBufferPercent: _toPercent(s?.fxBufferPercent, DEFAULT_PRICING_CONFIG.fxBufferPercent),
+        platformCommissionPercent: FIXED_PLATFORM_COMMISSION_PERCENT,
+        processingFeePercent: 0,
+        fxBufferPercent: 0,
         senderInsurancePercent: _toPercent(s?.senderInsurancePercent, DEFAULT_PRICING_CONFIG.senderInsurancePercent),
       };
     }

@@ -7,10 +7,10 @@ const DEFAULTS = {
   insuranceFixedAmount: 3000,
   insuranceCurrency: 'NGN',
   insuranceCapAmount: 3000,
-  commissionPercentage: 10,
+  commissionPercentage: 15,
   // All-inclusive sender pricing (surcharge on top of traveler payout)
   platformCommissionPercent: 15,
-  processingFeePercent: 5,
+  processingFeePercent: 0,
   fxBufferPercent: 0,
   senderInsurancePercent: 0.5,
   autoVerification: false,
@@ -89,7 +89,7 @@ export const updateSettings = async (req, res, next) => {
   try {
     await loadSettings();
     if (typeof autoVerification === 'boolean') _cached.autoVerification = autoVerification;
-    if (typeof commissionPercentage === 'number' && commissionPercentage >= 0 && commissionPercentage <= 100) _cached.commissionPercentage = commissionPercentage;
+    _cached.commissionPercentage = 15;
     if (insuranceType === 'percentage' || insuranceType === 'fixed') _cached.insuranceType = insuranceType;
     if (typeof insurancePercentage === 'number' && insurancePercentage >= 0 && insurancePercentage <= 100) _cached.insurancePercentage = insurancePercentage;
     if (typeof insuranceFixedAmount === 'number' && insuranceFixedAmount >= 0) _cached.insuranceFixedAmount = insuranceFixedAmount;
@@ -100,9 +100,9 @@ export const updateSettings = async (req, res, next) => {
       const allPositive = Object.values(exchangeRates).every(r => typeof r === 'number' && r > 0);
       if (allPositive) _cached.exchangeRates = exchangeRates;
     }
-    if (typeof platformCommissionPercent === 'number' && platformCommissionPercent >= 0 && platformCommissionPercent <= 100) _cached.platformCommissionPercent = platformCommissionPercent;
-    if (typeof processingFeePercent === 'number' && processingFeePercent >= 0 && processingFeePercent <= 100) _cached.processingFeePercent = processingFeePercent;
-    if (typeof fxBufferPercent === 'number' && fxBufferPercent >= 0 && fxBufferPercent <= 100) _cached.fxBufferPercent = fxBufferPercent;
+    _cached.platformCommissionPercent = 15;
+    _cached.processingFeePercent = 0;
+    _cached.fxBufferPercent = 0;
     if (typeof senderInsurancePercent === 'number' && senderInsurancePercent >= 0 && senderInsurancePercent <= 100) _cached.senderInsurancePercent = senderInsurancePercent;
     if (typeof referralEnabled === 'boolean') _cached.referralEnabled = referralEnabled;
     if (typeof referralWelcomeBonusNgn === 'number' && referralWelcomeBonusNgn >= 0) _cached.referralWelcomeBonusNgn = referralWelcomeBonusNgn;
@@ -118,7 +118,13 @@ export const updateSettings = async (req, res, next) => {
 export const getCurrentSetting = async (req, res, next) => {
   try {
     await loadSettings();
-    const data = { ..._cached };
+    const data = {
+      ..._cached,
+      commissionPercentage: 15,
+      platformCommissionPercent: 15,
+      processingFeePercent: 0,
+      fxBufferPercent: 0,
+    };
     // Append publishable keys from server env — safe to expose to clients, never the secret keys.
     if (process.env.STRIPE_PUBLISHABLE_KEY) {
       data.stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY;

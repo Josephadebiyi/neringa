@@ -1,5 +1,9 @@
 import { query as pgQuery, queryOne, query } from '../lib/postgres/db.js';
-import { MYCOVER_PREMIUM_CAP_NGN, getMyCoverPremium } from '../services/myCoverPricing.js';
+import {
+  AFRICA_PROTECTION_FEE_NGN,
+  NON_AFRICA_PROTECTION_FEE_EUR,
+  getRouteProtectionFee,
+} from '../services/myCoverPricing.js';
 
 let _tableEnsured = false;
 async function ensureTable() {
@@ -21,9 +25,9 @@ ensureTable().catch((err) => console.error('[insurance] table migration failed:'
 
 const DEFAULT_SETTINGS = {
   enabled: true,
-  global: { ratePercent: 0.5, premiumCap: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
-  africa: { ratePercent: 0.5, premiumCap: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
-  europe: { ratePercent: 0.5, premiumCap: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
+  global: { fixedPrice: NON_AFRICA_PROTECTION_FEE_EUR, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'EUR', enabled: true },
+  africa: { fixedPrice: AFRICA_PROTECTION_FEE_NGN, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'NGN', enabled: true },
+  europe: { fixedPrice: NON_AFRICA_PROTECTION_FEE_EUR, maxCoverageAmount: 2000000, commissionPercentage: 15, currency: 'EUR', enabled: true },
 };
 
 async function getSettings() {
@@ -67,11 +71,14 @@ export const calculateInsurance = async (req, res) => {
       return res.status(200).json({ success: true, available: false, message: `Insurance unavailable for ${region}` });
     }
 
-    const baseCurrency = 'NGN';
-    const insuranceCost = await getMyCoverPremium(Number(itemValue), userCurrency);
-
-    // Convert from the config base currency to the user's currency
-    const convertedCost = insuranceCost;
+    const isAfrica = String(region || '').toLowerCase() === 'africa';
+    const protection = await getRouteProtectionFee({
+      fromCountry: isAfrica ? 'NG' : 'DE',
+      toCountry: isAfrica ? 'GH' : 'FR',
+      currency: userCurrency,
+    });
+    const baseCurrency = protection.baseCurrency;
+    const convertedCost = protection.amount;
     const exchangeRate = null;
 
     return res.status(200).json({
@@ -83,10 +90,10 @@ export const calculateInsurance = async (req, res) => {
         exchangeRate,
         coverageAmount: parseFloat(itemValue),
         region,
-        premiumCap: MYCOVER_PREMIUM_CAP_NGN,
+        premiumCap: protection.baseAmount,
         baseCurrency,
-        ratePercent: 0.5,
-        commissionPercentage: config.commissionPercentage || 15,
+        ratePercent: 0,
+        commissionPercentage: 15,
       },
     });
   } catch (error) {

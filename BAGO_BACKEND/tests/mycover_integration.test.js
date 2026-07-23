@@ -17,6 +17,7 @@ vi.mock('../services/pushNotificationService.js', () => ({
 import { convertCurrency } from '../services/currencyConverter.js';
 import {
   convertDeclaredValueToNgn,
+  getRouteProtectionFee,
   getMyCoverPremium,
   MYCOVER_PREMIUM_CAP_NGN,
 } from '../services/myCoverPricing.js';
@@ -45,6 +46,36 @@ describe('MyCover pricing', () => {
     convertCurrency.mockResolvedValueOnce(155000);
     await expect(convertDeclaredValueToNgn(100, 'USD')).resolves.toBe(155000);
     expect(convertCurrency).toHaveBeenCalledWith(100, 'USD', 'NGN');
+  });
+
+  it('charges fixed NGN 3,000 when either end of the trip is in Africa', async () => {
+    convertCurrency.mockResolvedValueOnce(1.84);
+    await expect(getRouteProtectionFee({
+      fromCountry: 'Nigeria',
+      toCountry: 'United Kingdom',
+      currency: 'EUR',
+    })).resolves.toMatchObject({
+      amount: 1.84,
+      baseAmount: 3000,
+      baseCurrency: 'NGN',
+      region: 'africa',
+    });
+    expect(convertCurrency).toHaveBeenCalledWith(3000, 'NGN', 'EUR');
+  });
+
+  it('charges fixed EUR 5 only when both ends are outside Africa', async () => {
+    convertCurrency.mockResolvedValueOnce(8500);
+    await expect(getRouteProtectionFee({
+      fromCountry: 'Germany',
+      toCountry: 'United States',
+      currency: 'NGN',
+    })).resolves.toMatchObject({
+      amount: 8500,
+      baseAmount: 5,
+      baseCurrency: 'EUR',
+      region: 'non_africa',
+    });
+    expect(convertCurrency).toHaveBeenCalledWith(5, 'EUR', 'NGN');
   });
 
   it('uses a BAGO internal sender reference when no vehicle plate exists', async () => {
