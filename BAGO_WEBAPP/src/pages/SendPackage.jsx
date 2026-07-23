@@ -720,7 +720,7 @@ export default function SendPackage() {
                                         <p className="text-sm font-black text-[#012126]">Item Protection</p>
                                         {formData.insuranceProtection && insuranceCost > 0 ? (
                                             <p className="text-xs text-[#5845D8] font-bold mt-0.5">
-                                                +{previewCurrency} {insuranceCost.toFixed(2)} (backend calculated)
+                                                +{previewCurrency} {insuranceCost.toFixed(2)} fixed protection
                                             </p>
                                         ) : (
                                             <p className="text-xs text-gray-400 font-medium mt-0.5">Protect your item against loss or damage</p>

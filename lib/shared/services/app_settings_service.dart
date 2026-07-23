@@ -14,7 +14,7 @@ class AppSettingsSnapshot {
     this.platformCommissionPercent = 15,
     this.processingFeePercent = 0,
     this.fxBufferPercent = 0,
-    this.senderInsurancePercent = 0.5,
+    this.senderInsurancePercent = 0,
   });
 
   final String insuranceType;
@@ -82,7 +82,7 @@ class AppSettingsSnapshot {
       processingFeePercent: _asDouble(raw['processingFeePercent'], fallback: 0),
       fxBufferPercent: _asDouble(raw['fxBufferPercent'], fallback: 0),
       senderInsurancePercent:
-          _asDouble(raw['senderInsurancePercent'], fallback: 0.5),
+          _asDouble(raw['senderInsurancePercent'], fallback: 0),
     );
   }
 

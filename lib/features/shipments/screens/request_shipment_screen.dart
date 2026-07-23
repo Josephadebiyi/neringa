@@ -104,7 +104,6 @@ class _CheckoutPreview {
     required this.shippingAmount,
     required this.insuranceAmount,
     required this.totalAmount,
-    required this.insurancePercent,
     required this.insuranceBaseAmount,
     required this.insuranceBaseCurrency,
     required this.raw,
@@ -117,7 +116,6 @@ class _CheckoutPreview {
   final double shippingAmount;
   final double insuranceAmount;
   final double totalAmount;
-  final double insurancePercent;
   final double insuranceBaseAmount;
   final String insuranceBaseCurrency;
   final Map<String, dynamic> raw;
@@ -139,7 +137,6 @@ class _CheckoutPreview {
       shippingAmount: readDouble('shippingAmount'),
       insuranceAmount: readDouble('insuranceAmount'),
       totalAmount: readDouble('totalAmount'),
-      insurancePercent: readDouble('senderInsurancePercent'),
       insuranceBaseAmount: readDouble('insuranceBaseAmount'),
       insuranceBaseCurrency:
           json['insuranceBaseCurrency']?.toString().toUpperCase() ?? '',
@@ -859,8 +856,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
     final preview = _checkoutPreview;
     final previewCurrency = preview?.currency ?? currency;
-    final insurancePercent = preview?.insurancePercent ?? 0.5;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FB),
       appBar: _buildAppBar(),
@@ -1004,7 +999,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             _InsuranceTile(
               enabled: _insurance,
               currency: previewCurrency,
-              insurancePercent: insurancePercent,
               insuranceBaseAmount: preview?.insuranceBaseAmount,
               insuranceBaseCurrency: preview?.insuranceBaseCurrency,
               onToggle: (v) {
@@ -1020,7 +1014,6 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               shippingAmount: preview?.shippingAmount,
               insuranceAmount: preview?.insuranceAmount,
               totalAmount: preview?.totalAmount,
-              insurancePercent: insurancePercent,
               insuranceBaseAmount: preview?.insuranceBaseAmount,
               insuranceBaseCurrency: preview?.insuranceBaseCurrency,
               isLoading: _isPreviewLoading,
@@ -1876,13 +1869,11 @@ class _InsuranceTile extends StatelessWidget {
     required this.enabled,
     required this.currency,
     required this.onToggle,
-    this.insurancePercent = 0.5,
     this.insuranceBaseAmount,
     this.insuranceBaseCurrency,
   });
   final bool enabled;
   final String currency;
-  final double insurancePercent;
   final double? insuranceBaseAmount;
   final String? insuranceBaseCurrency;
   final ValueChanged<bool> onToggle;
@@ -1946,7 +1937,6 @@ class _PriceSummaryCard extends StatelessWidget {
     required this.totalAmount,
     required this.isLoading,
     this.error,
-    this.insurancePercent = 0.5,
     this.insuranceBaseAmount,
     this.insuranceBaseCurrency,
   });
@@ -1954,7 +1944,6 @@ class _PriceSummaryCard extends StatelessWidget {
   final double? shippingAmount;
   final double? insuranceAmount;
   final double? totalAmount;
-  final double insurancePercent;
   final double? insuranceBaseAmount;
   final String? insuranceBaseCurrency;
   final bool isLoading;
