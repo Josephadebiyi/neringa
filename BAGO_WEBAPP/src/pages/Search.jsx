@@ -430,10 +430,9 @@ export default function Search() {
                 });
                 const preview = response.data?.preview;
                 if (!preview || !Number.isFinite(Number(preview.shippingAmount))) return null;
-                const travelerCurrency = normalizeCurrency(preview.travelerCurrency || trip.currency);
                 return [trip.id || trip._id, {
                     primary: `${formatMoney(preview.shippingAmount, senderCurrency)}/kg`,
-                    secondary: `Includes Bago fees · ${formatMoney(preview.travelerPricePerKg, travelerCurrency)}/kg traveler rate`,
+                    secondary: null,
                 }];
             } catch (_) {
                 return null;
