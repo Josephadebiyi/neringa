@@ -419,7 +419,14 @@ export default function SendPackage() {
     const travelerImage = selectedTrip?.travelerImage || selectedTrip?.user?.image || selectedTrip?.user?.profileImage || null;
     const travelerRating = Number(selectedTrip?.rating || selectedTrip?.travelerRating || selectedTrip?.user?.rating || 5).toFixed(1);
     const travelMeans = selectedTrip?.meansOfTransport || selectedTrip?.travelMeans || selectedTrip?.transportMode || 'Flight';
-    const availableKg = selectedTrip?.availableCapacity ?? selectedTrip?.remainingCapacity ?? selectedTrip?.available_weight ?? selectedTrip?.capacity ?? '–';
+    const availableKg = selectedTrip?.availableKg
+        ?? selectedTrip?.remainingKg
+        ?? selectedTrip?.totalKg
+        ?? selectedTrip?.availableCapacity
+        ?? selectedTrip?.remainingCapacity
+        ?? selectedTrip?.available_weight
+        ?? selectedTrip?.capacity
+        ?? '–';
 
     // Shared field style
     const field = 'w-full px-4 py-3 rounded-[14px] border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-bold bg-[#F5F4FC] hover:bg-white focus:bg-white focus:shadow-sm transition-all text-[#012126]';
