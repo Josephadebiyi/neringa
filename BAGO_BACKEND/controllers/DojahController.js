@@ -42,6 +42,8 @@ const DOJAH_WIDGET_NG_KE = process.env.DOJAH_WIDGET_NG_KE || process.env.DOJAH_W
 const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH_WIDGET_ID_GLOBAL || process.env.DOJAH_WIDGET_ID || '';
 const DOJAH_VERIFICATION_URL = 'https://api.dojah.io/api/v1/kyc/verification';
 const DOJAH_LEGACY_EASYONBOARD_URL = 'https://api.dojah.io/api/v1/kyc/easyonboard';
+const KYC_STATUS_SYNC_COOLDOWN_MS = 10_000;
+const lastKycStatusSyncAt = new Map();
 
 const safeEqualText = (left = '', right = '') => {
   const leftBuffer = Buffer.from(String(left));
@@ -797,9 +799,44 @@ export const getKycStatus = async (req, res) => {
 
     if (!row) return res.status(404).json({ success: false, message: 'User not found' });
 
+    let effectiveStatus = effectiveStoredKycStatus(row.kycStatus, row.kycVerifiedData);
+
+    // Webhooks remain the primary update path, but a provider callback can arrive
+    // late or be missed. While a user is actively polling a pending verification,
+    // reconcile with the provider (throttled) so the UI does not stay stale for
+    // the background reconciler's full interval.
+    const provider = String(row.kycProvider || '').toLowerCase();
+    const now = Date.now();
+    const lastSyncAt = lastKycStatusSyncAt.get(userId) || 0;
+    if (effectiveStatus === 'pending' && now - lastSyncAt >= KYC_STATUS_SYNC_COOLDOWN_MS) {
+      lastKycStatusSyncAt.set(userId, now);
+      try {
+        let syncResult = null;
+        if (provider === 'dojah') {
+          const referenceId = dojahReferenceFromPayload(row.kycVerifiedData || {});
+          if (referenceId) {
+            syncResult = await syncDojahReferenceForUser(userId, referenceId, { notify: true });
+          }
+        } else if (provider === 'prembly') {
+          const { syncPremblyForUser } = await import('./PremblyController.js');
+          syncResult = await syncPremblyForUser(userId, { notify: true });
+        }
+
+        if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(syncResult?.status)) {
+          effectiveStatus = syncResult.status;
+        }
+      } catch (syncError) {
+        console.warn('KYC status reconciliation failed:', syncError.message);
+      }
+    }
+
+    if (['approved', 'declined', 'blocked_duplicate'].includes(effectiveStatus)) {
+      lastKycStatusSyncAt.delete(userId);
+    }
+
     res.json({
       success: true,
-      kycStatus: effectiveStoredKycStatus(row.kycStatus, row.kycVerifiedData),
+      kycStatus: effectiveStatus,
       kycProvider: row.kycProvider,
     });
   } catch (err) {

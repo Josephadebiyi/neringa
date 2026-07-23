@@ -316,6 +316,10 @@ export default function SendPackage() {
     const totalCostNumber = readPreviewNumber(checkoutPreview, 'totalAmount');
     const totalCost = totalCostNumber.toFixed(2);
     const previewCurrency = (checkoutPreview?.senderCurrency || checkoutPreview?.senderPaymentCurrency || currency || 'USD').toUpperCase();
+    const packageWeight = Number(formData.packageWeight);
+    const senderPricePerKg = checkoutPreview && packageWeight > 0
+        ? readPreviewNumber(checkoutPreview, 'shippingAmount') / packageWeight
+        : null;
     const canCheckout = Boolean(checkoutPreview && totalCostNumber > 0 && !previewLoading);
 
     const handleSubmit = async (e) => {
@@ -469,7 +473,13 @@ export default function SendPackage() {
                             </div>
                             <div className="flex-1 bg-white/15 rounded-[14px] px-3 py-3 text-center">
                                 <p className="text-[9px] font-bold text-white/55 uppercase tracking-wide mb-0.5">Price / kg</p>
-                                <p className="text-sm font-black">{selectedTrip.currency || currency} {Number(selectedTrip.pricePerKg || 0).toFixed(0)}</p>
+                                <p className="text-sm font-black">
+                                    {previewLoading
+                                        ? 'Calculating…'
+                                        : senderPricePerKg !== null
+                                            ? `${previewCurrency} ${senderPricePerKg.toFixed(2)}`
+                                            : '—'}
+                                </p>
                             </div>
                             {selectedTrip.departureDate && (
                                 <div className="flex-1 bg-white/15 rounded-[14px] px-3 py-3 text-center">
