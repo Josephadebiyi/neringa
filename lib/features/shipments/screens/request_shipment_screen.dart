@@ -105,6 +105,8 @@ class _CheckoutPreview {
     required this.insuranceAmount,
     required this.totalAmount,
     required this.insurancePercent,
+    required this.insuranceBaseAmount,
+    required this.insuranceBaseCurrency,
     required this.raw,
   });
 
@@ -116,6 +118,8 @@ class _CheckoutPreview {
   final double insuranceAmount;
   final double totalAmount;
   final double insurancePercent;
+  final double insuranceBaseAmount;
+  final String insuranceBaseCurrency;
   final Map<String, dynamic> raw;
 
   factory _CheckoutPreview.fromJson(Map<String, dynamic> json) {
@@ -136,6 +140,9 @@ class _CheckoutPreview {
       insuranceAmount: readDouble('insuranceAmount'),
       totalAmount: readDouble('totalAmount'),
       insurancePercent: readDouble('senderInsurancePercent'),
+      insuranceBaseAmount: readDouble('insuranceBaseAmount'),
+      insuranceBaseCurrency:
+          json['insuranceBaseCurrency']?.toString().toUpperCase() ?? '',
       raw: json,
     );
   }
@@ -865,7 +872,12 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Traveler card ──────────────────────────────────────────
-            _TravelerHeroCard(trip: trip, userCurrency: currency),
+            _TravelerHeroCard(
+              trip: trip,
+              userCurrency: currency,
+              preview: preview,
+              weight: double.tryParse(_weightCtrl.text.trim()) ?? 0,
+            ),
             const SizedBox(height: 20),
 
             // ── Route ─────────────────────────────────────────────────
@@ -993,6 +1005,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               enabled: _insurance,
               currency: previewCurrency,
               insurancePercent: insurancePercent,
+              insuranceBaseAmount: preview?.insuranceBaseAmount,
+              insuranceBaseCurrency: preview?.insuranceBaseCurrency,
               onToggle: (v) {
                 setState(() => _insurance = v);
                 _scheduleCheckoutPreview();
@@ -1007,6 +1021,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               insuranceAmount: preview?.insuranceAmount,
               totalAmount: preview?.totalAmount,
               insurancePercent: insurancePercent,
+              insuranceBaseAmount: preview?.insuranceBaseAmount,
+              insuranceBaseCurrency: preview?.insuranceBaseCurrency,
               isLoading: _isPreviewLoading,
               error: _previewError,
             ),
@@ -1052,13 +1068,28 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 // ── Traveler hero card ────────────────────────────────────────────────────────
 
 class _TravelerHeroCard extends StatelessWidget {
-  const _TravelerHeroCard({required this.trip, required this.userCurrency});
+  const _TravelerHeroCard({
+    required this.trip,
+    required this.userCurrency,
+    required this.preview,
+    required this.weight,
+  });
   final TripModel trip;
   final String userCurrency;
+  final _CheckoutPreview? preview;
+  final double weight;
 
   @override
   Widget build(BuildContext context) {
-    final priceDisplay = formatTripPriceForViewer(trip, userCurrency);
+    final authoritativePricePerKg =
+        preview != null && weight > 0 ? preview!.shippingAmount / weight : null;
+    final priceDisplay = authoritativePricePerKg == null
+        ? formatTripPriceForViewer(trip, userCurrency)
+        : TripPriceDisplay(
+            primary:
+                '${preview!.currency} ${authoritativePricePerKg.toStringAsFixed(2)}/kg',
+            usesViewerCurrency: true,
+          );
     final name =
         NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Traveler');
     final rating = trip.averageRating ?? 0;
@@ -1846,10 +1877,14 @@ class _InsuranceTile extends StatelessWidget {
     required this.currency,
     required this.onToggle,
     this.insurancePercent = 0.5,
+    this.insuranceBaseAmount,
+    this.insuranceBaseCurrency,
   });
   final bool enabled;
   final String currency;
   final double insurancePercent;
+  final double? insuranceBaseAmount;
+  final String? insuranceBaseCurrency;
   final ValueChanged<bool> onToggle;
 
   @override
@@ -1885,7 +1920,9 @@ class _InsuranceTile extends StatelessWidget {
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
           Text(
-            '${insurancePercent % 1 == 0 ? insurancePercent.toInt() : insurancePercent}% of item value — covered in transit',
+            insuranceBaseAmount != null && insuranceBaseAmount! > 0
+                ? '${insuranceBaseCurrency ?? currency} ${insuranceBaseAmount!.toStringAsFixed(insuranceBaseAmount! % 1 == 0 ? 0 : 2)} fixed — covered in transit'
+                : 'Fixed protection — covered in transit',
             style: AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
           ),
         ])),
@@ -1910,12 +1947,16 @@ class _PriceSummaryCard extends StatelessWidget {
     required this.isLoading,
     this.error,
     this.insurancePercent = 0.5,
+    this.insuranceBaseAmount,
+    this.insuranceBaseCurrency,
   });
   final String currency;
   final double? shippingAmount;
   final double? insuranceAmount;
   final double? totalAmount;
   final double insurancePercent;
+  final double? insuranceBaseAmount;
+  final String? insuranceBaseCurrency;
   final bool isLoading;
   final String? error;
 
@@ -1984,8 +2025,9 @@ class _PriceSummaryCard extends StatelessWidget {
                 : '--'),
         const SizedBox(height: 12),
         _Row(
-            label:
-                'Item protection (${insurancePercent % 1 == 0 ? insurancePercent.toInt() : insurancePercent}%)',
+            label: insuranceBaseAmount != null && insuranceBaseAmount! > 0
+                ? 'Item protection (${insuranceBaseCurrency ?? currency} ${insuranceBaseAmount!.toStringAsFixed(insuranceBaseAmount! % 1 == 0 ? 0 : 2)} fixed)'
+                : 'Item protection',
             value: hasAmounts
                 ? '$currency ${insuranceAmount!.toStringAsFixed(2)}'
                 : '--'),

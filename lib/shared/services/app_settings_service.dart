@@ -12,7 +12,7 @@ class AppSettingsSnapshot {
     required this.supportedCurrencies,
     required this.exchangeRates,
     this.platformCommissionPercent = 15,
-    this.processingFeePercent = 5,
+    this.processingFeePercent = 0,
     this.fxBufferPercent = 0,
     this.senderInsurancePercent = 0.5,
   });
@@ -79,7 +79,7 @@ class AppSettingsSnapshot {
       exchangeRates: exchangeRates,
       platformCommissionPercent:
           _asDouble(raw['platformCommissionPercent'], fallback: 15),
-      processingFeePercent: _asDouble(raw['processingFeePercent'], fallback: 5),
+      processingFeePercent: _asDouble(raw['processingFeePercent'], fallback: 0),
       fxBufferPercent: _asDouble(raw['fxBufferPercent'], fallback: 0),
       senderInsurancePercent:
           _asDouble(raw['senderInsurancePercent'], fallback: 0.5),

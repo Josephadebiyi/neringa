@@ -318,14 +318,12 @@ export const buildShipmentCheckoutPreview = async ({
     // independently rounded FX conversions can never make the breakdown differ
     // from the amount collected at checkout.
     const bagoNetRevenue = Number((shippingAmount - convertedTravelerPayout).toFixed(2));
-    const protection = insurance === true
-      ? await getRouteProtectionFee({
-          fromCountry: trip.fromCountry,
-          toCountry: trip.toCountry,
-          currency: checkoutCurrency,
-        })
-      : { amount: 0, baseAmount: 0, baseCurrency: null, region: null };
-    const insuranceAmount = protection.amount;
+    const protection = await getRouteProtectionFee({
+      fromCountry: trip.fromCountry,
+      toCountry: trip.toCountry,
+      currency: checkoutCurrency,
+    });
+    const insuranceAmount = insurance === true ? protection.amount : 0;
     const totalAmount = Number((shippingAmount + insuranceAmount).toFixed(2));
     const exchangeRate = travelerCurrency === checkoutCurrency
       ? { rate: 1, source: 'same_currency', timestamp: new Date().toISOString() }
@@ -353,10 +351,11 @@ export const buildShipmentCheckoutPreview = async ({
         platformFeeTravelerCurrency: Number(pricing.platformCommission || 0),
         processingFeeTravelerCurrency: Number(pricing.processingFee || 0),
         fxBufferTravelerCurrency: Number(pricing.fxBuffer || 0),
-        senderInsurancePercent: Number(config.senderInsurancePercent || 0),
+        senderInsurancePercent: 0,
         insuranceBaseAmount: protection.baseAmount,
         insuranceBaseCurrency: protection.baseCurrency,
         insuranceRegion: protection.region,
+        insuranceQuotedAmount: protection.amount,
         insuranceRatePercent: 0,
         exchangeRate: exchangeRate.rate,
         exchangeRateSource: exchangeRate.source,

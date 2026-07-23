@@ -118,12 +118,28 @@ export const updateSettings = async (req, res, next) => {
 export const getCurrentSetting = async (req, res, next) => {
   try {
     await loadSettings();
+    const liveRatesRow = await queryOne(
+      `SELECT rates, base_currency
+       FROM public.exchange_rates
+       WHERE base_currency = 'USD'
+       ORDER BY last_updated DESC
+       LIMIT 1`,
+    ).catch(() => null);
+    const liveRates = liveRatesRow?.rates && typeof liveRatesRow.rates === 'object'
+      ? liveRatesRow.rates
+      : null;
     const data = {
       ..._cached,
       commissionPercentage: 15,
       platformCommissionPercent: 15,
       processingFeePercent: 0,
       fxBufferPercent: 0,
+      senderInsurancePercent: 0,
+      insuranceType: 'fixed_regional',
+      ...(liveRates ? {
+        baseCurrency: 'USD',
+        exchangeRates: { ...liveRates, USD: 1 },
+      } : {}),
     };
     // Append publishable keys from server env — safe to expose to clients, never the secret keys.
     if (process.env.STRIPE_PUBLISHABLE_KEY) {
