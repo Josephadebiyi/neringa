@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuth = async () => {
     try {
       const data = await checkAdminAuth();
-      const adminData = data.admin || data.data;
+      const adminData = data?.admin || data?.data;
 
       if (adminData) {
         setUser({
