@@ -278,7 +278,7 @@ export default function Verify() {
                     await refreshUser();
                 }
             } catch { /* keep polling */ }
-        }, 3000);
+        }, 1000);
     };
 
     const stopPolling = () => {
@@ -352,7 +352,14 @@ export default function Verify() {
                 Object.keys(localStorage).filter((k) => /dojah/i.test(k)).forEach((k) => localStorage.removeItem(k));
                 Object.keys(sessionStorage).filter((k) => /dojah/i.test(k)).forEach((k) => sessionStorage.removeItem(k));
             } catch { /* ignore private-mode errors */ }
-            setDojahCreds({ appId, publicKey, widgetId, userId: data.userId, referenceId });
+            setDojahCreds({
+                appId,
+                publicKey,
+                widgetId,
+                userId: data.userId,
+                referenceId,
+                userData: data.userData || {},
+            });
             setStep('verifying');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to start verification.');
@@ -495,8 +502,10 @@ export default function Verify() {
                         config={{ widget_id: dojahCreds.widgetId }}
                         referenceId={dojahCreds.referenceId || undefined}
                         userData={{
-                            first_name: user?.firstName || undefined,
-                            last_name:  user?.lastName  || undefined,
+                            first_name: dojahCreds.userData?.firstName || user?.firstName || undefined,
+                            last_name:  dojahCreds.userData?.lastName || user?.lastName || undefined,
+                            dob:        dojahCreds.userData?.dateOfBirth || user?.dateOfBirth || undefined,
+                            email:      dojahCreds.userData?.email || user?.email || undefined,
                             residence_country: selectedCountry || undefined,
                         }}
                         metadata={{
@@ -505,6 +514,7 @@ export default function Verify() {
                             referenceId:  dojahCreds.referenceId,
                             reference_id: dojahCreds.referenceId,
                             country:      selectedCountry,
+                            email:        dojahCreds.userData?.email || user?.email || undefined,
                         }}
                         response={handleDojahResponse}
                     />

@@ -1,0 +1,1 @@
+const o="AW-18350483846/5QpPCP_E3NYcEIbTmK5E";function e(n){if(typeof window>"u"||typeof window.gtag!="function")return;const t=`bago_signup_conversion_${n||"confirmed"}`;try{if(window.localStorage.getItem(t))return;window.localStorage.setItem(t,new Date().toISOString())}catch{}window.gtag("event","conversion",{send_to:o,transaction_id:n||""})}export{e as t};

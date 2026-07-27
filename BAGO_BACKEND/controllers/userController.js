@@ -181,8 +181,9 @@ export const saveBusinessPayoutDraft = async (req, res) => {
     if (!FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES.includes(currency)) {
       return res.status(400).json({ success: false, message: 'Select a supported payout currency.' });
     }
-    if (!accountHolderName || (currency === 'EUR' ? (!iban || !swiftBic) : (!accountNumber || !bankCode))) {
-      return res.status(400).json({ success: false, message: currency === 'EUR'
+    const usesIban = currency === 'EUR';
+    if (!accountHolderName || (usesIban ? (!iban || !swiftBic) : (!accountNumber || !bankCode))) {
+      return res.status(400).json({ success: false, message: usesIban
         ? 'Account holder, IBAN, and SWIFT/BIC are required.'
         : 'Account holder, account number, and bank code are required.' });
     }
@@ -198,7 +199,8 @@ export const saveBusinessPayoutDraft = async (req, res) => {
     const details = { accountHolderName, accountNumber, bankCode, bankName, iban, swiftBic, currency };
     await pgQuery(
       `UPDATE public.profiles SET bank_details = $2::jsonb, payout_currency = $3,
-       payout_provider = 'flutterwave', payout_status = 'pending_kyc', payout_method_status = 'draft', updated_at = NOW()
+       payout_provider = 'flutterwave', payout_method = 'flutterwave',
+       payout_status = 'pending_kyc', payout_method_status = 'draft', updated_at = NOW()
        WHERE id = $1`,
       [userId, JSON.stringify(details), currency],
     );

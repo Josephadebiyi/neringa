@@ -918,14 +918,15 @@ export async function sendKycApprovedEmail(userEmail, userName) {
         </ul>
       </div>
       <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
-        Open the Bago app to get started. If you have any questions, our support team is here to help.
+        Sign in on the Bago app or website with <strong>${userEmail}</strong> and the password you created during registration. Your verified status is shared across both.
+        If you have any questions, our support team is here to help.
       </p>
     `;
     await resend.emails.send({
       from: 'Bago <no-reply@sendwithbago.com>',
       to: userEmail,
       subject: '✅ Identity Verified – You\'re all set on Bago!',
-      html: generateEmailTemplate('Identity Verified', content, 'Open Bago App', FRONTEND_URL),
+      html: generateEmailTemplate('Identity Verified', content, 'Sign in to Bago', `${FRONTEND_URL}/login`),
     });
     console.log(`✅ Sent KYC approved email to ${userEmail}`);
     return true;

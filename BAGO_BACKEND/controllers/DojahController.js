@@ -42,7 +42,10 @@ const DOJAH_WIDGET_NG_KE = process.env.DOJAH_WIDGET_NG_KE || process.env.DOJAH_W
 const DOJAH_WIDGET_GLOBAL = process.env.DOJAH_WIDGET_GLOBAL || process.env.DOJAH_WIDGET_ID_GLOBAL || process.env.DOJAH_WIDGET_ID || '';
 const DOJAH_VERIFICATION_URL = 'https://api.dojah.io/api/v1/kyc/verification';
 const DOJAH_LEGACY_EASYONBOARD_URL = 'https://api.dojah.io/api/v1/kyc/easyonboard';
-const KYC_STATUS_SYNC_COOLDOWN_MS = 10_000;
+// Web and mobile poll immediately after provider completion. Keep the server
+// reconciliation window below two seconds without issuing duplicate requests
+// for every render.
+const KYC_STATUS_SYNC_COOLDOWN_MS = 750;
 const lastKycStatusSyncAt = new Map();
 
 const safeEqualText = (left = '', right = '') => {
@@ -575,8 +578,24 @@ export const startDojahSession = async (req, res) => {
       });
     }
 
+    const profile = await queryOne(
+      `SELECT id, email, first_name, last_name, date_of_birth
+       FROM public.profiles
+       WHERE id = $1`,
+      [userId],
+    );
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Your account could not be found. Please sign in again.' });
+    }
+
     const country = (req.body?.country || req.query?.country || '').toUpperCase().trim();
-    const referenceId = (req.body?.referenceId || req.query?.referenceId || `bago-${crypto.randomUUID()}`).toString().trim();
+    // Keep the provider session traceable to the authenticated profile. The
+    // random suffix prevents one user's previous provider session being reused.
+    const referenceId = (
+      req.body?.referenceId ||
+      req.query?.referenceId ||
+      `bago-${userId}-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`
+    ).toString().trim();
     const widgetConfig = widgetConfigForCountry(country, req.body?.widgetId);
     const widgetId = widgetConfig.widgetId;
 
@@ -623,6 +642,12 @@ export const startDojahSession = async (req, res) => {
       widgetId,
       widgetSource: widgetConfig.widgetSource,
       userId,
+      userData: {
+        email: profile.email,
+        firstName: profile.first_name,
+        lastName: profile.last_name,
+        dateOfBirth: profile.date_of_birth,
+      },
     });
   } catch (err) {
     console.error('startDojahSession error:', err);

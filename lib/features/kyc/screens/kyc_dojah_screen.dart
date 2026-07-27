@@ -148,14 +148,14 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       final synced = syncResp.data?['kycStatus']?.toString() ?? '';
       if (synced == 'approved' ||
           synced == 'declined' ||
-          synced == 'blocked_duplicate' ||
-          synced == 'pending') {
+          synced == 'blocked_duplicate') {
         return synced;
       }
+      if (synced == 'pending') finalStatus = 'pending';
     } catch (_) {}
 
     for (int i = 0; i < attempts; i++) {
-      await Future.delayed(const Duration(seconds: 5));
+      await Future.delayed(const Duration(seconds: 1));
       try {
         final syncResp = await ApiService.instance
             .post(ApiConstants.kycDojahSyncResult, data: {
@@ -170,11 +170,11 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
         }
         if (status == 'approved' ||
             status == 'declined' ||
-            status == 'blocked_duplicate' ||
-            status == 'pending') {
+            status == 'blocked_duplicate') {
           finalStatus = status;
           break;
         }
+        if (status == 'pending') finalStatus = 'pending';
       } catch (_) {}
     }
     return finalStatus;
@@ -211,10 +211,10 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
           ApiConstants.kycDojahSyncExisting,
           data: {}).timeout(const Duration(seconds: 12));
       final existingStatus = existing.data?['kycStatus']?.toString() ?? '';
-      final canStartNewSession = existing.data?['canStartNewSession'] == true;
       // Only hard-block for final positive outcomes.
       // declined/pending can restart — the old session webhook will still resolve.
-      if (existingStatus == 'approved' || existingStatus == 'blocked_duplicate') {
+      if (existingStatus == 'approved' ||
+          existingStatus == 'blocked_duplicate') {
         await _finishWithStatus(existingStatus);
         return;
       }
