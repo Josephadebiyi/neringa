@@ -444,6 +444,46 @@ export async function generateShippingLabelPDF(shippingData) {
       doc.fillColor('#000000');
       doc.moveDown(1);
 
+      if (shippingData.inspection) {
+        drawLine(doc);
+        doc.moveDown(0.5);
+        doc.fontSize(12).font('Helvetica-Bold').text('SIGNED PACKAGE INSPECTION AGREEMENT');
+        doc.moveDown(0.3);
+        const agreement = shippingData.inspection.signedAgreement || {};
+        drawTable(doc, [
+          ['Signer:', shippingData.traveler?.name || agreement.signerId || 'Traveler'],
+          ['Electronically signed:', formatDate(agreement.signedAt)],
+          ['Terms version:', agreement.termsVersion || 'N/A'],
+          ['Personally inspected:', shippingData.inspection.inspectionConfirmed ? 'Accepted' : 'Not accepted'],
+          ['Prohibited-items policy:', shippingData.inspection.safetyConfirmed ? 'Accepted' : 'Not accepted'],
+          ['Responsibility after collection:', shippingData.inspection.responsibilityAccepted ? 'Accepted' : 'Not accepted'],
+          ['Rejection reason:', shippingData.inspection.rejectionReason || 'None'],
+        ]);
+        doc.moveDown(0.7);
+      }
+
+      if (Array.isArray(shippingData.activity) && shippingData.activity.length) {
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000').text('ORDER ACTIVITY');
+        doc.moveDown(0.3);
+        shippingData.activity.forEach((event) => {
+          doc.fontSize(8).font('Helvetica')
+            .text(`${formatDate(event.created_at || event.createdAt)} — ${event.event_type || event.eventType || 'activity'}${event.status ? ` (${event.status})` : ''}`);
+        });
+        doc.moveDown(0.7);
+      }
+
+      if (Array.isArray(shippingData.chatMessages) && shippingData.chatMessages.length) {
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000').text('SHIPMENT CHAT TRANSCRIPT');
+        doc.moveDown(0.3);
+        shippingData.chatMessages.forEach((message) => {
+          const author = message.sender_name || message.senderName || message.sender_id || 'User';
+          doc.fontSize(8).font('Helvetica-Bold').text(`${author} — ${formatDate(message.created_at || message.createdAt)}`);
+          doc.fontSize(8).font('Helvetica').fillColor('#333333').text(message.content || '[Attachment]');
+          doc.moveDown(0.25);
+        });
+        doc.moveDown(0.7);
+      }
+
       // Terms and Important Info
       drawLine(doc);
       doc.moveDown(0.5);

@@ -256,6 +256,10 @@ function normalizeRequest(row) {
     image: row.image_url || row.package_image_url || null,
     senderProof: row.sender_proof_url,
     travelerProof: row.traveler_proof_url,
+    inspection: row.inspection_data || {},
+    inspectionStartedAt: row.inspection_started_at || null,
+    inspectionCompletedAt: row.inspection_completed_at || null,
+    inspectionRejectedAt: row.inspection_rejected_at || null,
     senderReceived: row.sender_received,
     handoverPin: row.handover_pin || null,
     handoverPinUsed: row.handover_pin_used || false,
@@ -308,6 +312,10 @@ const requestSelect = `
     sr.image_url,
     sr.sender_proof_url,
     sr.traveler_proof_url,
+    sr.inspection_data,
+    sr.inspection_started_at,
+    sr.inspection_completed_at,
+    sr.inspection_rejected_at,
     sr.sender_received,
     sr.handover_pin,
     sr.handover_pin_used,
@@ -1159,7 +1167,27 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
 
     // Traveler delivery is not final completion. Funds release only when the
     // sender confirms receipt through confirmShipmentReceived().
-    const normalizedStatus = (status === 'completed' || status === 'delivered') ? 'delivering' : status;
+    let normalizedStatus = (status === 'completed' || status === 'delivered') ? 'delivering' : status;
+    if (normalizedStatus === 'accepted') normalizedStatus = 'accepted_awaiting_inspection';
+
+    if (normalizedStatus === 'intransit') {
+      const inspection = request.inspection_data || {};
+      const senderPhotos = Array.isArray(inspection.senderPhotos) ? inspection.senderPhotos : [];
+      const travelerPhotos = Array.isArray(inspection.travelerPhotos) ? inspection.travelerPhotos : [];
+      if (
+        request.status !== 'approved_for_trip' ||
+        senderPhotos.length < 2 ||
+        travelerPhotos.length < 2 ||
+        inspection.inspectionConfirmed !== true ||
+        inspection.safetyConfirmed !== true ||
+        inspection.responsibilityAccepted !== true ||
+        inspection.rejected === true
+      ) {
+        const error = new Error('Package inspection must be completed and approved before the trip can start');
+        error.code = 'INSPECTION_REQUIRED';
+        throw error;
+      }
+    }
 
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
     if (['intransit', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
@@ -1234,6 +1262,118 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
     return requestId;
   });
   return getShipmentRequestById(updatedRequestId);
+}
+
+export async function savePackageInspection({
+  requestId,
+  actorId,
+  senderPhotos,
+  travelerPhotos,
+  inspectionConfirmed,
+  safetyConfirmed,
+  responsibilityAccepted,
+  termsVersion = 'package-inspection-2026-07-26',
+  rejectionReason,
+  rejectionNotes,
+  evidence = [],
+  deviceMetadata = {},
+  locationMetadata = {},
+}) {
+  return withTransaction(async (client) => {
+    const result = await client.query('select * from public.shipment_requests where id = $1 for update', [requestId]);
+    const request = result.rows[0];
+    if (!request) return null;
+    if (![request.sender_id, request.traveler_id].includes(actorId)) {
+      const error = new Error('Unauthorized to update this inspection');
+      error.code = 'UNAUTHORIZED';
+      throw error;
+    }
+    if (['intransit', 'delivering', 'completed'].includes(request.status)) {
+      const error = new Error('Inspection evidence cannot be changed after the trip starts');
+      error.code = 'INSPECTION_LOCKED';
+      throw error;
+    }
+
+    const previous = request.inspection_data || {};
+    const isTraveler = actorId === request.traveler_id;
+    const next = {
+      ...previous,
+      orderId: request.id,
+      senderId: request.sender_id,
+      travelerId: request.traveler_id,
+      ...(Array.isArray(senderPhotos) && actorId === request.sender_id
+        ? { senderPhotos, senderUploadedAt: new Date().toISOString() } : {}),
+      ...(Array.isArray(travelerPhotos) && isTraveler
+        ? { travelerPhotos, travelerUploadedAt: new Date().toISOString() } : {}),
+      ...(isTraveler ? {
+        inspectionConfirmed: inspectionConfirmed === true,
+        safetyConfirmed: safetyConfirmed === true,
+        responsibilityAccepted: responsibilityAccepted === true,
+        inspectionConfirmedAt: inspectionConfirmed && safetyConfirmed && responsibilityAccepted ? new Date().toISOString() : null,
+        signedAgreement: inspectionConfirmed && safetyConfirmed && responsibilityAccepted ? {
+          signerId: actorId,
+          signerRole: 'traveler',
+          signedAt: new Date().toISOString(),
+          termsVersion,
+          orderId: request.id,
+          acknowledgements: {
+            personallyInspected: true,
+            prohibitedItemsPolicy: true,
+            acceptsResponsibilityForCollectedPackage: true,
+          },
+        } : previous.signedAgreement,
+      } : {}),
+      deviceMetadata: { ...(previous.deviceMetadata || {}), [actorId]: deviceMetadata },
+      locationMetadata: { ...(previous.locationMetadata || {}), [actorId]: locationMetadata },
+    };
+
+    let status = 'inspection_in_progress';
+    let rejectedAt = null;
+    let completedAt = null;
+    if (isTraveler && rejectionReason) {
+      next.rejected = true;
+      next.rejectionReason = rejectionReason;
+      next.rejectionNotes = rejectionNotes || null;
+      next.evidence = Array.isArray(evidence) ? evidence : [];
+      next.rejectedAt = new Date().toISOString();
+      status = 'rejected_at_inspection_under_review';
+      rejectedAt = new Date();
+    } else {
+      const senderCount = Array.isArray(next.senderPhotos) ? next.senderPhotos.length : 0;
+      const travelerCount = Array.isArray(next.travelerPhotos) ? next.travelerPhotos.length : 0;
+      if (senderCount >= 2 && senderCount <= 4 && travelerCount >= 2 && travelerCount <= 4
+          && next.inspectionConfirmed === true && next.safetyConfirmed === true
+          && next.responsibilityAccepted === true) {
+        status = 'approved_for_trip';
+        completedAt = new Date();
+      }
+    }
+
+    await client.query(`
+      update public.shipment_requests
+      set inspection_data = $2, status = $3,
+          inspection_started_at = coalesce(inspection_started_at, timezone('utc', now())),
+          inspection_completed_at = coalesce($4, inspection_completed_at),
+          inspection_rejected_at = coalesce($5, inspection_rejected_at),
+          updated_at = timezone('utc', now())
+      where id = $1
+    `, [requestId, JSON.stringify(next), status, completedAt, rejectedAt]);
+
+    await recordOperationalEvent(client, {
+      entityType: 'shipment_request',
+      entityId: requestId,
+      eventType: status === 'rejected_at_inspection_under_review' ? 'inspection_rejected' : 'inspection_updated',
+      status,
+      previousStatus: request.status,
+      actorUserId: actorId,
+      senderId: request.sender_id,
+      travelerId: request.traveler_id,
+      packageId: request.package_id,
+      tripId: request.trip_id,
+      metadata: { rejectionReason: rejectionReason || null },
+    });
+    return requestId;
+  }).then((id) => id ? getShipmentRequestById(id) : null);
 }
 
 export async function updateTravelerProof({ requestId, travelerId, travelerProofUrl }) {

@@ -21,11 +21,20 @@ const DEFAULTS = {
   referralWelcomeBonusNgn: 2000,
   referralShipmentThresholdUsd: 50,
   referralShipmentBonusUsd: 2,
+  chatModerationEnabled: true,
+  chatAiModerationEnabled: true,
+  chatModerationConfidenceThreshold: 0.9,
+  chatWarningsBeforeLock: 1,
+  chatModerationFailOpen: true,
+  itemImageScanEnabled: true,
+  itemImageAutoRejectEnabled: true,
+  itemImageAutoRejectConfidence: 0.98,
   banner: null,
 };
 
 let _cached = { ...DEFAULTS };
 let _loaded = false;
+let _loadedAt = 0;
 
 async function ensureConfigTable() {
   await query(`
@@ -51,8 +60,8 @@ async function persistSettings(settings) {
   }
 }
 
-async function loadSettings() {
-  if (_loaded) return;
+async function loadSettings({ maxAgeMs = Infinity } = {}) {
+  if (_loaded && Date.now() - _loadedAt < maxAgeMs) return;
   try {
     await ensureConfigTable();
     const row = await queryOne(`SELECT value FROM public.bago_config WHERE key = 'app_settings'`);
@@ -64,6 +73,7 @@ async function loadSettings() {
     console.error('⚠️ Failed to load settings from DB:', e.message);
   }
   _loaded = true;
+  _loadedAt = Date.now();
 }
 
 export const updateInsurance = async (req, res, next) => {
@@ -108,6 +118,20 @@ export const updateSettings = async (req, res, next) => {
     if (typeof referralWelcomeBonusNgn === 'number' && referralWelcomeBonusNgn >= 0) _cached.referralWelcomeBonusNgn = referralWelcomeBonusNgn;
     if (typeof referralShipmentThresholdUsd === 'number' && referralShipmentThresholdUsd >= 0) _cached.referralShipmentThresholdUsd = referralShipmentThresholdUsd;
     if (typeof referralShipmentBonusUsd === 'number' && referralShipmentBonusUsd >= 0) _cached.referralShipmentBonusUsd = referralShipmentBonusUsd;
+    if (typeof req.body.chatModerationEnabled === 'boolean') _cached.chatModerationEnabled = req.body.chatModerationEnabled;
+    if (typeof req.body.chatAiModerationEnabled === 'boolean') _cached.chatAiModerationEnabled = req.body.chatAiModerationEnabled;
+    if (typeof req.body.chatModerationFailOpen === 'boolean') _cached.chatModerationFailOpen = req.body.chatModerationFailOpen;
+    if (typeof req.body.chatModerationConfidenceThreshold === 'number') {
+      _cached.chatModerationConfidenceThreshold = Math.max(0.75, Math.min(0.99, req.body.chatModerationConfidenceThreshold));
+    }
+    if (Number.isInteger(req.body.chatWarningsBeforeLock)) {
+      _cached.chatWarningsBeforeLock = Math.max(1, Math.min(5, req.body.chatWarningsBeforeLock));
+    }
+    if (typeof req.body.itemImageScanEnabled === 'boolean') _cached.itemImageScanEnabled = req.body.itemImageScanEnabled;
+    if (typeof req.body.itemImageAutoRejectEnabled === 'boolean') _cached.itemImageAutoRejectEnabled = req.body.itemImageAutoRejectEnabled;
+    if (typeof req.body.itemImageAutoRejectConfidence === 'number') {
+      _cached.itemImageAutoRejectConfidence = Math.max(0.9, Math.min(0.999, req.body.itemImageAutoRejectConfidence));
+    }
     await persistSettings(_cached);
     res.status(200).json({ message: 'Settings updated successfully', setting: _cached, success: true });
   } catch (error) {
@@ -152,6 +176,8 @@ export const getCurrentSetting = async (req, res, next) => {
 };
 
 export async function getAppSettings() {
-  await loadSettings();
+  // Production may run several backend instances. Refresh periodically so an
+  // admin safety change propagates without a restart or mobile release.
+  await loadSettings({ maxAgeMs: 10_000 });
   return { ..._cached };
 }

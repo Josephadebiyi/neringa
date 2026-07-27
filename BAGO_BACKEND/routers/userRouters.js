@@ -11,7 +11,7 @@ import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
 import { createPackage, updatePackage, deletePackage } from '../controllers/PackageController.js';
-import { getPublicTracking, getNotifications, getCompletedRequests, updatePaymentStatus, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory } from '../controllers/postgresRequestController.js';
+import { getPublicTracking, getNotifications, getCompletedRequests, updatePaymentStatus, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory, submitPackageInspection } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
@@ -217,6 +217,7 @@ userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, requireKycVer
 userRouter.put('/request/:requestId/image', isAuthenticated, requireKycVerification, uploadRequestImage);
 userRouter.put('/request/:requestId/confirm-received', isAuthenticated, requireKycVerification, confirmReceivedBySender);
 userRouter.put('/request/:requestId/traveler-proof', isAuthenticated, requireKycVerification, uploadTravelerProof);
+userRouter.post('/request/:requestId/inspection', isAuthenticated, requireKycVerification, submitPackageInspection);
 userRouter.get('/request/:requestId/pdf', isAuthenticated, requireKycVerification, downloadRequestPDF);
 userRouter.get('/request/:requestId/details', isAuthenticated, requireKycVerification, getRequestDetails);
 // Traveler submits the 4-digit PIN shown by the sender/receiver to confirm handover

@@ -4,7 +4,7 @@ import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { auditAdminAction, requireAdminPermission } from '../middleware/adminAuthorization.js';
 import { banUser, GetAllUsers, deleteUser, updateUser } from '../controllers/AdminControllers/GetAllUsers.js';
 import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controllers/postgresUserController.js';
-import { activeShipmentLocations, tracking, updateRequest, getAllOrders } from '../controllers/AdminControllers/Tracking.js';
+import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
@@ -106,6 +106,7 @@ import {
   rejectKyc,
   setAccountStatus,
 } from '../controllers/AdminControllers/FlaggedUsersController.js';
+import { getFlaggedChats, getFlaggedConversation, unlockFlaggedConversation } from '../controllers/AdminControllers/ChatPolicyController.js';
 
 const AdminRouter = express.Router();
 const can = requireAdminPermission;
@@ -136,6 +137,7 @@ AdminRouter.post("/AdminLogin", AdminLogin)
 AdminRouter.get("/CheckAdmin", adminAuthenticated, CheckAdmin)
 AdminRouter.get("/GetAllUsers", adminAuthenticated, can('users.read'), GetAllUsers)
 AdminRouter.get("/orders", adminAuthenticated, getAllOrders)
+AdminRouter.get("/orders/:id/pdf", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), downloadOrderRecord)
 AdminRouter.get("/tracking", adminAuthenticated, tracking)
 AdminRouter.get("/tracking/active-shipments", adminAuthenticated, activeShipmentLocations)
 AdminRouter.put("/tracking/:id", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.tracking.update', 'shipment_request'), updateRequest)
@@ -253,6 +255,9 @@ AdminRouter.post("/credentials/verify-change", adminAuthenticated, verifyAdminCr
 
 // Flagged / Banned Users
 AdminRouter.get("/flagged-users", adminAuthenticated, can('users.manage'), getFlaggedUsers);
+AdminRouter.get("/flagged-chats", adminAuthenticated, can('users.manage'), getFlaggedChats);
+AdminRouter.get("/flagged-chats/:id", adminAuthenticated, can('users.manage'), validateUuidParam('id'), getFlaggedConversation);
+AdminRouter.post("/flagged-chats/:id/unlock", adminAuthenticated, can('users.manage'), validateUuidParam('id'), audit('admin.chat.unlock', 'conversation'), unlockFlaggedConversation);
 AdminRouter.post("/users/:userId/flag", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.flag', 'profile', 'userId'), flagUser);
 AdminRouter.post("/users/:userId/unflag", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.unflag', 'profile', 'userId'), unflagUser);
 AdminRouter.post("/users/:userId/ban-with-device", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.ban_with_device', 'profile', 'userId'), banWithDevice);

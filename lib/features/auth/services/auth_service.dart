@@ -43,7 +43,10 @@ class AuthService {
         : null;
 
     return GoogleSignIn(
-      clientId: iosClientId,
+      // Android resolves its OAuth client from google-services.json and the
+      // app's package/signing certificate. Passing the iOS client ID on
+      // Android causes Google Play services DEVELOPER_ERROR / ApiException 10.
+      clientId: Platform.isIOS ? iosClientId : null,
       scopes: ['email', 'profile'],
       serverClientId: webClientId,
     );
@@ -719,6 +722,11 @@ class AuthService {
         return 'Google Sign-In is not available on this iPhone simulator right now. Please try again on a real device or use email login.';
       }
       return 'Google Sign-In is temporarily unavailable. Please try again or use email login.';
+    }
+
+    if (normalized.contains('apiexception: 10') ||
+        normalized.contains('developer_error')) {
+      return 'Google Sign-In configuration does not match this Android app signing certificate. Please update the app and try again.';
     }
 
     if (normalized.contains('cancelled')) {

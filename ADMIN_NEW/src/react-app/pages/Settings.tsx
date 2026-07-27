@@ -45,6 +45,7 @@ export default function SettingsPage() {
   const [savingInsurance, setSavingInsurance] = useState(false);
   const [savingCurrencies, setSavingCurrencies] = useState(false);
   const [savingReferral, setSavingReferral] = useState(false);
+  const [savingChatSafety, setSavingChatSafety] = useState(false);
   const [sendingCredentialCode, setSendingCredentialCode] = useState(false);
   const [verifyingCredentialCode, setVerifyingCredentialCode] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -54,6 +55,13 @@ export default function SettingsPage() {
   const [referralWelcomeBonusNgn, setReferralWelcomeBonusNgn] = useState("2000");
   const [referralShipmentThresholdUsd, setReferralShipmentThresholdUsd] = useState("50");
   const [referralShipmentBonusUsd, setReferralShipmentBonusUsd] = useState("2");
+  const [chatModerationEnabled, setChatModerationEnabled] = useState(true);
+  const [chatAiModerationEnabled, setChatAiModerationEnabled] = useState(true);
+  const [chatConfidence, setChatConfidence] = useState("0.90");
+  const [chatWarningsBeforeLock, setChatWarningsBeforeLock] = useState("1");
+  const [itemImageScanEnabled, setItemImageScanEnabled] = useState(true);
+  const [itemImageAutoRejectEnabled, setItemImageAutoRejectEnabled] = useState(true);
+  const [itemImageRejectConfidence, setItemImageRejectConfidence] = useState("0.98");
 
   const [africaInsurance, setAfricaInsurance] = useState<RegionInsurance>({
     fixedPrice: 3000, maxCoverageAmount: 2000000, commissionPercentage: 15, enabled: true, currency: "NGN",
@@ -101,6 +109,13 @@ export default function SettingsPage() {
         setReferralWelcomeBonusNgn(String(settingsData.referralWelcomeBonusNgn ?? 2000));
         setReferralShipmentThresholdUsd(String(settingsData.referralShipmentThresholdUsd ?? 50));
         setReferralShipmentBonusUsd(String(settingsData.referralShipmentBonusUsd ?? 2));
+        setChatModerationEnabled(settingsData.chatModerationEnabled !== false);
+        setChatAiModerationEnabled(settingsData.chatAiModerationEnabled !== false);
+        setChatConfidence(String(settingsData.chatModerationConfidenceThreshold ?? 0.9));
+        setChatWarningsBeforeLock(String(settingsData.chatWarningsBeforeLock ?? 1));
+        setItemImageScanEnabled(settingsData.itemImageScanEnabled !== false);
+        setItemImageAutoRejectEnabled(settingsData.itemImageAutoRejectEnabled !== false);
+        setItemImageRejectConfidence(String(settingsData.itemImageAutoRejectConfidence ?? 0.98));
 
         const configuredRates = settingsData.exchangeRates && typeof settingsData.exchangeRates === "object"
           ? Object.entries(settingsData.exchangeRates)
@@ -192,6 +207,31 @@ export default function SettingsPage() {
       setMessage({ type: "error", text: error.message || "FAILED TO UPDATE INSURANCE SETTINGS" });
     } finally {
       setSavingInsurance(false);
+    }
+  };
+
+  const handleSaveChatSafety = async () => {
+    try {
+      setSavingChatSafety(true);
+      const response = await updateSettings({
+        chatModerationEnabled,
+        chatAiModerationEnabled,
+        chatModerationConfidenceThreshold: Number(chatConfidence),
+        chatWarningsBeforeLock: Number(chatWarningsBeforeLock),
+        chatModerationFailOpen: true,
+        itemImageScanEnabled,
+        itemImageAutoRejectEnabled,
+        itemImageAutoRejectConfidence: Number(itemImageRejectConfidence),
+      });
+      setMessage({
+        type: response.success ? "success" : "error",
+        text: response.message || (response.success ? "Chat safety settings updated" : "Failed to update chat safety"),
+      });
+      setTimeout(() => setMessage(null), 3500);
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to update chat safety" });
+    } finally {
+      setSavingChatSafety(false);
     }
   };
 
@@ -348,6 +388,64 @@ export default function SettingsPage() {
               {message.text}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-8 space-y-6">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <h2 className="text-lg font-black text-[#1e2749]">Chat safety controls</h2>
+            <p className="text-gray-500 text-sm mt-1">Adjust enforcement from the backend without publishing a new app release. AI errors always fail open and cannot lock chats.</p>
+          </div>
+          <button
+            onClick={handleSaveChatSafety}
+            disabled={savingChatSafety}
+            className="px-6 py-3 bg-[#1e2749] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] disabled:opacity-50"
+          >
+            {savingChatSafety ? "Saving…" : "Save Chat Safety"}
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <label className="flex items-center justify-between bg-gray-50 rounded-2xl p-4">
+            <span>
+              <span className="block font-bold text-sm text-gray-800">Moderation enforcement</span>
+              <span className="block text-xs text-gray-500">Emergency switch for all automatic warnings and locks.</span>
+            </span>
+            <input type="checkbox" checked={chatModerationEnabled} onChange={e => setChatModerationEnabled(e.target.checked)} className="w-5 h-5" />
+          </label>
+          <label className="flex items-center justify-between bg-gray-50 rounded-2xl p-4">
+            <span>
+              <span className="block font-bold text-sm text-gray-800">AI classification</span>
+              <span className="block text-xs text-gray-500">Rules still detect explicit contact/payment sharing when AI is off.</span>
+            </span>
+            <input type="checkbox" checked={chatAiModerationEnabled} onChange={e => setChatAiModerationEnabled(e.target.checked)} className="w-5 h-5" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-bold text-gray-600">AI confidence threshold (0.75–0.99)</span>
+            <input type="number" min="0.75" max="0.99" step="0.01" value={chatConfidence} onChange={e => setChatConfidence(e.target.value)} className="mt-2 w-full px-4 py-3 border rounded-xl" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-bold text-gray-600">Warnings before chat lock (1–5)</span>
+            <input type="number" min="1" max="5" step="1" value={chatWarningsBeforeLock} onChange={e => setChatWarningsBeforeLock(e.target.value)} className="mt-2 w-full px-4 py-3 border rounded-xl" />
+          </label>
+        </div>
+        <div className="border-t pt-6">
+          <h3 className="font-black text-[#1e2749]">Package image compliance scan</h3>
+          <p className="text-xs text-gray-500 mt-1 mb-4">Unclear or restricted images go to review. Only explicit prohibited items above the selected confidence can be rejected automatically.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <label className="flex items-center justify-between bg-gray-50 rounded-2xl p-4">
+              <span className="font-bold text-sm text-gray-800">Image scanning</span>
+              <input type="checkbox" checked={itemImageScanEnabled} onChange={e => setItemImageScanEnabled(e.target.checked)} className="w-5 h-5" />
+            </label>
+            <label className="flex items-center justify-between bg-gray-50 rounded-2xl p-4">
+              <span className="font-bold text-sm text-gray-800">Automatic rejection</span>
+              <input type="checkbox" checked={itemImageAutoRejectEnabled} onChange={e => setItemImageAutoRejectEnabled(e.target.checked)} className="w-5 h-5" />
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold text-gray-600">Reject confidence (0.90–0.999)</span>
+              <input type="number" min="0.90" max="0.999" step="0.001" value={itemImageRejectConfidence} onChange={e => setItemImageRejectConfidence(e.target.value)} className="mt-2 w-full px-4 py-3 border rounded-xl" />
+            </label>
+          </div>
         </div>
       </div>
 

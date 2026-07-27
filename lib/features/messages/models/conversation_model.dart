@@ -61,6 +61,8 @@ class ConversationModel {
   final String? trackingNumber;
   final List<ChatShipmentSummary> activeShipments;
   final bool currentUserIsSender;
+  final bool chatLocked;
+  final String? chatLockReason;
 
   const ConversationModel({
     required this.id,
@@ -79,9 +81,13 @@ class ConversationModel {
     this.trackingNumber,
     this.activeShipments = const [],
     this.currentUserIsSender = false,
+    this.chatLocked = false,
+    this.chatLockReason,
   });
 
-  bool get isClosed => ['completed', 'cancelled', 'rejected'].contains(
+  bool get isClosed =>
+      chatLocked ||
+      ['completed', 'cancelled', 'rejected'].contains(
         requestStatus?.toLowerCase(),
       );
 
@@ -102,6 +108,8 @@ class ConversationModel {
     String? trackingNumber,
     List<ChatShipmentSummary>? activeShipments,
     bool? currentUserIsSender,
+    bool? chatLocked,
+    String? chatLockReason,
   }) {
     return ConversationModel(
       id: id ?? this.id,
@@ -120,6 +128,8 @@ class ConversationModel {
       trackingNumber: trackingNumber ?? this.trackingNumber,
       activeShipments: activeShipments ?? this.activeShipments,
       currentUserIsSender: currentUserIsSender ?? this.currentUserIsSender,
+      chatLocked: chatLocked ?? this.chatLocked,
+      chatLockReason: chatLockReason ?? this.chatLockReason,
     );
   }
 
@@ -221,6 +231,9 @@ class ConversationModel {
           json['trackingNumber']?.toString(),
       activeShipments: activeShipments,
       currentUserIsSender: isSender,
+      chatLocked: json['chatLocked'] == true || json['chat_locked'] == true,
+      chatLockReason: json['chatLockReason']?.toString() ??
+          json['chat_lock_reason']?.toString(),
     );
   }
 

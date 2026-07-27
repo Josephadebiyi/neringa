@@ -1,29 +1,55 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
+import { getShipmentRequestById } from '../../lib/postgres/shipping.js';
+import { generateShippingLabelPDF } from '../../services/pdfGenerator.js';
 
 const VALID_SHIPMENT_STATUSES = new Set([
   'pending',
   'accepted',
+  'accepted_awaiting_inspection',
+  'inspection_in_progress',
+  'inspection_completed',
+  'rejected_at_inspection_under_review',
+  'approved_for_trip',
   'rejected',
   'intransit',
   'delivering',
   'completed',
+  'refund_approved',
+  'partial_refund_approved',
+  'refund_declined',
   'cancelled',
 ]);
 
 const ADMIN_VISIBLE_SHIPMENT_STATUSES = new Set([
   'pending',
   'accepted',
+  'accepted_awaiting_inspection',
+  'inspection_in_progress',
+  'inspection_completed',
+  'rejected_at_inspection_under_review',
+  'approved_for_trip',
   'rejected',
   'intransit',
   'delivering',
   'completed',
+  'refund_approved',
+  'partial_refund_approved',
+  'refund_declined',
   'cancelled',
 ]);
 
 const STATUS_LABELS = {
   pending: 'Pending',
   accepted: 'Accepted',
+  accepted_awaiting_inspection: 'Accepted — Awaiting Package Inspection',
+  inspection_in_progress: 'Inspection in Progress',
+  inspection_completed: 'Inspection Completed',
+  rejected_at_inspection_under_review: 'Rejected at Inspection — Under Review',
+  approved_for_trip: 'Approved for Trip',
+  refund_approved: 'Refund Approved',
+  partial_refund_approved: 'Partial Refund Approved',
+  refund_declined: 'Refund Declined',
   rejected: 'Declined',
   intransit: 'In transit',
   delivering: 'Out for delivery',
@@ -376,6 +402,45 @@ export const getAllOrders = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const downloadOrderRecord = async (req, res, next) => {
+  try {
+    const request = await getShipmentRequestById(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Order not found' });
+    const [activity, chats] = await Promise.all([
+      query(`select event_type, status, previous_status, actor_user_id, metadata, created_at
+             from public.operational_records where entity_type = 'shipment_request' and entity_id = $1
+             order by created_at`, [request.id]).catch(() => ({ rows: [] })),
+      request.conversationId
+        ? query(`select m.sender_id, concat_ws(' ', p.first_name, p.last_name) as sender_name,
+                       m.content, m.metadata, m.created_at
+                 from public.messages m left join public.profiles p on p.id = m.sender_id
+                 where m.conversation_id = $1 order by m.created_at`, [request.conversationId])
+            .catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+    ]);
+    const pdf = await generateShippingLabelPDF({
+      trackingNumber: request.trackingNumber || request.id,
+      status: request.status,
+      sender: { name: request.senderName, phone: '' },
+      traveler: { name: request.travelerName },
+      package: request.package,
+      trip: request.trip || {},
+      estimatedDeparture: request.trip?.departureDate,
+      estimatedArrival: request.trip?.arrivalDate,
+      insurance: request.insurance,
+      insuranceCost: request.insuranceCost,
+      inspection: request.inspection || {},
+      activity: activity.rows,
+      chatMessages: chats.rows,
+    });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="bago-order-${request.trackingNumber || request.id}.pdf"`);
+    return res.end(pdf);
+  } catch (error) {
+    return next(error);
   }
 };
 

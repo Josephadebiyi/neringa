@@ -352,6 +352,42 @@ class ShipmentService {
     }
   }
 
+  Future<Map<String, dynamic>> submitPackageInspection(
+    String requestId, {
+    List<String>? senderPhotos,
+    List<String>? travelerPhotos,
+    bool inspectionConfirmed = false,
+    bool safetyConfirmed = false,
+    bool responsibilityAccepted = false,
+    String? rejectionReason,
+    String? rejectionNotes,
+    List<String> evidence = const [],
+    Map<String, dynamic> deviceMetadata = const {},
+    Map<String, dynamic> locationMetadata = const {},
+  }) async {
+    try {
+      final response = await _api.post(
+        '${ApiConstants.travelerProof}/$requestId/inspection',
+        data: {
+          if (senderPhotos != null) 'senderPhotos': senderPhotos,
+          if (travelerPhotos != null) 'travelerPhotos': travelerPhotos,
+          'inspectionConfirmed': inspectionConfirmed,
+          'safetyConfirmed': safetyConfirmed,
+          'responsibilityAccepted': responsibilityAccepted,
+          'termsVersion': 'package-inspection-2026-07-26',
+          if (rejectionReason != null) 'rejectionReason': rejectionReason,
+          if (rejectionNotes != null) 'rejectionNotes': rejectionNotes,
+          'evidence': evidence,
+          'deviceMetadata': deviceMetadata,
+          'locationMetadata': locationMetadata,
+        },
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   /// Upload a proof-of-collection image for a shipment (traveler only).
   /// [imageUrl] is a publicly accessible URL (e.g. from Supabase Storage).
   Future<void> uploadTravelerProof(String requestId, String imageUrl) async {

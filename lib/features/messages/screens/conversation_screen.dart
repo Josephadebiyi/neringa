@@ -43,11 +43,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   // Typing broadcast debounce
   Timer? _typingDebounce;
 
-  static final RegExp _contactPattern = RegExp(
-    r'(\+?\d[\d\s().-]{7,}\d)|([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(whatsapp|telegram|t\.me|wa\.me|instagram|ig\.com|call me|dm me)',
-    caseSensitive: false,
-  );
-
   @override
   void initState() {
     super.initState();
@@ -354,15 +349,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
     final content = _msgCtrl.text.trim();
     if (content.isEmpty) return;
-    if (_contactPattern.hasMatch(content)) {
-      AppSnackBar.show(
-        context,
-        message:
-            'Please keep conversations in the app and avoid sharing contact details.',
-        type: SnackBarType.error,
-      );
-      return;
-    }
     _msgCtrl.clear();
     try {
       await ref.read(messageProvider.notifier).sendMessage(content);
@@ -384,15 +370,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
     try {
       final caption = _msgCtrl.text.trim();
-      if (caption.isNotEmpty && _contactPattern.hasMatch(caption)) {
-        AppSnackBar.show(
-          context,
-          message:
-              'Please keep conversations in the app and avoid sharing contact details.',
-          type: SnackBarType.error,
-        );
-        return;
-      }
       _msgCtrl.clear();
       await ref
           .read(messageProvider.notifier)

@@ -1,5 +1,6 @@
 import { RESTRICTED_ITEMS } from './restrictedItems.js';
 import { askClaude, isAiEnabled } from './aiService.js';
+import { getAppSettings } from '../controllers/AdminControllers/setting.js';
 
 const DEFAULT_MODEL = process.env.ANTHROPIC_VISION_MODEL || process.env.AI_IMAGE_SCAN_MODEL || 'claude-haiku-4-5';
 
@@ -50,7 +51,7 @@ function parseJsonObject(text = '') {
   }
 }
 
-function normalizeScanResult(raw = {}) {
+function normalizeScanResult(raw = {}, settings = {}) {
   const label = String(raw.label || raw.status || 'review').toLowerCase().trim();
   const normalizedLabel = ['allowed', 'restricted', 'prohibited', 'unsafe', 'review'].includes(label)
     ? label
@@ -61,9 +62,17 @@ function normalizeScanResult(raw = {}) {
   const confidence = Number.isFinite(Number(raw.confidence))
     ? Math.max(0, Math.min(1, Number(raw.confidence)))
     : 0;
-  const claimsProhibited = normalizedLabel === 'prohibited' || normalizedLabel === 'unsafe';
-  const outcome = claimsProhibited
-    ? (confidence > 0.95 ? 'rejected' : confidence >= 0.70 ? 'manual_review' : 'approved')
+  const autoRejectThreshold = Math.max(0.9, Math.min(0.999, Number(settings.itemImageAutoRejectConfidence) || 0.98));
+  // A visual model alone may only auto-reject an explicitly prohibited label,
+  // with identified evidence and exceptionally high confidence. "Unsafe",
+  // unclear and restricted findings remain reviewable rather than conclusive.
+  const clearlyProhibited = normalizedLabel === 'prohibited' && detectedItems.length > 0;
+  const outcome = clearlyProhibited
+    ? (settings.itemImageAutoRejectEnabled !== false && confidence >= autoRejectThreshold
+        ? 'rejected'
+        : 'manual_review')
+    : normalizedLabel === 'unsafe'
+      ? 'manual_review'
     : normalizedLabel === 'restricted'
       ? 'approved_with_conditions'
       : normalizedLabel === 'review'
@@ -79,6 +88,8 @@ function normalizeScanResult(raw = {}) {
     confidence,
     detectedItems,
     reason: String(raw.reason || 'Image safety scan completed.').slice(0, 500),
+    policyVersion: 'item-image-balanced-2026-07',
+    autoRejectThreshold,
   };
 }
 
@@ -89,6 +100,14 @@ export async function scanItemImageForSafety({
   declaredValue = 0,
 } = {}) {
   if (!image) return { skipped: true, reason: 'no_image' };
+  const settings = await getAppSettings().catch(() => ({
+    itemImageScanEnabled: true,
+    itemImageAutoRejectEnabled: true,
+    itemImageAutoRejectConfidence: 0.98,
+  }));
+  if (settings.itemImageScanEnabled === false) {
+    return { skipped: true, reason: 'disabled_by_backend', policyVersion: 'item-image-balanced-2026-07' };
+  }
   if (!isAiEnabled()) {
     if (scanRequired()) {
       return {
@@ -128,7 +147,9 @@ export async function scanItemImageForSafety({
     `Declared value: ${declaredValue || 0}.`,
     `Prohibited examples: ${RESTRICTED_ITEMS.prohibited.join(', ')}.`,
     `Restricted examples: ${RESTRICTED_ITEMS.restricted.join(', ')}.`,
-    'Use prohibited only when the image clearly shows an explicitly prohibited item. Medicine, alcohol, tobacco, sealed, boxed, wrapped, or unclear contents are not automatically prohibited.',
+    'Use prohibited only when the image clearly and directly shows an explicitly prohibited item.',
+    'Medicine, alcohol, tobacco, batteries, electronics, liquids, sealed, boxed, wrapped, partially visible, or unclear contents are never automatically prohibited; use restricted or review.',
+    'A visual resemblance, uncertainty, missing context, brand, packaging, or label text alone is never enough to claim a prohibited item.',
     'Never invent dangerous items. If uncertain, use review; uncertainty alone is never prohibited.',
   ].join('\n');
 
@@ -136,7 +157,7 @@ export async function scanItemImageForSafety({
     const content = await askClaude({
       model: DEFAULT_MODEL,
       maxTokens: 700,
-      system: 'You are a strict item safety classifier. Return only valid JSON.',
+      system: 'You are a cautious compliance classifier. Avoid false accusations and return only valid JSON.',
       messages: [
         {
           role: 'user',
@@ -163,7 +184,7 @@ export async function scanItemImageForSafety({
       return { skipped: true, reason: 'unreadable_ai_result' };
     }
 
-    return normalizeScanResult(parsed);
+    return normalizeScanResult(parsed, settings);
   } catch (error) {
     if (scanRequired()) {
       return {

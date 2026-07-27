@@ -1129,7 +1129,14 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
 
   String get _nextStatus {
     final current = widget.currentStatus.apiValue;
-    if (current == 'accepted') return 'intransit';
+    if (current == 'accepted' ||
+        current == 'accepted_awaiting_inspection' ||
+        current == 'inspection_in_progress') {
+      return 'inspection';
+    }
+    if (current == 'approved_for_trip' || current == 'inspection_completed') {
+      return 'intransit';
+    }
     if (current == 'intransit') return 'delivering';
     if (current == 'delivering') return 'delivered';
     return '';
@@ -1138,6 +1145,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
   String get _nextStatusLabel {
     return switch (_nextStatus) {
       'intransit' => 'Mark as In Transit',
+      'inspection' => 'Inspect Package',
       'delivering' => 'Mark as Delivering',
       'delivered' => 'Mark as Delivered',
       _ => '',
@@ -1147,6 +1155,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
   IconData get _nextStatusIcon {
     return switch (_nextStatus) {
       'intransit' => Icons.flight_takeoff_rounded,
+      'inspection' => Icons.fact_check_outlined,
       'delivering' => Icons.local_shipping_rounded,
       'delivered' => Icons.check_circle_outline_rounded,
       _ => Icons.update_rounded,
@@ -1155,6 +1164,16 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
 
   Future<void> _updateStatus() async {
     if (_nextStatus.isEmpty || _updating) return;
+    if (_nextStatus == 'inspection') {
+      final changed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _PackageInspectionSheet(requestId: widget.requestId),
+      );
+      if (changed == true) widget.onStatusUpdated();
+      return;
+    }
 
     // Both intransit and delivering require proof photo + 48-hour acknowledgement
     if (_nextStatus == 'intransit' || _nextStatus == 'delivering') {
@@ -1319,6 +1338,23 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.currentStatus == RequestStatus.rejectedAtInspectionUnderReview) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.policy_outlined,
+              color: AppColors.accentAmber, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Package Under Review\nDo not transport or collect this package while Bago reviews the evidence.',
+              style: AppTextStyles.bodySm.copyWith(
+                  color: AppColors.gray700, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      );
+    }
     if (_nextStatus.isEmpty) {
       return Row(
         children: [
@@ -1402,6 +1438,235 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PackageInspectionSheet extends StatefulWidget {
+  const _PackageInspectionSheet({required this.requestId});
+  final String requestId;
+
+  @override
+  State<_PackageInspectionSheet> createState() =>
+      _PackageInspectionSheetState();
+}
+
+class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
+  static const _reasons = [
+    'Sender refused to open the package',
+    'Package contains suspicious items',
+    'Package may contain illegal items',
+    'Package contains a prohibited item',
+    'Package contains a dangerous item',
+    'Contents do not match the delivery description',
+    'Package condition is unsafe',
+    'Sender attempted to hide an item',
+    'Traveler is not comfortable transporting the package',
+    'Other',
+  ];
+  final List<File> _photos = [];
+  final _notes = TextEditingController();
+  final _picker = ImagePicker();
+  bool _contentsConfirmed = false;
+  bool _safetyConfirmed = false;
+  bool _responsibilityAccepted = false;
+  bool _saving = false;
+  String? _rejectionReason;
+
+  @override
+  void dispose() {
+    _notes.dispose();
+    super.dispose();
+  }
+
+  Future<void> _addPhoto() async {
+    if (_photos.length >= 4) return;
+    final image = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      preferredCameraDevice: CameraDevice.rear,
+    );
+    if (image != null && mounted) setState(() => _photos.add(File(image.path)));
+  }
+
+  Future<List<String>> _uploadPhotos() async {
+    final urls = <String>[];
+    for (final photo in _photos) {
+      final url = await MessageRealtimeService.instance
+          .uploadChatImage(photo, 'inspections/${widget.requestId}');
+      if (url == null)
+        throw Exception('An inspection photo could not be uploaded.');
+      urls.add(url);
+    }
+    return urls;
+  }
+
+  Future<void> _submit({required bool reject}) async {
+    if (_saving) return;
+    if (reject && _rejectionReason == null) {
+      AppSnackBar.show(context,
+          message: 'Select a rejection reason.', type: SnackBarType.error);
+      return;
+    }
+    if (reject && _rejectionReason == 'Other' && _notes.text.trim().isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Explain why you are rejecting the package.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (!reject &&
+        (_photos.length < 2 ||
+            !_contentsConfirmed ||
+            !_safetyConfirmed ||
+            !_responsibilityAccepted)) {
+      AppSnackBar.show(context,
+          message: 'Add 2–4 photos and accept all agreements.',
+          type: SnackBarType.error);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final urls = await _uploadPhotos();
+      await ShipmentService.instance.submitPackageInspection(
+        widget.requestId,
+        travelerPhotos: urls,
+        inspectionConfirmed: _contentsConfirmed,
+        safetyConfirmed: _safetyConfirmed,
+        responsibilityAccepted: _responsibilityAccepted,
+        rejectionReason: reject ? _rejectionReason : null,
+        rejectionNotes: reject ? _notes.text.trim() : null,
+        evidence: reject ? urls : const [],
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted)
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .9),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      child: SingleChildScrollView(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Open Box Inspection Required',
+              style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text(
+            'For your safety, the sender must open the package and allow you to inspect all items before collection.\n\nDo not accept sealed packages or items that you have not personally inspected.',
+            style: AppTextStyles.bodySm.copyWith(height: 1.45),
+          ),
+          const SizedBox(height: 18),
+          Text('Traveler inspection photos (${_photos.length}/4)',
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ..._photos.asMap().entries.map((entry) => Stack(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(entry.value,
+                          width: 76, height: 76, fit: BoxFit.cover),
+                    ),
+                    Positioned(
+                      right: 0,
+                      child: IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () =>
+                            setState(() => _photos.removeAt(entry.key)),
+                        icon: const Icon(Icons.cancel, color: Colors.white),
+                      ),
+                    ),
+                  ])),
+              if (_photos.length < 4)
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : _addPhoto,
+                  icon: const Icon(Icons.camera_alt_outlined),
+                  label: const Text('Add photo'),
+                ),
+            ],
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _contentsConfirmed,
+            onChanged: _saving
+                ? null
+                : (v) => setState(() => _contentsConfirmed = v == true),
+            title: const Text(
+                'I have personally inspected the contents and confirm the items match the delivery description.'),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _responsibilityAccepted,
+            onChanged: _saving
+                ? null
+                : (v) => setState(() => _responsibilityAccepted = v == true),
+            title: const Text(
+                'I accept responsibility for this package once I collect it and understand this agreement will be electronically signed and kept with the order.'),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _safetyConfirmed,
+            onChanged: _saving
+                ? null
+                : (v) => setState(() => _safetyConfirmed = v == true),
+            title: const Text(
+                'I understand that I must not transport illegal, dangerous, restricted, undisclosed, or suspicious items.'),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          const Divider(height: 28),
+          DropdownButtonFormField<String>(
+            initialValue: _rejectionReason,
+            decoration: const InputDecoration(
+                labelText: 'Rejection reason (if rejecting)'),
+            items: _reasons
+                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                .toList(),
+            onChanged:
+                _saving ? null : (v) => setState(() => _rejectionReason = v),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _notes,
+            maxLines: 2,
+            decoration:
+                const InputDecoration(labelText: 'Supporting explanation'),
+          ),
+          const SizedBox(height: 18),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _saving ? null : () => _submit(reject: true),
+                style:
+                    OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+                child: const Text('Reject Package'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _saving ? null : () => _submit(reject: false),
+                child: Text(_saving ? 'Saving…' : 'Complete Inspection'),
+              ),
+            ),
+          ]),
+        ]),
+      ),
     );
   }
 }

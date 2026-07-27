@@ -3,7 +3,7 @@ import {
   Search, Download, RefreshCw, Shield, CheckCircle, XCircle, Clock, AlertCircle,
   X, Package, MapPin, User, ChevronLeft, ChevronRight, ZoomIn, Loader2
 } from 'lucide-react';
-import { getOrders, updateOrderStatus, getInsuredShipments } from '../services/api';
+import { getOrders, updateOrderStatus, getInsuredShipments, downloadOrderRecord } from '../services/api';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -75,6 +75,14 @@ interface InsuredShipment {
 const STATUS_COLORS: Record<string, string> = {
   pending:    'bg-amber-100 text-amber-700',
   accepted:   'bg-blue-100 text-blue-700',
+  accepted_awaiting_inspection: 'bg-blue-100 text-blue-700',
+  inspection_in_progress: 'bg-amber-100 text-amber-700',
+  inspection_completed: 'bg-teal-100 text-teal-700',
+  rejected_at_inspection_under_review: 'bg-red-100 text-red-700',
+  approved_for_trip: 'bg-emerald-100 text-emerald-700',
+  refund_approved: 'bg-green-100 text-green-700',
+  partial_refund_approved: 'bg-green-100 text-green-700',
+  refund_declined: 'bg-red-100 text-red-700',
   intransit:  'bg-indigo-100 text-indigo-700',
   delivering: 'bg-purple-100 text-purple-700',
   completed:  'bg-green-100 text-green-700',
@@ -85,6 +93,14 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   pending:    'Pending',
   accepted:   'Accepted',
+  accepted_awaiting_inspection: 'Accepted — Awaiting Package Inspection',
+  inspection_in_progress: 'Inspection in Progress',
+  inspection_completed: 'Inspection Completed',
+  rejected_at_inspection_under_review: 'Rejected at Inspection — Under Review',
+  approved_for_trip: 'Approved for Trip',
+  refund_approved: 'Refund Approved',
+  partial_refund_approved: 'Partial Refund Approved',
+  refund_declined: 'Refund Declined',
   intransit:  'In Transit',
   delivering: 'Out for Delivery',
   completed:  'Completed',
@@ -92,7 +108,12 @@ const STATUS_LABELS: Record<string, string> = {
   rejected:   'Declined',
 };
 
-const VALID_STATUSES = ['pending', 'accepted', 'intransit', 'delivering', 'completed', 'cancelled', 'rejected'];
+const VALID_STATUSES = [
+  'pending', 'accepted_awaiting_inspection', 'inspection_in_progress',
+  'inspection_completed', 'rejected_at_inspection_under_review',
+  'approved_for_trip', 'intransit', 'delivering', 'completed',
+  'refund_approved', 'partial_refund_approved', 'refund_declined', 'cancelled',
+];
 
 const INS_COLORS: Record<string, string> = {
   active:           'bg-emerald-100 text-emerald-700',
@@ -137,6 +158,7 @@ function OrderDetail({ order, onClose, onStatusChange }: {
   const [notes, setNotes]        = useState('');
   const [saving, setSaving]      = useState(false);
   const [saveMsg, setSaveMsg]    = useState<{ ok: boolean; text: string } | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -148,6 +170,21 @@ function OrderDetail({ order, onClose, onStatusChange }: {
       setSaveMsg({ ok: false, text: e?.message || 'Update failed.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const blob = await downloadOrderRecord(order.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bago-order-${order.trackingNumber || order.id}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -178,6 +215,14 @@ function OrderDetail({ order, onClose, onStatusChange }: {
 
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="w-full py-3 bg-gray-900 hover:bg-black disabled:opacity-50 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2"
+            >
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Download signed order record
+            </button>
 
             {/* Package image */}
             {pkg.image ? (

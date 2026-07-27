@@ -191,6 +191,18 @@ export async function updateOrderStatus(id: string, status: string, location?: s
   });
 }
 
+export async function downloadOrderRecord(id: string) {
+  const response = await fetch(`${ADMIN_API}/orders/${id}/pdf`, {
+    credentials: 'include',
+    headers: getAdminAuthHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'PDF download failed' }));
+    throw new Error(error.message || 'PDF download failed');
+  }
+  return response.blob();
+}
+
 // Analytics
 export async function getAnalytics() {
   return apiCall(`${ADMIN_API}/analystic`);
@@ -586,6 +598,21 @@ export async function getFlaggedUsers(page = 1, limit = 50, source?: string) {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (source) params.set('source', source);
   return apiCall(`${ADMIN_API}/flagged-users?${params}`);
+}
+
+export async function getFlaggedChats(page = 1, limit = 50) {
+  return apiCall(`${ADMIN_API}/flagged-chats?page=${page}&limit=${limit}`);
+}
+
+export async function getFlaggedConversation(conversationId: string) {
+  return apiCall(`${ADMIN_API}/flagged-chats/${conversationId}`);
+}
+
+export async function unlockFlaggedConversation(conversationId: string, note: string) {
+  return apiCall(`${ADMIN_API}/flagged-chats/${conversationId}/unlock`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  });
 }
 
 export async function flagUserById(userId: string, reason: string) {

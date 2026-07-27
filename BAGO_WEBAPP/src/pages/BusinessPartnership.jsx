@@ -5,6 +5,7 @@ import api, { setAuthSession } from '../api';
 import { useAuth } from '../AuthContext';
 import Footer from '../components/Footer';
 import { countries } from '../utils/countries';
+import { trackSignupConversion } from '../utils/googleAds';
 
 const COUNTRY_META = {
     NG: ['+234','NGN'], GH: ['+233','GHS'], KE: ['+254','KES'], ZA: ['+27','ZAR'], CM: ['+237','XAF'], CI: ['+225','XOF'], SN: ['+221','XOF'], TZ: ['+255','TZS'], UG: ['+256','UGX'],
@@ -57,6 +58,7 @@ export default function BusinessPartnership() {
                 const response = await api.post('/api/bago/verify-signup-otp', { signupToken, otp });
                 setAuthSession(response.data);
                 login(response.data.user);
+                trackSignupConversion(response.data.user?.id || response.data.user?._id);
                 setAccountVerified(true);
             }
             if (logo) {

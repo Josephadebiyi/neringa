@@ -26,6 +26,7 @@ import {
   updateShipmentDates,
   updateShipmentRequestStatus,
   updateTravelerProof,
+  savePackageInspection,
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
@@ -960,7 +961,11 @@ export async function updateRequestStatus(req, res) {
     const { status: rawStatus, location, notes } = req.body;
     // Traveler delivery is not final completion. Funds remain held until the sender confirms receipt.
     const status = (rawStatus === 'delivered' || rawStatus === 'completed') ? 'delivering' : rawStatus;
-    const validStatuses = ['pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled'];
+    const validStatuses = [
+      'pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled',
+      'accepted_awaiting_inspection', 'inspection_in_progress', 'inspection_completed',
+      'approved_for_trip',
+    ];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
@@ -994,7 +999,9 @@ export async function updateRequestStatus(req, res) {
         emitTripUpdate(req, updatedTrip, [updatedRequest.travelerId, updatedRequest.senderId]);
       }
 
-      const statusLabel = rawStatus === 'delivered' ? 'awaiting_sender_confirmation' : status;
+      const statusLabel = rawStatus === 'delivered'
+        ? 'awaiting_sender_confirmation'
+        : status === 'accepted' ? 'accepted_awaiting_inspection' : status;
       const senderName = updatedRequest.senderName || 'Sender';
       const travelerName = updatedRequest.travelerName || updatedRequest.carrierName || 'Traveler';
       const senderStatusMessage = rawStatus === 'delivered'
@@ -1011,19 +1018,19 @@ export async function updateRequestStatus(req, res) {
       });
 
       // Purchase MyCover.ai insurance policy when traveler accepts — fire-and-forget
-      if (status === 'accepted' && updatedRequest.insurance && updatedRequest.insuranceCost > 0) {
+      if (statusLabel === 'accepted_awaiting_inspection' && updatedRequest.insurance && updatedRequest.insuranceCost > 0) {
         purchaseMyCoverPolicy(updatedRequest).catch(e =>
           console.error('MyCover policy purchase failed:', e.message)
         );
       }
 
       // PUSH notification for sender on key status changes
-      if (['accepted', 'rejected', 'intransit', 'delivering', 'delivered', 'awaiting_sender_confirmation'].includes(statusLabel)) {
-        const pushTitle = statusLabel === 'accepted' ? 'Request Accepted!'
+      if (['accepted_awaiting_inspection', 'rejected', 'intransit', 'delivering', 'delivered', 'awaiting_sender_confirmation'].includes(statusLabel)) {
+        const pushTitle = statusLabel === 'accepted_awaiting_inspection' ? 'Request Accepted!'
           : statusLabel === 'rejected' ? 'Request Declined'
           : statusLabel === 'awaiting_sender_confirmation' ? 'Confirm delivery'
           : `Shipment ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`;
-        const pushBody = statusLabel === 'accepted' ? `${travelerName} accepted your shipment request. You can now chat!`
+        const pushBody = statusLabel === 'accepted_awaiting_inspection' ? `${travelerName} accepted your request. The package must be inspected at pickup before the trip can start.`
           : statusLabel === 'rejected' ? `${travelerName} declined your shipment request.`
           : statusLabel === 'awaiting_sender_confirmation' ? senderStatusMessage
           : `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`;
@@ -1040,7 +1047,7 @@ export async function updateRequestStatus(req, res) {
       }
 
       await sendShippingStatusEmail(updatedRequest, statusLabel, location);
-      if (statusLabel === 'accepted' && updatedRequest.package?.receiverEmail) {
+      if (statusLabel === 'accepted_awaiting_inspection' && updatedRequest.package?.receiverEmail) {
         const packageDetails = `${updatedRequest.package.description || 'Package'}${updatedRequest.package.packageWeight ? `, ${updatedRequest.package.packageWeight}kg` : ''}`;
         await sendReceiverShipmentAcceptedEmail(
           updatedRequest.package.receiverEmail,
@@ -1082,11 +1089,68 @@ export async function updateRequestStatus(req, res) {
       errors: false,
     });
   } catch (error) {
+    if (error.code === 'INSPECTION_REQUIRED') {
+      return res.status(409).json({ success: false, message: error.message });
+    }
     if (error.code === 'UNAUTHORIZED') {
       return res.status(403).json({ message: error.message });
     }
     console.error('Error updating request status:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+}
+
+export async function submitPackageInspection(req, res) {
+  try {
+    const { requestId } = req.params;
+    const actorId = req.user.id || req.user._id;
+    const updated = await savePackageInspection({ requestId, actorId, ...req.body });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    const rejected = updated.status === 'rejected_at_inspection_under_review';
+    if (rejected) {
+      const senderBody = 'Your package was rejected during the mandatory inspection process. The delivery has been paused while the case is under review. No refund is issued automatically. A decision will be made after reviewing the available evidence.';
+      const travelerBody = 'You rejected this package during inspection. Thank you for reporting your concerns. The case is now under review. Please do not transport or collect the package while the review is ongoing.';
+      await Promise.all([
+        createNotification({
+          userId: updated.senderId,
+          title: 'Package Under Review',
+          body: senderBody,
+          type: 'package_inspection_review',
+          payload: { requestId, status: updated.status },
+        }),
+        createNotification({
+          userId: updated.travelerId,
+          title: 'Package Under Review',
+          body: travelerBody,
+          type: 'package_inspection_review',
+          payload: { requestId, status: updated.status },
+        }),
+      ]);
+      sendPushNotification(updated.senderId, 'Package Under Review', senderBody, {
+        type: 'package_inspection_review', requestId, status: updated.status,
+      }).catch((e) => console.warn('Inspection review push to sender failed:', e.message));
+      sendPushNotification(updated.travelerId, 'Package Under Review', travelerBody, {
+        type: 'package_inspection_review', requestId, status: updated.status,
+      }).catch((e) => console.warn('Inspection review push to traveler failed:', e.message));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: rejected ? 'Package rejection is under review' : 'Inspection saved',
+      request: updated,
+    });
+  } catch (error) {
+    if (error.code === 'UNAUTHORIZED') {
+      return res.status(403).json({ success: false, message: error.message });
+    }
+    if (error.code === 'INSPECTION_LOCKED') {
+      return res.status(409).json({ success: false, message: error.message });
+    }
+    console.error('submitPackageInspection error:', error);
+    return res.status(500).json({ success: false, message: 'Could not save package inspection' });
   }
 }
 
@@ -1695,7 +1759,29 @@ export async function downloadRequestPDF(req, res) {
       estimatedArrival: request.trip?.arrivalDate || null,
       insurance: Boolean(request.insurance),
       insuranceCost: request.insuranceCost || 0,
+      inspection: request.inspection || {},
     };
+
+    const [activityResult, chatResult] = await Promise.all([
+      query(
+        `select event_type, status, previous_status, actor_user_id, metadata, created_at
+         from public.operational_records where entity_type = 'shipment_request' and entity_id = $1
+         order by created_at`,
+        [requestId],
+      ).catch(() => ({ rows: [] })),
+      request.conversationId
+        ? query(
+            `select m.sender_id, concat_ws(' ', p.first_name, p.last_name) as sender_name,
+                    m.content, m.metadata, m.created_at
+             from public.messages m
+             left join public.profiles p on p.id = m.sender_id
+             where m.conversation_id = $1 order by m.created_at`,
+            [request.conversationId],
+          ).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+    ]);
+    shippingData.activity = activityResult.rows;
+    shippingData.chatMessages = chatResult.rows;
 
     const pdfBuffer = await generateShippingLabelPDF(shippingData);
     const filename = `bago-label-${shippingData.trackingNumber}.pdf`;

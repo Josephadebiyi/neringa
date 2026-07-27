@@ -177,6 +177,28 @@ export const messageController = (io) => {
 
         const { conversation, message } = result;
 
+        if (result.policyAction) {
+          io.to(conversationId.toString()).emit('new_message', {
+            _id: message.id, id: message.id, conversationId,
+            text: message.content, content: message.content,
+            sender: message.senderId, timestamp: message.createdAt,
+            type: 'system', metadata: message.metadata,
+          });
+          io.to(conversationId.toString()).emit('chat_policy_action', {
+            action: result.policyAction,
+            message: result.policyMessage,
+          });
+          if (typeof ack === 'function') {
+            ack({
+              success: false,
+              code: result.policyAction === 'chat_locked' ? 'CHAT_POLICY_LOCKED' : 'CHAT_POLICY_WARNING',
+              message: result.policyMessage,
+              data: { message, conversation },
+            });
+          }
+          return;
+        }
+
         const messageData = {
           _id: message.id,
           id: message.id,
@@ -213,9 +235,9 @@ export const messageController = (io) => {
         }
       } catch (error) {
         console.error('Error sending message (socket):', error);
-        if (error.code === 'CONVERSATION_CLOSED') {
+        if (error.code === 'CONVERSATION_CLOSED' || error.code === 'CHAT_POLICY_LOCKED') {
           if (typeof ack === 'function') ack({ success: false, message: 'This conversation is closed' });
-          socket.emit('error', { message: 'This conversation is closed' });
+          socket.emit('error', { message: error.message });
         } else {
           if (typeof ack === 'function') ack({ success: false, message: error.message || 'Failed to send message' });
           socket.emit('error', { message: 'Failed to send message' });
@@ -438,6 +460,27 @@ export const sendMessage = async (req, res) => {
     }
 
     const { conversation, message } = result;
+    if (result.policyAction) {
+      const io = req.app.get('io');
+      if (io) {
+        io.to(conversationId.toString()).emit('new_message', {
+          _id: message.id, id: message.id, conversationId,
+          text: message.content, content: message.content,
+          sender: message.senderId, timestamp: message.createdAt,
+          type: 'system', metadata: message.metadata,
+        });
+        io.to(conversationId.toString()).emit('chat_policy_action', {
+          action: result.policyAction,
+          message: result.policyMessage,
+        });
+      }
+      return res.status(result.policyAction === 'chat_locked' ? 423 : 422).json({
+        success: false,
+        code: result.policyAction === 'chat_locked' ? 'CHAT_POLICY_LOCKED' : 'CHAT_POLICY_WARNING',
+        message: result.policyMessage,
+        data: { message, conversation },
+      });
+    }
     const trimmedText = text.trim();
     const pushPreview = type === 'image'
       ? (trimmedText ? `Image: ${trimmedText}` : 'Sent an image')
@@ -481,8 +524,8 @@ export const sendMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in sendMessage REST:', error);
-    if (error.code === 'CONVERSATION_CLOSED') {
-      return res.status(400).json({ success: false, message: 'This conversation is closed' });
+    if (error.code === 'CONVERSATION_CLOSED' || error.code === 'CHAT_POLICY_LOCKED') {
+      return res.status(423).json({ success: false, code: error.code, message: error.message });
     }
     if (error.code === 'UNAUTHORIZED') {
       return res.status(403).json({ success: false, message: 'Unauthorized' });

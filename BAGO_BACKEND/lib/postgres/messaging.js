@@ -1,5 +1,6 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { maskPublicUserName } from '../privacy/publicUser.js';
+import { classifyChatMessage } from '../../services/chatPolicyService.js';
 
 let messagingSchemaReady = false;
 
@@ -15,6 +16,14 @@ async function ensureMessagingSchema() {
       add column if not exists deleted_by_traveler boolean not null default false,
       add column if not exists created_at timestamptz default timezone('utc', now()),
       add column if not exists updated_at timestamptz default timezone('utc', now())
+      ,add column if not exists chat_locked boolean not null default false
+      ,add column if not exists chat_locked_at timestamptz
+      ,add column if not exists chat_lock_reason text
+      ,add column if not exists chat_locked_by text
+      ,add column if not exists chat_policy_unlocked_at timestamptz
+      ,add column if not exists chat_policy_unlocked_by uuid
+      ,add column if not exists chat_policy_unlock_note text
+      ,add column if not exists policy_warning_count integer not null default 0
   `);
 
   await query(`
@@ -98,6 +107,8 @@ function normalizeConversation(row, currentUserId = null) {
           : 0,
     deletedBySender: Boolean(row.deleted_by_sender),
     deletedByTraveler: Boolean(row.deleted_by_traveler),
+    chatLocked: Boolean(row.chat_locked),
+    chatLockReason: row.chat_lock_reason || null,
   };
 }
 
@@ -143,6 +154,8 @@ const conversationSelect = `
     c.unread_count_traveler,
     c.deleted_by_sender,
     c.deleted_by_traveler,
+    c.chat_locked,
+    c.chat_lock_reason,
     c.created_at,
     coalesce(c.updated_at, latest_message.created_at, c.created_at) as updated_at,
     sr.status as request_status,
@@ -488,7 +501,9 @@ export async function listConversationMessages(conversationId, { limit = 50, bef
         p.image_url as sender_image_url
       from public.messages m
       join public.profiles p on p.id = m.sender_id
-      where m.conversation_id = $1 ${beforeClause}
+      where m.conversation_id = $1
+        and coalesce(m.metadata ->> 'visibleToUsers', 'true') <> 'false'
+        ${beforeClause}
       order by m.created_at desc
       limit $2
     `,
@@ -507,6 +522,7 @@ export async function createConversationMessage({
   fileName = null,
   mimeType = null,
 }) {
+  const policy = await classifyChatMessage(text);
   return withTransaction(async (client) => {
     const conversationResult = await client.query(
       `
@@ -520,6 +536,12 @@ export async function createConversationMessage({
 
     const conversation = conversationResult.rows[0];
     if (!conversation) return null;
+
+    if (conversation.chat_locked) {
+      const error = new Error('This chat has been locked for safety. Please contact Bago Support.');
+      error.code = 'CHAT_POLICY_LOCKED';
+      throw error;
+    }
 
     const requestResult = await client.query(
       `
@@ -556,6 +578,76 @@ export async function createConversationMessage({
       ...(fileName ? { fileName } : {}),
       ...(mimeType ? { mimeType } : {}),
     };
+
+    if (policy.flagged) {
+      const priorResult = await client.query(
+        `select count(*)::int as count from public.chat_policy_flags
+         where conversation_id = $1 and sender_id = $2
+           and created_at > coalesce($3, '-infinity'::timestamptz)`,
+        [conversationId, senderId, conversation.chat_policy_unlocked_at],
+      );
+      const repeated = Number(priorResult.rows[0]?.count || 0) >= (policy.warningLimit || 1);
+      const action = repeated ? 'chat_locked' : 'warning';
+      const attempted = await client.query(
+        `insert into public.messages (conversation_id, sender_id, content, metadata)
+         values ($1,$2,$3,$4)
+         returning id`,
+        [conversationId, senderId, messageContent, {
+          ...metadata,
+          visibleToUsers: false,
+          policyFlagged: true,
+          policyReasonCode: policy.reasonCode,
+        }],
+      );
+      await client.query(
+        `insert into public.chat_policy_flags (
+           conversation_id, request_id, message_id, sender_id, message_content,
+           reason_code, reason, confidence, classifier_provider, classifier_model,
+           enforcement_action
+         ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [
+          conversationId, conversation.request_id, attempted.rows[0].id, senderId,
+          messageContent, policy.reasonCode, policy.reason || null, policy.confidence,
+          policy.provider, policy.model || null, action,
+        ],
+      );
+      const notice = repeated
+        ? 'This chat has been locked because attempts to move business outside Bago continued after a warning. Do not exchange payment or delivery arrangements outside Bago. Please contact Bago Support.'
+        : 'Safety warning: Keep all shipment discussions, payments, and business inside Bago. External contact or off-platform arrangements are not allowed. Continued attempts will lock this chat.';
+      const noticeMessage = await client.query(
+        `insert into public.messages (conversation_id, sender_id, content, metadata)
+         values ($1,$2,$3,$4)
+         returning id, conversation_id, sender_id, content, metadata, created_at`,
+        [conversationId, senderId, notice, {
+          type: 'system',
+          system: true,
+          policyNotice: true,
+          enforcementAction: action,
+        }],
+      );
+      await client.query(
+        `update public.conversations
+         set last_message = $2,
+             updated_at = timezone('utc', now()),
+             policy_warning_count = policy_warning_count + 1,
+             chat_locked = $3,
+             chat_locked_at = case when $3 then timezone('utc', now()) else chat_locked_at end,
+             chat_lock_reason = case when $3 then $4 else chat_lock_reason end,
+             chat_locked_by = case when $3 then 'automated_policy' else chat_locked_by end
+         where id = $1`,
+        [conversationId, notice, repeated, policy.reason || policy.reasonCode],
+      );
+      return {
+        conversation: await getConversationById(conversationId, senderId),
+        message: normalizeMessage({
+          ...noticeMessage.rows[0],
+          sender_first_name: 'Bago',
+          sender_last_name: 'Safety',
+        }),
+        policyAction: action,
+        policyMessage: notice,
+      };
+    }
 
     const messageResult = await client.query(
       `
