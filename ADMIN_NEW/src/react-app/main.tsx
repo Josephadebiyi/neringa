@@ -44,7 +44,22 @@ function renderFatalShell(message: string, details?: string) {
   `;
 }
 
+// These two listeners exist to catch genuine *bootstrap* failures — errors
+// thrown before React has ever successfully mounted, when there's no UI to
+// show an inline error in and the only recovery is a full reload. Once the
+// app has mounted, any error from a single button/request (e.g. a failed
+// PDF download) should stay scoped to that action — it must NOT wipe out
+// the entire admin interface via renderFatalShell. `appMounted` is the
+// gate: it used to be missing entirely, so a single uncaught rejection from
+// any in-app fetch (regardless of where in the SPA) nuked the whole admin
+// app to this recovery screen.
+let appMounted = false;
+
 window.addEventListener("error", (event) => {
+  if (appMounted) {
+    console.error("Unhandled admin runtime error:", event.error || event.message);
+    return;
+  }
   const error = event.error instanceof Error ? event.error : null;
   renderFatalShell(
     "The admin interface hit an unexpected startup error. Reload the page to try again.",
@@ -54,29 +69,20 @@ window.addEventListener("error", (event) => {
 
 window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason;
+  if (appMounted) {
+    console.error("Unhandled admin promise rejection:", reason);
+    return;
+  }
   const details =
     reason instanceof Error
       ? reason.stack || reason.message
       : typeof reason === "string"
         ? reason
         : JSON.stringify(reason, null, 2);
-  console.error("Unhandled admin background request:", reason);
-
-  const message = reason instanceof Error ? reason.message : String(reason || "");
-  const isRequestFailure =
-    message.includes("Unable to reach the server") ||
-    message.includes("Request failed") ||
-    message.includes("Server error") ||
-    message.includes("Unauthorized") ||
-    message.includes("Invalid credentials") ||
-    message.includes("Failed to fetch");
-
-  if (!isRequestFailure) {
-    renderFatalShell(
-      "The admin interface hit an unexpected startup error. Reload the page to try again.",
-      details,
-    );
-  }
+  renderFatalShell(
+    "The admin interface hit an unexpected startup error. Reload the page to try again.",
+    details,
+  );
 });
 
 try {
@@ -92,6 +98,7 @@ try {
       </ErrorBoundary>
     </StrictMode>,
   );
+  appMounted = true;
 } catch (error) {
   const err = error instanceof Error ? error : new Error("Unknown bootstrap error");
   renderFatalShell(

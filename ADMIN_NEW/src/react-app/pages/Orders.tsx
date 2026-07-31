@@ -159,6 +159,7 @@ function OrderDetail({ order, onClose, onStatusChange }: {
   const [saving, setSaving]      = useState(false);
   const [saveMsg, setSaveMsg]    = useState<{ ok: boolean; text: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -175,6 +176,7 @@ function OrderDetail({ order, onClose, onStatusChange }: {
 
   const handleDownload = async () => {
     setDownloading(true);
+    setDownloadError(null);
     try {
       const blob = await downloadOrderRecord(order.id);
       const url = URL.createObjectURL(blob);
@@ -183,6 +185,12 @@ function OrderDetail({ order, onClose, onStatusChange }: {
       link.download = `bago-order-${order.trackingNumber || order.id}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
+    } catch (e: any) {
+      // Previously uncaught: the rejection escaped to the global
+      // unhandledrejection listener in main.tsx, which tore down the
+      // *entire* admin app with the "Application recovery screen" for what
+      // should have been a small, scoped failure on this one button.
+      setDownloadError(e?.message || 'Could not download the order record. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -223,6 +231,11 @@ function OrderDetail({ order, onClose, onStatusChange }: {
               {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               Download signed order record
             </button>
+            {downloadError && (
+              <p className="text-xs font-bold px-3 py-2 rounded-lg bg-red-50 text-red-600">
+                {downloadError}
+              </p>
+            )}
 
             {/* Package image */}
             {pkg.image ? (
