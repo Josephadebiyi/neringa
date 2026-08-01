@@ -221,6 +221,7 @@ export const AddAtrip = async (req, res, next) => {
     }
 
     // Upload travel document to Cloudinary to get a permanent URL
+    const isBusinessAccount = user.accountType === 'company';
     const travelDocumentUrl = travelDocument
       ? await uploadTravelDocument(travelDocument, userid)
       : null;
@@ -242,6 +243,7 @@ export const AddAtrip = async (req, res, next) => {
       currency,
       landmark: landmark || '',
       travelDocument: travelDocumentUrl,
+      proofExempt: isBusinessAccount,
     });
 
     const activeTrip = await getTripById(trip.id);
@@ -258,7 +260,9 @@ export const AddAtrip = async (req, res, next) => {
     }
 
     res.status(201).json({
-      message: "Trip submitted for review. It will be visible to senders once an admin approves it.",
+      message: isBusinessAccount
+        ? "Trip listed successfully. Business accounts do not require travel proof."
+        : "Trip submitted for review. It will be visible to senders once an admin approves it.",
       trip: activeTrip,
     });
   } catch (error) {

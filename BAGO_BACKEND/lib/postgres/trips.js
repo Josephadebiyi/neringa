@@ -303,6 +303,7 @@ export async function createTripRecord({
   currency,
   landmark,
   travelDocument,
+  proofExempt = false,
 }) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
@@ -334,9 +335,10 @@ export async function createTripRecord({
             landmark,
             travel_document_url,
             travel_document_uploaded_at,
+            travel_document_verified,
             status
           )
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,0,0,$12,$13,$14,$15,$16,$17,'pending_admin_review')
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,0,0,$12,$13,$14,$15,$16,$17,$18,$19)
           returning id
         `,
         [
@@ -357,13 +359,15 @@ export async function createTripRecord({
           landmark,
           travelDocument,
           travelDocument ? departureDate : null,
+          proofExempt,
+          proofExempt ? 'active' : 'pending_admin_review',
         ],
       );
       await recordOperationalEvent(null, {
         entityType: 'trip',
         entityId: trip.id,
         eventType: 'created',
-        status: 'pending_admin_review',
+        status: proofExempt ? 'active' : 'pending_admin_review',
         actorUserId: userId,
         travelerId: userId,
         tripId: trip.id,
@@ -373,6 +377,7 @@ export async function createTripRecord({
           tripNumber,
           fromLocation,
           fromCountry,
+          proofExempt,
           toLocation,
           toCountry,
           departureDate,

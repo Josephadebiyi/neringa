@@ -143,6 +143,7 @@ export default function PostTrip() {
     const [showCurrencyModal, setShowCurrencyModal] = useState(false);
     const [selectedCurrency, setSelectedCurrency] = useState('');
     const activeCurrency = getUserPayoutCurrency(user, selectedCurrency || '');
+    const isBusinessAccount = user?.accountType === 'company' || user?.account_type === 'company';
     const [documentPreview, setDocumentPreview] = useState(null);
 
     useEffect(() => {
@@ -264,7 +265,7 @@ export default function PostTrip() {
             setError('Please enter a landmark address.');
             return;
         }
-        if (!formData.travelDocument) {
+        if (!isBusinessAccount && !formData.travelDocument) {
             setError('Please upload your travel document (flight/bus ticket).');
             return;
         }
@@ -534,7 +535,7 @@ export default function PostTrip() {
                                     ></textarea>
                                 </div>
 
-                                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                {!isBusinessAccount && <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
                                     <div className="flex items-center gap-3 mb-8">
                                         <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                                             <Ticket size={20} />
@@ -562,7 +563,17 @@ export default function PostTrip() {
                                             Your trip will be verified by our team. Proof of travel is mandatory to ensure reliability.
                                         </p>
                                     </div>
-                                </div>
+                                </div>}
+
+                                {isBusinessAccount && (
+                                    <div className="p-5 bg-green-50 border border-green-100 rounded-2xl flex gap-3">
+                                        <Shield size={18} className="text-green-600 flex-shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] text-green-800 font-black uppercase tracking-wider">Business account</p>
+                                            <p className="text-[9px] text-green-700 font-bold mt-1">Travel proof is not required for trips listed by your business.</p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {error && (
                                     <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-in fade-in duration-300">

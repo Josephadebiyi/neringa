@@ -118,3 +118,47 @@
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+/* Dashboard-only dark theme. The public website remains unchanged. */
+.dashboard-shell.dashboard-dark {
+    color-scheme: dark;
+    background: #090d18 !important;
+    color: #e5e7eb;
+}
+
+.dashboard-dark [class~="bg-white"],
+.dashboard-dark [class*="bg-white/"],
+.dashboard-dark [class*="bg-gray-50"],
+.dashboard-dark [class*="bg-gray-100"] {
+    background-color: #111827 !important;
+}
+
+.dashboard-dark [class*="text-[#111827]"],
+.dashboard-dark [class*="text-[#012126]"],
+.dashboard-dark [class~="text-black"] {
+    color: #f3f4f6 !important;
+}
+
+.dashboard-dark [class*="text-gray-3"],
+.dashboard-dark [class*="text-gray-4"],
+.dashboard-dark [class*="text-gray-5"],
+.dashboard-dark [class*="text-gray-6"],
+.dashboard-dark [class*="text-gray-7"] {
+    color: #9ca3af !important;
+}
+
+.dashboard-dark [class*="border-gray-"],
+.dashboard-dark [class*="border-white"] {
+    border-color: #273244 !important;
+}
+
+.dashboard-dark input,
+.dashboard-dark textarea,
+.dashboard-dark select {
+    color: #f3f4f6;
+}
+
+.dashboard-dark input::placeholder,
+.dashboard-dark textarea::placeholder {
+    color: #6b7280;
+}

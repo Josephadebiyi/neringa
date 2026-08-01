@@ -18,6 +18,8 @@ import {
     AlertCircle,
     Bell,
     Search,
+    Moon,
+    Sun,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { getUserPayoutCurrency } from '../utils/userCurrency';
@@ -46,10 +48,15 @@ export default function Dashboard() {
     const [chatConv, setChatConv] = useState(null);
     const location = useLocation();
     const [msg, setMsg] = useState(location.state?.message || '');
+    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('bago_dashboard_theme') === 'dark');
     const refreshedApprovedKycRef = useRef(false);
 
     const effectiveKycStatus =
         user?.kycStatus === 'approved' || user?.isKycCompleted ? 'approved' : kycStatus;
+
+    useEffect(() => {
+        localStorage.setItem('bago_dashboard_theme', darkMode ? 'dark' : 'light');
+    }, [darkMode]);
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -273,7 +280,7 @@ export default function Dashboard() {
     const tabLabel = TAB_LABELS[activeTab] || activeTab;
 
     return (
-        <div className="min-h-screen bg-[#F5F4FC] flex font-sans">
+        <div className={`dashboard-shell min-h-screen bg-[#F5F4FC] flex font-sans ${darkMode ? 'dashboard-dark' : ''}`}>
 
             {/* Mobile overlay */}
             {sidebarOpen && (
@@ -329,6 +336,15 @@ export default function Dashboard() {
 
                     {/* Right: back link + bell + avatar */}
                     <div className="flex items-center gap-3 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setDarkMode(value => !value)}
+                            className="p-2.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-[#5845D8]/10 hover:text-[#5845D8] transition-all"
+                            aria-label={darkMode ? 'Use light dashboard theme' : 'Use dark dashboard theme'}
+                            title={darkMode ? 'Light mode' : 'Dark mode'}
+                        >
+                            {darkMode ? <Sun size={17} /> : <Moon size={17} />}
+                        </button>
                         <Link
                             to="/"
                             className="text-[10px] text-gray-400 hover:text-[#5845D8] font-bold uppercase tracking-wider hidden sm:block transition-colors"
