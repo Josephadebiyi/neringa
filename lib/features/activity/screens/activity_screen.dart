@@ -365,6 +365,40 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
       return const Center(child: AppLoading());
     }
 
+    // Previously missing: unlike the Trips tab, a failed fetch fell straight
+    // through to the "no shipments yet" empty state below, indistinguishable
+    // from genuinely having no shipments — masking real network/auth/server
+    // errors as "you have no history."
+    if (state.error != null && state.myPackages.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded,
+                  size: 48, color: AppColors.gray300),
+              const SizedBox(height: 16),
+              Text('Could not load shipments',
+                  style:
+                      AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text(state.error!,
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              AppButton(
+                label: 'Retry',
+                onPressed: () =>
+                    ref.read(shipmentProvider.notifier).loadMyPackages(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (state.myPackages.isEmpty) {
       return RefreshIndicator(
         onRefresh: () async =>
@@ -492,14 +526,54 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(shipmentProvider);
 
-    final activeTravelerRequests =
-        state.incomingRequests.where(_isActiveTravelerRequest).toList();
+    // Previously this tab dropped everything except pending/accepted/
+    // intransit/delivering requests — a traveler's completed, delivered,
+    // rejected, or cancelled incoming requests never appeared here at all,
+    // even though the tab is meant to be request *history*. All incoming
+    // requests are now shown, split into Active / Past sections below.
+    final allRequests =
+        state.incomingRequests.where((r) => r.id.isNotEmpty).toList();
 
-    if (state.isLoading && activeTravelerRequests.isEmpty) {
+    if (state.isLoading && allRequests.isEmpty) {
       return const Center(child: AppLoading());
     }
 
-    if (activeTravelerRequests.isEmpty) {
+    // Previously missing: unlike the Trips tab, a failed fetch fell straight
+    // through to the "no requests yet" empty state below, indistinguishable
+    // from genuinely having no requests — masking real network/auth/server
+    // errors as "you have no history."
+    if (state.error != null && allRequests.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded,
+                  size: 48, color: AppColors.gray300),
+              const SizedBox(height: 16),
+              Text('Could not load requests',
+                  style:
+                      AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text(state.error!,
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              AppButton(
+                label: 'Retry',
+                onPressed: () => ref
+                    .read(shipmentProvider.notifier)
+                    .loadIncomingRequests(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (allRequests.isEmpty) {
       return RefreshIndicator(
         onRefresh: () async =>
             ref.read(shipmentProvider.notifier).loadIncomingRequests(),
@@ -516,12 +590,13 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
       );
     }
 
-    final filtered = activeTravelerRequests
-        .where((r) => r.id.isNotEmpty && _matches(r, _query))
-        .toList();
+    final filtered =
+        allRequests.where((r) => _matches(r, _query)).toList();
+    final active = filtered.where(_isActiveTravelerRequest).toList();
+    final past = filtered.where((r) => !_isActiveTravelerRequest(r)).toList();
 
-    // Sort: pending first, then by most recent (descending)
-    filtered.sort((a, b) {
+    // Sort active: pending first, then by most recent (descending)
+    active.sort((a, b) {
       if (a.status == RequestStatus.pending &&
           b.status != RequestStatus.pending) {
         return -1;
@@ -532,6 +607,22 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
       }
       return 0;
     });
+
+    Widget buildCard(RequestModel r) => _RequestCard(
+          request: r,
+          role: 'carrier',
+          onTap: () => context.push('/shipment-request/${r.id}', extra: r),
+          onAccept: r.status == RequestStatus.pending
+              ? () async {
+                  await ref.read(shipmentProvider.notifier).acceptRequest(r.id);
+                }
+              : null,
+          onReject: r.status == RequestStatus.pending
+              ? () async {
+                  await ref.read(shipmentProvider.notifier).rejectRequest(r.id);
+                }
+              : null,
+        );
 
     return RefreshIndicator(
       onRefresh: () async =>
@@ -564,27 +655,21 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
                 ),
               ),
             )
-          else
-            ...filtered.map((r) => _RequestCard(
-                  request: r,
-                  role: 'carrier',
-                  onTap: () =>
-                      context.push('/shipment-request/${r.id}', extra: r),
-                  onAccept: r.status == RequestStatus.pending
-                      ? () async {
-                          await ref
-                              .read(shipmentProvider.notifier)
-                              .acceptRequest(r.id);
-                        }
-                      : null,
-                  onReject: r.status == RequestStatus.pending
-                      ? () async {
-                          await ref
-                              .read(shipmentProvider.notifier)
-                              .rejectRequest(r.id);
-                        }
-                      : null,
-                )),
+          else ...[
+            if (active.isNotEmpty) ...[
+              _SectionLabel(l10n.activeShipmentsSection),
+              const SizedBox(height: 8),
+              ...active.map(buildCard),
+              if (past.isNotEmpty) const SizedBox(height: 12),
+            ],
+            if (past.isNotEmpty) ...[
+              if (active.isNotEmpty) ...[
+                _SectionLabel(l10n.pastShipmentsSection),
+                const SizedBox(height: 8),
+              ],
+              ...past.map(buildCard),
+            ],
+          ],
         ],
       ),
     );

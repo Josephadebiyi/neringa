@@ -128,9 +128,70 @@
 
 .dashboard-dark [class~="bg-white"],
 .dashboard-dark [class*="bg-white/"],
-.dashboard-dark [class*="bg-gray-50"],
-.dashboard-dark [class*="bg-gray-100"] {
+.dashboard-dark [class~="bg-gray-50"],
+.dashboard-dark [class*="bg-gray-50/"],
+.dashboard-dark [class~="bg-gray-100"],
+.dashboard-dark [class*="bg-gray-100/"],
+.dashboard-dark [class~="bg-gray-200"] {
     background-color: #111827 !important;
+}
+
+/* The rules above match exact class tokens (or an explicit "/opacity"
+   suffix) rather than a raw substring — [class*="bg-gray-50"] used to also
+   match "bg-gray-500" (e.g. Trips.jsx's "bg-gray-500/20"), silently forcing
+   an unrelated element dark. */
+
+/* Tailwind bakes pseudo-class prefixes into the class token itself
+   (e.g. "hover:bg-white" is one token), so the base bg-white/bg-gray
+   selectors above never match these — they only fire on the matching
+   interaction state, which is what left inputs/buttons flashing bright
+   white on hover/focus in dark mode. */
+.dashboard-dark [class~="hover:bg-white"]:hover,
+.dashboard-dark [class~="focus:bg-white"]:focus,
+.dashboard-dark [class~="focus-within:bg-white"]:focus-within,
+.dashboard-dark [class~="hover:bg-gray-50"]:hover,
+.dashboard-dark [class~="hover:bg-gray-100"]:hover,
+.dashboard-dark [class~="disabled:bg-gray-100"]:disabled {
+    background-color: #1c2436 !important;
+}
+
+/* Status badges, alerts, and stat cards use light "-50"/"-100" tints of a
+   brand color (red/green/amber/etc). Keep the hue so the badge still reads
+   as error/success/warning, but swap the pastel tint for a translucent dark
+   one instead of leaving it bright. */
+.dashboard-dark [class~="bg-red-50"],
+.dashboard-dark [class*="bg-red-50/"],
+.dashboard-dark [class~="bg-red-100"] {
+    background-color: rgba(239, 68, 68, 0.16) !important;
+}
+
+.dashboard-dark [class~="bg-green-50"],
+.dashboard-dark [class*="bg-green-50/"] {
+    background-color: rgba(34, 197, 94, 0.16) !important;
+}
+
+.dashboard-dark [class~="bg-emerald-50"],
+.dashboard-dark [class~="bg-emerald-100"] {
+    background-color: rgba(16, 185, 129, 0.16) !important;
+}
+
+.dashboard-dark [class~="bg-amber-50"],
+.dashboard-dark [class*="bg-amber-50/"],
+.dashboard-dark [class~="bg-amber-100"] {
+    background-color: rgba(245, 158, 11, 0.16) !important;
+}
+
+.dashboard-dark [class~="bg-blue-50"] {
+    background-color: rgba(59, 130, 246, 0.16) !important;
+}
+
+.dashboard-dark [class~="bg-indigo-50"],
+.dashboard-dark [class*="bg-indigo-50/"] {
+    background-color: rgba(99, 102, 241, 0.16) !important;
+}
+
+.dashboard-dark [class~="bg-orange-50"] {
+    background-color: rgba(249, 115, 22, 0.16) !important;
 }
 
 .dashboard-dark [class*="text-[#111827]"],

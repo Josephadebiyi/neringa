@@ -22,3 +22,19 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+  # Workaround for the free-tier backend spinning down after ~15min idle,
+  # which cold-starts on the next request (30-60s+) — long enough that the
+  # mobile app's background history preload (12s timeout) gives up and shows
+  # "no history" even when it exists. This job runs on its own schedule
+  # outside the web service, so it keeps generating real inbound traffic to
+  # /health even when no user is active. It does NOT help the very first
+  # request after a deploy/restart, and it's a mitigation, not a fix — the
+  # actual fix is moving neringa-backend off the free plan.
+  - type: cron
+    name: neringa-backend-keepalive
+    runtime: node
+    plan: free
+    schedule: "*/10 * * * *"
+    buildCommand: "true"
+    startCommand: >-
+      node -e "fetch('https://neringa.onrender.com/health').then(r => { console.log('keepalive ping status:', r.status); process.exit(r.ok ? 0 : 1); }).catch(e => { console.error('keepalive ping failed:', e.message); process.exit(1); })"

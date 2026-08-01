@@ -149,7 +149,16 @@ userRouter.post('/reset-password', resetPassword);
 userRouter.post("/resend-otp", resendOtp);
 userRouter.post('/AddAtrip', isAuthenticated, requireKycVerification, AddAtrip)
 userRouter.post('/:tripId/reviews', isAuthenticated, requireKycVerification, AddReviewToTrip);
-userRouter.get("/MyTrips", isAuthenticated, requireKycVerification, MyTrips)
+// SECURITY/BUG: viewing your OWN already-posted trip history must not
+// require currently-passing KYC — AddAtrip (trip creation) already enforces
+// KYC on its own, so a trip only ever exists here because its owner was
+// KYC-approved at creation time. Gating this read endpoint too meant any
+// user whose kyc_status later changed away from approved (re-verification,
+// an admin reset, etc.) got a silent 403 and the Trips tab showed "no trips"
+// for history they legitimately have. recentOrder/getRequests/
+// incoming-requests (the equivalent shipment/request history endpoints)
+// were never gated like this — this brings MyTrips in line with them.
+userRouter.get("/MyTrips", isAuthenticated, MyTrips)
 userRouter.get("/Trip/:id", isAuthenticated, requireKycVerification, GetTripById)
 userRouter.get("/getuser", isAuthenticated, getUser)
 userRouter.post("/user/accept-terms", isAuthenticated, acceptTerms)
