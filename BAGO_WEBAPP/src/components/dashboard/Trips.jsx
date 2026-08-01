@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { Plane, Trash2, Edit3, Plus, Weight, RefreshCw, X, ChevronDown, TrendingUp, RotateCcw, History } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
@@ -33,6 +33,7 @@ function formatPayoutStatus(raw) {
 export default function Trips() {
     const { t } = useLanguage();
     const navigate = useNavigate();
+    const location = useLocation();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(null);
@@ -49,6 +50,23 @@ export default function Trips() {
     const [travelMeans, setTravelMeans] = useState('airplane');
 
     useEffect(() => { fetchMyTrips(); }, []);
+
+    // Lets a transaction row elsewhere (Wallet & Earnings) deep-link into a
+    // specific trip via /dashboard?tab=trips&tripId=<id> instead of only
+    // being reachable by scrolling to it in this tab's own list.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tripId = params.get('tripId');
+        if (!tripId || trips.length === 0) return;
+        const match = trips.find(t => (t._id || t.id) === tripId);
+        if (match) {
+            setExpandedTripId(tripId);
+            params.delete('tripId');
+            const query = params.toString();
+            navigate(`${location.pathname}${query ? `?${query}` : ''}`, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trips, location.search]);
 
     const fetchMyTrips = async () => {
         setLoading(true);

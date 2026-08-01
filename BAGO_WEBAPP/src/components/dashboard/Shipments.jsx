@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api';
 import {
     Package, Clock, ChevronRight, AlertTriangle, ShieldCheck,
@@ -106,6 +106,7 @@ const paymentDraftMinutesLeft = (req) => {
 
 export default function Shipments({ onNavigateToChat }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(null);
@@ -119,6 +120,23 @@ export default function Shipments({ onNavigateToChat }) {
     const holdTimer = useRef(null);
 
     useEffect(() => { fetchMyRequests(); }, []);
+
+    // Lets a transaction row elsewhere (Wallet & Earnings) deep-link into a
+    // specific shipment via /dashboard?tab=shipments&requestId=<id> instead
+    // of only being reachable by scrolling to it in this tab's own list.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const requestId = params.get('requestId');
+        if (!requestId || requests.length === 0) return;
+        const match = requests.find(r => rid(r) === requestId);
+        if (match) {
+            setViewingDetails(match);
+            params.delete('requestId');
+            const query = params.toString();
+            navigate(`${location.pathname}${query ? `?${query}` : ''}`, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [requests, location.search]);
 
     const fetchMyRequests = async () => {
         setLoading(true);

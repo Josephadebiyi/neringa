@@ -553,8 +553,23 @@ export default function Earnings({ user, checkAuthStatus }) {
                         {transactions.map((tx, i) => {
                             const isOut = expenseTypes.has(tx.type);
                             const meta = transactionMeta(tx);
+                            // A withdrawal (or any transaction with no linked
+                            // shipment/trip) has nothing to open. "earning"
+                            // transactions are a traveler's payout for
+                            // carrying someone else's package — that request
+                            // only appears in the Deliveries tab (traveler
+                            // role), not Shipments (sender role).
+                            const openTarget = tx.request_id
+                                ? `/dashboard?tab=${tx.type === 'earning' ? 'deliveries' : 'shipments'}&requestId=${tx.request_id}`
+                                : tx.trip_id
+                                    ? `/dashboard?tab=trips&tripId=${tx.trip_id}`
+                                    : null;
                             return (
-                                <div key={tx.id || i} className="flex items-center justify-between px-7 py-5 hover:bg-gray-50/40 transition-all group">
+                                <div
+                                    key={tx.id || i}
+                                    onClick={openTarget ? () => navigate(openTarget) : undefined}
+                                    className={`flex items-center justify-between px-7 py-5 hover:bg-gray-50/40 transition-all group ${openTarget ? 'cursor-pointer' : ''}`}
+                                >
                                     <div className="flex items-center gap-4">
                                         <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${isOut ? 'bg-amber-50 text-amber-500 group-hover:bg-amber-100' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'}`}>
                                             {isOut ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}

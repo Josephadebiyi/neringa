@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api';
 import {
     Package, Clock, CheckCircle, RefreshCw, X,
@@ -37,6 +38,8 @@ const STATUS_UPDATE_OPTIONS = [
 ];
 
 export default function Deliveries({ onNavigateToChat }) {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [deliveries, setDeliveries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [updatingStatus, setUpdatingStatus] = useState(null);
@@ -54,6 +57,23 @@ export default function Deliveries({ onNavigateToChat }) {
 
     useEffect(() => { fetchDeliveries(); }, []);
     useEffect(() => { setAcceptedTerms([false, false, false]); }, [viewingDetails]);
+
+    // Lets a transaction row elsewhere (Wallet & Earnings) deep-link into a
+    // specific delivery via /dashboard?tab=deliveries&requestId=<id> instead
+    // of only being reachable by scrolling to it in this tab's own list.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const requestId = params.get('requestId');
+        if (!requestId || deliveries.length === 0) return;
+        const match = deliveries.find(d => rid(d) === requestId);
+        if (match) {
+            setViewingDetails(match);
+            params.delete('requestId');
+            const query = params.toString();
+            navigate(`${location.pathname}${query ? `?${query}` : ''}`, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deliveries, location.search]);
     useEffect(() => {
         if (!toast.show) return;
         const t = setTimeout(() => setToast(s => ({ ...s, show: false })), 4000);
