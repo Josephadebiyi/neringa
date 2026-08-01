@@ -113,12 +113,48 @@ async function ensureWalletTransactionEnumValues() {
   }
 }
 
+// Some production databases still use the legacy request_status enum. The
+// inspection migration adds a CHECK constraint containing the new workflow
+// values, but PostgreSQL rejects those literals unless the enum is extended
+// first. Run each ALTER as its own query so every value is committed and safe
+// to use by the migration that follows.
+async function ensureRequestStatusEnumValues() {
+  const enumExists = await pgQuery(`
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'request_status'
+      AND n.nspname = 'public'
+    LIMIT 1
+  `);
+  if (enumExists.rowCount === 0) return;
+
+  const inspectionStatuses = [
+    'accepted_awaiting_inspection',
+    'inspection_in_progress',
+    'inspection_completed',
+    'rejected_at_inspection_under_review',
+    'approved_for_trip',
+    'refund_approved',
+    'partial_refund_approved',
+    'refund_declined',
+  ];
+  for (const value of inspectionStatuses) {
+    await pgQuery(`ALTER TYPE public.request_status ADD VALUE IF NOT EXISTS '${value}'`);
+  }
+}
+
 async function runMigrations() {
   const migrationsDir = path.join(__dirname, 'migrations');
   try {
     await ensureWalletTransactionEnumValues();
   } catch (err) {
     console.error('❌ Could not prepare wallet transaction enum values:', err.message);
+  }
+  try {
+    await ensureRequestStatusEnumValues();
+  } catch (err) {
+    console.error('❌ Could not prepare request status enum values:', err.message);
   }
   let files;
   try {

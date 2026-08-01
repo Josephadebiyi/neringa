@@ -5,8 +5,9 @@ alter table public.shipment_requests
   add column if not exists inspection_completed_at timestamptz,
   add column if not exists inspection_rejected_at timestamptz;
 
--- Keep status as text so old completed orders remain valid. Replace a legacy
--- CHECK constraint when one exists in an installation.
+-- The startup migration runner extends legacy request_status enums with these
+-- workflow values before executing this file. Replace the legacy CHECK
+-- constraint when one exists in an installation.
 alter table public.shipment_requests drop constraint if exists shipment_requests_status_check;
 alter table public.shipment_requests
   add constraint shipment_requests_status_check check (status in (
