@@ -83,6 +83,17 @@ function transactionMeta(tx) {
     return parts.join(' · ');
 }
 
+function transactionOpenTarget(tx) {
+    if (tx.request_id) {
+        const tab = tx.type === 'earning' ? 'deliveries' : 'shipments';
+        return `/dashboard?tab=${tab}&requestId=${encodeURIComponent(tx.request_id)}`;
+    }
+    if (tx.trip_id) {
+        return `/dashboard?tab=trips&tripId=${encodeURIComponent(tx.trip_id)}`;
+    }
+    return null;
+}
+
 function firstNumber(...values) {
     for (const value of values) {
         if (value === null || value === undefined || value === '') continue;
@@ -559,16 +570,15 @@ export default function Earnings({ user, checkAuthStatus }) {
                             // carrying someone else's package — that request
                             // only appears in the Deliveries tab (traveler
                             // role), not Shipments (sender role).
-                            const openTarget = tx.request_id
-                                ? `/dashboard?tab=${tx.type === 'earning' ? 'deliveries' : 'shipments'}&requestId=${tx.request_id}`
-                                : tx.trip_id
-                                    ? `/dashboard?tab=trips&tripId=${tx.trip_id}`
-                                    : null;
+                            const openTarget = transactionOpenTarget(tx);
+                            const Row = openTarget ? 'button' : 'div';
                             return (
-                                <div
+                                <Row
                                     key={tx.id || i}
+                                    type={openTarget ? 'button' : undefined}
                                     onClick={openTarget ? () => navigate(openTarget) : undefined}
-                                    className={`flex items-center justify-between px-7 py-5 hover:bg-gray-50/40 transition-all group ${openTarget ? 'cursor-pointer' : ''}`}
+                                    className={`w-full flex items-center justify-between px-7 py-5 text-left hover:bg-gray-50/40 transition-all group ${openTarget ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5C4BFD]' : ''}`}
+                                    aria-label={openTarget ? `Open ${transactionTitle(tx, isOut)}` : undefined}
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${isOut ? 'bg-amber-50 text-amber-500 group-hover:bg-amber-100' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'}`}>
@@ -603,7 +613,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                             : 'text-gray-400'
                                         }`}>{formatTxStatus(tx.status)}</p>
                                     </div>
-                                </div>
+                                </Row>
                             );
                         })}
                     </div>

@@ -29,6 +29,17 @@ function transactionMeta(tx) {
     return parts.join(' · ');
 }
 
+function transactionOpenTarget(tx) {
+    if (tx.request_id) {
+        const tab = (tx.type || '').toLowerCase() === 'earning' ? 'deliveries' : 'shipments';
+        return `/dashboard?tab=${tab}&requestId=${encodeURIComponent(tx.request_id)}`;
+    }
+    if (tx.trip_id) {
+        return `/dashboard?tab=trips&tripId=${encodeURIComponent(tx.trip_id)}`;
+    }
+    return null;
+}
+
 function firstNumber(...values) {
     for (const value of values) {
         if (value === null || value === undefined || value === '') continue;
@@ -484,8 +495,16 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                             const txDate = new Date(tx.created_at || tx.createdAt || tx.date);
                             const txStatus = tx.status || 'completed';
                             const meta = transactionMeta(tx);
+                            const openTarget = transactionOpenTarget(tx);
+                            const Row = openTarget ? 'button' : 'div';
                             return (
-                                <div key={tx.id || i} className="grid grid-cols-1 md:grid-cols-4 items-center px-6 py-4 hover:bg-gray-50/50 transition-all gap-3 md:gap-0">
+                                <Row
+                                    key={tx.id || i}
+                                    type={openTarget ? 'button' : undefined}
+                                    onClick={openTarget ? () => navigate(openTarget) : undefined}
+                                    className={`w-full grid grid-cols-1 md:grid-cols-4 items-center px-6 py-4 text-left hover:bg-gray-50/50 transition-all gap-3 md:gap-0 ${openTarget ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5845D8]' : ''}`}
+                                    aria-label={openTarget ? `Open ${transactionTitle(tx, isOut)}` : undefined}
+                                >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isOut ? 'bg-orange-50' : 'bg-emerald-50'}`}>
                                             {isOut
@@ -521,7 +540,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                                     <span className={`text-sm font-black tracking-tight md:text-right ${isOut ? 'text-orange-500' : 'text-emerald-600'}`}>
                                         {isOut ? '−' : '+'}{sym}{Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                     </span>
-                                </div>
+                                </Row>
                             );
                         })}
                     </div>
