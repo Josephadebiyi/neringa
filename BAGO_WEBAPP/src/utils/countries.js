@@ -15,6 +15,7 @@ export const countries = [
     { label: 'Ethiopia', value: 'ET', flag: '🇪🇹' },
     { label: 'France', value: 'FR', flag: '🇫🇷' },
     { label: 'Germany', value: 'DE', flag: '🇩🇪' },
+    { label: 'Georgia', value: 'GE', flag: '🇬🇪' },
     { label: 'Ghana', value: 'GH', flag: '🇬🇭' },
     { label: 'India', value: 'IN', flag: '🇮🇳' },
     { label: 'Indonesia', value: 'ID', flag: '🇮🇩' },
@@ -56,6 +57,8 @@ export const countries = [
 
 // All cities grouped by country — used for trip routing & search
 export const locations = [
+    // Georgia
+    { label: 'Tbilisi, Georgia', city: 'Tbilisi', country: 'Georgia', flag: '🇬🇪' },
     // United Kingdom
     { label: 'London, UK', city: 'London', country: 'United Kingdom', flag: '🇬🇧' },
     { label: 'Manchester, UK', city: 'Manchester', country: 'United Kingdom', flag: '🇬🇧' },

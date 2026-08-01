@@ -94,78 +94,123 @@ export const makeCustomLocation = (inputValue) => {
     };
 };
 
-// Async loader: local filter + Nominatim live search
-let _debounceTimer;
-export const loadCityOptions = (inputValue) =>
-    new Promise((resolve) => {
-        clearTimeout(_debounceTimer);
-        _debounceTimer = setTimeout(async () => {
-            const norm = normalizeText(inputValue);
+const citySearchCache = new Map();
+
+const uniqueCities = (options) => {
+    const seen = new Set();
+    return options.filter((option) => {
+        const isCountry = option.type === 'country';
+        const key = isCountry
+            ? `country|${normalizeCountry(option.country)}`
+            : `city|${normalizeText(option.city)}|${normalizeCountry(option.country)}`;
+        if ((!isCountry && !option.city) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+};
+
+const fetchJson = async (url) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+        const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`City search failed (${response.status})`);
+        return await response.json();
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
+const searchPhoton = async (inputValue) => {
+    const data = await fetchJson(
+        `https://photon.komoot.io/api/?q=${encodeURIComponent(inputValue)}&limit=12&lang=en`,
+    );
+    return (data.features || []).map((feature) => {
+        const properties = feature.properties || {};
+        const city = properties.city || properties.name || properties.locality || '';
+        const country = properties.country || '';
+        if (!city || !country) return null;
+        return {
+            value: `photon:${city}:${country}`,
+            label: `${city}, ${country}`,
+            city,
+            country,
+            flag: codeToFlag(properties.countrycode || ''),
+            type: 'city',
+            searchText: normalizeText(`${city} ${country}`),
+        };
+    }).filter(Boolean);
+};
+
+const searchNominatim = async (inputValue) => {
+    const data = await fetchJson(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(inputValue)}&format=jsonv2&addressdetails=1&limit=10&accept-language=en`,
+    );
+    return data.map((item) => {
+        const address = item.address || {};
+        const city = address.city || address.town || address.municipality ||
+            address.village || address.county || item.name ||
+            item.display_name?.split(',')[0]?.trim() || '';
+        const country = address.country || '';
+        if (!city || !country) return null;
+        return {
+            value: `nominatim:${city}:${country}`,
+            label: `${city}, ${country}`,
+            city,
+            country,
+            flag: codeToFlag(address.country_code || ''),
+            type: 'city',
+            searchText: normalizeText(`${city} ${country}`),
+        };
+    }).filter(Boolean);
+};
+
+// Async loader: local results plus worldwide geocoding. Each invocation owns
+// its request, so origin and destination fields cannot cancel each other.
+export const loadCityOptions = async (inputValue) => {
+            const query = inputValue.trim();
+            const norm = normalizeText(query);
 
             // Cities first, country-wide entries only when user explicitly searches a country name
-            const allLocal = inputValue
+            const allLocal = query
                 ? locationOptions.filter((o) => o.searchText?.includes(norm))
                 : locationOptions.slice(0, 30);
-            const local = inputValue
+            const local = query
                 ? [
                     ...allLocal.filter((o) => o.type === 'city').slice(0, 15),
                     ...allLocal.filter((o) => o.type === 'country').slice(0, 5),
                   ]
                 : allLocal;
 
-            if (!inputValue || inputValue.length < 2) {
-                resolve(local);
-                return;
+            if (!query || query.length < 2) {
+                return local;
             }
 
+            if (citySearchCache.has(norm)) {
+                return uniqueCities([...local, ...citySearchCache.get(norm)]);
+            }
+
+            let worldwide = [];
             try {
-                const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(inputValue)}&format=jsonv2&addressdetails=1&limit=10`,
-                    { headers: { 'User-Agent': 'BagoApp/1.0 (bago.delivery)' } }
-                );
-                const data = await res.json();
-
-                const nominatim = data
-                    .map((item) => {
-                        const address = item.address || {};
-                        const city =
-                            address.city ||
-                            address.town ||
-                            address.municipality ||
-                            address.village ||
-                            address.county ||
-                            item.display_name?.split(',')[0]?.trim() ||
-                            '';
-                        const country = address.country || '';
-                        if (!city) return null;
-                        return {
-                            value: `nominatim:${city}:${country}`,
-                            label: `${city}, ${country}`,
-                            city,
-                            country,
-                            flag: codeToFlag(address.country_code || ''),
-                            type: 'city',
-                            searchText: normalizeText(`${city} ${country}`),
-                        };
-                    })
-                    .filter(Boolean)
-                    // Remove duplicates with local predefined list
-                    .filter(
-                        (r) =>
-                            !local.some(
-                                (l) =>
-                                    l.city &&
-                                    normalizeText(l.city) === normalizeText(r.city) &&
-                                    normalizeCountry(l.country) === normalizeCountry(r.country)
-                            )
-                    );
-
-                resolve([...local, ...nominatim]);
+                worldwide = await searchPhoton(query);
             } catch {
-                resolve(local);
+                // Photon can occasionally be unavailable; Nominatim is the
+                // secondary worldwide source rather than leaving only local cities.
             }
-        }, 300);
-    });
+            if (worldwide.length === 0) {
+                try {
+                    worldwide = await searchNominatim(query);
+                } catch {
+                    worldwide = [];
+                }
+            }
+            const normalizedWorldwide = uniqueCities(worldwide).slice(0, 10);
+            citySearchCache.set(norm, normalizedWorldwide);
+            return uniqueCities([...local, ...normalizedWorldwide]);
+};
 
 // Client-side trip matching (used on Search page)
 const getTripSide = (trip, side) => {
