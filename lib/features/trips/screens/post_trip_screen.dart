@@ -407,7 +407,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     }
     if (_step < 8) {
       setState(() => _step++);
-      if (_step == 7 && _from.isNotEmpty && _to.isNotEmpty) _fetchPriceSuggestion();
+      if (_step == 7 && _from.isNotEmpty && _to.isNotEmpty)
+        _fetchPriceSuggestion();
     } else {
       _publish();
     }
@@ -428,15 +429,24 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
   Future<void> _fetchPriceSuggestion() async {
     try {
       final currency = _lockedCurrency.isNotEmpty ? _lockedCurrency : 'USD';
-      final rating = ref.read(authProvider).user?.rating.toStringAsFixed(1) ?? '0';
+      final rating =
+          ref.read(authProvider).user?.rating.toStringAsFixed(1) ?? '0';
       final res = await ApiService.instance.get(
         ApiConstants.aiPriceRecommendation,
-        queryParameters: {'from': _from, 'to': _to, 'currency': currency, 'rating': rating},
+        queryParameters: {
+          'from': _from,
+          'to': _to,
+          'currency': currency,
+          'rating': rating
+        },
       ).timeout(const Duration(seconds: 12));
       if (!mounted) return;
       final data = res.data as Map<String, dynamic>?;
       if (data?['suggestedMin'] != null && data?['suggestedMax'] != null) {
-        setState(() { _priceSuggestion = data; _priceSuggestionDismissed = false; });
+        setState(() {
+          _priceSuggestion = data;
+          _priceSuggestionDismissed = false;
+        });
       }
     } catch (_) {}
   }
@@ -567,7 +577,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
 
       return DateTime(year, month, day, hour, minute).toUtc().toIso8601String();
     } catch (_) {
-      throw Exception('Invalid trip date. Please reselect the departure date and time.');
+      throw Exception(
+          'Invalid trip date. Please reselect the departure date and time.');
     }
   }
 
@@ -1006,7 +1017,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           currency: currentCurrency,
           onChanged: (v) => setState(() => _price = v),
           suggestion: _priceSuggestionDismissed ? null : _priceSuggestion,
-          onDismissSuggestion: () => setState(() => _priceSuggestionDismissed = true),
+          onDismissSuggestion: () =>
+              setState(() => _priceSuggestionDismissed = true),
           onApplySuggestion: (v) => setState(() => _price = v),
         );
       case 8:
@@ -2805,6 +2817,7 @@ class _PriceStep extends StatefulWidget {
 
 class _PriceStepState extends State<_PriceStep> {
   late final TextEditingController _ctrl;
+  final _suggestionKey = GlobalKey();
 
   @override
   void initState() {
@@ -2822,6 +2835,18 @@ class _PriceStepState extends State<_PriceStep> {
       _ctrl.selection =
           TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
     }
+    if (old.suggestion == null && widget.suggestion != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final suggestionContext = _suggestionKey.currentContext;
+        if (suggestionContext == null) return;
+        Scrollable.ensureVisible(
+          suggestionContext,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          alignment: 0.85,
+        );
+      });
+    }
   }
 
   @override
@@ -2833,8 +2858,14 @@ class _PriceStepState extends State<_PriceStep> {
   @override
   Widget build(BuildContext context) {
     final currency = widget.currency;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        MediaQuery.viewInsetsOf(context).bottom > 0 ? 24 : 8,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2924,23 +2955,23 @@ class _PriceStepState extends State<_PriceStep> {
           if (widget.suggestion != null &&
               widget.suggestion!['suggestedMin'] != null) ...[
             const SizedBox(height: 12),
-            _AiPriceBanner(
-              suggestedMin:
-                  (widget.suggestion!['suggestedMin'] as num).toDouble(),
-              suggestedMax:
-                  (widget.suggestion!['suggestedMax'] as num).toDouble(),
-              currency: currency,
-              reasoning:
-                  widget.suggestion!['reasoning']?.toString() ?? '',
-              onDismiss: widget.onDismissSuggestion,
-              onApply: () {
-                final mid =
-                    ((widget.suggestion!['suggestedMin'] as num) +
-                            (widget.suggestion!['suggestedMax'] as num)) /
-                        2;
-                widget.onApplySuggestion
-                    ?.call(mid.toStringAsFixed(2));
-              },
+            Container(
+              key: _suggestionKey,
+              child: _AiPriceBanner(
+                suggestedMin:
+                    (widget.suggestion!['suggestedMin'] as num).toDouble(),
+                suggestedMax:
+                    (widget.suggestion!['suggestedMax'] as num).toDouble(),
+                currency: currency,
+                reasoning: widget.suggestion!['reasoning']?.toString() ?? '',
+                onDismiss: widget.onDismissSuggestion,
+                onApply: () {
+                  final mid = ((widget.suggestion!['suggestedMin'] as num) +
+                          (widget.suggestion!['suggestedMax'] as num)) /
+                      2;
+                  widget.onApplySuggestion?.call(mid.toStringAsFixed(2));
+                },
+              ),
             ),
           ],
         ],
@@ -3017,8 +3048,7 @@ class _AiPriceBanner extends StatelessWidget {
           GestureDetector(
             onTap: onApply,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: primaryBlue,
                 borderRadius: BorderRadius.circular(8),
