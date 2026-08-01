@@ -35,6 +35,7 @@ export default function Trips() {
     const navigate = useNavigate();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
     const [editingTrip, setEditingTrip] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -51,10 +52,15 @@ export default function Trips() {
 
     const fetchMyTrips = async () => {
         setLoading(true);
+        setFetchError(null);
         try {
             const res = await api.get('/api/bago/MyTrips');
             setTrips(res.data?.trips || res.data?.data || []);
         } catch (err) {
+            // Previously swallowed silently — any failure (network blip,
+            // slow/cold-starting backend, a 403, a 500) rendered as "no
+            // trips" with zero indication anything went wrong.
+            setFetchError(err.response?.data?.message || 'Could not load your trips. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -310,8 +316,23 @@ export default function Trips() {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Plane size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#111827] mb-1.5 text-center uppercase tracking-tight">{t('noActiveTrips')}</h3>
-                    <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-8 font-bold uppercase tracking-wider opacity-60 leading-relaxed">{t('noActiveTripsDesc')}</p>
+                    {fetchError ? (
+                        <>
+                            <h3 className="text-sm font-black text-[#111827] mb-1.5 text-center uppercase tracking-tight">Could not load trips</h3>
+                            <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-5 font-bold uppercase tracking-wider opacity-60 leading-relaxed">{fetchError}</p>
+                            <button
+                                onClick={fetchMyTrips}
+                                className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] hover:text-[#4838B5] transition-colors"
+                            >
+                                Retry
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-sm font-black text-[#111827] mb-1.5 text-center uppercase tracking-tight">{t('noActiveTrips')}</h3>
+                            <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-8 font-bold uppercase tracking-wider opacity-60 leading-relaxed">{t('noActiveTripsDesc')}</p>
+                        </>
+                    )}
                 </div>
             ) : (
                 <>

@@ -108,6 +108,7 @@ export default function Shipments({ onNavigateToChat }) {
     const navigate = useNavigate();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(null);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [viewingDetails, setViewingDetails] = useState(null);
     const [disputeReason, setDisputeReason] = useState('');
@@ -121,6 +122,7 @@ export default function Shipments({ onNavigateToChat }) {
 
     const fetchMyRequests = async () => {
         setLoading(true);
+        setFetchError(null);
         try {
             const res = await api.get('/api/bago/recentOrder');
             const payload = res.data?.data || res.data?.requests || res.data || [];
@@ -140,8 +142,11 @@ export default function Shipments({ onNavigateToChat }) {
                     api.delete(`/api/bago/package/${packageId}`).catch(() => {});
                 }
             });
-        } catch {
-            // silently fail — UI shows empty state
+        } catch (err) {
+            // Previously silently failed here — any failure (network blip,
+            // slow/cold-starting backend, a 500) rendered as "no shipments
+            // yet" with zero indication anything went wrong.
+            setFetchError(err.response?.data?.message || 'Could not load your shipments. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -288,10 +293,27 @@ export default function Shipments({ onNavigateToChat }) {
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                         <Package size={24} className="text-gray-300" />
                     </div>
-                    <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">No shipments yet</h3>
-                    <p className="text-gray-400 text-[10px] max-w-xs mx-auto font-bold uppercase tracking-wider opacity-60 leading-relaxed">
-                        Once you send a package with a Bago traveler, your shipments will appear here.
-                    </p>
+                    {fetchError ? (
+                        <>
+                            <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">Could not load shipments</h3>
+                            <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-5 font-bold uppercase tracking-wider opacity-60 leading-relaxed">
+                                {fetchError}
+                            </p>
+                            <button
+                                onClick={fetchMyRequests}
+                                className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] hover:text-[#4838B5] transition-colors"
+                            >
+                                Retry
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">No shipments yet</h3>
+                            <p className="text-gray-400 text-[10px] max-w-xs mx-auto font-bold uppercase tracking-wider opacity-60 leading-relaxed">
+                                Once you send a package with a Bago traveler, your shipments will appear here.
+                            </p>
+                        </>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-4">
