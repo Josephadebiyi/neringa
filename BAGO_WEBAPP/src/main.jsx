@@ -32,6 +32,20 @@ class AppErrorBoundary extends React.Component {
 window.__BAGO_WEB_BUILD__ = '2026-07-09-google-auth-1';
 
 if (typeof document !== 'undefined') {
+    // Vite emits this when a cached page asks for a lazy-loaded chunk that was
+    // replaced by a newer deployment. Reload once to fetch the current HTML
+    // and asset manifest instead of leaving the user on the error screen.
+    window.addEventListener('vite:preloadError', (event) => {
+        event.preventDefault();
+        const recoveryKey = 'bago_stale_chunk_recovery';
+        const lastRecovery = Number(sessionStorage.getItem(recoveryKey) || 0);
+        const now = Date.now();
+        if (now - lastRecovery > 30_000) {
+            sessionStorage.setItem(recoveryKey, String(now));
+            window.location.reload();
+        }
+    });
+
     let lastTouchEnd = 0;
 
     document.addEventListener('touchend', (event) => {
