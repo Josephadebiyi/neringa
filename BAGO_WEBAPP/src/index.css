@@ -119,60 +119,115 @@
     background: #94a3b8;
 }
 
-/* Dashboard-only dark theme. The public website remains unchanged. */
+/* Dashboard-only dark theme. The public website remains unchanged.
+   Sidebar.jsx is intentionally untouched by any of this — it's already a
+   solid brand-purple panel with white text (bg-[#5845D8]) regardless of
+   theme, which is the reference look this file extends to the rest of the
+   dashboard: dark surfaces, white body text, purple for active/brand
+   accents, and status colors (red/green/amber/blue/etc.) kept as-is for
+   solid/vivid uses (buttons, dots, notification badges) so alerts and
+   badges stay visually meaningful instead of being flattened to gray. */
 .dashboard-shell.dashboard-dark {
     color-scheme: dark;
     background: #090d18 !important;
     color: #e5e7eb;
 }
 
+/* ---------------------------------------------------------------------
+   Neutral surfaces — solid white/light-gray cards, panels, table rows,
+   and inputs across every dashboard tab (Overview, Trips, Shipments,
+   Deliveries, Chats, Earnings/Wallet, Referral, Settings).
+   --------------------------------------------------------------------- */
 .dashboard-dark [class~="bg-white"],
 .dashboard-dark [class*="bg-white/"],
 .dashboard-dark [class~="bg-gray-50"],
 .dashboard-dark [class*="bg-gray-50/"],
 .dashboard-dark [class~="bg-gray-100"],
 .dashboard-dark [class*="bg-gray-100/"],
-.dashboard-dark [class~="bg-gray-200"] {
+.dashboard-dark [class~="bg-gray-200"],
+.dashboard-dark [class*="bg-gray-200/"],
+.dashboard-dark [class~="bg-gray-300"] {
     background-color: #111827 !important;
 }
 
-/* The rules above match exact class tokens (or an explicit "/opacity"
-   suffix) rather than a raw substring — [class*="bg-gray-50"] used to also
-   match "bg-gray-500" (e.g. Trips.jsx's "bg-gray-500/20"), silently forcing
-   an unrelated element dark. */
+/* These match exact class tokens (or an explicit "/opacity" suffix) rather
+   than a raw substring — [class*="bg-gray-50"] used to also match
+   "bg-gray-500" (e.g. Trips.jsx's "bg-gray-500/20"), silently forcing an
+   unrelated muted-gray badge dark. bg-*-400/500/600+ are deliberately not
+   listed anywhere in this file — those are solid/vivid uses meant to stay
+   as strong accents. */
 
 /* Tailwind bakes pseudo-class prefixes into the class token itself
-   (e.g. "hover:bg-white" is one token), so the base bg-white/bg-gray
-   selectors above never match these — they only fire on the matching
-   interaction state, which is what left inputs/buttons flashing bright
-   white on hover/focus in dark mode. */
+   (e.g. "hover:bg-white" is one token), so the neutral-surface rule above
+   never matches these — they only fire on the matching interaction state,
+   which is what left inputs/buttons/table-rows flashing bright white or
+   light gray on hover/focus. */
 .dashboard-dark [class~="hover:bg-white"]:hover,
 .dashboard-dark [class~="focus:bg-white"]:focus,
 .dashboard-dark [class~="focus-within:bg-white"]:focus-within,
 .dashboard-dark [class~="hover:bg-gray-50"]:hover,
+.dashboard-dark [class*="hover:bg-gray-50/"]:hover,
 .dashboard-dark [class~="hover:bg-gray-100"]:hover,
+.dashboard-dark [class~="hover:bg-gray-200"]:hover,
 .dashboard-dark [class~="disabled:bg-gray-100"]:disabled {
     background-color: #1c2436 !important;
 }
 
-/* Status badges, alerts, and stat cards use light "-50"/"-100" tints of a
-   brand color (red/green/amber/etc). Keep the hue so the badge still reads
-   as error/success/warning, but swap the pastel tint for a translucent dark
-   one instead of leaving it bright. */
+/* ---------------------------------------------------------------------
+   Status/accent colors — badges, alerts, and stat tiles pair a pale "-50"/
+   "-100" background with a dark "-600"+ text for contrast on a WHITE page.
+   On the dark page that pairing inverts: the pale background becomes a
+   translucent dark tint of the same hue (keeps the red/green/amber meaning
+   readable), and the dark text becomes a light tint of the same hue
+   (otherwise it's dark text on a now-dark background — unreadable, which
+   is the main thing that made the previous pass look "unfinished").
+   --------------------------------------------------------------------- */
 .dashboard-dark [class~="bg-red-50"],
 .dashboard-dark [class*="bg-red-50/"],
 .dashboard-dark [class~="bg-red-100"] {
     background-color: rgba(239, 68, 68, 0.16) !important;
+}
+.dashboard-dark [class~="hover:bg-red-50"]:hover,
+.dashboard-dark [class~="hover:bg-red-100"]:hover {
+    background-color: rgba(239, 68, 68, 0.24) !important;
+}
+.dashboard-dark [class~="border-red-50"],
+.dashboard-dark [class~="border-red-100"],
+.dashboard-dark [class~="border-red-200"],
+.dashboard-dark [class*="border-red-200/"] {
+    border-color: rgba(239, 68, 68, 0.35) !important;
+}
+.dashboard-dark [class~="text-red-600"],
+.dashboard-dark [class~="text-red-700"],
+.dashboard-dark [class~="text-red-800"] {
+    color: #fca5a5 !important;
 }
 
 .dashboard-dark [class~="bg-green-50"],
 .dashboard-dark [class*="bg-green-50/"] {
     background-color: rgba(34, 197, 94, 0.16) !important;
 }
+.dashboard-dark [class~="border-green-100"] {
+    border-color: rgba(34, 197, 94, 0.35) !important;
+}
+.dashboard-dark [class~="text-green-600"],
+.dashboard-dark [class~="text-green-700"] {
+    color: #86efac !important;
+}
 
 .dashboard-dark [class~="bg-emerald-50"],
 .dashboard-dark [class~="bg-emerald-100"] {
     background-color: rgba(16, 185, 129, 0.16) !important;
+}
+.dashboard-dark [class~="group-hover:bg-emerald-100"]:hover {
+    background-color: rgba(16, 185, 129, 0.24) !important;
+}
+.dashboard-dark [class~="border-emerald-100"] {
+    border-color: rgba(16, 185, 129, 0.35) !important;
+}
+.dashboard-dark [class~="text-emerald-600"],
+.dashboard-dark [class~="text-emerald-700"] {
+    color: #6ee7b7 !important;
 }
 
 .dashboard-dark [class~="bg-amber-50"],
@@ -180,20 +235,55 @@
 .dashboard-dark [class~="bg-amber-100"] {
     background-color: rgba(245, 158, 11, 0.16) !important;
 }
+.dashboard-dark [class~="group-hover:bg-amber-100"]:hover {
+    background-color: rgba(245, 158, 11, 0.24) !important;
+}
+.dashboard-dark [class~="border-amber-100"],
+.dashboard-dark [class~="border-amber-200"],
+.dashboard-dark [class~="border-amber-300"] {
+    border-color: rgba(245, 158, 11, 0.35) !important;
+}
+.dashboard-dark [class~="text-amber-600"],
+.dashboard-dark [class~="text-amber-700"],
+.dashboard-dark [class*="text-amber-700/"],
+.dashboard-dark [class~="text-amber-800"],
+.dashboard-dark [class~="text-amber-900"] {
+    color: #fcd34d !important;
+}
+
+.dashboard-dark [class~="text-yellow-600"] {
+    color: #fde047 !important;
+}
 
 .dashboard-dark [class~="bg-blue-50"] {
     background-color: rgba(59, 130, 246, 0.16) !important;
+}
+.dashboard-dark [class~="text-blue-600"],
+.dashboard-dark [class~="text-blue-700"] {
+    color: #93c5fd !important;
 }
 
 .dashboard-dark [class~="bg-indigo-50"],
 .dashboard-dark [class*="bg-indigo-50/"] {
     background-color: rgba(99, 102, 241, 0.16) !important;
 }
+.dashboard-dark [class*="border-indigo-100/"] {
+    border-color: rgba(99, 102, 241, 0.35) !important;
+}
+.dashboard-dark [class~="text-indigo-600"] {
+    color: #a5b4fc !important;
+}
 
 .dashboard-dark [class~="bg-orange-50"] {
     background-color: rgba(249, 115, 22, 0.16) !important;
 }
 
+/* ---------------------------------------------------------------------
+   Body text — most text just inherits the light color set on
+   .dashboard-shell.dashboard-dark above (that's the "text should be
+   white" default). These are the specific dark/near-black text utilities
+   that need an explicit override since Tailwind sets `color` directly.
+   --------------------------------------------------------------------- */
 .dashboard-dark [class*="text-[#111827]"],
 .dashboard-dark [class*="text-[#012126]"],
 .dashboard-dark [class~="text-black"] {
@@ -207,10 +297,26 @@
 .dashboard-dark [class*="text-gray-7"] {
     color: #9ca3af !important;
 }
+.dashboard-dark [class~="hover:text-gray-600"]:hover {
+    color: #cbd5e1 !important;
+}
+.dashboard-dark [class~="disabled:text-gray-400"]:disabled {
+    color: #6b7280 !important;
+}
 
+/* Brand purple (labels, active nav state, links, primary buttons) is
+   never touched above — text-[#5845D8]/#5240E8/#5C4BFD etc. and bg-[#5845D8]
+   keep their exact color in both themes, matching the sidebar. */
+
+/* ---------------------------------------------------------------------
+   Borders — light neutral dividers/card outlines.
+   --------------------------------------------------------------------- */
 .dashboard-dark [class*="border-gray-"],
 .dashboard-dark [class*="border-white"] {
     border-color: #273244 !important;
+}
+.dashboard-dark [class~="hover:border-gray-200"]:hover {
+    border-color: #364152 !important;
 }
 
 .dashboard-dark input,
