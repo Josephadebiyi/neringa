@@ -407,8 +407,9 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     }
     if (_step < 8) {
       setState(() => _step++);
-      if (_step == 7 && _from.isNotEmpty && _to.isNotEmpty)
+      if (_step == 7 && _from.isNotEmpty && _to.isNotEmpty) {
         _fetchPriceSuggestion();
+      }
     } else {
       _publish();
     }
@@ -1314,8 +1315,8 @@ class _ComplianceStep extends StatelessWidget {
                       style: AppTextStyles.h4
                           .copyWith(fontWeight: FontWeight.w800)),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(18, 0, 18, 16),
                   child: Text(
                     'As a Bago Carrier, you enter into a legally binding agreement with Bago and the Senders you connect with.\n\n'
                     '1. Package Inspection: You MUST personally inspect the contents of any package you agree to carry.\n\n'
@@ -1324,7 +1325,7 @@ class _ComplianceStep extends StatelessWidget {
                     '4. Timely Delivery: You agree to deliver items within the agreed timeframe. Any delays must be communicated immediately via the app.\n\n'
                     '5. In-App Conduct: All negotiations, tracking, and payments must occur via the Bago platform to be protected by our escrow and insurance policies.\n\n'
                     '6. Liability: Bago is not liable for transport-related losses beyond the insured value. You indemnify Bago against any legal claims arising from your conduct.',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13, color: Color(0xFF6B7280), height: 1.6),
                   ),
                 ),
@@ -1978,11 +1979,12 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
         addItem(item);
       }
 
-      if (mounted)
+      if (mounted) {
         setState(() {
           _suggestions = list;
           _loading = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

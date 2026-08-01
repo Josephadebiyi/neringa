@@ -19,6 +19,8 @@ class _FakeAuthNotifier extends AuthNotifier {
 UserModel _user({
   String preferredCurrency = 'NGN',
   bool bankAccountLinked = false,
+  String? payoutProvider,
+  String? payoutStatus,
 }) =>
     UserModel(
       id: 'u1',
@@ -27,6 +29,8 @@ UserModel _user({
       kycStatus: 'approved',
       preferredCurrency: preferredCurrency,
       bankAccountLinked: bankAccountLinked,
+      payoutProvider: payoutProvider,
+      payoutStatus: payoutStatus,
     );
 
 Widget _wrap(UserModel? user) => ProviderScope(
@@ -55,6 +59,22 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 4));
 
+      final btn = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Confirm withdrawal'),
+      );
+      expect(btn.onPressed, isNull);
+    });
+
+    testWidgets('legacy PayPal account must reconnect through Flutterwave',
+        (tester) async {
+      await tester.pumpWidget(_wrap(_user(
+        payoutProvider: 'paypal',
+        payoutStatus: 'active',
+      )));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(find.textContaining('No payout method linked'), findsOneWidget);
       final btn = tester.widget<ElevatedButton>(
         find.widgetWithText(ElevatedButton, 'Confirm withdrawal'),
       );

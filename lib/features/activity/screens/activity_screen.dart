@@ -563,9 +563,8 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
               const SizedBox(height: 24),
               AppButton(
                 label: 'Retry',
-                onPressed: () => ref
-                    .read(shipmentProvider.notifier)
-                    .loadIncomingRequests(),
+                onPressed: () =>
+                    ref.read(shipmentProvider.notifier).loadIncomingRequests(),
               ),
             ],
           ),
@@ -590,8 +589,7 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
       );
     }
 
-    final filtered =
-        allRequests.where((r) => _matches(r, _query)).toList();
+    final filtered = allRequests.where((r) => _matches(r, _query)).toList();
     final active = filtered.where(_isActiveTravelerRequest).toList();
     final past = filtered.where((r) => !_isActiveTravelerRequest(r)).toList();
 
@@ -677,10 +675,7 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
 }
 
 bool _isActiveTravelerRequest(RequestModel request) {
-  return request.status == RequestStatus.pending ||
-      request.status == RequestStatus.accepted ||
-      request.status == RequestStatus.intransit ||
-      request.status == RequestStatus.delivering;
+  return request.status.isActive;
 }
 
 // Cards

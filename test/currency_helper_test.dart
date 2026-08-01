@@ -54,31 +54,24 @@ void main() {
     });
 
     test('minimum for NGN is greater than minimum for USD', () {
-      final minUsd = CurrencyConversionHelper.minimumWithdrawalForCurrency('USD');
-      final minNgn = CurrencyConversionHelper.minimumWithdrawalForCurrency('NGN');
+      final minUsd =
+          CurrencyConversionHelper.minimumWithdrawalForCurrency('USD');
+      final minNgn =
+          CurrencyConversionHelper.minimumWithdrawalForCurrency('NGN');
       expect(minNgn, greaterThan(minUsd));
     });
   });
 
   group('CurrencyConversionHelper.providerForCurrency', () {
-    test('NGN uses paystack', () {
-      expect(CurrencyConversionHelper.providerForCurrency('NGN'), equals('paystack'));
-    });
-
-    test('GHS uses paystack', () {
-      expect(CurrencyConversionHelper.providerForCurrency('GHS'), equals('paystack'));
-    });
-
-    test('USD uses paypal', () {
-      expect(CurrencyConversionHelper.providerForCurrency('USD'), equals('paypal'));
-    });
-
-    test('EUR uses paypal', () {
-      expect(CurrencyConversionHelper.providerForCurrency('EUR'), equals('paypal'));
-    });
-
-    test('GBP uses paypal', () {
-      expect(CurrencyConversionHelper.providerForCurrency('GBP'), equals('paypal'));
+    test('all supported payment currencies use Flutterwave', () {
+      for (final currency
+          in CurrencyConversionHelper.flutterwavePaymentCurrencies) {
+        expect(
+          CurrencyConversionHelper.providerForCurrency(currency),
+          equals('flutterwave'),
+          reason: '$currency should use the active payment provider',
+        );
+      }
     });
   });
 

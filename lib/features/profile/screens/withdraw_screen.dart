@@ -200,6 +200,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       });
       if (mounted) {
         await _fetchBalance();
+        if (!mounted) return;
         _amountCtrl.clear();
         await showDialog<void>(
           context: context,
@@ -218,7 +219,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Icon(Icons.schedule_rounded,
+                  child: const Icon(Icons.schedule_rounded,
                       color: AppColors.primary, size: 34),
                 ),
                 const SizedBox(height: 18),
@@ -452,22 +453,21 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     }
     final minimumAmount =
         CurrencyConversionHelper.minimumWithdrawalForCurrency(currency);
-    // Flutterwave is the sole active payout provider — bank-account linkage is
-    // no longer currency-branched. bankAccountLinked covers new Flutterwave
-    // beneficiaries; payoutProvider/payoutStatus catch an already-connected
-    // legacy PayPal account so existing users aren't shown as unlinked.
+    // Flutterwave is the sole active payout provider. Do not accept legacy
+    // Paystack/PayPal linkage as withdrawable because it has no Flutterwave
+    // beneficiary to receive the transfer.
     final hasBankLinked = user?.bankAccountLinked == true;
     final payoutProvider = user?.payoutProvider?.toLowerCase() ?? '';
     final payoutMethod = user?.payoutMethod?.toLowerCase() ?? '';
     final payoutStatus = user?.payoutStatus?.toLowerCase() ?? '';
     final payoutMethodStatus = user?.payoutMethodStatus?.toLowerCase() ?? '';
-    final hasLegacyPaypalLinked =
-        payoutProvider == 'paypal' || payoutMethod == 'paypal';
-    final hasActiveLegacyPaypal = hasLegacyPaypalLinked &&
+    final hasFlutterwaveLinked =
+        payoutProvider == 'flutterwave' || payoutMethod == 'flutterwave';
+    final hasActiveFlutterwave = hasFlutterwaveLinked &&
         (payoutStatus == 'active' ||
             payoutMethodStatus == 'connected' ||
             payoutMethodStatus == 'active');
-    final hasPayoutMethod = hasBankLinked || hasActiveLegacyPaypal;
+    final hasPayoutMethod = hasBankLinked || hasActiveFlutterwave;
     final canWithdraw =
         hasPayoutMethod && !_submitting && _balance >= minimumAmount;
 
@@ -571,7 +571,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               ),
               const SizedBox(height: 12),
               _PayoutMethodPanel(
-                method: hasActiveLegacyPaypal ? 'PayPal (legacy)' : 'Bank account',
+                method: 'Flutterwave bank account',
                 hasMethod: hasPayoutMethod,
                 onSetup: () => context.push('/profile/payout-methods'),
               ),
@@ -607,7 +607,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 amount: double.tryParse(_amountCtrl.text) ?? 0,
                 minimumAmount: minimumAmount,
                 balance: _balance,
-                method: hasActiveLegacyPaypal ? 'PayPal (legacy)' : 'Bank account',
+                method: 'Flutterwave bank account',
               ),
               const SizedBox(height: 24),
               SizedBox(

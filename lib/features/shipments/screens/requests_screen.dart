@@ -148,10 +148,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
 }
 
 bool _isActiveTravelerRequest(RequestModel request) {
-  return request.status == RequestStatus.pending ||
-      request.status == RequestStatus.accepted ||
-      request.status == RequestStatus.intransit ||
-      request.status == RequestStatus.delivering;
+  return request.status.isActive;
 }
 
 class _RequestCard extends ConsumerStatefulWidget {

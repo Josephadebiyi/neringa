@@ -36,50 +36,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     'ZAR',
     'ZMW',
   ];
-  static const _africanPayoutCurrencies = {
-    'AOA',
-    'BIF',
-    'BWP',
-    'CDF',
-    'CVE',
-    'DJF',
-    'DZD',
-    'EGP',
-    'ERN',
-    'ETB',
-    'GHS',
-    'GMD',
-    'GNF',
-    'KES',
-    'KMF',
-    'LRD',
-    'LSL',
-    'LYD',
-    'MAD',
-    'MGA',
-    'MRU',
-    'MUR',
-    'MWK',
-    'MZN',
-    'NAD',
-    'NGN',
-    'RWF',
-    'SCR',
-    'SDG',
-    'SLE',
-    'SOS',
-    'SSP',
-    'STN',
-    'SZL',
-    'TZS',
-    'UGX',
-    'XAF',
-    'XOF',
-    'ZAR',
-    'ZMW',
-    'ZWL',
-  };
-
   String _selectedCurrency = 'USD';
   bool _saving = false;
 
@@ -92,14 +48,6 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         _supportedPayoutCurrencies.contains(currency) ? currency : 'USD';
     _hydrateFromUser(user);
   }
-
-  // Flutterwave is the sole active payout provider now — bank-account setup no
-  // longer branches by currency. _africanPayoutCurrencies/_usesPaystack are kept
-  // only so _payoutStateFor below can still recognize an already-connected
-  // legacy Paystack/PayPal account (so existing users don't see broken state);
-  // they no longer drive which flow a user is offered.
-  bool get _usesPaystack =>
-      _africanPayoutCurrencies.contains(_selectedCurrency.toUpperCase());
 
   void _hydrateFromUser(user) {
     final payoutCurrency = user?.payoutCurrency?.toString().toUpperCase();
@@ -118,18 +66,13 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         methodStatus == 'active' ||
         methodStatus == 'connected';
 
-    // Any connected payout method — whether the account connected through
-    // Flutterwave or an older provider before this migration — is shown
-    // generically as "Bank account connected". We never surface the old
-    // provider's name in the UI, only whether a payout destination exists.
+    // Flutterwave is the sole payout provider. Legacy Paystack/PayPal records
+    // must reconnect so a withdrawal is never sent without a valid Flutterwave
+    // beneficiary.
     final hasAnyConnectedMethod = connected &&
         (provider == 'flutterwave' ||
             method == 'flutterwave' ||
-            user?.bankAccountLinked == true ||
-            provider == 'paystack' ||
-            method == 'paystack' ||
-            provider == 'paypal' ||
-            method == 'paypal');
+            user?.bankAccountLinked == true);
     if (hasAnyConnectedMethod) {
       return const _PayoutState(
         provider: _PayoutProvider.flutterwave,
@@ -538,7 +481,7 @@ class _PayoutChoiceTile extends StatelessWidget {
   }
 }
 
-enum _PayoutProvider { stripe, paystack, paypal, flutterwave }
+enum _PayoutProvider { flutterwave }
 
 enum _PayoutStatus { notStarted, incomplete, active }
 

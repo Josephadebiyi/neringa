@@ -68,6 +68,23 @@ enum RequestStatus {
   completed,
   cancelled;
 
+  /// Statuses where the request still needs attention or is being fulfilled.
+  /// Keep this centralized so every request screen classifies the workflow
+  /// consistently as new inspection states are added.
+  bool get isActive => switch (this) {
+        RequestStatus.pending ||
+        RequestStatus.accepted ||
+        RequestStatus.acceptedAwaitingInspection ||
+        RequestStatus.inspectionInProgress ||
+        RequestStatus.inspectionCompleted ||
+        RequestStatus.rejectedAtInspectionUnderReview ||
+        RequestStatus.approvedForTrip ||
+        RequestStatus.intransit ||
+        RequestStatus.delivering =>
+          true,
+        _ => false,
+      };
+
   static RequestStatus fromString(String? s) => switch (s) {
         'accepted' => RequestStatus.accepted,
         'accepted_awaiting_inspection' =>
