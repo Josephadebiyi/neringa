@@ -1,0 +1,61 @@
+name: Disaster recovery backup
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      include_object_storage:
+        description: Include Supabase Storage and Cloudinary
+        type: boolean
+        default: true
+
+concurrency:
+  group: bago-disaster-recovery-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: BAGO_BACKEND
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      RESTIC_REPOSITORY: ${{ secrets.DR_RESTIC_REPOSITORY }}
+      RESTIC_PASSWORD: ${{ secrets.DR_RESTIC_PASSWORD }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.DR_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.DR_AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.DR_AWS_DEFAULT_REGION || 'auto' }}
+      DR_HEALTHCHECK_URL: ${{ secrets.DR_HEALTHCHECK_URL }}
+      DR_INCLUDE_SUPABASE_STORAGE: ${{ github.event.schedule == '17 2 * * *' && 'false' || 'true' }}
+      DR_INCLUDE_CLOUDINARY: ${{ github.event.schedule == '17 2 * * *' && 'false' || 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: BAGO_BACKEND/package-lock.json
+      - name: Install recovery tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client restic
+      - run: npm ci --omit=dev
+      - name: Apply manual object-storage choice
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "DR_INCLUDE_SUPABASE_STORAGE=${{ inputs.include_object_storage }}" >> "$GITHUB_ENV"
+          echo "DR_INCLUDE_CLOUDINARY=${{ inputs.include_object_storage }}" >> "$GITHUB_ENV"
+      - name: Create, encrypt and verify snapshot
+        run: npm run dr:backup

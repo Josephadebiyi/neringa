@@ -1,0 +1,63 @@
+name: Disaster recovery restore drill
+
+on:
+  schedule:
+    - cron: '43 4 1 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: bago-disaster-recovery-drill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dr_user
+          POSTGRES_PASSWORD: dr_password
+          POSTGRES_DB: dr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dr_user -d dr_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: BAGO_BACKEND
+    env:
+      RESTIC_REPOSITORY: ${{ secrets.DR_RESTIC_REPOSITORY }}
+      RESTIC_PASSWORD: ${{ secrets.DR_RESTIC_PASSWORD }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.DR_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.DR_AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.DR_AWS_DEFAULT_REGION || 'auto' }}
+      DR_RESTORE_DB_URL: postgresql://dr_user:dr_password@localhost:5432/dr_test
+      DR_CONFIRM_RESTORE: RESTORE:localhost/dr_test
+      DR_RESTORE_OBJECTS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install recovery tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client restic
+      - run: npm ci --omit=dev
+      - name: Verify encrypted repository
+        run: npm run dr:verify
+      - name: Restore latest snapshot into isolated PostgreSQL
+        run: npm run dr:restore
+      - name: Validate recovered database
+        run: |
+          table_count="$(PGDATABASE="$DR_RESTORE_DB_URL" psql -Atc "select count(*) from information_schema.tables where table_schema='public';")"
+          test "$table_count" -gt 0
+          echo "Recovered public tables: $table_count"
