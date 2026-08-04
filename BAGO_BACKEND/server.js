@@ -144,6 +144,41 @@ async function ensureRequestStatusEnumValues() {
   }
 }
 
+// These columns are used by the request list and recent-order queries. Keep
+// this repair separate from the larger inspection migration: if a later
+// constraint or index in that migration fails, PostgreSQL can roll the whole
+// migration back and leave production unable to list any requests.
+async function ensureShipmentInspectionColumns() {
+  const requiredColumns = [
+    'inspection_data',
+    'inspection_started_at',
+    'inspection_completed_at',
+    'inspection_rejected_at',
+  ];
+
+  await pgQuery(`
+    ALTER TABLE public.shipment_requests
+      ADD COLUMN IF NOT EXISTS inspection_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS inspection_started_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS inspection_completed_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS inspection_rejected_at TIMESTAMPTZ
+  `);
+
+  const result = await pgQuery(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'shipment_requests'
+      AND column_name = ANY($1::text[])
+  `, [requiredColumns]);
+  const present = new Set(result.rows.map(row => row.column_name));
+  const missing = requiredColumns.filter(column => !present.has(column));
+  if (missing.length > 0) {
+    throw new Error(`shipment_requests is missing required columns: ${missing.join(', ')}`);
+  }
+  console.log('✅ Required shipment inspection columns ready');
+}
+
 async function runMigrations() {
   const migrationsDir = path.join(__dirname, 'migrations');
   try {
@@ -210,13 +245,6 @@ async function ensureSupportTable() {
   }
   console.log('✅ support_tickets table ready');
 }
-
-runMigrations();
-ensureSupportTable();
-startEscrowAutoRelease();
-startCurrencyRateSync();
-startBirthdayGreetings();
-startPremblySessionReconciler();
 
 // Apple Pay domain verification — must be before all middleware and auth
 app.get('/.well-known/apple-developer-merchantid-domain-association', async (_req, res) => {
@@ -1173,32 +1201,51 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+async function startApplication() {
+  // Do not accept traffic until the schema required by request-list queries is
+  // present. A failed repair now produces one clear startup error instead of
+  // returning 500s and making shipments appear to be missing.
+  await ensureShipmentInspectionColumns();
+  await runMigrations();
+  await ensureSupportTable();
+
+  startEscrowAutoRelease();
+  startCurrencyRateSync();
+  startBirthdayGreetings();
+  startPremblySessionReconciler();
+
+  httpServer.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 
   // APNs credential check — logs clearly if push notifications will be broken
-  const apnsOk = process.env.APNS_TEAM_ID && process.env.APNS_KEY_ID &&
-    process.env.APNS_BUNDLE_ID &&
-    (process.env.APNS_PRIVATE_KEY || process.env.APNS_PRIVATE_KEY_PATH);
-  if (apnsOk) {
-    console.log('✅ APNs credentials present — iOS push notifications enabled');
-  } else {
-    const missing = [
-      !process.env.APNS_TEAM_ID && 'APNS_TEAM_ID',
-      !process.env.APNS_KEY_ID && 'APNS_KEY_ID',
-      !process.env.APNS_BUNDLE_ID && 'APNS_BUNDLE_ID',
-      !(process.env.APNS_PRIVATE_KEY || process.env.APNS_PRIVATE_KEY_PATH) && 'APNS_PRIVATE_KEY',
-    ].filter(Boolean).join(', ');
-    console.error(`❌ APNs credentials MISSING (${missing}) — iOS push notifications will not work. Add these to Render environment variables.`);
-  }
+    const apnsOk = process.env.APNS_TEAM_ID && process.env.APNS_KEY_ID &&
+      process.env.APNS_BUNDLE_ID &&
+      (process.env.APNS_PRIVATE_KEY || process.env.APNS_PRIVATE_KEY_PATH);
+    if (apnsOk) {
+      console.log('✅ APNs credentials present — iOS push notifications enabled');
+    } else {
+      const missing = [
+        !process.env.APNS_TEAM_ID && 'APNS_TEAM_ID',
+        !process.env.APNS_KEY_ID && 'APNS_KEY_ID',
+        !process.env.APNS_BUNDLE_ID && 'APNS_BUNDLE_ID',
+        !(process.env.APNS_PRIVATE_KEY || process.env.APNS_PRIVATE_KEY_PATH) && 'APNS_PRIVATE_KEY',
+      ].filter(Boolean).join(', ');
+      console.error(`❌ APNs credentials MISSING (${missing}) — iOS push notifications will not work. Add these to Render environment variables.`);
+    }
 
   // Keep-alive ping — prevents Render free tier from sleeping (every 13 min)
-  const selfUrl = process.env.BASE_URL || 'https://neringa.onrender.com';
-  setInterval(() => {
-    fetch(`${selfUrl}/api/health`).catch(() => {});
-  }, 13 * 60 * 1000).unref(); // unref: won't block clean process shutdown
+    const selfUrl = process.env.BASE_URL || 'https://neringa.onrender.com';
+    setInterval(() => {
+      fetch(`${selfUrl}/api/health`).catch(() => {});
+    }, 13 * 60 * 1000).unref(); // unref: won't block clean process shutdown
 
   // KYC is Dojah/manual only.
+  });
+}
+
+startApplication().catch((err) => {
+  console.error('❌ FATAL: Database startup preparation failed:', err);
+  process.exitCode = 1;
 });
 
 
