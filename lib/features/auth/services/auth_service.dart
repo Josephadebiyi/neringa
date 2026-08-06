@@ -713,6 +713,16 @@ class AuthService {
   String _mapGoogleSignInError(Object error) {
     final message = error.toString();
     final normalized = message.toLowerCase();
+    debugPrint('❌ Google Sign-In raw error: $message');
+
+    // Must be checked before the generic 'sign_in_failed' branch below:
+    // Android's native GoogleSignIn plugin always reports PlatformException
+    // code 'sign_in_failed' regardless of the underlying cause, so this more
+    // specific, more actionable check would otherwise never be reached.
+    if (normalized.contains('apiexception: 10') ||
+        normalized.contains('developer_error')) {
+      return 'Google Sign-In configuration does not match this Android app signing certificate. Please update the app and try again.';
+    }
 
     if (normalized.contains('keychainerror') ||
         normalized.contains('gidsignin') ||
@@ -722,11 +732,6 @@ class AuthService {
         return 'Google Sign-In is not available on this iPhone simulator right now. Please try again on a real device or use email login.';
       }
       return 'Google Sign-In is temporarily unavailable. Please try again or use email login.';
-    }
-
-    if (normalized.contains('apiexception: 10') ||
-        normalized.contains('developer_error')) {
-      return 'Google Sign-In configuration does not match this Android app signing certificate. Please update the app and try again.';
     }
 
     if (normalized.contains('cancelled')) {

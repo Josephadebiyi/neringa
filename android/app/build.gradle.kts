@@ -71,3 +71,17 @@ android {
 flutter {
     source = "../.."
 }
+
+configurations.all {
+    resolutionStrategy {
+        // image_picker_android pulls in androidx.camera 1.3.0, whose
+        // libimage_processing_util_jni.so is only 4KB-page-aligned and fails
+        // Google Play's 16KB device support check. Force a version with
+        // 16KB-aligned native libs.
+        force("androidx.camera:camera-core:1.6.1")
+        force("androidx.camera:camera-camera2:1.6.1")
+        force("androidx.camera:camera-lifecycle:1.6.1")
+        force("androidx.camera:camera-video:1.6.1")
+        force("androidx.camera:camera-view:1.6.1")
+    }
+}

@@ -104,7 +104,7 @@ export const dashboard = async (req, res, next) => {
       safeQueryOne(`select count(*)::int as total from public.profiles where signup_method = 'google'`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.profiles where coalesce(kyc_status, 'pending') <> 'approved'`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.profiles where kyc_status = 'approved'`, [], { total: 0 }),
-      safeQueryOne(`select count(*)::int as total from public.trips where status in ('pending_admin_review', 'pending')`, [], { total: 0 }),
+      safeQueryOne(`select count(*)::int as total from public.trips where status = 'pending_admin_review'`, [], { total: 0 }),
       safeQueryOne(`
         select count(*)::int as total
         from public.shipment_requests

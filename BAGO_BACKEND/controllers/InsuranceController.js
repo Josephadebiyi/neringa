@@ -178,7 +178,7 @@ export const getInsuredShipments = async (req, res) => {
          pkg.description        AS item_description,
          pkg.category           AS item_category,
          pkg.package_weight     AS item_weight,
-         pkg.value              AS declared_value,
+         pkg.declared_value     AS declared_value,
          pkg.from_city          AS from_city,
          pkg.to_city            AS to_city,
          pkg.from_country       AS from_country,
