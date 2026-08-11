@@ -9,6 +9,7 @@ import {
   Loader2,
   Trash2,
   Edit,
+  Eye,
   X,
   CreditCard,
   Target,
@@ -17,7 +18,7 @@ import {
   ShieldAlert,
   Coins,
 } from 'lucide-react';
-import { getUsers, banUser as toggleBan, deleteUser, updateUser, recalculateUserBalance, adminSetWalletCurrency, adminCorrectWallet } from '../services/api';
+import { getUsers, banUser as toggleBan, deleteUser, updateUser, recalculateUserBalance, adminSetWalletCurrency, adminCorrectWallet, getUserDetail } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 interface User {
@@ -53,6 +54,18 @@ interface User {
   companyName?: string;
 }
 
+interface UserDetail extends User {
+  isActive?: boolean;
+  deactivatedAt?: string | null;
+  kycFailureReason?: string | null;
+  activity?: {
+    shipmentsSent: number;
+    shipmentsCarried: number;
+    tripsPublished: number;
+    lastActiveAt: string | null;
+  };
+}
+
 interface UsersResponse {
   data: User[];
   totalCount: number;
@@ -69,12 +82,16 @@ export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [banningUserId, setBanningUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'banned'>('active');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState<UserDetail | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [currencyUser, setCurrencyUser] = useState<User | null>(null);
   const [currencyModalOpen, setCurrencyModalOpen] = useState(false);
   const [newCurrency, setNewCurrency] = useState('');
@@ -93,13 +110,21 @@ export default function Users() {
   const limit = 20;
 
   useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [searchTerm]);
+
+  useEffect(() => {
     fetchUsers();
-  }, [currentPage, activeTab]);
+  }, [currentPage, activeTab, debouncedSearch]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const data: UsersResponse = await getUsers(currentPage, limit, activeTab === 'banned');
+      const data: UsersResponse = await getUsers(currentPage, limit, activeTab === 'banned', debouncedSearch);
       if (data.success) {
         setUsers(data.data);
         setTotalCount(data.totalCount || data.data.length);
@@ -130,6 +155,20 @@ export default function Users() {
       if (res.success) fetchUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);
+    }
+  };
+
+  const handleViewUser = async (user: User) => {
+    setIsDetailModalOpen(true);
+    setDetailLoading(true);
+    setViewingUser(null);
+    try {
+      const res = await getUserDetail(user._id);
+      if (res.success) setViewingUser(res.data);
+    } catch (error) {
+      console.error('Failed to fetch user detail:', error);
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -240,13 +279,6 @@ export default function Users() {
     document.body.removeChild(link);
   };
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const totalPages = Math.ceil(totalCount / limit);
   const kycPassed = (status?: string) => ['approved', 'verified', 'completed'].includes((status || '').toLowerCase());
   const sourceLabel = (source?: string) => {
@@ -319,6 +351,7 @@ export default function Users() {
                 <tr className="bg-gray-50/50">
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Identity</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Country</th>
+                  <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Joined</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Role</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Auth</th>
                   <th className="py-5 px-8 text-[10px] font-black uppercase tracking-widest text-gray-400">Profile</th>
@@ -327,12 +360,12 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredUsers.length === 0 ? (
+                {users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-20 text-center text-gray-400 font-bold italic">No {activeTab} users found matching your criteria.</td>
+                    <td colSpan={8} className="py-20 text-center text-gray-400 font-bold italic">No {activeTab} users found matching your criteria.</td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
+                  users.map((user) => (
                     <tr key={user._id} className="group hover:bg-gray-50/30 transition-colors">
                       {/* Identity */}
                       <td className="py-5 px-8">
@@ -364,6 +397,12 @@ export default function Users() {
                       <td className="py-5 px-8">
                         <span className="text-[10px] font-black px-2 py-1 rounded-lg border bg-gray-50 text-gray-500 border-gray-100 uppercase">
                           {user.country || '—'}
+                        </span>
+                      </td>
+                      {/* Joined */}
+                      <td className="py-5 px-8">
+                        <span className="text-[10px] font-bold text-gray-500">
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}
                         </span>
                       </td>
                       {/* Role: Traveler (activated) vs Sender */}
@@ -433,6 +472,13 @@ export default function Users() {
                       </td>
                       <td className="py-5 px-8 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleViewUser(user)}
+                            className="p-2 bg-gray-50 text-gray-400 hover:text-[#5240E8] hover:bg-[#5240E8]/5 rounded-xl transition-all"
+                            title="View Full Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => { setEditingUser(user); setIsEditModalOpen(true); }}
                             className="p-2 bg-gray-50 text-gray-400 hover:text-[#5240E8] hover:bg-[#5240E8]/5 rounded-xl transition-all"
@@ -638,6 +684,91 @@ export default function Users() {
       )}
 
       {/* Edit Modal */}
+      {isDetailModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDetailModalOpen(false)}></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
+            <div className="p-8 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-[#1e2749]">Full User Details</h3>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Profile, verification &amp; activity</p>
+              </div>
+              <button onClick={() => setIsDetailModalOpen(false)} className="p-2 bg-gray-50 text-gray-400 hover:text-red-500 rounded-xl transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6 overflow-y-auto">
+              {detailLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                  <Loader2 className="w-10 h-10 text-[#5240E8] animate-spin" />
+                  <p className="text-gray-400 font-bold text-xs uppercase tracking-widest">Loading full profile...</p>
+                </div>
+              ) : !viewingUser ? (
+                <p className="text-center py-20 text-gray-400 font-bold italic">Could not load user details.</p>
+              ) : (
+                <>
+                  <div>
+                    <div className="font-black text-[#1e2749] text-lg">
+                      {viewingUser.accountType === 'company'
+                        ? (viewingUser.companyName || `${viewingUser.firstName} ${viewingUser.lastName}`)
+                        : `${viewingUser.firstName || ''} ${viewingUser.lastName || ''}`.trim() || 'Anonymous User'}
+                    </div>
+                    <div className="text-xs font-bold text-gray-400 mt-1">{viewingUser.email} {viewingUser.phone ? `· ${viewingUser.phone}` : ''}</div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 rounded-2xl p-4">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Joined</p>
+                      <p className="font-bold text-[#1e2749] text-sm mt-1">
+                        {viewingUser.createdAt ? new Date(viewingUser.createdAt).toLocaleString() : '—'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 rounded-2xl p-4">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Account status</p>
+                      <p className="font-bold text-[#1e2749] text-sm mt-1">
+                        {viewingUser.banned ? 'Banned' : viewingUser.isActive === false ? 'Deactivated' : 'Active'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">KYC status</p>
+                    <p className="font-bold text-[#1e2749] text-sm mt-1">{viewingUser.kycStatus || 'none'}</p>
+                    {viewingUser.kycFailureReason && (
+                      <p className="text-xs font-medium text-red-600 mt-2 bg-red-50 border border-red-100 rounded-xl p-3">
+                        Decline reason: {viewingUser.kycFailureReason}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">App activity</p>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-gray-50 rounded-2xl p-4 text-center">
+                        <p className="text-2xl font-black text-[#5240E8]">{viewingUser.activity?.shipmentsSent ?? 0}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Sent</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-2xl p-4 text-center">
+                        <p className="text-2xl font-black text-[#5240E8]">{viewingUser.activity?.shipmentsCarried ?? 0}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Carried</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-2xl p-4 text-center">
+                        <p className="text-2xl font-black text-[#5240E8]">{viewingUser.activity?.tripsPublished ?? 0}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Trips</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-bold text-gray-400 mt-3">
+                      Last active: {viewingUser.activity?.lastActiveAt ? new Date(viewingUser.activity.lastActiveAt).toLocaleString() : 'No activity yet'}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)}></div>

@@ -29,6 +29,10 @@ export const isAuthenticated = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Account has been suspended.' });
     }
 
+    if (user.is_active === false) {
+      return res.status(401).json({ success: false, message: 'User not found. Invalid token.' });
+    }
+
     req.user = user;
     req.userId = user.id;
     next();

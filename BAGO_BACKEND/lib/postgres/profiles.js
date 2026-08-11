@@ -259,6 +259,8 @@ const baseSelect = `
     p.country,
     p.date_of_birth,
     p.banned,
+    p.is_active,
+    p.deactivated_at,
     p.email_verified,
     COALESCE(p.phone_verified, false) AS phone_verified,
     p.push_tokens,

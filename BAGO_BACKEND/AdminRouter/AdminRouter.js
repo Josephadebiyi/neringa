@@ -2,7 +2,7 @@ import express from 'express';
 import { AdminLogin, AdminSignup } from '../controllers/AdminControllers/AdminloginandSignup.js';
 import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { auditAdminAction, requireAdminPermission } from '../middleware/adminAuthorization.js';
-import { banUser, GetAllUsers, deleteUser, updateUser } from '../controllers/AdminControllers/GetAllUsers.js';
+import { banUser, GetAllUsers, deleteUser, updateUser, getUserDetail } from '../controllers/AdminControllers/GetAllUsers.js';
 import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controllers/postgresUserController.js';
 import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
@@ -14,7 +14,7 @@ import { getAppSettings } from '../controllers/AdminControllers/setting.js';
 import { sendNotification, getPushHistory } from '../controllers/AdminControllers/NotificationController.js';
 import { Adminlogout } from '../controllers/AdminControllers/AdminLogin.js';
 import { sendPromoEmail } from '../controllers/AdminControllers/PromoEmailController.js';
-import { getInsuranceSettings, updateInsuranceSettings, getInsuredShipments } from '../controllers/InsuranceController.js';
+import { getInsuranceSettings, updateInsuranceSettings, getInsuredShipments, getInsurancePayload, exportInsurancePayloadsCsv } from '../controllers/InsuranceController.js';
 import {
   createRoute,
   getAllRoutes,
@@ -136,6 +136,7 @@ AdminRouter.post("/AdminSignup", adminAuthenticated, can('staff.manage'), AdminS
 AdminRouter.post("/AdminLogin", AdminLogin)
 AdminRouter.get("/CheckAdmin", adminAuthenticated, CheckAdmin)
 AdminRouter.get("/GetAllUsers", adminAuthenticated, can('users.read'), GetAllUsers)
+AdminRouter.get("/GetUserDetail/:userId", adminAuthenticated, can('users.read'), validateUuidParam('userId'), getUserDetail)
 AdminRouter.get("/orders", adminAuthenticated, getAllOrders)
 AdminRouter.get("/orders/:id/pdf", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), downloadOrderRecord)
 AdminRouter.get("/tracking", adminAuthenticated, tracking)
@@ -244,6 +245,8 @@ AdminRouter.post("/kyc/users/:userId/sync-dojah-reference", adminAuthenticated, 
 AdminRouter.get("/insurance/settings", adminAuthenticated, getInsuranceSettings);
 AdminRouter.put("/insurance/settings", adminAuthenticated, can('insurance.manage'), audit('admin.insurance.settings.update', 'insurance_settings'), updateInsuranceSettings);
 AdminRouter.get("/insurance/shipments", adminAuthenticated, getInsuredShipments);
+AdminRouter.get("/insurance/payload/:requestId", adminAuthenticated, validateUuidParam('requestId'), getInsurancePayload);
+AdminRouter.get("/insurance/payloads/export", adminAuthenticated, exportInsurancePayloadsCsv);
 
 // Withdrawal / Payout Management
 AdminRouter.get("/withdrawals", adminAuthenticated, can('finance.withdrawals.manage'), getAllWithdrawals);

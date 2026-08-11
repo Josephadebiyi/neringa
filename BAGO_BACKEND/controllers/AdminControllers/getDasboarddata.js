@@ -40,6 +40,7 @@ export const dashboard = async (req, res, next) => {
       pendingTripCountRow,
       pendingProtectionCountRow,
       packagesRows,
+      regionalRows,
     ] = await Promise.all([
       safeQueryOne(`select count(*)::int as total from public.profiles`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.packages`, [], { total: 0 }),
@@ -112,6 +113,14 @@ export const dashboard = async (req, res, next) => {
           and coalesce(insurance_status, 'pending_purchase') in ('pending_purchase', 'failed')
       `, [], { total: 0 }),
       safeQuery(`select * from public.packages order by created_at desc limit $1 offset $2`, [limit, skip], []),
+      safeQuery(`
+        select country, count(*)::int as count
+        from public.profiles
+        where country is not null and country <> ''
+        group by country
+        order by count desc
+        limit 15
+      `, [], []),
     ]);
 
     const trackingData = packagesRows.map((pkg) => ({
@@ -191,6 +200,10 @@ export const dashboard = async (req, res, next) => {
         trackingData,
         statusDistribution: statusData,
         monthlyTrends: monthlyData,
+        regionalDistribution: regionalRows.map((row) => ({
+          country: row.country,
+          count: Number(row.count || 0),
+        })),
         pagination: {
           totalCount: packageCountRow?.total || 0,
           page,

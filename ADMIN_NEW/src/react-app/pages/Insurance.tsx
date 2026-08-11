@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Download, RefreshCw, ShieldCheck, ShieldAlert, Shield, Save, Loader2 } from 'lucide-react';
-import { getInsuredShipments, getInsuranceSettings, updateInsuranceSettings } from '../services/api';
+import { Download, RefreshCw, ShieldCheck, ShieldAlert, Shield, Save, Loader2, FileDown } from 'lucide-react';
+import { getInsuredShipments, getInsuranceSettings, updateInsuranceSettings, getInsurancePayload, downloadInsurancePayloadsCsv } from '../services/api';
 
 interface InsuredShipment {
   id: string;
@@ -94,6 +94,40 @@ export default function InsurancePage() {
   const [loadingShipments, setLoadingShipments] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [exportingBulk, setExportingBulk] = useState(false);
+
+  const handleExportSinglePayload = async (id: string) => {
+    setExportingId(id);
+    try {
+      const res = await getInsurancePayload(id);
+      if (!res?.success) throw new Error(res?.message || 'Export failed');
+      const blob = new Blob([JSON.stringify(res.data.payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mycover_payload_${id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : undefined;
+      alert(message || 'Could not export this order — required MyCover fields may be missing.');
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const handleExportBulkPayloads = async () => {
+    setExportingBulk(true);
+    try {
+      await downloadInsurancePayloadsCsv(filter !== 'all' ? filter : 'failed');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : undefined;
+      alert(message || 'Bulk export failed.');
+    } finally {
+      setExportingBulk(false);
+    }
+  };
 
   const fetchShipments = async () => {
     setLoadingShipments(true);
@@ -176,6 +210,15 @@ export default function InsurancePage() {
             >
               <Download className="w-4 h-4" /> Export CSV
             </button>
+            <button
+              onClick={handleExportBulkPayloads}
+              disabled={exportingBulk}
+              title="Export full MyCover.ai submission details for orders needing a manual backup purchase"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#5C4BFD] text-[#5C4BFD] text-sm font-bold hover:bg-[#5C4BFD]/5 disabled:opacity-40 transition-all"
+            >
+              {exportingBulk ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              MyCover Backup CSV
+            </button>
           </div>
         </div>
 
@@ -214,7 +257,7 @@ export default function InsurancePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
-                    {['Tracking #', 'Date', 'Sender', 'Route', 'Status', 'Cost', 'Pkg Value'].map(h => (
+                    {['Tracking #', 'Date', 'Sender', 'Route', 'Status', 'Cost', 'Pkg Value', 'MyCover'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
@@ -229,6 +272,16 @@ export default function InsurancePage() {
                       <td className="px-4 py-3"><StatusBadge status={s.insuranceStatus} /></td>
                       <td className="px-4 py-3 font-semibold text-gray-800">{s.currency} {Number(s.insuranceCost || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-gray-500">{s.packageValue ? `${s.currency} ${Number(s.packageValue).toFixed(2)}` : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleExportSinglePayload(s.id)}
+                          disabled={exportingId === s.id}
+                          title="Export full details needed to manually file this policy with MyCover.ai"
+                          className="p-2 rounded-xl border border-gray-200 text-gray-400 hover:text-[#5C4BFD] hover:border-[#5C4BFD] disabled:opacity-40 transition-all"
+                        >
+                          {exportingId === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

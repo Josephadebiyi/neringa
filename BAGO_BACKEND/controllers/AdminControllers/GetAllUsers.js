@@ -36,6 +36,9 @@ function normalizeUser(row) {
     image: row.image_url,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    isActive: row.is_active !== false,
+    deactivatedAt: row.deactivated_at || null,
+    kycFailureReason: row.kyc_failure_reason || null,
     balance: Number(row.available_balance || 0),
     walletBalance: Number(row.available_balance || 0),
     escrowBalance: Number(row.escrow_balance || 0),
@@ -117,8 +120,11 @@ export const GetAllUsers = async (req, res, next) => {
           p.date_of_birth,
           p.country,
           p.banned,
+          p.is_active,
+          p.deactivated_at,
           p.kyc_status,
           p.kyc_provider,
+          p.kyc_failure_reason,
           p.email_verified,
           p.identity_fields_locked,
           p.verified_full_legal_name,
@@ -202,14 +208,77 @@ export const banUser = async (req, res, next) => {
 export const deleteUser = async (req, res, next) => {
   const { userId } = req.params;
   try {
+    // Soft-delete: deactivate rather than erase. All related data (trips,
+    // shipments, wallet, KYC, etc.) is retained; the user just can no longer
+    // log in and appears deleted to them.
     const user = await queryOne(
-      `delete from public.profiles where id = $1 returning id`,
+      `update public.profiles set is_active = false, deactivated_at = now() where id = $1 returning id`,
       [userId],
     );
     if (!user) {
       return res.status(404).json({ message: 'User not found', error: true, success: false });
     }
     return res.status(200).json({ message: 'User deleted successfully', success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserDetail = async (req, res, next) => {
+  const { userId } = req.params;
+  try {
+    const row = await queryOne(
+      `
+        select
+          p.id, p.first_name, p.last_name, p.account_type, p.company_name, p.trading_name,
+          p.business_registration_number, p.business_type, p.business_address, p.business_tax_id,
+          p.representative_role, p.business_document_url, p.business_document_status, p.business_status,
+          p.email, p.phone, p.date_of_birth, p.country, p.banned, p.is_active, p.deactivated_at,
+          p.kyc_status, p.kyc_provider, p.kyc_failure_reason, p.email_verified, p.identity_fields_locked,
+          p.verified_full_legal_name, p.verified_date_of_birth, p.phone_verified, p.signup_method,
+          p.signup_source, p.status, p.image_url, p.created_at, p.updated_at,
+          p.earning_currency, p.earning_currency_locked,
+          w.currency as wallet_currency, w.available_balance, w.escrow_balance
+        from public.profiles p
+        left join public.wallet_accounts w on w.user_id = p.id
+        where p.id = $1
+      `,
+      [userId],
+    );
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const [sent, carried, trips, lastActive] = await Promise.all([
+      queryOne(`select count(*)::int as total from public.shipment_requests where sender_id = $1`, [userId]),
+      queryOne(`select count(*)::int as total from public.shipment_requests where traveler_id = $1`, [userId]),
+      queryOne(`select count(*)::int as total from public.trips where user_id = $1`, [userId]),
+      queryOne(
+        `
+          select greatest(
+            coalesce((select max(created_at) from public.shipment_requests where sender_id = $1 or traveler_id = $1), 'epoch'::timestamptz),
+            coalesce((select max(created_at) from public.trips where user_id = $1), 'epoch'::timestamptz)
+          ) as last_active
+        `,
+        [userId],
+      ),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...normalizeUser(row),
+        activity: {
+          shipmentsSent: sent?.total || 0,
+          shipmentsCarried: carried?.total || 0,
+          tripsPublished: trips?.total || 0,
+          lastActiveAt: lastActive?.last_active && lastActive.last_active !== null
+            && new Date(lastActive.last_active).getTime() > 0
+            ? lastActive.last_active
+            : null,
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }

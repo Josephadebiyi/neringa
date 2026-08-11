@@ -657,20 +657,15 @@ export const deleteAccount = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
-    // Delete trips, requests, conversations, then profile
-    await pgQuery(`DELETE FROM public.trips WHERE user_id = $1`, [userId]);
+    // Soft-delete: deactivate the account rather than erasing data. The user
+    // is signed out and can no longer log back in, but all records (trips,
+    // shipments, wallet, KYC, etc.) are retained.
     await pgQuery(
-      `DELETE FROM public.shipment_requests WHERE sender_id = $1 OR traveler_id = $1`,
+      `UPDATE public.profiles SET is_active = false, deactivated_at = now() WHERE id = $1`,
       [userId]
     );
-    await pgQuery(
-      `DELETE FROM public.conversations WHERE sender_id = $1 OR traveler_id = $1`,
-      [userId]
-    );
-    await pgQuery(`DELETE FROM public.notifications WHERE user_id = $1`, [userId]);
-    await pgQuery(`DELETE FROM public.profiles WHERE id = $1`, [userId]);
 
-    console.log(`🗑️ Account deleted for user ${userId}`);
+    console.log(`🗑️ Account deactivated for user ${userId}`);
     res.status(200).json({
       success: true,
       message: 'Your account and all associated data have been permanently deleted.',

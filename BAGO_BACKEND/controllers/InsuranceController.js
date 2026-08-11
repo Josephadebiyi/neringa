@@ -4,6 +4,9 @@ import {
   NON_AFRICA_PROTECTION_FEE_EUR,
   getRouteProtectionFee,
 } from '../services/myCoverPricing.js';
+import { policyPayload } from '../services/myCoverService.js';
+import { getShipmentRequestById } from '../lib/postgres/shipping.js';
+import { findProfileById } from '../lib/postgres/profiles.js';
 
 let _tableEnsured = false;
 async function ensureTable() {
@@ -265,5 +268,114 @@ export const getInsuredShipments = async (req, res) => {
   } catch (error) {
     console.error('Error fetching insured shipments:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch insured shipments', error: error.message });
+  }
+};
+
+// --------------------------------------------------------------------------
+// MyCover manual-fallback export — reconstructs the exact payload the live
+// purchase flow (services/myCoverService.js:purchaseMyCoverPolicy) would send
+// to MyCover, so an admin can manually file the policy if the API call fails.
+// --------------------------------------------------------------------------
+
+async function buildMyCoverExportRow(requestId) {
+  const request = await getShipmentRequestById(requestId);
+  if (!request) throw new Error('Shipment request not found');
+  const [sender, traveler] = await Promise.all([
+    findProfileById(request.senderId),
+    findProfileById(request.travelerId),
+  ]);
+  if (!sender) throw new Error(`Sender profile not found for id ${request.senderId}`);
+  const payload = await policyPayload({ request, sender, traveler });
+  return { request, payload };
+}
+
+export const getInsurancePayload = async (req, res) => {
+  const { requestId } = req.params;
+  try {
+    const { request, payload } = await buildMyCoverExportRow(requestId);
+    return res.status(200).json({
+      success: true,
+      data: {
+        requestId: request.id,
+        insuranceStatus: request.insuranceStatus,
+        payload,
+      },
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+function csvEscape(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+const CSV_HEADER = [
+  'request_id', 'tracking_number', 'insurance_status', 'export_error',
+  'first_name', 'last_name', 'email', 'phone_number', 'gender', 'date_of_birth',
+  'pickup_location', 'drop_off_location', 'shipping_date',
+  'vehicle_plate_number', 'vehicle_type',
+  'item_description', 'item_value_ngn', 'total_value_ngn',
+  'declared_value', 'declared_value_currency', 'insurance_cost', 'currency',
+];
+
+export const exportInsurancePayloadsCsv = async (req, res) => {
+  try {
+    const status = (req.query.status || 'failed').trim();
+    const statuses = status === 'all' ? ['failed', 'pending_purchase'] : [status];
+
+    const rows = await query(
+      `select id from public.shipment_requests
+       where insurance = true and coalesce(insurance_status, 'pending_purchase') = ANY($1)
+       order by created_at desc`,
+      [statuses],
+    );
+
+    const csvRows = [CSV_HEADER.join(',')];
+    for (const row of rows.rows) {
+      try {
+        const { request, payload } = await buildMyCoverExportRow(row.id);
+        const item = payload.item_details?.[0] || {};
+        csvRows.push([
+          request.id,
+          payload.metadata?.tracking_number,
+          request.insuranceStatus,
+          '',
+          payload.first_name,
+          payload.last_name,
+          payload.email,
+          payload.phone_number,
+          payload.gender,
+          payload.date_of_birth,
+          payload.pickup_location,
+          payload.drop_off_location,
+          payload.shipping_date,
+          payload.vehicle_plate_number,
+          payload.vehicle_type,
+          item.description,
+          item.value,
+          payload.total_value,
+          payload.metadata?.declared_value,
+          payload.metadata?.declared_value_currency,
+          payload.metadata?.insurance_cost,
+          payload.metadata?.currency,
+        ].map(csvEscape).join(','));
+      } catch (err) {
+        csvRows.push([
+          row.id, '', '', err.message, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+        ].map(csvEscape).join(','));
+      }
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="mycover_export_${status}_${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+    return res.status(200).send(csvRows.join('\n'));
+  } catch (error) {
+    console.error('Error exporting MyCover payloads:', error);
+    return res.status(500).json({ success: false, message: 'Failed to export insurance payloads', error: error.message });
   }
 };

@@ -180,7 +180,7 @@ export default function Login() {
       </div>
 
       <div className="absolute bottom-8 text-slate-600 text-[10px] font-black tracking-[0.3em] uppercase">
-        © 2024 Bago Logistics Terminal • Security Protocol v4.2
+        © {new Date().getFullYear()} Bago Logistics Terminal • Security Protocol v4.2
       </div>
     </div>
   );

@@ -117,8 +117,9 @@ export async function getBusinesses() {
   return apiCall(`${ADMIN_API}/GetAllUsers?accountType=company&limit=100`);
 }
 
-export async function getUsers(page = 1, limit = 20, banned = false) {
-  return apiCall(`${ADMIN_API}/GetAllUsers?page=${page}&limit=${limit}&banned=${banned}`);
+export async function getUsers(page = 1, limit = 20, banned = false, search = '') {
+  const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
+  return apiCall(`${ADMIN_API}/GetAllUsers?page=${page}&limit=${limit}&banned=${banned}${searchParam}`);
 }
 
 export async function banUser(userId: string, banned: boolean) {
@@ -130,6 +131,10 @@ export async function banUser(userId: string, banned: boolean) {
 
 export async function deleteUser(userId: string) {
   return apiCall(`${ADMIN_API}/deleteUser/${userId}`, { method: 'DELETE' });
+}
+
+export async function getUserDetail(userId: string) {
+  return apiCall(`${ADMIN_API}/GetUserDetail/${userId}`);
 }
 
 export async function updateUser(userId: string, data: any) {
@@ -486,6 +491,32 @@ export async function getInsuranceSettings() {
 export async function getInsuredShipments(status?: string) {
   const qs = status && status !== 'all' ? `?status=${status}` : '';
   return apiCall(`${ADMIN_API}/insurance/shipments${qs}`);
+}
+
+// Reconstructs the exact payload MyCover.ai would receive for one order — for
+// manually filing a policy if the automated purchase call failed.
+export async function getInsurancePayload(requestId: string) {
+  return apiCall(`${ADMIN_API}/insurance/payload/${requestId}`);
+}
+
+// Bulk CSV of MyCover payloads (defaults to failed/pending orders) as a
+// backup you can work through manually if the API integration is down.
+export async function downloadInsurancePayloadsCsv(status: string = 'failed') {
+  const response = await fetch(`${ADMIN_API}/insurance/payloads/export?status=${encodeURIComponent(status)}`, {
+    credentials: 'include',
+    headers: getAdminAuthHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: `Server error (HTTP ${response.status})` }));
+    throw new Error(error.message || 'Failed to export insurance payloads');
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mycover_export_${status}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function updateInsuranceSettings(data: any) {

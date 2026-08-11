@@ -31,6 +31,7 @@ trap cleanup EXIT
 snapshot="${DR_SNAPSHOT_ID:-latest}"
 restic restore "$snapshot" --tag bago --target "$work_dir"
 snapshot_dir="$(find "$work_dir" -type f -name postgres.dump -print -quit | xargs dirname)"
+[[ -n "$snapshot_dir" ]] || { echo "No postgres.dump found in restored snapshot '$snapshot'" >&2; exit 1; }
 test -f "$snapshot_dir/SHA256SUMS"
 node scripts/dr/checksums.mjs verify "$snapshot_dir"
 

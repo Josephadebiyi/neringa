@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TrendingUp, ArrowUpRight, RefreshCw, DollarSign, Users, AlertCircle } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { getDashboardStats } from '../services/api';
 
 // Interface for stats from API
@@ -69,6 +69,12 @@ interface MonthlyTrend {
   lastYear: number;
 }
 
+// Interface for regional/country distribution
+interface RegionalDistribution {
+  country: string;
+  count: number;
+}
+
 // Interface for API response
 interface DashboardResponse {
   success: boolean;
@@ -85,6 +91,7 @@ interface DashboardResponse {
     trackingData: TrackingData[];
     statusDistribution: StatusDistribution[];
     monthlyTrends: MonthlyTrend[];
+    regionalDistribution?: RegionalDistribution[];
     pagination: {
       totalCount: number;
       page: number;
@@ -96,6 +103,7 @@ interface DashboardResponse {
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
+  const [regionalDistribution, setRegionalDistribution] = useState<RegionalDistribution[]>([]);
   const [notifications, setNotifications] = useState<NonNullable<DashboardResponse['data']['notifications']>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +126,7 @@ export default function Dashboard() {
 
       setStats(data.data.stats || null);
       setMonthlyTrends(data.data.monthlyTrends || []);
+      setRegionalDistribution(data.data.regionalDistribution || []);
       setNotifications(data.data.notifications || []);
     } catch (error: any) {
       console.error('Failed to fetch dashboard data:', error);
@@ -286,11 +295,11 @@ export default function Dashboard() {
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-[#5240E8]"></span>
-                <span className="text-xs font-bold text-gray-500 uppercase">2024</span>
+                <span className="text-xs font-bold text-gray-500 uppercase">{new Date().getFullYear()}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-gray-200"></span>
-                <span className="text-xs font-bold text-gray-500 uppercase">2023</span>
+                <span className="text-xs font-bold text-gray-500 uppercase">{new Date().getFullYear() - 1}</span>
               </div>
             </div>
           </div>
@@ -384,6 +393,26 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Regional Distribution */}
+      <div className="premium-card p-8">
+        <h2 className="text-xl font-bold text-[#1e2749]">Regional Distribution</h2>
+        <p className="text-gray-400 text-sm font-medium mb-8">Users by country</p>
+        {regionalDistribution.length === 0 ? (
+          <p className="text-gray-400 font-bold text-sm italic py-8 text-center">No regional data available yet.</p>
+        ) : (
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={regionalDistribution} layout="vertical" margin={{ left: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                <XAxis type="number" allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 12, fontWeight: 600 }} />
+                <YAxis type="category" dataKey="country" axisLine={false} tickLine={false} width={110} tick={{ fill: '#1e2749', fontSize: 12, fontWeight: 700 }} />
+                <Bar dataKey="count" fill="#5240E8" radius={[0, 8, 8, 0]} barSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Quick Action: Promo Email */}

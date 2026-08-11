@@ -721,7 +721,7 @@ export async function signIn(req, res) {
     }
 
     const user = await findProfileByEmail(email.toLowerCase());
-    if (!user || !user.password_hash) {
+    if (!user || !user.password_hash || user.is_active === false) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
@@ -940,6 +940,9 @@ export async function googleAuth(req, res) {
     if (user.banned) {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
     }
+    if (user.is_active === false) {
+      return res.status(403).json({ success: false, message: 'Invalid email or password' });
+    }
 
     await storeDeviceFingerprint(user.id, googleFp);
     await storeSignupIp(user.id, googleIp);
@@ -1094,6 +1097,9 @@ export async function appleAuth(req, res) {
 
     if (user.banned) {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
+    }
+    if (user.is_active === false) {
+      return res.status(403).json({ success: false, message: 'Invalid email or password' });
     }
 
     await storeDeviceFingerprint(user.id, appleFp);

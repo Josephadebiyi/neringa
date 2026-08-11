@@ -49,8 +49,15 @@ jobs:
           node-version: '22'
       - name: Install recovery tools
         run: |
+          # Match the postgresql-client major version to the postgres:17
+          # service container below (and to backup.sh's PGDG-pinned client) —
+          # Ubuntu's default apt package is often a version behind and breaks
+          # pg_restore against a newer dump.
           sudo apt-get update
-          sudo apt-get install -y postgresql-client restic
+          sudo apt-get install -y postgresql-common
+          yes | sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17 restic
       - run: npm ci --omit=dev
       - name: Verify encrypted repository
         run: npm run dr:verify
