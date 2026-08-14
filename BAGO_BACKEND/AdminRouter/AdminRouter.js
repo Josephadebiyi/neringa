@@ -11,7 +11,7 @@ import { analystic } from '../controllers/AdminControllers/Analysic.js';
 import { getAllkyc, Verifykyc } from '../controllers/KycVerificationsController.js';
 import { getCurrentSetting, updateSettings } from '../controllers/AdminControllers/setting.js';
 import { getAppSettings } from '../controllers/AdminControllers/setting.js';
-import { sendNotification, getPushHistory } from '../controllers/AdminControllers/NotificationController.js';
+import { sendNotification, getPushHistory, getPushStatus } from '../controllers/AdminControllers/NotificationController.js';
 import { Adminlogout } from '../controllers/AdminControllers/AdminLogin.js';
 import { sendPromoEmail } from '../controllers/AdminControllers/PromoEmailController.js';
 import { getInsuranceSettings, updateInsuranceSettings, getInsuredShipments, getInsurancePayload, exportInsurancePayloadsCsv } from '../controllers/InsuranceController.js';
@@ -158,6 +158,7 @@ AdminRouter.put("/toggleAutoVerification", adminAuthenticated, can('settings.man
 });
 AdminRouter.post("/send-notification", adminAuthenticated, can('notifications.send'), audit('admin.notification.send', 'notification'), sendNotification);
 AdminRouter.get("/push-notifications/history", adminAuthenticated, getPushHistory);
+AdminRouter.get("/push-notifications/status", adminAuthenticated, getPushStatus);
 AdminRouter.get("/Adminlogout", adminAuthenticated, Adminlogout);
 AdminRouter.get("/getCurrentSetting", adminAuthenticated, getCurrentSetting);
 AdminRouter.put("/banUser/:userId", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.ban', 'profile', 'userId'), banUser);

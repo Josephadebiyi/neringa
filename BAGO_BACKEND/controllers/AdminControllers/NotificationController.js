@@ -1,5 +1,28 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
-import { sendPushNotificationToToken } from '../../services/pushNotificationService.js';
+import { sendPushNotificationToToken, getPushProviderStatus } from '../../services/pushNotificationService.js';
+
+export const getPushStatus = async (req, res) => {
+  try {
+    const status = getPushProviderStatus();
+    const tokenCounts = await query(`
+      SELECT
+        count(*) FILTER (WHERE t ~ '^[0-9a-fA-F]{64}$') AS apns_tokens,
+        count(*) FILTER (WHERE length(t) > 100 AND t !~ '^[0-9a-fA-F]{64}$') AS fcm_tokens
+      FROM public.profiles, unnest(coalesce(push_tokens, '{}')) AS t
+    `);
+    res.json({
+      success: true,
+      providers: status,
+      registeredTokens: {
+        apns: Number(tokenCounts.rows[0]?.apns_tokens || 0),
+        fcm: Number(tokenCounts.rows[0]?.fcm_tokens || 0),
+      },
+      note: 'apns = iOS. fcm = Android (and iOS if configured to use FCM instead of native APNs). If providers.fcm.configured is false, Android push is silently skipped regardless of how many fcm tokens are registered.',
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
 export const sendNotification = async (req, res) => {
   const { userId, title, body } = req.body;
