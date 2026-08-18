@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Search, Download, RefreshCw, Shield, CheckCircle, XCircle, Clock, AlertCircle,
-  X, Package, MapPin, User, ChevronLeft, ChevronRight, ZoomIn, Loader2
+  X, Package, MapPin, User, ChevronLeft, ChevronRight, ZoomIn, Loader2,
+  MessageSquare, Ban, Pencil, Check
 } from 'lucide-react';
-import { getOrders, updateOrderStatus, getInsuredShipments, downloadOrderRecord } from '../services/api';
+import {
+  getOrders, updateOrderStatus, getInsuredShipments, downloadOrderRecord,
+  getOrderConversation, cancelOrder, updateTripPrice,
+} from '../services/api';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -51,6 +55,7 @@ interface Order {
   package: OrderPackage;
   sender: OrderPerson;
   traveler: OrderPerson;
+  trip?: { id: string; pricePerKg: number; currency?: string } | null;
 }
 
 interface InsuredShipment {
@@ -112,8 +117,10 @@ const VALID_STATUSES = [
   'pending', 'accepted_awaiting_inspection', 'inspection_in_progress',
   'inspection_completed', 'rejected_at_inspection_under_review',
   'approved_for_trip', 'intransit', 'delivering', 'completed',
-  'refund_approved', 'partial_refund_approved', 'refund_declined', 'cancelled',
+  'refund_approved', 'partial_refund_approved', 'refund_declined',
 ];
+
+const CANCEL_BLOCKED_STATUSES = new Set(['completed', 'cancelled', 'refund_approved']);
 
 const INS_COLORS: Record<string, string> = {
   active:           'bg-emerald-100 text-emerald-700',
@@ -147,10 +154,11 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
 
 // ── Order detail drawer ────────────────────────────────────────────────────────
 
-function OrderDetail({ order, onClose, onStatusChange }: {
+function OrderDetail({ order, onClose, onStatusChange, onCancelled }: {
   order: Order;
   onClose: () => void;
   onStatusChange: (id: string, status: string) => Promise<void>;
+  onCancelled: (id: string, data: Order) => void;
 }) {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState(order.status);
@@ -160,6 +168,83 @@ function OrderDetail({ order, onClose, onStatusChange }: {
   const [saveMsg, setSaveMsg]    = useState<{ ok: boolean; text: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const [showConversation, setShowConversation] = useState(false);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [conversationError, setConversationError] = useState<string | null>(null);
+  const [conversation, setConversation] = useState<{ conversation: any; messages: any[] } | null>(null);
+
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [issueRefund, setIssueRefund] = useState(Boolean(order.paymentStatus === 'paid'));
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const [editingTripPrice, setEditingTripPrice] = useState(false);
+  const [tripPriceDraft, setTripPriceDraft] = useState('');
+  const [tripPriceSaving, setTripPriceSaving] = useState(false);
+  const [tripPriceError, setTripPriceError] = useState<string | null>(null);
+  const [tripPrice, setTripPrice] = useState(order.trip?.pricePerKg);
+
+  const canCancel = !CANCEL_BLOCKED_STATUSES.has(order.status);
+
+  const openConversation = async () => {
+    setShowConversation(true);
+    if (conversation) return;
+    setConversationLoading(true);
+    setConversationError(null);
+    try {
+      const res = await getOrderConversation(order.id);
+      if (!res?.success) throw new Error(res?.message || 'Could not load conversation.');
+      setConversation({ conversation: res.conversation, messages: res.messages || [] });
+    } catch (e: any) {
+      setConversationError(e?.message || 'Could not load conversation.');
+    } finally {
+      setConversationLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await cancelOrder(order.id, { issueRefund, reason: cancelReason || undefined });
+      if (!res?.success) throw new Error(res?.message || 'Order could not be cancelled.');
+      onCancelled(order.id, { ...order, status: 'cancelled' });
+      setShowCancelModal(false);
+    } catch (e: any) {
+      setCancelError(e?.message || 'Order could not be cancelled.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const startEditingTripPrice = () => {
+    setTripPriceDraft(String(tripPrice ?? ''));
+    setTripPriceError(null);
+    setEditingTripPrice(true);
+  };
+
+  const handleSaveTripPrice = async () => {
+    if (!order.trip?.id) return;
+    const nextPrice = parseFloat(tripPriceDraft);
+    if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
+      setTripPriceError('Enter a valid price greater than 0.');
+      return;
+    }
+    try {
+      setTripPriceSaving(true);
+      setTripPriceError(null);
+      const res = await updateTripPrice(order.trip.id, nextPrice, order.trip.currency);
+      if (!res?.success) throw new Error(res?.message || 'Price could not be updated.');
+      setTripPrice(res.data.pricePerKg);
+      setEditingTripPrice(false);
+    } catch (e: any) {
+      setTripPriceError(e?.message || 'Price could not be updated.');
+    } finally {
+      setTripPriceSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -237,6 +322,25 @@ function OrderDetail({ order, onClose, onStatusChange }: {
               </p>
             )}
 
+            <div className="flex gap-2">
+              <button
+                onClick={openConversation}
+                className="flex-1 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-black text-xs flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                View Conversation
+              </button>
+              {canCancel && (
+                <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-black text-xs flex items-center justify-center gap-2"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  Cancel Order
+                </button>
+              )}
+            </div>
+
             {/* Package image */}
             {pkg.image ? (
               <div className="relative group cursor-pointer" onClick={() => setLightbox(pkg.image!)}>
@@ -306,6 +410,43 @@ function OrderDetail({ order, onClose, onStatusChange }: {
                   <p className="text-sm font-black text-gray-800 mt-0.5">{to}</p>
                 </div>
               </div>
+              {order.trip?.id && (
+                <div className="mt-2 flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Trip price / kg</span>
+                  {editingTripPrice ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-500">{order.trip.currency || 'USD'}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={tripPriceDraft}
+                        onChange={e => setTripPriceDraft(e.target.value)}
+                        className="w-20 px-2 py-1 rounded-lg border border-gray-200 text-xs font-black focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                        autoFocus
+                      />
+                      <button onClick={handleSaveTripPrice} disabled={tripPriceSaving} className="p-1 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
+                        {tripPriceSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      </button>
+                      <button onClick={() => setEditingTripPrice(false)} disabled={tripPriceSaving} className="p-1 bg-gray-100 text-gray-500 rounded-lg">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-gray-800">
+                        {order.trip.currency || 'USD'} {Number(tripPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                      <button onClick={startEditingTripPrice} className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {tripPriceError && (
+                <p className="text-[10px] font-bold text-red-600 mt-1">{tripPriceError}</p>
+              )}
             </section>
 
             {/* People */}
@@ -413,6 +554,90 @@ function OrderDetail({ order, onClose, onStatusChange }: {
           </div>
         </div>
       </div>
+
+      {/* Conversation viewer */}
+      {showConversation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[400] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b flex justify-between items-center">
+              <div>
+                <h2 className="font-bold text-gray-900">Conversation</h2>
+                <p className="text-xs text-gray-500">Sender ↔ Traveler messages for this order.</p>
+              </div>
+              <button onClick={() => setShowConversation(false)} className="p-2 hover:bg-gray-100 rounded-xl">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto space-y-3">
+              {conversationLoading && <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />}
+              {conversationError && (
+                <p className="text-xs font-bold px-3 py-2 rounded-lg bg-red-50 text-red-600">{conversationError}</p>
+              )}
+              {!conversationLoading && !conversationError && conversation && conversation.messages.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-6">No messages yet between sender and traveler.</p>
+              )}
+              {!conversationLoading && conversation?.messages.map((message: any) => (
+                <div key={message.id} className="rounded-lg p-3 border bg-gray-50">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span className="font-semibold">{message.senderName || 'User'}</span>
+                    <span>{new Date(message.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel order modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[400] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Cancel Order</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              This will mark order <strong>{order.trackingNumber || order.id.slice(-8)}</strong> as cancelled.
+            </p>
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+              <input
+                type="checkbox"
+                checked={issueRefund}
+                onChange={e => setIssueRefund(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              Also issue a refund via Flutterwave to the sender
+            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason (optional)</label>
+            <textarea
+              className="w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+              rows={3}
+              placeholder="e.g. Sender requested cancellation"
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+            />
+            {cancelError && (
+              <p className="text-xs font-bold px-3 py-2 rounded-lg bg-red-50 text-red-600 mt-3">{cancelError}</p>
+            )}
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelling}
+                className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleCancelOrder}
+                disabled={cancelling}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                Confirm Cancellation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -525,6 +750,12 @@ export default function OrdersPage() {
     setSelectedOrder(prev => prev && prev.id === id ? { ...prev, status } : prev);
   };
 
+  const handleOrderCancelled = (id: string, data: Order) => {
+    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
+    setSelectedOrder(data);
+    fetchOrders();
+  };
+
   const filteredInsured = insured.filter(s =>
     !insuredSearch ||
     s.trackingNumber?.toLowerCase().includes(insuredSearch.toLowerCase()) ||
@@ -548,6 +779,7 @@ export default function OrdersPage() {
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
           onStatusChange={handleStatusChange}
+          onCancelled={handleOrderCancelled}
         />
       )}
 

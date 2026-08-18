@@ -1084,6 +1084,96 @@ export async function getWalletByUserId(userId) {
   };
 }
 
+// Full-range (uncapped), optionally date-filtered transaction export for financial reports.
+// Reuses the same wallet_transactions + shipment_ledgers join as getWalletByUserId's
+// dashboard history, but without its 200-row cap.
+export async function getWalletTransactionsForExport(userId, { from, to } = {}) {
+  const wallet = await queryOne(
+    `
+      select w.currency, p.preferred_currency, p.earning_currency
+      from public.wallet_accounts w
+      left join public.profiles p on p.id = w.user_id
+      where w.user_id = $1
+    `,
+    [userId],
+  );
+  const displayCurrency = String(
+    wallet?.currency || wallet?.earning_currency || wallet?.preferred_currency || 'USD',
+  ).toUpperCase();
+
+  const dateParams = [userId];
+  let dateFilter = '';
+  if (from) {
+    dateParams.push(from);
+    dateFilter += ` and wt.created_at >= $${dateParams.length}`;
+  }
+  if (to) {
+    dateParams.push(to);
+    dateFilter += ` and wt.created_at <= $${dateParams.length}`;
+  }
+
+  let historyRows = [];
+  try {
+    const history = await query(
+      `
+        select
+          wt.id,
+          wt.request_id,
+          wt.trip_id,
+          wt.type::text as type,
+          wt.amount,
+          wt.currency,
+          wt.status,
+          wt.description,
+          wt.metadata,
+          wt.created_at,
+          sr.tracking_number,
+          sr.status as shipment_status,
+          t.trip_number,
+          t.from_location as trip_from_location,
+          t.to_location as trip_to_location
+        from public.wallet_transactions wt
+        left join public.shipment_requests sr on sr.id = wt.request_id
+        left join public.trips t on t.id = coalesce(wt.trip_id, sr.trip_id)
+        where wt.user_id = $1
+        ${dateFilter}
+        order by wt.created_at desc
+      `,
+      dateParams,
+    );
+    historyRows = history.rows;
+  } catch (error) {
+    console.warn('Wallet export transaction history unavailable:', error.message);
+  }
+
+  const USER_STATUS_MAP = {
+    pending_admin_approval: 'under_review',
+    pending_admin_review:   'under_review',
+    pending_purchase:       'processing',
+    pending_earning:        'pending',
+    not_selected:           'pending',
+  };
+
+  const decorated = await Promise.all(
+    historyRows.map(row => decorateWalletHistoryRow(row, displayCurrency, USER_STATUS_MAP)),
+  );
+
+  const totalReceived = decorated
+    .filter(t => ['earning', 'signup_bonus', 'admin_settlement', 'credit', 'release', 'deposit', 'escrow_release'].includes(t.type) && t.status === 'completed')
+    .reduce((sum, t) => sum + Number(t.displayAmount || 0), 0);
+  const totalWithdrawn = decorated
+    .filter(t => ['withdrawal', 'withdraw', 'payout'].includes(t.type) && t.status === 'completed')
+    .reduce((sum, t) => sum + Number(t.displayAmount || 0), 0);
+
+  return {
+    currency: displayCurrency,
+    transactions: decorated,
+    totalReceived: roundDisplayMoney(totalReceived),
+    totalWithdrawn: roundDisplayMoney(totalWithdrawn),
+    netTotal: roundDisplayMoney(totalReceived - totalWithdrawn),
+  };
+}
+
 export async function updateStripeConnectState(userId, updates = {}) {
   const fields = [];
   const values = [];

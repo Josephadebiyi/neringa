@@ -319,6 +319,101 @@ export async function generateShipmentSummaryPDF(assessment) {
 }
 
 /**
+ * Generate a business account's Financial Report PDF (wallet earnings summary).
+ * @param {Object} data - { businessName, currency, from, to, totalReceived, totalWithdrawn, netTotal, currentBalance, transactions }
+ * @returns {Promise<Buffer>} PDF as buffer
+ */
+export async function generateEarningsSummaryPDF(data) {
+  return new Promise((resolve, reject) => {
+    try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const logoPath = path.resolve(__dirname, '../controllers/image/Bago_New_2.png');
+
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 },
+      });
+
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      drawBrandHeader(doc, logoPath);
+      doc.moveDown(0.5);
+
+      doc.fontSize(20).font('Helvetica-Bold').text('FINANCIAL REPORT', { align: 'center' });
+      doc.moveDown(0.3);
+      if (data.businessName) {
+        doc.fontSize(12).font('Helvetica').fillColor('#666666').text(data.businessName, { align: 'center' });
+      }
+      const rangeText = data.from || data.to
+        ? `${data.from ? new Date(data.from).toLocaleDateString() : 'Start'} – ${data.to ? new Date(data.to).toLocaleDateString() : 'Now'}`
+        : 'All time';
+      doc.fontSize(10).fillColor('#999999').text(rangeText, { align: 'center' });
+      doc.fillColor('#000000');
+      doc.moveDown(1);
+
+      drawLine(doc);
+      doc.moveDown(1);
+
+      doc.fontSize(14).font('Helvetica-Bold').text('SUMMARY');
+      doc.moveDown(0.5);
+      drawTable(doc, [
+        ['Total Received:', `${data.currency} ${Number(data.totalReceived || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ['Total Withdrawn:', `${data.currency} ${Number(data.totalWithdrawn || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ['Net Total:', `${data.currency} ${Number(data.netTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ['Current Balance:', `${data.currency} ${Number(data.currentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+      ]);
+      doc.moveDown(1);
+
+      drawLine(doc);
+      doc.moveDown(1);
+
+      doc.fontSize(14).font('Helvetica-Bold').text('TRANSACTIONS');
+      doc.moveDown(0.5);
+
+      const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+      if (!transactions.length) {
+        doc.fontSize(10).font('Helvetica').fillColor('#999999').text('No transactions in this period.');
+        doc.fillColor('#000000');
+      } else {
+        doc.fontSize(9).font('Helvetica-Bold');
+        const colX = { date: 50, desc: 140, type: 340, amount: 420 };
+        doc.text('Date', colX.date, doc.y, { continued: true, width: 90 });
+        doc.text('Description', colX.desc, doc.y, { continued: true, width: 200 });
+        doc.text('Type', colX.type, doc.y, { continued: true, width: 80 });
+        doc.text('Amount', colX.amount, doc.y);
+        doc.moveDown(0.3);
+        drawLine(doc);
+        doc.moveDown(0.3);
+
+        doc.font('Helvetica').fontSize(8);
+        transactions.forEach((t) => {
+          if (doc.y > 760) {
+            doc.addPage();
+          }
+          const y = doc.y;
+          doc.text(new Date(t.created_at || t.createdAt).toLocaleDateString(), colX.date, y, { width: 90 });
+          doc.text(String(t.description || '—').slice(0, 60), colX.desc, y, { width: 200 });
+          doc.text(String(t.type || '—'), colX.type, y, { width: 80 });
+          doc.text(
+            `${t.displayCurrency || data.currency} ${Number(t.displayAmount ?? t.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+            colX.amount, y, { width: 120 },
+          );
+          doc.moveDown(0.5);
+        });
+      }
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
  * Generate Shipping Label PDF with tracking number and Bago branding
  * @param {Object} shippingData - Shipping request data
  * @returns {Promise<Buffer>} PDF as buffer

@@ -1,6 +1,8 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 import { sendTripApprovedEmail, sendTripDeclinedEmail } from '../../services/emailNotifications.js';
+import { updateTripRecord, getTripPricingSettings } from '../../lib/postgres/trips.js';
+import { convertTripPriceForValidation, getTripValidationRate } from '../AddaTripController.js';
 
 function normalizeTrip(row) {
   return {
@@ -205,6 +207,80 @@ export const updateTripStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating trip status:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateTripPrice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pricePerKg } = req.body;
+
+    const existingRow = await queryOne(`${adminTripSelect} where t.id = $1`, [id]);
+    if (!existingRow) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+    const existing = normalizeTrip(existingRow);
+    if (!existing.userId) {
+      return res.status(409).json({ success: false, message: 'Trip has no owner on record' });
+    }
+
+    const currency = req.body.currency || existing.currency;
+    const price = parseFloat(pricePerKg);
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ success: false, message: 'Price per kg must be a positive number' });
+    }
+    if (!currency) {
+      return res.status(400).json({ success: false, message: 'Currency is required' });
+    }
+
+    const priceInUSD = await convertTripPriceForValidation(price, currency, 'USD');
+    if (priceInUSD > 15) {
+      return res.status(400).json({ success: false, message: 'Maximum price allowed is 15 USD per kg' });
+    }
+
+    const { supportedAfricanCurrencies } = await getTripPricingSettings();
+    const isAfricanCurrency = supportedAfricanCurrencies.includes(String(currency).toUpperCase());
+    const isNigeriaRoute =
+      String(existing.fromCountry || '').toUpperCase() === 'NG' ||
+      String(existing.fromCountry || '').toUpperCase() === 'NIGERIA' ||
+      String(existing.toCountry || '').toUpperCase() === 'NG' ||
+      String(existing.toCountry || '').toUpperCase() === 'NIGERIA';
+
+    if (isAfricanCurrency || isNigeriaRoute) {
+      const maxNaira = 6000;
+      const priceInNaira = await convertTripPriceForValidation(price, currency, 'NGN');
+      if (priceInNaira > maxNaira) {
+        const rateToLocal = await getTripValidationRate('NGN', currency);
+        const localMax = Math.round(maxNaira * rateToLocal);
+        return res.status(400).json({
+          success: false,
+          message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`,
+        });
+      }
+    }
+
+    const updates = { price_per_kg: price, currency };
+    const updated = await updateTripRecord(id, existing.userId, updates);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Trip not found' });
+    }
+
+    sendPushNotification(
+      existing.userId,
+      'Trip Price Updated',
+      `An admin adjusted the price for your trip from ${existing.fromLocation} to ${existing.toLocation} to ${price} ${currency}/kg.`,
+    ).catch((err) => console.error('Trip price update notification failed:', err.message));
+
+    const tripRow = await queryOne(`${adminTripSelect} where t.id = $1`, [id]);
+
+    res.status(200).json({
+      success: true,
+      data: normalizeTrip(tripRow),
+      message: 'Trip price updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating trip price:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -1,6 +1,6 @@
 import express from 'express';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, addFunds, uploadOrUpdateImage, uploadBusinessDocument, saveBusinessPayoutDraft, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
-import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, getReferral, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs, detectLocation } from '../controllers/postgresUserController.js';
+import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, exportWalletTransactions, downloadEarningsSummaryPDF, getReferral, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs, detectLocation } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewToRequest, DeleteTrip, GetMyReviews } from '../controllers/AddaTripController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
@@ -235,6 +235,8 @@ userRouter.delete('/request/:requestId', isAuthenticated, deleteRequestFromHisto
 
 // 💰 Wallet & Payments
 userRouter.get('/getWallet', isAuthenticated, getWallet);
+userRouter.get('/wallet/transactions/export', isAuthenticated, exportWalletTransactions);
+userRouter.get('/wallet/report/pdf', isAuthenticated, downloadEarningsSummaryPDF);
 userRouter.get('/referral', isAuthenticated, getReferral);
 userRouter.post('/withdrawal/request-otp', isAuthenticated, requireKycVerification, requireVerifiedContact, requestWithdrawalOtp);
 userRouter.post('/addFunds', isAuthenticated, requireKycVerification, requireInternalWalletMutation, addFunds);

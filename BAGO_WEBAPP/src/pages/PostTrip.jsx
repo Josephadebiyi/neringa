@@ -27,6 +27,7 @@ import {
 import api from '../api';
 import { locations } from '../utils/countries';
 import Select from 'react-select';
+import DateSelector from '../components/posttrip/DateSelector';
 
 const Navbar = ({ step }) => {
     const navigate = useNavigate();
@@ -131,7 +132,7 @@ export default function PostTrip() {
         originCity: '',
         destinationCountry: '',
         destinationCity: '',
-        departureDate: '',
+        departureDates: [],
         transportMode: 'airplane',
         availableWeight: '',
         pricePerKg: '',
@@ -145,11 +146,19 @@ export default function PostTrip() {
     const activeCurrency = getUserPayoutCurrency(user, selectedCurrency || '');
     const isBusinessAccount = user?.accountType === 'company' || user?.account_type === 'company';
     const [documentPreview, setDocumentPreview] = useState(null);
+    const [postedCount, setPostedCount] = useState(1);
 
     useEffect(() => {
         const saved = localStorage.getItem('pending_trip_post');
         if (saved) {
-            try { setFormData(JSON.parse(saved)); } catch (e) { }
+            try {
+                const parsed = JSON.parse(saved);
+                if (!Array.isArray(parsed.departureDates)) {
+                    parsed.departureDates = parsed.departureDate ? [parsed.departureDate] : [];
+                }
+                delete parsed.departureDate;
+                setFormData(prev => ({ ...prev, ...parsed }));
+            } catch (e) { }
         }
         if (user?.acceptedTerms === true) {
             setTermsAlreadyAccepted(true);
@@ -245,7 +254,7 @@ export default function PostTrip() {
             setError('Please complete the route details.');
             return;
         }
-        if (!formData.departureDate) {
+        if (!formData.departureDates?.length) {
             setError('Please select a departure date.');
             return;
         }
@@ -290,7 +299,7 @@ export default function PostTrip() {
                 fromCountry: formData.originCountry,
                 toLocation: `${formData.destinationCity}, ${formData.destinationCountry}`,
                 toCountry: formData.destinationCountry,
-                departureDate: formData.departureDate,
+                departureDates: formData.departureDates,
                 availableKg: parseFloat(formData.availableWeight),
                 travelMeans: formData.transportMode,
                 pricePerKg: parseFloat(formData.pricePerKg),
@@ -301,6 +310,7 @@ export default function PostTrip() {
             });
             if (res.status === 201 || res.data?.trip || res.data?.message?.toLowerCase().includes('created')) {
                 localStorage.removeItem('pending_trip_post');
+                setPostedCount(res.data?.count || 1);
                 setStep(3);
                 window.scrollTo(0, 0);
             } else {
@@ -373,8 +383,14 @@ export default function PostTrip() {
                     <div className="w-20 h-20 bg-green-50 text-green-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
                         <CheckCircle size={40} />
                     </div>
-                    <h1 className="text-3xl font-black text-[#012126] mb-4 tracking-tight uppercase">{t('tripPostedSuccess')}</h1>
-                    <p className="text-gray-500 font-bold text-xs mb-10 leading-relaxed uppercase tracking-widest">{t('tripPostedDesc')}</p>
+                    <h1 className="text-3xl font-black text-[#012126] mb-4 tracking-tight uppercase">
+                        {postedCount > 1 ? `${postedCount} Trips Posted` : t('tripPostedSuccess')}
+                    </h1>
+                    <p className="text-gray-500 font-bold text-xs mb-10 leading-relaxed uppercase tracking-widest">
+                        {postedCount > 1
+                            ? `Your trip was listed across ${postedCount} dates.`
+                            : t('tripPostedDesc')}
+                    </p>
                     <Link to="/dashboard" className="inline-flex items-center gap-2 px-10 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.02] active:scale-95">
                         {t('goDashboard')} <ArrowRight size={14} />
                     </Link>
@@ -433,12 +449,10 @@ export default function PostTrip() {
 
                                                     <div className="mb-8">
                                         <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('departureLabel')}</label>
-                                        <input
-                                            type="date"
-                                            name="departureDate"
-                                            value={formData.departureDate}
-                                            onChange={handleChange}
-                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                        <DateSelector
+                                            dates={formData.departureDates}
+                                            onChange={(dates) => setFormData(prev => ({ ...prev, departureDates: dates }))}
+                                            isBusinessAccount={isBusinessAccount}
                                         />
                                     </div>
                                 </div>
@@ -683,7 +697,9 @@ export default function PostTrip() {
                                         <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter">{formData.originCountry}</p>
                                         <div className="mt-4 flex items-center justify-center md:justify-start gap-2 text-[10px] font-black text-gray-400">
                                             <Calendar size={14} className="text-[#5845D8]/50" />
-                                            {t('departure')}: {formData.departureDate}
+                                            {formData.departureDates.length > 1
+                                                ? `${t('departure')}: ${formData.departureDates[0]} + ${formData.departureDates.length - 1} more date${formData.departureDates.length > 2 ? 's' : ''}`
+                                                : `${t('departure')}: ${formData.departureDates[0] || ''}`}
                                         </div>
                                     </div>
 

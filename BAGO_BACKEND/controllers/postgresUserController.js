@@ -20,6 +20,7 @@ import {
   findProfileById,
   findProfileByReferralCode,
   getWalletByUserId,
+  getWalletTransactionsForExport,
   setPendingEmailChange,
   setPendingPhoneChange,
   updatePasswordOtp,
@@ -28,6 +29,7 @@ import {
   clearOtpAndUpdatePassword,
 } from '../lib/postgres/profiles.js';
 import { query, queryOne } from '../lib/postgres/db.js';
+import { generateEarningsSummaryPDF } from '../services/pdfGenerator.js';
 import { storeRefreshToken, revokeRefreshToken, revokeAllUserTokens } from '../lib/postgres/userSessions.js';
 import { getActiveBeneficiary } from '../lib/postgres/flutterwavePayments.js';
 import { getPaymentGateway, getCurrencyByCountry, FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES } from '../constants/countries.js';
@@ -1514,6 +1516,49 @@ export async function getWallet(req, res) {
       console.error('getWallet fallback error:', fallbackError);
       res.status(500).json({ message: 'Could not load wallet data' });
     }
+  }
+}
+
+export async function exportWalletTransactions(req, res) {
+  try {
+    const userId = req.user.id || req.user._id;
+    const { from, to } = req.query;
+    const data = await getWalletTransactionsForExport(userId, { from, to });
+    res.status(200).json({ success: true, ...data });
+  } catch (error) {
+    console.error('exportWalletTransactions error:', error);
+    res.status(500).json({ success: false, message: 'Could not load transactions for export' });
+  }
+}
+
+export async function downloadEarningsSummaryPDF(req, res) {
+  try {
+    const userId = req.user.id || req.user._id;
+    const { from, to } = req.query;
+    const [wallet, exportData, profile] = await Promise.all([
+      getWalletByUserId(userId),
+      getWalletTransactionsForExport(userId, { from, to }),
+      findProfileById(userId),
+    ]);
+
+    const pdf = await generateEarningsSummaryPDF({
+      businessName: profile?.companyName || [profile?.firstName, profile?.lastName].filter(Boolean).join(' '),
+      currency: exportData.currency,
+      from,
+      to,
+      totalReceived: exportData.totalReceived,
+      totalWithdrawn: exportData.totalWithdrawn,
+      netTotal: exportData.netTotal,
+      currentBalance: wallet?.displayBalance ?? wallet?.balance ?? 0,
+      transactions: exportData.transactions,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="bago-financial-report-${new Date().toISOString().slice(0, 10)}.pdf"`);
+    return res.end(pdf);
+  } catch (error) {
+    console.error('downloadEarningsSummaryPDF error:', error);
+    res.status(500).json({ success: false, message: 'Could not generate financial report' });
   }
 }
 

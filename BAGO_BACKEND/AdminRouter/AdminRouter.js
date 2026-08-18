@@ -4,7 +4,7 @@ import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { auditAdminAction, requireAdminPermission } from '../middleware/adminAuthorization.js';
 import { banUser, GetAllUsers, deleteUser, updateUser, getUserDetail } from '../controllers/AdminControllers/GetAllUsers.js';
 import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controllers/postgresUserController.js';
-import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord } from '../controllers/AdminControllers/Tracking.js';
+import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord, getOrderConversation, adminCancelRequest } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
@@ -54,6 +54,7 @@ import {
   getAllTrips,
   getTripById,
   updateTripStatus,
+  updateTripPrice,
   deleteTrip
 } from '../controllers/AdminControllers/TripManagement.js';
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
@@ -139,6 +140,8 @@ AdminRouter.get("/GetAllUsers", adminAuthenticated, can('users.read'), GetAllUse
 AdminRouter.get("/GetUserDetail/:userId", adminAuthenticated, can('users.read'), validateUuidParam('userId'), getUserDetail)
 AdminRouter.get("/orders", adminAuthenticated, getAllOrders)
 AdminRouter.get("/orders/:id/pdf", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), downloadOrderRecord)
+AdminRouter.get("/orders/:id/conversation", adminAuthenticated, can('users.manage'), validateUuidParam('id'), getOrderConversation)
+AdminRouter.post("/orders/:id/cancel", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.order.cancel', 'shipment_request'), adminCancelRequest)
 AdminRouter.get("/tracking", adminAuthenticated, tracking)
 AdminRouter.get("/tracking/active-shipments", adminAuthenticated, activeShipmentLocations)
 AdminRouter.put("/tracking/:id", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.tracking.update', 'shipment_request'), updateRequest)
@@ -213,6 +216,7 @@ AdminRouter.put("/promo-codes/:id/toggle", adminAuthenticated, can('promos.manag
 AdminRouter.get("/admin-trips", adminAuthenticated, getAllTrips);
 AdminRouter.get("/admin-trips/:id", adminAuthenticated, validateUuidParam('id'), getTripById);
 AdminRouter.put("/admin-trips/:id/status", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.status.update', 'trip'), updateTripStatus);
+AdminRouter.put("/admin-trips/:id/price", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.price.update', 'trip'), updateTripPrice);
 AdminRouter.delete("/admin-trips/:id", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.delete', 'trip'), deleteTrip);
 
 // General Admin Asset Upload (for promo emails etc)

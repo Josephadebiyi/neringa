@@ -38,7 +38,7 @@ async function uploadTravelDocument(base64DataUri, userId) {
 const normalizeLocation = (value = '') =>
   value.toString().trim().toLowerCase().replace(/\s+/g, ' ');
 
-const TRIP_VALIDATION_REFERENCE_RATES = {
+export const TRIP_VALIDATION_REFERENCE_RATES = {
   USD: 1,
   EUR: 0.92,
   GBP: 0.78,
@@ -59,7 +59,7 @@ const isRateAvailabilityError = (error) =>
 const normalizeCurrencyCode = (value) =>
   (value || '').toString().trim().toUpperCase();
 
-const convertTripPriceForValidation = async (amount, fromCurrency, toCurrency) => {
+export const convertTripPriceForValidation = async (amount, fromCurrency, toCurrency) => {
   const from = normalizeCurrencyCode(fromCurrency);
   const to = normalizeCurrencyCode(toCurrency);
   if (from === to) return Number(amount);
@@ -79,7 +79,7 @@ const convertTripPriceForValidation = async (amount, fromCurrency, toCurrency) =
   }
 };
 
-const getTripValidationRate = async (fromCurrency, toCurrency) => {
+export const getTripValidationRate = async (fromCurrency, toCurrency) => {
   const from = normalizeCurrencyCode(fromCurrency);
   const to = normalizeCurrencyCode(toCurrency);
   if (from === to) return 1;
@@ -131,7 +131,9 @@ const tripIsLockedHistory = (trip) => {
   return ['completed', 'cancelled', 'canceled', 'declined', 'expired', 'history'].includes(status) || tripHasPassed(trip);
 };
 
-// ✅ Add a new trip
+const MAX_BULK_TRIP_DATES = 60;
+
+// ✅ Add a new trip (or several, one per selected date)
 export const AddAtrip = async (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ message: "User not authenticated" });
@@ -140,7 +142,7 @@ export const AddAtrip = async (req, res, next) => {
   const {
     fromLocation, fromCountry, toLocation, toCountry,
     collectionCity, collectionCountry,
-    departureDate, arrivalDate, availableKg, travelMeans,
+    departureDate, departureDates, arrivalDate, availableKg, travelMeans,
     pricePerKg, currency, landmark, travelDocument
   } = req.body;
 
@@ -163,8 +165,27 @@ export const AddAtrip = async (req, res, next) => {
       });
     }
 
+    const isBusinessAccount = user.accountType === 'company';
+
+    const dates = Array.isArray(departureDates) && departureDates.length
+      ? departureDates
+      : (departureDate ? [departureDate] : []);
+
+    if (!dates.length) {
+      return res.status(400).json({ message: "At least one departure date is required" });
+    }
+    if (dates.length > 1 && !isBusinessAccount) {
+      return res.status(403).json({
+        message: "Posting a trip across multiple dates at once is available to business accounts only.",
+        errorType: "BUSINESS_ACCOUNT_REQUIRED",
+      });
+    }
+    if (dates.length > MAX_BULK_TRIP_DATES) {
+      return res.status(400).json({ message: `You can post at most ${MAX_BULK_TRIP_DATES} dates at once` });
+    }
+
     // Validate required fields
-    if (!fromLocation || !toLocation || !departureDate || !availableKg || !travelMeans || !pricePerKg || !currency) {
+    if (!fromLocation || !toLocation || !availableKg || !travelMeans || !pricePerKg || !currency) {
       return res.status(400).json({ message: "All fields are required, including price and currency" });
     }
 
@@ -174,13 +195,19 @@ export const AddAtrip = async (req, res, next) => {
       });
     }
 
-    const departureAt = new Date(departureDate);
-    const arrivalAt = arrivalDate ? new Date(arrivalDate) : new Date(departureAt);
-    if (Number.isNaN(departureAt.getTime())) {
-      return res.status(400).json({ message: "Invalid departure date" });
-    }
-    if (Number.isNaN(arrivalAt.getTime())) {
-      return res.status(400).json({ message: "Invalid arrival date" });
+    const parsedDates = [];
+    for (const rawDate of dates) {
+      const departureAt = new Date(rawDate);
+      if (Number.isNaN(departureAt.getTime())) {
+        return res.status(400).json({ message: "Invalid departure date" });
+      }
+      // A single explicit arrivalDate only applies when posting one date at a time —
+      // across a bulk multi-date post each date's own arrival defaults to itself.
+      const arrivalAt = (dates.length === 1 && arrivalDate) ? new Date(arrivalDate) : new Date(departureAt);
+      if (Number.isNaN(arrivalAt.getTime())) {
+        return res.status(400).json({ message: "Invalid arrival date" });
+      }
+      parsedDates.push({ departureAt, arrivalAt });
     }
 
     const price = parseFloat(pricePerKg);
@@ -220,40 +247,49 @@ export const AddAtrip = async (req, res, next) => {
       }
     }
 
-    // Upload travel document to Cloudinary to get a permanent URL
-    const isBusinessAccount = user.accountType === 'company';
+    // Upload travel document to Cloudinary once — reused for every trip created below.
     const travelDocumentUrl = travelDocument
       ? await uploadTravelDocument(travelDocument, userid)
       : null;
 
-    // Create the trip with tracked capacity fields.
-    const trip = await createTripRecord({
-      userId: userid,
-      fromLocation,
-      fromCountry,
-      toLocation,
-      toCountry,
-      collectionCity: collectionCity || null,
-      collectionCountry: collectionCountry || null,
-      departureDate: departureAt,
-      arrivalDate: arrivalAt,
-      availableKg: weight,
-      travelMeans: travelMeans.trim().toLowerCase(),
-      pricePerKg: price,
-      currency,
-      landmark: landmark || '',
-      travelDocument: travelDocumentUrl,
-      proofExempt: isBusinessAccount,
-    });
+    const createdTrips = [];
+    for (const { departureAt, arrivalAt } of parsedDates) {
+      const trip = await createTripRecord({
+        userId: userid,
+        fromLocation,
+        fromCountry,
+        toLocation,
+        toCountry,
+        collectionCity: collectionCity || null,
+        collectionCountry: collectionCountry || null,
+        departureDate: departureAt,
+        arrivalDate: arrivalAt,
+        availableKg: weight,
+        travelMeans: travelMeans.trim().toLowerCase(),
+        pricePerKg: price,
+        currency,
+        landmark: landmark || '',
+        travelDocument: travelDocumentUrl,
+        proofExempt: isBusinessAccount,
+      });
+      createdTrips.push(await getTripById(trip.id));
+    }
 
-    const activeTrip = await getTripById(trip.id);
-
-    // Notify admins
+    // Notify admins — a single summarized email for bulk posts, one per trip otherwise.
     try {
       const adminEmails = await listActiveAdminEmails();
       const travelerName = user.firstName || 'A user';
-      for (const email of adminEmails) {
-        await sendNewTripAdminNotification(email, travelerName, activeTrip).catch(() => {});
+      if (createdTrips.length === 1) {
+        for (const email of adminEmails) {
+          await sendNewTripAdminNotification(email, travelerName, createdTrips[0]).catch(() => {});
+        }
+      } else {
+        for (const email of adminEmails) {
+          await sendNewTripAdminNotification(email, travelerName, {
+            ...createdTrips[0],
+            bulkCount: createdTrips.length,
+          }).catch(() => {});
+        }
       }
     } catch (adminErr) {
       console.error('Failed to notify admins:', adminErr.message);
@@ -261,9 +297,13 @@ export const AddAtrip = async (req, res, next) => {
 
     res.status(201).json({
       message: isBusinessAccount
-        ? "Trip listed successfully. Business accounts do not require travel proof."
+        ? (createdTrips.length > 1
+          ? `${createdTrips.length} trips listed successfully. Business accounts do not require travel proof.`
+          : "Trip listed successfully. Business accounts do not require travel proof.")
         : "Trip submitted for review. It will be visible to senders once an admin approves it.",
-      trip: activeTrip,
+      trip: createdTrips[0],
+      trips: createdTrips,
+      count: createdTrips.length,
     });
   } catch (error) {
     next(error);

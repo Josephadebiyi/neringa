@@ -11,6 +11,7 @@ import {
     X,
     Shield,
     CheckCircle,
+    FileText,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
@@ -23,13 +24,21 @@ const GENERAL_ITEMS = [
     { id: 'deliveries', label: 'My Deliveries', icon: CheckCircle },
 ];
 
-const ACCOUNT_ITEMS = [
-    { id: 'earnings', label: 'Wallet', icon: Wallet },
-    { id: 'referral', label: 'Referrals', icon: Gift },
-    { id: 'settings', label: 'Settings', icon: Settings },
-];
+function getAccountItems(isBusinessAccount) {
+    const items = [
+        { id: 'earnings', label: 'Wallet', icon: Wallet },
+    ];
+    if (isBusinessAccount) {
+        items.push({ id: 'financial', label: 'Financial Reports', icon: FileText });
+    }
+    items.push(
+        { id: 'referral', label: 'Referrals', icon: Gift },
+        { id: 'settings', label: 'Settings', icon: Settings },
+    );
+    return items;
+}
 
-export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen }) {
+export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen, isBusinessAccount = false }) {
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
@@ -122,7 +131,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
                 <div>
                     <SectionLabel label="PREFERENCES" />
                     <div className="space-y-1">
-                        {ACCOUNT_ITEMS.map(item => <NavItem key={item.id} item={item} />)}
+                        {getAccountItems(isBusinessAccount).map(item => <NavItem key={item.id} item={item} />)}
                     </div>
                 </div>
             </div>

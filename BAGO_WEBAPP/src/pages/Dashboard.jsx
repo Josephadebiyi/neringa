@@ -11,6 +11,7 @@ import Chats from '../components/dashboard/Chats';
 import Earnings from '../components/dashboard/Earnings';
 import Referral from '../components/dashboard/Referral';
 import Settings from '../components/dashboard/Settings';
+import FinancialReports from '../components/dashboard/FinancialReports';
 import {
     LayoutDashboard,
     Menu,
@@ -30,6 +31,7 @@ const TAB_LABELS = {
     deliveries: 'My Deliveries',
     chats: 'Messages',
     earnings: 'Wallet & Earnings',
+    financial: 'Financial Reports',
     referral: 'Referrals',
     settings: 'Settings',
     insurance: 'Insurance',
@@ -62,11 +64,12 @@ export default function Dashboard() {
 
     const effectiveKycStatus =
         user?.kycStatus === 'approved' || user?.isKycCompleted ? 'approved' : kycStatus;
+    const isBusinessAccount = user?.accountType === 'company' || user?.account_type === 'company';
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
-        const allowed = ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'chats', 'earnings', 'referral', 'settings', 'insurance'];
+        const allowed = ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'chats', 'earnings', 'financial', 'referral', 'settings', 'insurance'];
         if (tab && allowed.includes(tab)) {
             setActiveTab(tab === 'messages' ? 'chats' : tab);
         }
@@ -207,6 +210,10 @@ export default function Dashboard() {
                     );
                 case 'earnings':
                     return <Earnings user={user} checkAuthStatus={checkAuthStatus} />;
+                case 'financial':
+                    return isBusinessAccount
+                        ? <FinancialReports user={user} />
+                        : <Overview user={user} kycStatus={effectiveKycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
                 case 'referral':
                     return <Referral user={user} />;
                 case 'settings':
@@ -303,6 +310,7 @@ export default function Dashboard() {
                 logout={logout}
                 sidebarOpen={sidebarOpen}
                 setSidebarOpen={setSidebarOpen}
+                isBusinessAccount={isBusinessAccount}
             />
 
             {/* Main */}

@@ -14,9 +14,11 @@ import {
     LayoutGrid,
     Calendar,
     X,
-    TrendingUp
+    TrendingUp,
+    Pencil,
+    Check
 } from 'lucide-react';
-import { getTrips, updateTripStatus, deleteTrip } from '../services/api';
+import { getTrips, updateTripStatus, deleteTrip, updateTripPrice } from '../services/api';
 import JourneyMap from '../components/JourneyMap';
 
 interface Trip {
@@ -68,6 +70,10 @@ export default function Trips() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
     const [detailTrip, setDetailTrip] = useState<Trip | null>(null);
+    const [editingPrice, setEditingPrice] = useState(false);
+    const [priceDraft, setPriceDraft] = useState('');
+    const [priceSaving, setPriceSaving] = useState(false);
+    const [priceError, setPriceError] = useState<string | null>(null);
     const limit = 20;
 
     const toggleSelection = (tripId: string) => {
@@ -146,6 +152,38 @@ export default function Trips() {
             const message = error instanceof Error ? error.message : 'Trip status could not be updated.';
             setActionError(message);
             console.error('Failed to update trip status:', error);
+        }
+    };
+
+    const startEditingPrice = () => {
+        if (!detailTrip) return;
+        setPriceDraft(String(detailTrip.pricePerKg ?? ''));
+        setPriceError(null);
+        setEditingPrice(true);
+    };
+
+    const handleSavePrice = async () => {
+        if (!detailTrip) return;
+        const nextPrice = parseFloat(priceDraft);
+        if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
+            setPriceError('Enter a valid price greater than 0.');
+            return;
+        }
+        try {
+            setPriceSaving(true);
+            setPriceError(null);
+            const res = await updateTripPrice(detailTrip._id, nextPrice, detailTrip.currency);
+            if (!res?.success) {
+                throw new Error(res?.message || 'Price could not be updated.');
+            }
+            setDetailTrip(res.data);
+            setTrips(prev => prev.map(t => (t._id === detailTrip._id ? res.data : t)));
+            setEditingPrice(false);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Price could not be updated.';
+            setPriceError(message);
+        } finally {
+            setPriceSaving(false);
         }
     };
 
@@ -349,7 +387,7 @@ export default function Trips() {
                                             <td className="py-5 px-8 text-right">
                                                 <div className="flex justify-end gap-2 flex-wrap">
                                                     <button
-                                                        onClick={() => setDetailTrip(trip)}
+                                                        onClick={() => { setDetailTrip(trip); setEditingPrice(false); setPriceError(null); }}
                                                         className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-[10px] font-black uppercase hover:bg-gray-100"
                                                     >
                                                         Details
@@ -412,10 +450,51 @@ export default function Trips() {
                             <div className="flex items-center gap-4 bg-[#5240E8]/5 border border-[#5240E8]/20 rounded-2xl p-4">
                                 <div className="flex-1">
                                     <p className="text-[9px] font-black text-[#5240E8]/60 uppercase tracking-widest">Price per kg</p>
-                                    <p className="text-2xl font-black text-[#5240E8] mt-0.5">
-                                        {detailTrip.currency || 'USD'} {Number(detailTrip.pricePerKg || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                        <span className="text-sm font-bold text-[#5240E8]/50 ml-1">/ kg</span>
-                                    </p>
+                                    {editingPrice ? (
+                                        <div className="mt-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-[#5240E8]/70">{detailTrip.currency || 'USD'}</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    value={priceDraft}
+                                                    onChange={(e) => setPriceDraft(e.target.value)}
+                                                    className="w-28 px-2 py-1 rounded-lg border border-[#5240E8]/30 text-lg font-black text-[#5240E8] focus:outline-none focus:ring-2 focus:ring-[#5240E8]/30"
+                                                    autoFocus
+                                                />
+                                                <button
+                                                    onClick={handleSavePrice}
+                                                    disabled={priceSaving}
+                                                    className="p-1.5 bg-[#5240E8] text-white rounded-lg hover:bg-[#5240E8]/90 disabled:opacity-50"
+                                                >
+                                                    {priceSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => { setEditingPrice(false); setPriceError(null); }}
+                                                    disabled={priceSaving}
+                                                    className="p-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            {priceError && <p className="text-[10px] font-bold text-red-600 mt-1">{priceError}</p>}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <p className="text-2xl font-black text-[#5240E8]">
+                                                {detailTrip.currency || 'USD'} {Number(detailTrip.pricePerKg || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                <span className="text-sm font-bold text-[#5240E8]/50 ml-1">/ kg</span>
+                                            </p>
+                                            <button
+                                                onClick={startEditingPrice}
+                                                className="p-1.5 text-[#5240E8]/50 hover:text-[#5240E8] hover:bg-[#5240E8]/10 rounded-lg transition-colors"
+                                                title="Edit price per kg"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Available</p>

@@ -208,6 +208,17 @@ export async function downloadOrderRecord(id: string) {
   return response.blob();
 }
 
+export async function getOrderConversation(id: string) {
+  return apiCall(`${ADMIN_API}/orders/${id}/conversation`);
+}
+
+export async function cancelOrder(id: string, options: { issueRefund: boolean; reason?: string }) {
+  return apiCall(`${ADMIN_API}/orders/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(options),
+  });
+}
+
 // Analytics
 export async function getAnalytics() {
   return apiCall(`${ADMIN_API}/analystic`);
@@ -300,6 +311,13 @@ export async function updateTripStatus(tripId: string, status: string, reason?: 
 
 export async function deleteTrip(tripId: string) {
   return apiCall(`${ADMIN_API}/admin-trips/${tripId}`, { method: 'DELETE' });
+}
+
+export async function updateTripPrice(tripId: string, pricePerKg: number, currency?: string) {
+  return apiCall(`${ADMIN_API}/admin-trips/${tripId}/price`, {
+    method: 'PUT',
+    body: JSON.stringify({ pricePerKg, currency }),
+  });
 }
 
 // Staff

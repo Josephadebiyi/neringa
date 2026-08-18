@@ -2,6 +2,10 @@ import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 import { getShipmentRequestById } from '../../lib/postgres/shipping.js';
 import { generateShippingLabelPDF } from '../../services/pdfGenerator.js';
+import { refundPaidShipmentRequest } from '../../services/shipmentRefundService.js';
+import { adminHasPermission } from '../../services/supportAutomationService.js';
+
+const CANCEL_BLOCKED_STATUSES = new Set(['completed', 'cancelled', 'refund_approved']);
 
 const VALID_SHIPMENT_STATUSES = new Set([
   'pending',
@@ -324,11 +328,16 @@ export const getAllOrders = async (req, res, next) => {
          traveler.email      AS traveler_email,
          traveler.phone      AS traveler_phone,
          traveler.image_url  AS traveler_image,
-         traveler.kyc_status AS traveler_kyc_status
+         traveler.kyc_status AS traveler_kyc_status,
+         -- trip
+         sr.trip_id          AS trip_id,
+         trip.price_per_kg   AS trip_price_per_kg,
+         trip.currency       AS trip_currency
        FROM public.shipment_requests sr
        LEFT JOIN public.packages  pkg      ON pkg.id      = sr.package_id
        LEFT JOIN public.profiles  sender   ON sender.id   = sr.sender_id
        LEFT JOIN public.profiles  traveler ON traveler.id = sr.traveler_id
+       LEFT JOIN public.trips     trip     ON trip.id     = sr.trip_id
        ${where}
        ORDER BY sr.created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -391,6 +400,13 @@ export const getAllOrders = async (req, res, next) => {
         image: r.traveler_image,
         kycStatus: r.traveler_kyc_status,
       },
+      trip: r.trip_id
+        ? {
+            id: r.trip_id,
+            pricePerKg: Number(r.trip_price_per_kg || 0),
+            currency: r.trip_currency,
+          }
+        : null,
     }));
 
     return res.json({
@@ -441,6 +457,113 @@ export const downloadOrderRecord = async (req, res, next) => {
     return res.end(pdf);
   } catch (error) {
     return next(error);
+  }
+};
+
+export const getOrderConversation = async (req, res, next) => {
+  try {
+    const request = await getShipmentRequestById(req.params.id);
+    if (!request) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    if (!request.conversationId) {
+      return res.json({ success: true, conversation: null, messages: [] });
+    }
+
+    const [conversation, messages] = await Promise.all([
+      queryOne(
+        `select id, chat_locked as "chatLocked", chat_lock_reason as "chatLockReason",
+                created_at as "createdAt", updated_at as "updatedAt", last_message as "lastMessage"
+         from public.conversations where id = $1`,
+        [request.conversationId],
+      ),
+      query(
+        `select m.id, m.sender_id as "senderId", concat_ws(' ', p.first_name, p.last_name) as "senderName",
+                m.content, m.created_at as "createdAt"
+         from public.messages m left join public.profiles p on p.id = m.sender_id
+         where m.conversation_id = $1 order by m.created_at`,
+        [request.conversationId],
+      ),
+    ]);
+
+    return res.json({ success: true, conversation, messages: messages.rows });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const adminCancelRequest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { issueRefund, reason } = req.body;
+
+    if (issueRefund && !adminHasPermission(req.admin, 'refunds.manage')) {
+      return res.status(403).json({
+        success: false,
+        code: 'ADMIN_PERMISSION_REQUIRED',
+        message: 'You do not have permission to issue refunds.',
+      });
+    }
+
+    const request = await getShipmentRequestById(id);
+    if (!request) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+    if (CANCEL_BLOCKED_STATUSES.has(request.status)) {
+      return res.status(409).json({
+        success: false,
+        message: `This order is already ${STATUS_LABELS[request.status] || request.status} and cannot be cancelled.`,
+      });
+    }
+
+    const current = await queryOne(
+      `SELECT id, sender_id, traveler_id, tracking_number, movement_tracking
+       FROM public.shipment_requests WHERE id = $1`,
+      [id],
+    );
+    const movementTracking = [
+      ...normalizeMovementTracking(current.movement_tracking),
+      {
+        status: 'cancelled',
+        notes: reason || 'Cancelled by admin',
+        timestamp: new Date().toISOString(),
+      },
+    ];
+
+    const updated = await queryOne(
+      `UPDATE public.shipment_requests
+       SET status = 'cancelled', movement_tracking = $2, updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [id, JSON.stringify(movementTracking)],
+    );
+
+    let refundInfo = null;
+    let refundFailed = false;
+    if (issueRefund) {
+      try {
+        refundInfo = await refundPaidShipmentRequest(request, { reason: 'admin_cancelled' });
+      } catch (refundError) {
+        console.error('Admin cancelled order but refund failed:', {
+          requestId: id,
+          error: refundError.message,
+        });
+        refundFailed = true;
+      }
+    }
+
+    const notificationResults = await notifyShipmentStatusChange(updated, 'cancelled', null);
+
+    return res.status(200).json({
+      success: true,
+      message: refundFailed
+        ? 'Order cancelled, but the refund could not be started automatically. Please retry or contact support.'
+        : 'Order cancelled successfully.',
+      data: updated,
+      refundInfo,
+      refundFailed,
+      notificationResults,
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
