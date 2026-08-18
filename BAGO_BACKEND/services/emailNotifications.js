@@ -936,6 +936,46 @@ export async function sendKycApprovedEmail(userEmail, userName) {
   }
 }
 
+export async function sendBusinessWelcomeEmail(userEmail, userName, businessName) {
+  if (!resend) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const displayName = businessName || 'your business';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Welcome to Bago! <strong>${displayName}</strong> has been verified and your business account is now fully active.
+      </p>
+      <div style="background:#f0fdf4; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #22c55e;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">You can now:</p>
+        <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
+          <li>Post trips under your business, exempt from individual travel-document proof</li>
+          <li>Post trips across multiple dates at once</li>
+          <li>Download financial reports from your dashboard</li>
+          <li>Receive earnings into your Bago wallet</li>
+        </ul>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Sign in on the Bago app or website with <strong>${userEmail}</strong> and the password you created during registration.
+        If you have any questions, our support team is here to help.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: `🎉 Welcome to Bago, ${displayName}!`,
+      html: generateEmailTemplate('Welcome to Bago', content, 'Go to Dashboard', `${FRONTEND_URL}/dashboard`),
+    });
+    console.log(`✅ Sent business welcome email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send business welcome email:', err);
+    return false;
+  }
+}
+
 export async function sendKycSubmittedEmail(userEmail, userName) {
   if (!resend) return false;
   try {

@@ -1,8 +1,7 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 import { sendTripApprovedEmail, sendTripDeclinedEmail } from '../../services/emailNotifications.js';
-import { updateTripRecord, getTripPricingSettings } from '../../lib/postgres/trips.js';
-import { convertTripPriceForValidation, getTripValidationRate } from '../AddaTripController.js';
+import { updateTripRecord } from '../../lib/postgres/trips.js';
 
 function normalizeTrip(row) {
   return {
@@ -232,32 +231,6 @@ export const updateTripPrice = async (req, res) => {
     }
     if (!currency) {
       return res.status(400).json({ success: false, message: 'Currency is required' });
-    }
-
-    const priceInUSD = await convertTripPriceForValidation(price, currency, 'USD');
-    if (priceInUSD > 15) {
-      return res.status(400).json({ success: false, message: 'Maximum price allowed is 15 USD per kg' });
-    }
-
-    const { supportedAfricanCurrencies } = await getTripPricingSettings();
-    const isAfricanCurrency = supportedAfricanCurrencies.includes(String(currency).toUpperCase());
-    const isNigeriaRoute =
-      String(existing.fromCountry || '').toUpperCase() === 'NG' ||
-      String(existing.fromCountry || '').toUpperCase() === 'NIGERIA' ||
-      String(existing.toCountry || '').toUpperCase() === 'NG' ||
-      String(existing.toCountry || '').toUpperCase() === 'NIGERIA';
-
-    if (isAfricanCurrency || isNigeriaRoute) {
-      const maxNaira = 6000;
-      const priceInNaira = await convertTripPriceForValidation(price, currency, 'NGN');
-      if (priceInNaira > maxNaira) {
-        const rateToLocal = await getTripValidationRate('NGN', currency);
-        const localMax = Math.round(maxNaira * rateToLocal);
-        return res.status(400).json({
-          success: false,
-          message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`,
-        });
-      }
     }
 
     const updates = { price_per_kg: price, currency };

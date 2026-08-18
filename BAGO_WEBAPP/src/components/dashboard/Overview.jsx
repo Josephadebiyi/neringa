@@ -126,7 +126,10 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
 
     const walletCurrency = profileCurrency;
     const sym = CURRENCY_SYMBOLS[walletCurrency] || walletCurrency;
-    const firstName = user?.firstName || user?.name?.split(' ')[0] || 'there';
+    const isBusinessAccount = user?.accountType === 'company' || user?.account_type === 'company';
+    const greetingName = isBusinessAccount
+        ? (user?.tradingName || user?.companyName || user?.firstName || 'there')
+        : (user?.firstName || user?.name?.split(' ')[0] || 'there');
 
     useEffect(() => {
         let mounted = true;
@@ -218,7 +221,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-black text-[#111827] tracking-tight">
-                        Hello, {firstName} 👋
+                        Hello, {greetingName} 👋
                     </h1>
                     <p className="text-[11px] text-gray-400 font-medium mt-1">
                         Monitor your shipments and trips in real time.

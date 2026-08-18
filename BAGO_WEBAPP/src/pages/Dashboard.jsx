@@ -363,7 +363,9 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2.5 pl-3 border-l border-gray-100">
                             <div className="text-right hidden md:block">
                                 <p className="text-[11px] font-black text-[#111827] leading-tight">
-                                    {user?.firstName} {user?.lastName}
+                                    {isBusinessAccount
+                                        ? (user?.tradingName || user?.companyName)
+                                        : `${user?.firstName || ''} ${user?.lastName || ''}`.trim()}
                                 </p>
                                 <p className="text-[9px] text-gray-400 font-medium truncate max-w-[150px]">
                                     {user?.email}

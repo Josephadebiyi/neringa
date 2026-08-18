@@ -107,6 +107,10 @@ export default function Signup() {
             setError(t('passwordMinLength'));
             return;
         }
+        if (formData.password !== formData.confirmPassword) {
+            setError(t('passwordMismatch') || 'Passwords do not match.');
+            return;
+        }
         if (!formData.phone || formData.phone.length < 7) {
             setError(t('validPhoneError'));
             return;
@@ -124,7 +128,7 @@ export default function Signup() {
                 phone: formData.phone,
                 country: formData.country,
                 password: formData.password,
-                confirmPassword: formData.password, // backend might still expect it
+                confirmPassword: formData.confirmPassword,
                 referralCode: formData.referralCode,
                 firstName: 'Bago',
                 lastName: 'User',

@@ -1,5 +1,8 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
-import { sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
+import { sendAccountBannedEmail, sendAccountUnblockedEmail, sendBusinessWelcomeEmail } from '../../services/emailNotifications.js';
+import { sendPushNotification } from '../../services/pushNotificationService.js';
+
+const BUSINESS_DOCUMENT_STATUSES = new Set(['approved', 'rejected']);
 function normalizeUser(row) {
   const isTraveler = row.earning_currency_locked === true;
   return {
@@ -351,6 +354,65 @@ export const updateUser = async (req, res, next) => {
 
     return res.status(200).json({
       message: 'User updated successfully',
+      data: normalizeUser(user),
+      success: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Approve or reject a business account's registration document. This is the
+// missing admin-side half of the business signup flow: uploadBusinessDocument
+// (userController.js) marks a company's document 'pending_review' but nothing
+// previously ever moved it forward — this is the first and only place that does.
+export const reviewBusinessDocument = async (req, res, next) => {
+  const { userId } = req.params;
+  const { action, reason } = req.body;
+
+  if (!BUSINESS_DOCUMENT_STATUSES.has(action)) {
+    return res.status(400).json({ message: "action must be 'approved' or 'rejected'", error: true, success: false });
+  }
+  if (action === 'rejected' && !String(reason || '').trim()) {
+    return res.status(400).json({ message: 'A reason is required when rejecting a business document', error: true, success: false });
+  }
+
+  try {
+    const existing = await queryOne(`select id, account_type, business_document_status from public.profiles where id = $1`, [userId]);
+    if (!existing) {
+      return res.status(404).json({ message: 'User not found', error: true, success: false });
+    }
+    if (existing.account_type !== 'company') {
+      return res.status(400).json({ message: 'This user is not a business account', error: true, success: false });
+    }
+
+    const user = await queryOne(
+      `
+        update public.profiles
+        set business_document_status = $2, updated_at = timezone('utc', now())
+        where id = $1
+        returning *
+      `,
+      [userId, action],
+    );
+
+    sendPushNotification(
+      userId,
+      action === 'approved' ? 'Business document approved' : 'Business document needs attention',
+      action === 'approved'
+        ? 'Your business registration document has been verified.'
+        : `Your business registration document was not approved. ${reason || ''}`.trim(),
+    ).catch((err) => console.error('Business review notification failed:', err.message));
+
+    if (action === 'approved' && user.email) {
+      const businessName = user.trading_name || user.company_name;
+      const representativeName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+      sendBusinessWelcomeEmail(user.email, representativeName, businessName)
+        .catch((err) => console.error('Business welcome email failed:', err.message));
+    }
+
+    return res.status(200).json({
+      message: `Business document ${action}`,
       data: normalizeUser(user),
       success: true,
     });

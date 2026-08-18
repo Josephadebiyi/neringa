@@ -9,12 +9,10 @@ import {
   deleteTripRecord,
   addTripReview,
   getReviewsForUser,
-  getTripPricingSettings,
   listActiveAdminEmails,
   userHasCompletedTripRequest,
 } from '../lib/postgres/trips.js';
 import { getShipmentRequestById } from '../lib/postgres/shipping.js';
-import { getExchangeRate, convertCurrency } from '../services/currencyConverter.js';
 import { sendNewTripAdminNotification } from '../services/emailNotifications.js';
 
 // Upload base64 travel document to Cloudinary and return the secure URL
@@ -37,67 +35,6 @@ async function uploadTravelDocument(base64DataUri, userId) {
 
 const normalizeLocation = (value = '') =>
   value.toString().trim().toLowerCase().replace(/\s+/g, ' ');
-
-export const TRIP_VALIDATION_REFERENCE_RATES = {
-  USD: 1,
-  EUR: 0.92,
-  GBP: 0.78,
-  NGN: 1500,
-  GHS: 15,
-  KES: 130,
-  ZAR: 18,
-  CAD: 1.37,
-  AUD: 1.52,
-};
-
-const isRateAvailabilityError = (error) =>
-  error?.code === 'EXCHANGE_RATE_EXPIRED' ||
-  error?.code === 'EXCHANGE_RATE_MISSING' ||
-  error?.statusCode === 503 ||
-  error?.status === 503;
-
-const normalizeCurrencyCode = (value) =>
-  (value || '').toString().trim().toUpperCase();
-
-export const convertTripPriceForValidation = async (amount, fromCurrency, toCurrency) => {
-  const from = normalizeCurrencyCode(fromCurrency);
-  const to = normalizeCurrencyCode(toCurrency);
-  if (from === to) return Number(amount);
-
-  try {
-    return Number(await convertCurrency(amount, from, to));
-  } catch (error) {
-    if (!isRateAvailabilityError(error)) throw error;
-    const fromRate = TRIP_VALIDATION_REFERENCE_RATES[from];
-    const toRate = TRIP_VALIDATION_REFERENCE_RATES[to];
-    if (!fromRate || !toRate) throw error;
-    console.warn(
-      `Using reference FX for trip price validation after rate service failure: ${from}->${to}`,
-      error.message,
-    );
-    return Number(((Number(amount) / fromRate) * toRate).toFixed(2));
-  }
-};
-
-export const getTripValidationRate = async (fromCurrency, toCurrency) => {
-  const from = normalizeCurrencyCode(fromCurrency);
-  const to = normalizeCurrencyCode(toCurrency);
-  if (from === to) return 1;
-
-  try {
-    return Number(await getExchangeRate(from, to));
-  } catch (error) {
-    if (!isRateAvailabilityError(error)) throw error;
-    const fromRate = TRIP_VALIDATION_REFERENCE_RATES[from];
-    const toRate = TRIP_VALIDATION_REFERENCE_RATES[to];
-    if (!fromRate || !toRate) throw error;
-    console.warn(
-      `Using reference FX rate for trip price validation after rate service failure: ${from}->${to}`,
-      error.message,
-    );
-    return toRate / fromRate;
-  }
-};
 
 const isSameRoute = (fromLocation, fromCountry, toLocation, toCountry) => {
   const fromCity = normalizeLocation(fromLocation);
@@ -218,33 +155,6 @@ export const AddAtrip = async (req, res, next) => {
     }
     if (!Number.isFinite(price) || price <= 0) {
       return res.status(400).json({ message: "Price per kg must be a positive number" });
-    }
-
-    // Price Validation: Max 15 USD
-    const priceInUSD = await convertTripPriceForValidation(price, currency, 'USD');
-    if (priceInUSD > 15) {
-      return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
-    }
-
-    // African Pricing Rule (Max 6000 NGN)
-    const { supportedAfricanCurrencies } = await getTripPricingSettings();
-    const isAfricanCurrency = supportedAfricanCurrencies.includes(currency.toUpperCase());
-    const isNigeriaRoute =
-      fromCountry?.toUpperCase() === 'NG' ||
-      fromCountry?.toUpperCase() === 'NIGERIA' ||
-      toCountry?.toUpperCase() === 'NG' ||
-      toCountry?.toUpperCase() === 'NIGERIA';
-
-    if (isAfricanCurrency || isNigeriaRoute) {
-      const maxNaira = 6000;
-      const priceInNaira = await convertTripPriceForValidation(price, currency, 'NGN');
-      if (priceInNaira > maxNaira) {
-        const rateToLocal = await getTripValidationRate('NGN', currency);
-        const localMax = Math.round(maxNaira * rateToLocal);
-        return res.status(400).json({
-          message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`
-        });
-      }
     }
 
     // Upload travel document to Cloudinary once — reused for every trip created below.
@@ -381,29 +291,8 @@ export const UpdateTrip = async (req, res, next) => {
 
     if (pricePerKg !== undefined && currency !== undefined) {
       const price = parseFloat(pricePerKg);
-      const priceInUSD = await convertTripPriceForValidation(price, currency, 'USD');
-      if (priceInUSD > 15) {
-        return res.status(400).json({ message: "Maximum price allowed is 15 USD per kg" });
-      }
-
-      const { supportedAfricanCurrencies } = await getTripPricingSettings();
-      const isAfricanCurrency = supportedAfricanCurrencies.includes(currency.toUpperCase());
-      const isNigeriaRoute =
-        (fromCountry || existing.fromCountry)?.toUpperCase() === 'NG' ||
-        (fromCountry || existing.fromCountry)?.toUpperCase() === 'NIGERIA' ||
-        (toCountry || existing.toCountry)?.toUpperCase() === 'NG' ||
-        (toCountry || existing.toCountry)?.toUpperCase() === 'NIGERIA';
-
-      if (isAfricanCurrency || isNigeriaRoute) {
-        const maxNaira = 6000;
-        const priceInNaira = await convertTripPriceForValidation(price, currency, 'NGN');
-        if (priceInNaira > maxNaira) {
-          const rateToLocal = await getTripValidationRate('NGN', currency);
-          const localMax = Math.round(maxNaira * rateToLocal);
-          return res.status(400).json({
-            message: `Maximum price for this region is ${localMax} ${currency} (equivalent to 6000 NGN)`
-          });
-        }
+      if (!Number.isFinite(price) || price <= 0) {
+        return res.status(400).json({ message: "Price per kg must be a positive number" });
       }
       updates.price_per_kg = price;
       updates.currency = currency;

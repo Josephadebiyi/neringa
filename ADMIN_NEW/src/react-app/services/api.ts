@@ -117,6 +117,13 @@ export async function getBusinesses() {
   return apiCall(`${ADMIN_API}/GetAllUsers?accountType=company&limit=100`);
 }
 
+export async function reviewBusinessDocument(userId: string, action: 'approved' | 'rejected', reason?: string) {
+  return apiCall(`${ADMIN_API}/businesses/${userId}/review-document`, {
+    method: 'PUT',
+    body: JSON.stringify({ action, reason }),
+  });
+}
+
 export async function getUsers(page = 1, limit = 20, banned = false, search = '') {
   const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
   return apiCall(`${ADMIN_API}/GetAllUsers?page=${page}&limit=${limit}&banned=${banned}${searchParam}`);
