@@ -194,22 +194,18 @@ export const getAllTrips = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
 
-    // Fetch a page of individual trip rows (as before), then group same-batch
-    // rows into one entry each. Batches are created back-to-back in a single
-    // request, so in practice they land on the same created_at-ordered page —
-    // total/pagination is reported in distinct-batch terms for accuracy.
-    const tripsResult = await query(
-      `${adminTripSelect} order by t.created_at desc limit $1 offset $2`,
-      [limit, skip],
-    );
-    const totalCountRow = await queryOne(
-      `select count(distinct coalesce(batch_id::text, id::text))::int as total from public.trips`,
-    );
+    // Group *before* paginating: individual date rows only ever belong to a
+    // single posting, so slicing raw rows first (then grouping) can spread
+    // one posting's rows across the row-budget of a page, silently pushing
+    // other users' trips onto later pages. Grouping is done in memory
+    // (cheap at current trip volumes), then the grouped list is paginated.
+    const tripsResult = await query(`${adminTripSelect} order by t.created_at desc`);
+    const groups = groupTripsByBatch(tripsResult.rows.map(normalizeTrip));
 
     res.status(200).json({
       success: true,
-      data: groupTripsByBatch(tripsResult.rows.map(normalizeTrip)),
-      totalCount: totalCountRow?.total || 0,
+      data: groups.slice(skip, skip + limit),
+      totalCount: groups.length,
       page,
       limit,
     });

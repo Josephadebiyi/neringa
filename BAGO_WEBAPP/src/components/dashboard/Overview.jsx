@@ -361,21 +361,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                         </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-                        <div className="relative min-h-[150px] overflow-hidden rounded-2xl bg-[#5845D8]">
-                            <img
-                                src="/assets/faster-shipping-banner.png"
-                                alt="Bago shipping"
-                                className="absolute inset-0 h-full w-full object-cover opacity-95"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#5845D8]/85 via-[#5845D8]/20 to-transparent" />
-                            <div className="absolute bottom-0 left-0 right-0 p-4">
-                                <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/60">Move smarter</p>
-                                <p className="mt-1 text-sm font-black leading-tight text-white">Send packages with verified travelers.</p>
-                            </div>
-                        </div>
-                        <BarChart data={chartData} activeIndex={6} />
-                    </div>
+                    <BarChart data={chartData} activeIndex={6} />
 
                     {/* Quick actions */}
                     <div className="flex gap-3 mt-5 pt-4 border-t border-gray-50">
