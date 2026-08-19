@@ -1,7 +1,7 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 import { sendTripApprovedEmail, sendTripDeclinedEmail } from '../../services/emailNotifications.js';
-import { updateTripRecord } from '../../lib/postgres/trips.js';
+import { updateTripRecord, ensureTripBatchColumn } from '../../lib/postgres/trips.js';
 
 function normalizeTrip(row) {
   return {
@@ -139,6 +139,8 @@ export const getTripById = async (req, res) => {
 
 export const getAllTrips = async (req, res) => {
   try {
+    await ensureTripBatchColumn({ query });
+
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
@@ -330,6 +332,7 @@ export const deleteTrip = async (req, res) => {
 // instead of repeating it per date.
 
 async function tripIdsInBatch(batchId) {
+  await ensureTripBatchColumn({ query });
   const rows = await query(
     `select id from public.trips where batch_id::text = $1 or id::text = $1`,
     [batchId],

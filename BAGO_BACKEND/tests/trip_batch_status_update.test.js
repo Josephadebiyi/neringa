@@ -18,6 +18,7 @@ vi.mock('../services/emailNotifications.js', () => ({
 }));
 vi.mock('../lib/postgres/trips.js', () => ({
   updateTripRecord: vi.fn(),
+  ensureTripBatchColumn: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { updateTripStatusBatch } from '../controllers/AdminControllers/TripManagement.js';

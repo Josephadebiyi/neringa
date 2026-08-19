@@ -47,7 +47,7 @@ async function ensureTripReferenceColumn(executor = { query }) {
 // batch_id groups trips created together from one multi-date post (or a
 // single date, which is just a batch of one) — lets admin and the traveler's
 // own dashboard show "1 posting, N dates" instead of N separate trip rows.
-async function ensureTripBatchColumn(executor = { query }) {
+export async function ensureTripBatchColumn(executor = { query }) {
   await executor.query(`
     alter table public.trips
       add column if not exists batch_id uuid
