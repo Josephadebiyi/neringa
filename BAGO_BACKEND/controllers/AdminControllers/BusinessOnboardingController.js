@@ -4,7 +4,7 @@ import cloudinary from 'cloudinary';
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { createProfileWithWallet, findProfileById } from '../../lib/postgres/profiles.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
-import { sendAdminCreatedBusinessAccountEmail, sendBusinessWelcomeEmail } from '../../services/emailNotifications.js';
+import { sendAdminCreatedBusinessAccountEmail, sendBusinessWelcomeEmail, sendKycVerificationLinkEmail } from '../../services/emailNotifications.js';
 import { createPremblySessionForUser } from '../PremblyController.js';
 
 // Admin-assisted business onboarding: lets an admin create a fully-fledged
@@ -119,7 +119,16 @@ export const adminGenerateKycLink = async (req, res) => {
     }
 
     const result = await createPremblySessionForUser(userId, { country: profile.country || '' });
-    return res.status(200).json({ success: true, verificationUrl: result.verificationUrl, activeSession: result.activeSession });
+
+    let emailed = false;
+    if (result.verificationUrl && profile.email) {
+      const representativeName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
+      const businessName = profile.tradingName || profile.companyName;
+      emailed = await sendKycVerificationLinkEmail(profile.email, representativeName, businessName, result.verificationUrl)
+        .catch((err) => { console.error('KYC verification link email failed:', err.message); return false; });
+    }
+
+    return res.status(200).json({ success: true, verificationUrl: result.verificationUrl, activeSession: result.activeSession, emailed });
   } catch (error) {
     console.error('Admin KYC link generation error:', error.message);
     return res.status(error.statusCode || 502).json({ success: false, message: error.message || 'Could not generate a verification link.' });
