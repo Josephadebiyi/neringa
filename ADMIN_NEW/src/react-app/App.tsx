@@ -9,6 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 const DashboardPage = lazy(() => import("./pages/Dashboard"));
 const UsersPage = lazy(() => import("./pages/Users"));
 const BusinessesPage = lazy(() => import("./pages/Businesses"));
+const CreateBusinessPage = lazy(() => import("./pages/CreateBusiness"));
 const TrackingPage = lazy(() => import("./pages/Tracking"));
 const SupportPage = lazy(() => import("./pages/Support"));
 const WithdrawalsPage = lazy(() => import("./pages/Withdrawals"));
@@ -96,6 +97,10 @@ export default function App() {
           <Route
             path="/businesses"
             element={<ProtectedRoute><DashboardLayout><BusinessesPage /></DashboardLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/businesses/create"
+            element={<ProtectedRoute><DashboardLayout><CreateBusinessPage /></DashboardLayout></ProtectedRoute>}
           />
           <Route
             path="/tracking"

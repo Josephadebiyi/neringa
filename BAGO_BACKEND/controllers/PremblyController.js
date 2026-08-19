@@ -540,164 +540,196 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
 // Creates a Prembly IdentityForm session and returns the signed verification
 // URL. No credentials are returned to the frontend.
 // ---------------------------------------------------------------------------
+// Core Prembly hosted-session creation, usable both for a user starting their
+// own verification (startPremblySession below) and for an admin generating a
+// verification link on behalf of a target user (BusinessOnboardingController).
+// Throws an Error with a `.statusCode` on any failure — callers translate that
+// into an HTTP response.
+export async function createPremblySessionForUser(userId, { country = '', phone = '', req = {} } = {}) {
+  if (!isPremblyConfigured()) {
+    const err = new Error('Identity verification is not available right now. Please try again later.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  const userRow = await queryOne(
+    `SELECT email, first_name, last_name, date_of_birth FROM public.profiles WHERE id = $1`,
+    [userId],
+  );
+  if (!userRow) {
+    const err = new Error('User not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const verificationRef = `bago-${userId}-${crypto.randomUUID()}`;
+  const normalizedCountry = String(country || '').toUpperCase().trim();
+  const clientFootprint = clientFootprintFromRequest(req);
+
+  const activeSession = await activePremblySessionForUser(userId);
+  if (activeSession?.verificationUrl) {
+    return {
+      activeSession: true,
+      verificationUrl: activeSession.verificationUrl,
+      verificationRef: activeSession.sessionId || activeSession.premblyRef || activeSession.verificationRef || activeSession.userRef,
+      callbackUrl: PREMBLY_CALLBACK_URL,
+      message: 'A verification session is already active. Please finish that session or wait before starting another.',
+    };
+  }
+
+  const widgetId = PREMBLY_WIDGET_ID || PREMBLY_CONFIG_ID;
+  if (!widgetId || !PREMBLY_WIDGET_KEY) {
+    const err = new Error('Identity verification widget is not configured. Please contact support.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  // Create the same SDK session Prembly's inline widget creates, then return
+  // the hosted SDK URL for web iframe usage.
+  const sessionEndpoint = PREMBLY_SDK_SESSION_URL;
+  const sessionBody = {
+    widget_id:    widgetId,
+    widget_key:   PREMBLY_WIDGET_KEY,
+    first_name:   userRow.first_name || undefined,
+    last_name:    userRow.last_name  || undefined,
+    email:        userRow.email      || undefined,
+    phone:        phone || undefined,
+    metadata:     {
+      user_ref: verificationRef,
+      userId,
+      country: normalizedCountry,
+      ...clientFootprint,
+      callback_url: PREMBLY_CALLBACK_URL,
+    },
+  };
+  console.info('Prembly SDK session request →', sessionEndpoint, JSON.stringify({ ...sessionBody, widget_key: '***' }));
+
+  let premblyRes;
+  try {
+    premblyRes = await axios.post(sessionEndpoint, sessionBody, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
+  } catch (err) {
+    console.error('createPremblySessionForUser error:', JSON.stringify(err?.response?.data || err.message));
+    console.error('createPremblySessionForUser status:', err?.response?.status);
+    const msg = err?.response?.data?.message || err?.response?.data?.detail || err?.response?.data?.error || err.message || 'Failed to start verification';
+    const wrapped = new Error(msg);
+    wrapped.statusCode = 502;
+    throw wrapped;
+  }
+
+  const sessionId =
+    premblyRes.data?.data?.session_id ||
+    premblyRes.data?.session_id ||
+    premblyRes.data?.data?.sessionId ||
+    premblyRes.data?.sessionId;
+  const hostedSdkUrl = sessionId
+    ? `${PREMBLY_SDK_LIVE_URL.replace(/\/$/, '')}/?session=${encodeURIComponent(sessionId)}`
+    : '';
+  const verificationUrl =
+    hostedSdkUrl ||
+    premblyRes.data?.data?.url ||
+    premblyRes.data?.data?.verification_url ||
+    premblyRes.data?.data?.widget_url ||
+    premblyRes.data?.data?.redirect_url ||
+    premblyRes.data?.data?.link ||
+    premblyRes.data?.url ||
+    premblyRes.data?.verification_url ||
+    premblyRes.data?.widget_url ||
+    premblyRes.data?.redirect_url ||
+    premblyRes.data?.link;
+  const premblyRef =
+    premblyRes.data?.data?.verification_ref ||
+    premblyRes.data?.data?.verificationRef ||
+    premblyRes.data?.data?.reference_id ||
+    premblyRes.data?.verification_ref ||
+    premblyRes.data?.verificationRef ||
+    premblyRes.data?.reference_id ||
+    verificationRef;
+
+  if (!verificationUrl) {
+    console.error('Prembly did not return a verification URL:', JSON.stringify(premblyRes.data).slice(0, 500));
+    const err = new Error('Could not create a verification session. Please try again.');
+    err.statusCode = 502;
+    throw err;
+  }
+
+  // Store the reference so the webhook and result-sync can find this user later.
+  // sessionId is the checker-widget session ID — stored so the fallback lookup
+  // (backend.prembly.com/…/sessions/<id>/) can find it when identitypass returns 404.
+  await query(
+    `UPDATE public.profiles
+     SET kyc_provider    = 'prembly',
+         kyc_status      = CASE WHEN kyc_status IN ('approved','blocked_duplicate','declined') THEN kyc_status ELSE 'not_started' END,
+         kyc_verified_data = CASE
+           WHEN kyc_status IN ('approved','blocked_duplicate') THEN kyc_verified_data
+           ELSE COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
+             'provider', 'prembly',
+             'verificationRef', $2,
+             'premblyRef', $3,
+             'sessionId', NULLIF($5::text, ''),
+             'session_id', NULLIF($5::text, ''),
+             'userId', $1,
+             'country', $4,
+             'clientFootprint', $6::jsonb,
+             'startedAt', timezone('utc', now())
+           )
+         END,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [userId, verificationRef, premblyRef, normalizedCountry, sessionId || '', clientFootprint],
+  ).catch(() => {});
+
+  await recordPremblySession({
+    userId,
+    verificationRef,
+    premblyRef,
+    sessionId,
+    userRef: verificationRef,
+    status: 'started',
+    source: 'backend_start',
+    verificationUrl,
+    rawPayload: {
+      premblyResponse: premblyRes.data,
+      requestMetadata: sessionBody.metadata,
+      clientFootprint,
+    },
+  }).catch((err) => console.warn('Prembly session record failed:', err?.message || err));
+
+  return {
+    activeSession: false,
+    verificationUrl,
+    verificationRef: premblyRef,
+    callbackUrl: PREMBLY_CALLBACK_URL,
+  };
+}
+
 export const startPremblySession = async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
-
-    if (!isPremblyConfigured()) {
-      return res.status(503).json({ success: false, message: 'Identity verification is not available right now. Please try again later.' });
-    }
 
     const gate = await runPreKycChecks(req.user, req);
     if (!gate.allowed) {
       return res.status(403).json({ success: false, blocked: true, status: gate.status, nameRequired: gate.nameRequired || false, message: gate.message });
     }
 
-    const userRow = await queryOne(
-      `SELECT email, first_name, last_name, date_of_birth FROM public.profiles WHERE id = $1`,
-      [userId],
-    );
-    if (!userRow) return res.status(404).json({ success: false, message: 'User not found' });
-
-    const verificationRef = `bago-${userId}-${crypto.randomUUID()}`;
-    const country = (req.body?.country || '').toUpperCase().trim();
-    const clientFootprint = clientFootprintFromRequest(req);
-
-    const activeSession = await activePremblySessionForUser(userId);
-    if (activeSession?.verificationUrl) {
-      return res.json({
-        success: true,
-        provider: 'prembly',
-        activeSession: true,
-        kycStatus: 'pending',
-        verificationUrl: activeSession.verificationUrl,
-        verificationRef: activeSession.sessionId || activeSession.premblyRef || activeSession.verificationRef || activeSession.userRef,
-        callbackUrl: PREMBLY_CALLBACK_URL,
-        message: 'A verification session is already active. Please finish that session or wait before starting another.',
-      });
-    }
-
-    const widgetId = PREMBLY_WIDGET_ID || PREMBLY_CONFIG_ID;
-    if (!widgetId || !PREMBLY_WIDGET_KEY) {
-      return res.status(503).json({
-        success: false,
-        message: 'Identity verification widget is not configured. Please contact support.',
-      });
-    }
-
-    // Create the same SDK session Prembly's inline widget creates, then return
-    // the hosted SDK URL for web iframe usage.
-    const sessionEndpoint = PREMBLY_SDK_SESSION_URL;
-    const sessionBody = {
-      widget_id:    widgetId,
-      widget_key:   PREMBLY_WIDGET_KEY,
-      first_name:   userRow.first_name || undefined,
-      last_name:    userRow.last_name  || undefined,
-      email:        userRow.email      || undefined,
-      phone:        req.body?.phone || undefined,
-      metadata:     {
-        user_ref: verificationRef,
-        userId,
-        country,
-        ...clientFootprint,
-        callback_url: PREMBLY_CALLBACK_URL,
-      },
-    };
-    console.info('Prembly SDK session request →', sessionEndpoint, JSON.stringify({ ...sessionBody, widget_key: '***' }));
-    const premblyRes = await axios.post(sessionEndpoint, sessionBody, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 15000,
+    const result = await createPremblySessionForUser(userId, {
+      country: req.body?.country || '',
+      phone: req.body?.phone || '',
+      req,
     });
-
-    const sessionId =
-      premblyRes.data?.data?.session_id ||
-      premblyRes.data?.session_id ||
-      premblyRes.data?.data?.sessionId ||
-      premblyRes.data?.sessionId;
-    const hostedSdkUrl = sessionId
-      ? `${PREMBLY_SDK_LIVE_URL.replace(/\/$/, '')}/?session=${encodeURIComponent(sessionId)}`
-      : '';
-    const verificationUrl =
-      hostedSdkUrl ||
-      premblyRes.data?.data?.url ||
-      premblyRes.data?.data?.verification_url ||
-      premblyRes.data?.data?.widget_url ||
-      premblyRes.data?.data?.redirect_url ||
-      premblyRes.data?.data?.link ||
-      premblyRes.data?.url ||
-      premblyRes.data?.verification_url ||
-      premblyRes.data?.widget_url ||
-      premblyRes.data?.redirect_url ||
-      premblyRes.data?.link;
-    const premblyRef =
-      premblyRes.data?.data?.verification_ref ||
-      premblyRes.data?.data?.verificationRef ||
-      premblyRes.data?.data?.reference_id ||
-      premblyRes.data?.verification_ref ||
-      premblyRes.data?.verificationRef ||
-      premblyRes.data?.reference_id ||
-      verificationRef;
-
-    if (!verificationUrl) {
-      console.error('Prembly did not return a verification URL:', JSON.stringify(premblyRes.data).slice(0, 500));
-      return res.status(502).json({ success: false, message: 'Could not create a verification session. Please try again.' });
-    }
-
-    // Store the reference so the webhook and result-sync can find this user later.
-    // sessionId is the checker-widget session ID — stored so the fallback lookup
-    // (backend.prembly.com/…/sessions/<id>/) can find it when identitypass returns 404.
-    await query(
-      `UPDATE public.profiles
-       SET kyc_provider    = 'prembly',
-           kyc_status      = CASE WHEN kyc_status IN ('approved','blocked_duplicate','declined') THEN kyc_status ELSE 'not_started' END,
-           kyc_verified_data = CASE
-             WHEN kyc_status IN ('approved','blocked_duplicate') THEN kyc_verified_data
-             ELSE COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
-               'provider', 'prembly',
-               'verificationRef', $2,
-               'premblyRef', $3,
-               'sessionId', NULLIF($5::text, ''),
-               'session_id', NULLIF($5::text, ''),
-               'userId', $1,
-               'country', $4,
-               'clientFootprint', $6::jsonb,
-               'startedAt', timezone('utc', now())
-             )
-           END,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [userId, verificationRef, premblyRef, country, sessionId || '', clientFootprint],
-    ).catch(() => {});
-
-    await recordPremblySession({
-      userId,
-      verificationRef,
-      premblyRef,
-      sessionId,
-      userRef: verificationRef,
-      status: 'started',
-      source: 'backend_start',
-      verificationUrl,
-      rawPayload: {
-        premblyResponse: premblyRes.data,
-        requestMetadata: sessionBody.metadata,
-        clientFootprint,
-      },
-    }).catch((err) => console.warn('Prembly session record failed:', err?.message || err));
 
     return res.json({
       success: true,
       provider: 'prembly',
-      verificationUrl,
-      verificationRef: premblyRef,
-      callbackUrl: PREMBLY_CALLBACK_URL,
+      kycStatus: result.activeSession ? 'pending' : undefined,
+      ...result,
     });
   } catch (err) {
-    console.error('startPremblySession error:', JSON.stringify(err?.response?.data || err.message));
-    console.error('startPremblySession status:', err?.response?.status);
-    const msg = err?.response?.data?.message || err?.response?.data?.detail || err?.response?.data?.error || err.message || 'Failed to start verification';
-    res.status(502).json({ success: false, message: msg });
+    console.error('startPremblySession error:', err.message);
+    res.status(err.statusCode || 502).json({ success: false, message: err.message || 'Failed to start verification' });
   }
 };
 

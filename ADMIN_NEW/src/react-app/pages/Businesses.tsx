@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, Search, ShieldCheck, Wallet, FileText, Check, X, Loader2, Pencil } from "lucide-react";
-import { getBusinesses, reviewBusinessDocument, updateUser } from "../services/api";
+import { Link } from "react-router-dom";
+import { Building2, Search, ShieldCheck, Wallet, FileText, Check, X, Loader2, Pencil, Plus, Upload, KeyRound, Copy } from "lucide-react";
+import { getBusinesses, reviewBusinessDocument, updateUser, adminUploadBusinessDocument, adminGenerateKycLink, approveBusinessAccount } from "../services/api";
 
 type Business = {
   id: string; tradingName?: string; companyName?: string; businessRegistrationNumber?: string;
@@ -40,6 +41,15 @@ export default function BusinessesPage() {
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [uploadTarget, setUploadTarget] = useState<Business | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadSaving, setUploadSaving] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [kycLinkTarget, setKycLinkTarget] = useState<Business | null>(null);
+  const [kycLinkUrl, setKycLinkUrl] = useState("");
+  const [kycLinkLoading, setKycLinkLoading] = useState(false);
+  const [kycLinkError, setKycLinkError] = useState("");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -55,7 +65,7 @@ export default function BusinessesPage() {
       .some((value) => String(value || "").toLowerCase().includes(search.toLowerCase()))), [businesses, search]);
   const verified = businesses.filter((b) => ["approved", "verified", "completed"].includes(String(b.kycStatus).toLowerCase())).length;
 
-  const handleApprove = async (b: Business) => {
+  const handleApproveDocument = async (b: Business) => {
     setActioningId(b.id);
     setActionError("");
     try {
@@ -66,6 +76,53 @@ export default function BusinessesPage() {
       setActionError(e?.message || 'Could not approve document.');
     } finally {
       setActioningId(null);
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!uploadTarget || !uploadFile) return;
+    setUploadSaving(true);
+    setUploadError("");
+    try {
+      const res = await adminUploadBusinessDocument(uploadTarget.id, uploadFile);
+      if (!res?.success) throw new Error(res?.message || 'Could not upload the document.');
+      setBusinesses((prev) => prev.map((x) => (x.id === uploadTarget.id ? { ...x, businessDocumentStatus: 'pending_review', businessDocumentUrl: res.documentUrl } : x)));
+      setUploadTarget(null);
+      setUploadFile(null);
+    } catch (e: any) {
+      setUploadError(e?.message || 'Could not upload the document.');
+    } finally {
+      setUploadSaving(false);
+    }
+  };
+
+  const openKycLink = async (b: Business) => {
+    setKycLinkTarget(b);
+    setKycLinkUrl("");
+    setKycLinkError("");
+    setKycLinkLoading(true);
+    try {
+      const res = await adminGenerateKycLink(b.id);
+      if (!res?.success) throw new Error(res?.message || 'Could not generate a verification link.');
+      setKycLinkUrl(res.verificationUrl || "");
+    } catch (e: any) {
+      setKycLinkError(e?.message || 'Could not generate a verification link.');
+    } finally {
+      setKycLinkLoading(false);
+    }
+  };
+
+  const handleApproveAccount = async (b: Business) => {
+    if (!confirm(`Approve ${b.tradingName || b.companyName}'s business account? A welcome email will be sent.`)) return;
+    setApprovingId(b.id);
+    setActionError("");
+    try {
+      const res = await approveBusinessAccount(b.id);
+      if (!res?.success) throw new Error(res?.message || 'Could not approve this account.');
+    } catch (e: any) {
+      setActionError(e?.message || 'Could not approve this account.');
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -111,7 +168,12 @@ export default function BusinessesPage() {
   };
 
   return <div className="space-y-6">
-    <div><h1 className="text-2xl font-black text-gray-900">Businesses</h1><p className="mt-1 text-sm text-gray-500">Business accounts, representative KYC and shared Bago wallets.</p></div>
+    <div className="flex items-center justify-between">
+      <div><h1 className="text-2xl font-black text-gray-900">Businesses</h1><p className="mt-1 text-sm text-gray-500">Business accounts, representative KYC and shared Bago wallets.</p></div>
+      <Link to="/businesses/create" className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-sm font-bold">
+        <Plus className="h-4 w-4" /> Create Business
+      </Link>
+    </div>
     <div className="grid gap-4 md:grid-cols-3">
       {[[Building2,"Business accounts",businesses.length],[ShieldCheck,"KYC verified",verified],[Wallet,"Awaiting KYC",businesses.length-verified]].map(([Icon,label,value]: any) => <div key={label} className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 flex items-center gap-4"><div className="rounded-xl bg-indigo-50 p-3"><Icon className="text-indigo-600" /></div><div><p className="text-sm text-gray-500">{label}</p><p className="text-2xl font-black">{value}</p></div></div>)}
     </div>
@@ -129,10 +191,18 @@ export default function BusinessesPage() {
                 <FileText className="h-3.5 w-3.5" /> View document
               </a>
             )}
+            {(b.businessDocumentStatus || 'not_uploaded') === 'not_uploaded' && (
+              <button
+                onClick={() => { setUploadTarget(b); setUploadFile(null); setUploadError(""); }}
+                className="flex items-center gap-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 px-2 py-1 text-xs font-bold"
+              >
+                <Upload className="h-3 w-3" /> Upload CAC
+              </button>
+            )}
             {b.businessDocumentStatus === 'pending_review' && (
               <div className="flex gap-1.5 mt-0.5">
                 <button
-                  onClick={() => handleApprove(b)}
+                  onClick={() => handleApproveDocument(b)}
                   disabled={actioningId === b.id}
                   className="flex items-center gap-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 text-xs font-bold disabled:opacity-50"
                 >
@@ -151,9 +221,21 @@ export default function BusinessesPage() {
         </td>
         <td className="px-5 py-4 font-semibold">{b.walletCurrency || ""} {Number(b.walletBalance || 0).toFixed(2)}</td><td className="px-5 py-4 text-gray-500">{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "—"}</td>
         <td className="px-5 py-4">
-          <button onClick={() => openEdit(b)} className="flex items-center gap-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 px-2.5 py-1.5 text-xs font-bold">
-            <Pencil className="h-3.5 w-3.5" /> Edit
-          </button>
+          <div className="flex flex-wrap gap-1.5">
+            <button onClick={() => openEdit(b)} className="flex items-center gap-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 px-2.5 py-1.5 text-xs font-bold">
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </button>
+            <button onClick={() => openKycLink(b)} className="flex items-center gap-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 px-2.5 py-1.5 text-xs font-bold">
+              <KeyRound className="h-3.5 w-3.5" /> KYC Link
+            </button>
+            <button
+              onClick={() => handleApproveAccount(b)}
+              disabled={approvingId === b.id}
+              className="flex items-center gap-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1.5 text-xs font-bold disabled:opacity-50"
+            >
+              {approvingId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />} Approve Account
+            </button>
+          </div>
         </td>
         </tr>)}</tbody></table>{!shown.length&&<p className="p-8 text-center text-gray-500">No businesses found.</p>}</div>}
     </div>
@@ -215,6 +297,61 @@ export default function BusinessesPage() {
               {editSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               Save Changes
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {uploadTarget && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Upload CAC document</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            On behalf of <strong>{uploadTarget.tradingName || uploadTarget.companyName}</strong>. PDF, JPEG, PNG or WebP, up to 10&nbsp;MB.
+          </p>
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/jpg,image/png,image/webp"
+            onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+            className="w-full text-sm"
+          />
+          {uploadError && <p className="mt-4 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm font-semibold text-red-600">{uploadError}</p>}
+          <div className="flex justify-end gap-3 mt-5">
+            <button onClick={() => setUploadTarget(null)} disabled={uploadSaving} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+            <button
+              onClick={handleUploadDocument}
+              disabled={!uploadFile || uploadSaving}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {uploadSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              Upload
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {kycLinkTarget && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Representative KYC link</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Send this link to {[kycLinkTarget.firstName, kycLinkTarget.lastName].filter(Boolean).join(" ") || "the representative"} to verify their identity. Copy and share it yourself — it isn't emailed automatically.
+          </p>
+          {kycLinkLoading && <Loader2 className="w-6 h-6 animate-spin text-gray-300 mx-auto my-4" />}
+          {kycLinkError && <p className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm font-semibold text-red-600">{kycLinkError}</p>}
+          {!kycLinkLoading && kycLinkUrl && (
+            <div className="flex items-center gap-2">
+              <input readOnly value={kycLinkUrl} className="flex-1 border rounded-lg px-3 py-2 text-sm bg-gray-50 font-mono" onFocus={(e) => e.target.select()} />
+              <button
+                onClick={() => navigator.clipboard?.writeText(kycLinkUrl)}
+                className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+              >
+                <Copy className="w-4 h-4" /> Copy
+              </button>
+            </div>
+          )}
+          <div className="flex justify-end mt-5">
+            <button onClick={() => setKycLinkTarget(null)} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">Close</button>
           </div>
         </div>
       </div>

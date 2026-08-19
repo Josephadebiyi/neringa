@@ -124,6 +124,52 @@ export async function reviewBusinessDocument(userId: string, action: 'approved' 
   });
 }
 
+export interface CreateBusinessPayload {
+  companyName: string;
+  tradingName: string;
+  businessRegistrationNumber: string;
+  businessAddress?: string;
+  businessTaxId?: string;
+  representativeRole?: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth?: string;
+  email: string;
+  country?: string;
+  operationalCurrency?: string;
+}
+
+export async function createBusiness(payload: CreateBusinessPayload) {
+  return apiCall(`${ADMIN_API}/businesses`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function adminUploadBusinessDocument(userId: string, file: File) {
+  const formData = new FormData();
+  formData.append('document', file);
+  const response = await fetch(`${ADMIN_API}/businesses/${userId}/document`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: getAdminAuthHeaders(),
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: `Server error (${response.status})` }));
+    throw new Error(err.message || 'Upload failed');
+  }
+  return response.json();
+}
+
+export async function adminGenerateKycLink(userId: string) {
+  return apiCall(`${ADMIN_API}/businesses/${userId}/kyc-link`, { method: 'POST' });
+}
+
+export async function approveBusinessAccount(userId: string) {
+  return apiCall(`${ADMIN_API}/businesses/${userId}/approve`, { method: 'POST' });
+}
+
 export async function getUsers(page = 1, limit = 20, banned = false, search = '') {
   const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
   return apiCall(`${ADMIN_API}/GetAllUsers?page=${page}&limit=${limit}&banned=${banned}${searchParam}`);

@@ -262,8 +262,9 @@ export default function PostTrip() {
             setError(t('sameCityError') || 'Origin and destination cannot be the same city.');
             return;
         }
-        if (!formData.availableWeight || parseFloat(formData.availableWeight) <= 0 || parseFloat(formData.availableWeight) > 50) {
-            setError(t('weightRangeError') || 'Available weight must be between 1 and 50 kg.');
+        const maxWeight = isBusinessAccount ? 1000 : 50;
+        if (!formData.availableWeight || parseFloat(formData.availableWeight) <= 0 || parseFloat(formData.availableWeight) > maxWeight) {
+            setError(`Available weight must be between 1 and ${maxWeight} kg.`);
             return;
         }
         if (!formData.pricePerKg || parseFloat(formData.pricePerKg) <= 0) {

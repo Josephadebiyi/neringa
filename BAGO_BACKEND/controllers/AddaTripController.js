@@ -185,25 +185,25 @@ export const AddAtrip = async (req, res, next) => {
       createdTrips.push(await getTripById(trip.id));
     }
 
-    // Notify admins — a single summarized email for bulk posts, one per trip otherwise.
-    try {
-      const adminEmails = await listActiveAdminEmails();
-      const travelerName = user.firstName || 'A user';
-      if (createdTrips.length === 1) {
-        for (const email of adminEmails) {
-          await sendNewTripAdminNotification(email, travelerName, createdTrips[0]).catch(() => {});
-        }
-      } else {
-        for (const email of adminEmails) {
-          await sendNewTripAdminNotification(email, travelerName, {
-            ...createdTrips[0],
-            bulkCount: createdTrips.length,
-          }).catch(() => {});
-        }
+    // Notify admins — fire-and-forget so a slow/large admin list or a slow
+    // email provider never blocks (or times out) the traveler's post-trip
+    // response. A single summarized email for bulk posts, one per trip otherwise.
+    (async () => {
+      try {
+        const adminEmails = await listActiveAdminEmails();
+        const travelerName = user.firstName || 'A user';
+        const notifyPayload = createdTrips.length === 1
+          ? createdTrips[0]
+          : { ...createdTrips[0], bulkCount: createdTrips.length };
+        await Promise.all(
+          adminEmails.map((email) =>
+            sendNewTripAdminNotification(email, travelerName, notifyPayload).catch(() => {})
+          ),
+        );
+      } catch (adminErr) {
+        console.error('Failed to notify admins:', adminErr.message);
       }
-    } catch (adminErr) {
-      console.error('Failed to notify admins:', adminErr.message);
-    }
+    })();
 
     res.status(201).json({
       message: isBusinessAccount

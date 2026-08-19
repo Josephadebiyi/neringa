@@ -1,5 +1,5 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
-import { sendAccountBannedEmail, sendAccountUnblockedEmail, sendBusinessWelcomeEmail } from '../../services/emailNotifications.js';
+import { sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 
 const BUSINESS_DOCUMENT_STATUSES = new Set(['approved', 'rejected']);
@@ -403,13 +403,6 @@ export const reviewBusinessDocument = async (req, res, next) => {
         ? 'Your business registration document has been verified.'
         : `Your business registration document was not approved. ${reason || ''}`.trim(),
     ).catch((err) => console.error('Business review notification failed:', err.message));
-
-    if (action === 'approved' && user.email) {
-      const businessName = user.trading_name || user.company_name;
-      const representativeName = [user.first_name, user.last_name].filter(Boolean).join(' ');
-      sendBusinessWelcomeEmail(user.email, representativeName, businessName)
-        .catch((err) => console.error('Business welcome email failed:', err.message));
-    }
 
     return res.status(200).json({
       message: `Business document ${action}`,

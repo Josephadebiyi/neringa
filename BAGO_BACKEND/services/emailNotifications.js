@@ -936,6 +936,57 @@ export async function sendKycApprovedEmail(userEmail, userName) {
   }
 }
 
+const BAGO_YOUTUBE_URL = 'https://www.youtube.com/@sendwithbago';
+
+// Sent when an admin creates a business account on the business's behalf
+// (admin-assisted onboarding) — includes the generated temp password since
+// this is the only time it exists in plaintext.
+export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, businessName, tempPassword) {
+  if (!resend) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const displayName = businessName || 'your business';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Welcome to Bago! The Bago team has set up a business account for <strong>${displayName}</strong> on your behalf.
+      </p>
+      <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5845D8;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Your login details</p>
+        <p style="margin:0 0 4px; font-size:14px; color:#374151;">Email: <strong>${userEmail}</strong></p>
+        <p style="margin:0; font-size:14px; color:#374151;">Temporary password: <strong style="font-family:monospace; font-size:15px;">${tempPassword}</strong></p>
+      </div>
+      <div style="background:#fffbeb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #f59e0b;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Before you get started, please:</p>
+        <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
+          <li>Sign in and change this temporary password to one only you know</li>
+          <li>Add and verify your phone number in Settings for account security</li>
+        </ul>
+      </div>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        New to Bago? Watch our tutorial videos to see how everything works:
+        <a href="${BAGO_YOUTUBE_URL}" style="color:#5845D8; font-weight:600;">${BAGO_YOUTUBE_URL}</a>
+      </p>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        If you have any questions, our support team is here to help.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: `Welcome to Bago, ${displayName} — your account is ready`,
+      html: generateEmailTemplate('Welcome to Bago', content, 'Sign in to Bago', `${FRONTEND_URL}/login`),
+    });
+    console.log(`✅ Sent admin-created business account email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send admin-created business account email:', err);
+    return false;
+  }
+}
+
 export async function sendBusinessWelcomeEmail(userEmail, userName, businessName) {
   if (!resend) return false;
   try {
