@@ -355,22 +355,39 @@ export async function getTrips(page = 1, limit = 20) {
   return apiCall(`${ADMIN_API}/admin-trips?page=${page}&limit=${limit}`);
 }
 
+// These act on a "batch" — every trip posted together as one multi-date
+// submission (or a single trip, which is just a batch of one). The list
+// endpoint returns one grouped entry per batch, so `tripId` here is really
+// that batch's id — the backend resolves it to every trip sharing it.
 export async function updateTripStatus(tripId: string, status: string, reason?: string) {
-  return apiCall(`${ADMIN_API}/admin-trips/${tripId}/status`, {
+  return apiCall(`${ADMIN_API}/admin-trips/batch/${tripId}/status`, {
     method: 'PUT',
     body: JSON.stringify({ status, reason }),
   });
 }
 
 export async function deleteTrip(tripId: string) {
-  return apiCall(`${ADMIN_API}/admin-trips/${tripId}`, { method: 'DELETE' });
+  return apiCall(`${ADMIN_API}/admin-trips/batch/${tripId}`, { method: 'DELETE' });
 }
 
 export async function updateTripPrice(tripId: string, pricePerKg: number, currency?: string) {
-  return apiCall(`${ADMIN_API}/admin-trips/${tripId}/price`, {
+  return apiCall(`${ADMIN_API}/admin-trips/batch/${tripId}/price`, {
     method: 'PUT',
     body: JSON.stringify({ pricePerKg, currency }),
   });
+}
+
+// Acts on exactly one date within a batch (e.g. decline/remove a single date
+// from a multi-date posting without touching the rest of the batch).
+export async function updateSingleTripStatus(tripId: string, status: string, reason?: string) {
+  return apiCall(`${ADMIN_API}/admin-trips/${tripId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+export async function deleteSingleTrip(tripId: string) {
+  return apiCall(`${ADMIN_API}/admin-trips/${tripId}`, { method: 'DELETE' });
 }
 
 // Staff

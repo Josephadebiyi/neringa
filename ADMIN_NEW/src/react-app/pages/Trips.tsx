@@ -18,11 +18,23 @@ import {
     Pencil,
     Check
 } from 'lucide-react';
-import { getTrips, updateTripStatus, deleteTrip, updateTripPrice } from '../services/api';
+import { getTrips, updateTripStatus, deleteTrip, updateTripPrice, deleteSingleTrip, updateSingleTripStatus } from '../services/api';
 import JourneyMap from '../components/JourneyMap';
+
+interface TripDate {
+    id: string;
+    departureDate: string;
+    arrivalDate: string;
+    status: string;
+    availableKg?: number;
+}
 
 interface Trip {
     _id: string;
+    batchId?: string;
+    dateCount?: number;
+    dates?: TripDate[];
+    tripIds?: string[];
     user: {
         _id: string;
         firstName: string;
@@ -129,14 +141,45 @@ export default function Trips() {
         }
     };
 
-    const handleDeleteTrip = async (tripId: string) => {
-        if (!confirm('Are you sure you want to delete this trip record?')) return;
+    const handleDeleteTrip = async (tripId: string, dateCount?: number) => {
+        const note = (dateCount ?? 1) > 1 ? ` and all ${dateCount} dates in it` : '';
+        if (!confirm(`Are you sure you want to delete this trip record${note}?`)) return;
 
         try {
             await deleteTrip(tripId);
             fetchTrips();
         } catch (error) {
             console.error('Failed to delete trip:', error);
+        }
+    };
+
+    const handleRemoveSingleDate = async (dateId: string) => {
+        if (!confirm('Remove this date from the posting? This deletes just this one date, keeping the rest.')) return;
+        try {
+            await deleteSingleTrip(dateId);
+            setDetailTrip(prev => prev ? {
+                ...prev,
+                dates: prev.dates?.filter(d => d.id !== dateId),
+                dateCount: (prev.dateCount ?? 1) - 1,
+            } : prev);
+            fetchTrips();
+        } catch (error) {
+            console.error('Failed to remove date:', error);
+        }
+    };
+
+    const handleSingleDateStatus = async (dateId: string, status: 'active' | 'declined', reason?: string) => {
+        try {
+            const res = await updateSingleTripStatus(dateId, status, reason);
+            if (!res?.success) throw new Error(res?.message || 'Could not update this date.');
+            setDetailTrip(prev => prev ? {
+                ...prev,
+                dates: prev.dates?.map(d => d.id === dateId ? { ...d, status } : d),
+            } : prev);
+            fetchTrips();
+        } catch (error) {
+            console.error('Failed to update date status:', error);
+            setActionError(error instanceof Error ? error.message : 'Could not update this date.');
         }
     };
 
@@ -328,6 +371,11 @@ export default function Trips() {
                                                             <Calendar className="w-3 h-3" />
                                                             {new Date(trip.departureDate).toLocaleDateString()}
                                                         </span>
+                                                        {(trip.dateCount ?? 1) > 1 && (
+                                                            <span className="px-1.5 py-0.5 bg-[#5240E8]/10 text-[#5240E8] rounded-md text-[9px] font-black">
+                                                                ×{trip.dateCount} dates
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black">
                                                         {trip.availableKg}kg Available
@@ -340,13 +388,16 @@ export default function Trips() {
                                                         trip.status === 'verified' || trip.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' :
                                                         trip.status === 'pending_admin_review' || trip.status === 'pending' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
                                                         trip.status === 'declined' ? 'bg-red-50 text-red-600 border-red-100' :
+                                                        trip.status === 'mixed' ? 'bg-purple-50 text-purple-600 border-purple-100' :
                                                         'bg-gray-50 text-gray-400 border-gray-100'
                                                     }`}>
                                                         {trip.status === 'pending_admin_review' || trip.status === 'pending'
                                                             ? 'Pending'
                                                             : trip.status === 'verified' || trip.status === 'active'
                                                                 ? 'Live'
-                                                                : trip.status}
+                                                                : trip.status === 'mixed'
+                                                                    ? 'Mixed'
+                                                                    : trip.status}
                                                     </span>
                                                     {trip.travelDocument && trip.travelDocument.trim() !== '' && (
                                                         <button
@@ -392,16 +443,17 @@ export default function Trips() {
                                                     >
                                                         Details
                                                     </button>
-                                                    {(trip.status === 'pending_admin_review' || trip.status === 'pending') && (
+                                                    {(trip.status === 'pending_admin_review' || trip.status === 'pending' || trip.status === 'mixed') && (
                                                         <>
                                                             <button
                                                                 onClick={async () => {
-                                                                    if (!confirm('Approve and verify this trip?')) return;
+                                                                    const note = (trip.dateCount ?? 1) > 1 ? ` (all ${trip.dateCount} dates)` : '';
+                                                                    if (!confirm(`Approve and verify this trip${note}?`)) return;
                                                                     await handleTripStatusUpdate(trip._id, 'active');
                                                                 }}
                                                                 className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-[10px] font-black uppercase hover:bg-green-100"
                                                             >
-                                                                Approve
+                                                                Approve{(trip.dateCount ?? 1) > 1 ? ' All' : ''}
                                                             </button>
                                                             <button
                                                                 onClick={async () => {
@@ -416,7 +468,7 @@ export default function Trips() {
                                                         </>
                                                     )}
                                                     <button
-                                                        onClick={() => handleDeleteTrip(trip._id)}
+                                                        onClick={() => handleDeleteTrip(trip._id, trip.dateCount)}
                                                         className="p-2.5 bg-red-50 text-red-400 hover:text-red-700 hover:bg-red-100 rounded-xl transition-all"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -505,6 +557,60 @@ export default function Trips() {
                                     <p className="text-lg font-black text-gray-800 mt-0.5">{detailTrip.soldKg ?? 0} <span className="text-sm font-bold text-gray-400">kg</span></p>
                                 </div>
                             </div>
+
+                            {(detailTrip.dateCount ?? 1) > 1 && Array.isArray(detailTrip.dates) && (
+                                <div>
+                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                                        Dates in this posting ({detailTrip.dates.length})
+                                    </p>
+                                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                                        {detailTrip.dates.map((d) => (
+                                            <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                                                    <span className="text-xs font-bold text-gray-800">{new Date(d.departureDate).toLocaleDateString()}</span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                                                        d.status === 'active' || d.status === 'verified' ? 'bg-green-100 text-green-700' :
+                                                        d.status === 'declined' ? 'bg-red-100 text-red-700' :
+                                                        'bg-yellow-100 text-yellow-700'
+                                                    }`}>
+                                                        {d.status === 'pending_admin_review' ? 'pending' : d.status}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    {(d.status === 'pending_admin_review' || d.status === 'pending') && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleSingleDateStatus(d.id, 'active')}
+                                                                className="px-2 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-black uppercase hover:bg-green-100"
+                                                            >
+                                                                Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const reason = prompt('Enter reason for decline:');
+                                                                    if (reason === null) return;
+                                                                    handleSingleDateStatus(d.id, 'declined', reason);
+                                                                }}
+                                                                className="px-2 py-1 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase hover:bg-red-100"
+                                                            >
+                                                                Decline
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    <button
+                                                        onClick={() => handleRemoveSingleDate(d.id)}
+                                                        className="p-1.5 text-red-400 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                                                        title="Remove this date"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <JourneyMap
                                 fromCity={detailTrip.fromLocation}

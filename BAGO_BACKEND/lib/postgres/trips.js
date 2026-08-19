@@ -44,6 +44,21 @@ async function ensureTripReferenceColumn(executor = { query }) {
   `);
 }
 
+// batch_id groups trips created together from one multi-date post (or a
+// single date, which is just a batch of one) — lets admin and the traveler's
+// own dashboard show "1 posting, N dates" instead of N separate trip rows.
+async function ensureTripBatchColumn(executor = { query }) {
+  await executor.query(`
+    alter table public.trips
+      add column if not exists batch_id uuid
+  `);
+  await executor.query(`
+    create index if not exists trips_batch_id_idx
+      on public.trips (batch_id)
+      where batch_id is not null
+  `);
+}
+
 async function nextTripNumber() {
   const row = await queryOne(
     `select lpad(nextval('public.trips_trip_number_seq')::text, 4, '0') as trip_number`,
@@ -121,6 +136,7 @@ function normalizeTripRow(row, reviews = []) {
     _id: row.id,
     tripNumber: row.trip_number,
     trip_number: row.trip_number,
+    batchId: row.batch_id,
     userId: row.user_id,
     user,
     fromLocation: row.from_location,
@@ -164,6 +180,7 @@ const baseTripSelect = `
   select
     t.id,
     t.trip_number,
+    t.batch_id,
     t.user_id,
     t.from_location,
     t.from_country,
@@ -304,9 +321,11 @@ export async function createTripRecord({
   landmark,
   travelDocument,
   proofExempt = false,
+  batchId = null,
 }) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
+  await ensureTripBatchColumn({ query });
 
   let trip;
   for (let attempt = 0; attempt < 8 && !trip; attempt += 1) {
@@ -317,6 +336,7 @@ export async function createTripRecord({
           insert into public.trips (
             user_id,
             trip_number,
+            batch_id,
             from_location,
             from_country,
             to_location,
@@ -338,12 +358,13 @@ export async function createTripRecord({
             travel_document_verified,
             status
           )
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,0,0,$12,$13,$14,$15,$16,$17,$18,$19)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,0,0,$13,$14,$15,$16,$17,$18,$19,$20)
           returning id
         `,
         [
           userId,
           tripNumber,
+          batchId,
           fromLocation,
           fromCountry,
           toLocation,
@@ -360,14 +381,17 @@ export async function createTripRecord({
           travelDocument,
           travelDocument ? departureDate : null,
           proofExempt,
-          proofExempt ? 'active' : 'pending_admin_review',
+          // Business accounts skip the travel-document requirement (proofExempt)
+          // but their trips still need admin review before going live, same as
+          // everyone else's — proofExempt no longer implies auto-active.
+          'pending_admin_review',
         ],
       );
       await recordOperationalEvent(null, {
         entityType: 'trip',
         entityId: trip.id,
         eventType: 'created',
-        status: proofExempt ? 'active' : 'pending_admin_review',
+        status: 'pending_admin_review',
         actorUserId: userId,
         travelerId: userId,
         tripId: trip.id,
@@ -401,6 +425,7 @@ export async function createTripRecord({
 export async function listTripsByUserId(userId) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
+  await ensureTripBatchColumn({ query });
 
   // Auto-archive trips whose departure date has passed and are still active/verified
   await query(
@@ -427,6 +452,7 @@ export async function listTripsByUserId(userId) {
 export async function getTripById(tripId) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
+  await ensureTripBatchColumn({ query });
   const row = await queryOne(`${baseTripSelect} where t.id = $1`, [tripId]);
   if (!row) return null;
   return normalizeTripRow(row, await fetchTripReviews(tripId));
@@ -435,6 +461,7 @@ export async function getTripById(tripId) {
 export async function getTripOwnedByUser(tripId, userId) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
+  await ensureTripBatchColumn({ query });
   const row = await queryOne(`${baseTripSelect} where t.id = $1 and t.user_id = $2`, [tripId, userId]);
   if (!row) return null;
   return normalizeTripRow(row, await fetchTripReviews(tripId));
@@ -443,6 +470,7 @@ export async function getTripOwnedByUser(tripId, userId) {
 export async function updateTripRecord(tripId, userId, updates) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
+  await ensureTripBatchColumn({ query });
   const fields = [];
   const values = [];
   let index = 1;

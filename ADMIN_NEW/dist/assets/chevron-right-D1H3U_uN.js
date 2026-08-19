@@ -1,0 +1,1 @@
+import{c}from"./index-BKA3Douq.js";const o=[["path",{d:"M4.929 4.929 19.07 19.071",key:"196cmz"}],["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}]],a=c("ban",o);const e=[["path",{d:"m15 18-6-6 6-6",key:"1wnfg3"}]],h=c("chevron-left",e);const n=[["path",{d:"m9 18 6-6-6-6",key:"mthhwq"}]],r=c("chevron-right",n);export{a as B,h as C,r as a};

@@ -9,6 +9,7 @@ function normalizeTrip(row) {
     id: row.id,
     tripNumber: row.trip_number,
     trip_number: row.trip_number,
+    batchId: row.batch_id,
     userId: row.user_id,
     user: row.user_id
       ? {
@@ -84,6 +85,46 @@ const adminTripSelect = `
   ) shipments on true
 `;
 
+// Groups trips that were posted together (same batch_id — one multi-date
+// submission) into a single entry with a date count, instead of one row per
+// date. Trips without a batch_id (legacy rows, or true one-offs) form their
+// own singleton batch of their own id.
+export function groupTripsByBatch(trips) {
+  const groups = new Map();
+  for (const trip of trips) {
+    const key = trip.batchId || trip.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(trip);
+  }
+
+  return Array.from(groups.values()).map((group) => {
+    group.sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
+    const first = group[0];
+    const statuses = new Set(group.map((t) => t.status));
+    const groupKey = first.batchId || first.id;
+    return {
+      ...first,
+      id: groupKey,
+      _id: groupKey,
+      batchId: groupKey,
+      tripIds: group.map((t) => t.id),
+      dateCount: group.length,
+      dates: group.map((t) => ({
+        id: t.id,
+        departureDate: t.departureDate,
+        arrivalDate: t.arrivalDate,
+        status: t.status,
+        availableKg: t.availableKg,
+        soldShipments: t.soldShipments,
+      })),
+      status: statuses.size === 1 ? first.status : 'mixed',
+      request: group.reduce((sum, t) => sum + (t.request || 0), 0),
+      soldShipments: group.flatMap((t) => t.soldShipments || []),
+      createdAt: group.reduce((min, t) => (t.createdAt < min ? t.createdAt : min), first.createdAt),
+    };
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
 export const getTripById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -102,15 +143,21 @@ export const getAllTrips = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
 
+    // Fetch a page of individual trip rows (as before), then group same-batch
+    // rows into one entry each. Batches are created back-to-back in a single
+    // request, so in practice they land on the same created_at-ordered page —
+    // total/pagination is reported in distinct-batch terms for accuracy.
     const tripsResult = await query(
       `${adminTripSelect} order by t.created_at desc limit $1 offset $2`,
       [limit, skip],
     );
-    const totalCountRow = await queryOne(`select count(*)::int as total from public.trips`);
+    const totalCountRow = await queryOne(
+      `select count(distinct coalesce(batch_id::text, id::text))::int as total from public.trips`,
+    );
 
     res.status(200).json({
       success: true,
-      data: tripsResult.rows.map(normalizeTrip),
+      data: groupTripsByBatch(tripsResult.rows.map(normalizeTrip)),
       totalCount: totalCountRow?.total || 0,
       page,
       limit,
@@ -270,6 +317,175 @@ export const deleteTrip = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Trip deleted successfully',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Batch-scoped variants ───────────────────────────────────────────────────
+// A "batch" is every trip posted together from one multi-date submission
+// (batch_id), or a single ungrouped trip addressed by its own id. These let
+// admin approve/decline/reprice/delete an entire posting in one action
+// instead of repeating it per date.
+
+async function tripIdsInBatch(batchId) {
+  const rows = await query(
+    `select id from public.trips where batch_id::text = $1 or id::text = $1`,
+    [batchId],
+  );
+  return rows.rows.map((r) => r.id);
+}
+
+export const updateTripStatusBatch = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const { status, reason } = req.body;
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const nextStatus = ['verified', 'approved', 'live', 'active'].includes(normalizedStatus)
+      ? 'active'
+      : ['pending', 'pending_review', 'admin_review', 'pending_admin_review'].includes(normalizedStatus)
+        ? 'pending_admin_review'
+        : normalizedStatus;
+
+    if (!nextStatus) {
+      return res.status(400).json({ success: false, message: 'Trip status is required' });
+    }
+
+    const ids = await tripIdsInBatch(batchId);
+    if (!ids.length) {
+      return res.status(404).json({ success: false, message: 'Trip batch not found' });
+    }
+
+    const travelDocumentVerified = nextStatus === 'active'
+      ? true
+      : ['pending_admin_review', 'declined', 'cancelled'].includes(nextStatus)
+        ? false
+        : null;
+
+    // Only touch dates still under admin review (or being re-approved/declined
+    // from that state) — a batch can contain dates that already departed and
+    // were auto-archived to 'completed', which a bulk Approve/Decline must
+    // never reopen.
+    await query(
+      `
+        update public.trips
+        set status = $1,
+            travel_document_verified = coalesce($2, travel_document_verified),
+            updated_at = timezone('utc', now())
+        where id = any($3::uuid[])
+          and status not in ('completed', 'cancelled')
+      `,
+      [nextStatus, travelDocumentVerified, ids],
+    );
+
+    const rows = await query(`${adminTripSelect} where t.id = any($1::uuid[]) order by t.departure_date`, [ids]);
+    const trips = rows.rows.map(normalizeTrip);
+    const first = trips[0];
+    const userEmail = first?.user?.email;
+    const userName = first?.user?.firstName || 'Traveler';
+    const dateNote = ids.length > 1 ? ` (${ids.length} dates)` : '';
+
+    if (nextStatus === 'active' && first?.userId) {
+      Promise.allSettled([
+        sendPushNotification(
+          first.userId,
+          'Trip Approved!',
+          `Your trip from ${first.fromLocation} to ${first.toLocation}${dateNote} has been approved and is now live.`,
+        ),
+        userEmail ? sendTripApprovedEmail(userEmail, userName, first) : Promise.resolve(),
+      ]).then((results) => {
+        results.forEach((result) => {
+          if (result.status === 'rejected') console.error('Trip approval notification failed:', result.reason);
+        });
+      });
+    } else if (nextStatus === 'declined' && first?.userId) {
+      Promise.allSettled([
+        sendPushNotification(
+          first.userId,
+          'Trip Declined',
+          `Your trip from ${first.fromLocation} to ${first.toLocation}${dateNote} was declined. Please check your travel documents and try again.`,
+        ),
+        userEmail ? sendTripDeclinedEmail(userEmail, userName, first, reason) : Promise.resolve(),
+      ]).then((results) => {
+        results.forEach((result) => {
+          if (result.status === 'rejected') console.error('Trip decline notification failed:', result.reason);
+        });
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: groupTripsByBatch(trips)[0],
+      message: 'Trip status updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating trip batch status:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateTripPriceBatch = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const { pricePerKg } = req.body;
+
+    const ids = await tripIdsInBatch(batchId);
+    if (!ids.length) {
+      return res.status(404).json({ success: false, message: 'Trip batch not found' });
+    }
+
+    const firstRow = await queryOne(`${adminTripSelect} where t.id = $1`, [ids[0]]);
+    const existing = normalizeTrip(firstRow);
+    if (!existing.userId) {
+      return res.status(409).json({ success: false, message: 'Trip has no owner on record' });
+    }
+
+    const currency = req.body.currency || existing.currency;
+    const price = parseFloat(pricePerKg);
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ success: false, message: 'Price per kg must be a positive number' });
+    }
+    if (!currency) {
+      return res.status(400).json({ success: false, message: 'Currency is required' });
+    }
+
+    await query(
+      `update public.trips set price_per_kg = $1, currency = $2, updated_at = timezone('utc', now()) where id = any($3::uuid[])`,
+      [price, currency, ids],
+    );
+
+    sendPushNotification(
+      existing.userId,
+      'Trip Price Updated',
+      `An admin adjusted the price for your trip from ${existing.fromLocation} to ${existing.toLocation} to ${price} ${currency}/kg.`,
+    ).catch((err) => console.error('Trip price update notification failed:', err.message));
+
+    const rows = await query(`${adminTripSelect} where t.id = any($1::uuid[]) order by t.departure_date`, [ids]);
+    res.status(200).json({
+      success: true,
+      data: groupTripsByBatch(rows.rows.map(normalizeTrip))[0],
+      message: 'Trip price updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating trip batch price:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteTripBatch = async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    const ids = await tripIdsInBatch(batchId);
+    if (!ids.length) {
+      return res.status(404).json({ success: false, message: 'Trip batch not found' });
+    }
+
+    await query(`delete from public.trips where id = any($1::uuid[])`, [ids]);
+
+    res.status(200).json({
+      success: true,
+      message: ids.length > 1 ? `${ids.length} trips deleted successfully` : 'Trip deleted successfully',
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

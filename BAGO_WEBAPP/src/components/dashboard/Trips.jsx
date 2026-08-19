@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api';
-import { Plane, Trash2, Edit3, Plus, Weight, RefreshCw, X, ChevronDown, TrendingUp, RotateCcw, History } from 'lucide-react';
+import { Plane, Trash2, Edit3, Plus, Weight, RefreshCw, X, ChevronDown, TrendingUp, RotateCcw, History, Calendar } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import JourneyMap from '../JourneyMap';
 
@@ -19,6 +19,31 @@ function isHistoryTrip(trip) {
         }
     }
     return false;
+}
+
+// Groups trips posted together from one multi-date submission (same batchId)
+// into a single card with a date count, instead of one card per date.
+// Ungrouped/legacy trips form a singleton batch of their own id.
+function groupTripsByBatch(trips) {
+    const groups = new Map();
+    for (const trip of trips) {
+        const key = trip.batchId || trip._id || trip.id;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(trip);
+    }
+    return Array.from(groups.values()).map((group) => {
+        group.sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
+        const first = group[0];
+        const statuses = new Set(group.map(t => t.status));
+        return {
+            ...first,
+            batchId: first.batchId || first._id || first.id,
+            tripIds: group.map(t => t._id || t.id),
+            dateCount: group.length,
+            dates: group.map(t => ({ id: t._id || t.id, departureDate: t.departureDate, arrivalDate: t.arrivalDate, status: t.status })),
+            status: statuses.size === 1 ? first.status : 'mixed',
+        };
+    });
 }
 
 function formatPayoutStatus(raw) {
@@ -41,6 +66,7 @@ export default function Trips() {
     const [isUpdating, setIsUpdating] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState(null);
     const [expandedTripId, setExpandedTripId] = useState(null);
+    const [expandedDatesId, setExpandedDatesId] = useState(null);
 
     const [fromLocation, setFromLocation] = useState('');
     const [toLocation, setToLocation] = useState('');
@@ -101,28 +127,53 @@ export default function Trips() {
         }
     };
 
-    const startEditing = (trip) => {
-        setEditingTrip(trip);
-        setFromLocation(trip.fromLocation || '');
-        setToLocation(trip.toLocation || '');
-        setDepartureDate(trip.departureDate ? new Date(trip.departureDate).toISOString().split('T')[0] : '');
-        setArrivalDate(trip.arrivalDate ? new Date(trip.arrivalDate).toISOString().split('T')[0] : '');
-        setAvailableKg(trip.availableKg || '');
-        setTravelMeans(trip.travelMeans || 'airplane');
+    // Deletes every date in a multi-date posting at once (the card-level
+    // "Delete" action). Removing just one date is handled separately by
+    // handleDeleteTrip via the per-date "×" button in the expanded list.
+    const handleDeleteBatch = async (tripIds) => {
+        const results = await Promise.allSettled(tripIds.map(id => api.delete(`/api/bago/Trip/${id}`)));
+        const deletedIds = tripIds.filter((_, i) => results[i].status === 'fulfilled');
+        const failedCount = tripIds.length - deletedIds.length;
+        if (deletedIds.length) {
+            setTrips(prev => prev.filter(t => !deletedIds.includes(t._id || t.id)));
+        }
+        if (failedCount > 0) {
+            alert(`${failedCount} date${failedCount > 1 ? 's' : ''} could not be deleted (likely already booked). The rest were removed.`);
+        }
+        setDeleteConfirmId(null);
+    };
+
+    const startEditing = (group) => {
+        setEditingTrip(group);
+        setFromLocation(group.fromLocation || '');
+        setToLocation(group.toLocation || '');
+        setDepartureDate(group.departureDate ? new Date(group.departureDate).toISOString().split('T')[0] : '');
+        setArrivalDate(group.arrivalDate ? new Date(group.arrivalDate).toISOString().split('T')[0] : '');
+        setAvailableKg(group.availableKg || '');
+        setTravelMeans(group.travelMeans || 'airplane');
     };
 
     const handleUpdateTrip = async (e) => {
         e.preventDefault();
-        if (!fromLocation || !toLocation || !departureDate || !arrivalDate || !availableKg) {
+        const isBatchEdit = (editingTrip?.dateCount || 1) > 1;
+        if (!fromLocation || !toLocation || !availableKg || (!isBatchEdit && (!departureDate || !arrivalDate))) {
             alert('All fields are required.');
             return;
         }
         setIsUpdating(true);
         try {
-            await api.put(`/api/bago/Trip/${editingTrip._id}`, {
-                fromLocation, toLocation, departureDate, arrivalDate,
-                availableKg: parseFloat(availableKg), travelMeans,
-            });
+            if (isBatchEdit) {
+                // Shared fields only — each date keeps its own departure/arrival,
+                // managed individually via the per-date remove action instead.
+                await Promise.all(editingTrip.tripIds.map(id => api.put(`/api/bago/Trip/${id}`, {
+                    fromLocation, toLocation, availableKg: parseFloat(availableKg), travelMeans,
+                })));
+            } else {
+                await api.put(`/api/bago/Trip/${editingTrip._id}`, {
+                    fromLocation, toLocation, departureDate, arrivalDate,
+                    availableKg: parseFloat(availableKg), travelMeans,
+                });
+            }
             setEditingTrip(null);
             fetchMyTrips();
         } catch (err) {
@@ -130,6 +181,11 @@ export default function Trips() {
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    const handleRemoveDate = async (dateId) => {
+        if (!window.confirm('Remove this date from the posting? This deletes just this one date, keeping the rest.')) return;
+        await handleDeleteTrip(dateId);
     };
 
     const handleRedoTrip = (trip) => {
@@ -149,11 +205,16 @@ export default function Trips() {
 
     if (loading) return <div className="flex justify-center p-20"><RefreshCw className="animate-spin text-[#5845D8]" size={40} /></div>;
 
-    const activeTrips  = trips.filter(t => !isHistoryTrip(t));
-    const historyTrips = trips.filter(t =>  isHistoryTrip(t));
+    const groupedTrips = groupTripsByBatch(trips);
+    // A posting only moves to history once every date within it is done —
+    // one upcoming date keeps the whole card active.
+    const activeTrips  = groupedTrips.filter(g => !g.dates.every(isHistoryTrip));
+    const historyTrips = groupedTrips.filter(g =>  g.dates.every(isHistoryTrip));
 
     const TripCard = ({ trip, isHistory }) => {
         const tripId = trip._id || trip.id;
+        const isBatch = (trip.dateCount || 1) > 1;
+        const datesOpen = expandedDatesId === tripId;
         return (
             <div className={`rounded-[20px] border shadow-sm overflow-hidden transition-all ${isHistory ? 'bg-gray-50 border-gray-100 opacity-70' : 'bg-white border-gray-100 hover:shadow-md hover:-translate-y-0.5'}`}>
                 {/* Top — boarding pass header */}
@@ -161,15 +222,23 @@ export default function Trips() {
                     <div className="absolute top-0 right-0 w-24 h-24 bg-[#5845D8]/15 rounded-full blur-3xl -mr-12 -mt-12 pointer-events-none" />
 
                     <div className="flex items-center justify-between mb-4 relative z-10">
-                        <div className="flex items-center gap-1.5 bg-[#5845D8]/20 border border-[#5845D8]/30 rounded-full px-2.5 py-1">
-                            <Plane size={9} className="text-[#9B8EF5]" />
-                            <span className="text-[7px] text-[#9B8EF5] font-black uppercase tracking-widest">
-                                {t(trip.travelMeans?.toLowerCase()) || trip.travelMeans || 'Flight'}
-                            </span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 bg-[#5845D8]/20 border border-[#5845D8]/30 rounded-full px-2.5 py-1">
+                                <Plane size={9} className="text-[#9B8EF5]" />
+                                <span className="text-[7px] text-[#9B8EF5] font-black uppercase tracking-widest">
+                                    {t(trip.travelMeans?.toLowerCase()) || trip.travelMeans || 'Flight'}
+                                </span>
+                            </div>
+                            {isBatch && (
+                                <div className="bg-white/15 border border-white/20 rounded-full px-2 py-1">
+                                    <span className="text-[7px] text-white font-black uppercase tracking-widest">×{trip.dateCount} dates</span>
+                                </div>
+                            )}
                         </div>
                         <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${
                             trip.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                             trip.status === 'active'    ? 'bg-emerald-500/20 text-emerald-400' :
+                            trip.status === 'mixed'     ? 'bg-purple-500/20 text-purple-300' :
                             isHistory                   ? 'bg-gray-500/20 text-gray-400' :
                             'bg-amber-500/20 text-amber-400'
                         }`}>
@@ -250,6 +319,46 @@ export default function Trips() {
                         )}
                     </div>
 
+                    {isBatch && (
+                        <>
+                            <button
+                                onClick={() => setExpandedDatesId(prev => prev === tripId ? null : tripId)}
+                                className="w-full flex items-center justify-center gap-1.5 py-2 mb-2 rounded-xl bg-[#5845D8]/8 hover:bg-[#5845D8]/15 transition-colors text-[8px] font-black text-[#5845D8] uppercase tracking-widest"
+                            >
+                                <Calendar size={11} />
+                                <span>Manage Dates ({trip.dateCount})</span>
+                                <ChevronDown size={11} className={`transition-transform ${datesOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {datesOpen && (
+                                <div className="mb-3 space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                                    {trip.dates.map(d => (
+                                        <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold text-[#111827]">
+                                                    {new Date(d.departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                                </span>
+                                                <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                                                    d.status === 'active' ? 'bg-emerald-100 text-emerald-600' :
+                                                    d.status === 'declined' ? 'bg-red-100 text-red-600' :
+                                                    'bg-amber-100 text-amber-600'
+                                                }`}>
+                                                    {d.status === 'pending_admin_review' ? 'pending' : d.status}
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => handleRemoveDate(d.id)}
+                                                className="p-1 text-red-400 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                                                title="Remove this date"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+
                     <button
                         onClick={() => setExpandedTripId(expandedTripId === tripId ? null : tripId)}
                         className="w-full flex items-center justify-center gap-1.5 py-2 mb-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-[8px] font-black text-gray-400 uppercase tracking-widest"
@@ -284,8 +393,13 @@ export default function Trips() {
                         </button>
                     ) : deleteConfirmId === tripId ? (
                         <div className="flex gap-2 bg-red-50 rounded-xl p-3 border border-red-100 animate-in fade-in duration-150">
-                            <p className="text-[9px] font-black text-red-600 uppercase tracking-wider flex-1">Delete this trip?</p>
-                            <button onClick={() => handleDeleteTrip(tripId)} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider">
+                            <p className="text-[9px] font-black text-red-600 uppercase tracking-wider flex-1">
+                                {isBatch ? `Delete this posting and all ${trip.dateCount} dates?` : 'Delete this trip?'}
+                            </p>
+                            <button
+                                onClick={() => isBatch ? handleDeleteBatch(trip.tripIds) : handleDeleteTrip(tripId)}
+                                className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-[9px] font-black uppercase tracking-wider"
+                            >
                                 Yes, Delete
                             </button>
                             <button onClick={() => setDeleteConfirmId(null)} className="px-3 py-1.5 bg-white text-gray-500 rounded-lg text-[9px] font-black uppercase tracking-wider border border-gray-100">
@@ -381,7 +495,14 @@ export default function Trips() {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
                     <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100">
                         <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                            <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">{t('editTrip')}</h3>
+                            <div>
+                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">{t('editTrip')}</h3>
+                                {(editingTrip.dateCount || 1) > 1 && (
+                                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                                        Applies to all {editingTrip.dateCount} dates in this posting. Manage individual dates from the card.
+                                    </p>
+                                )}
+                            </div>
                             <button onClick={() => setEditingTrip(null)} className="p-1.5 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-gray-600"><X size={20} /></button>
                         </div>
                         <form onSubmit={handleUpdateTrip} className="p-6 space-y-5">
@@ -395,16 +516,18 @@ export default function Trips() {
                                     <input type="text" value={toLocation} onChange={e => setToLocation(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all" placeholder="City, Country" />
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('departureDate')}</label>
-                                    <input type="date" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all" />
+                            {(editingTrip.dateCount || 1) <= 1 && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('departureDate')}</label>
+                                        <input type="date" value={departureDate} onChange={e => setDepartureDate(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('arrivalDate')}</label>
+                                        <input type="date" value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all" />
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('arrivalDate')}</label>
-                                    <input type="date" value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent focus:border-[#5845D8]/20 focus:bg-white outline-none text-xs font-bold transition-all" />
-                                </div>
-                            </div>
+                            )}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[8px] font-black text-gray-400 uppercase tracking-widest px-1">{t('spaceKg')}</label>

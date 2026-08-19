@@ -56,7 +56,10 @@ import {
   getTripById,
   updateTripStatus,
   updateTripPrice,
-  deleteTrip
+  deleteTrip,
+  updateTripStatusBatch,
+  updateTripPriceBatch,
+  deleteTripBatch
 } from '../controllers/AdminControllers/TripManagement.js';
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
 import { getAdminProfile, updateAdminProfile } from '../controllers/AdminControllers/AdminProfileController.js';
@@ -224,6 +227,9 @@ AdminRouter.get("/admin-trips/:id", adminAuthenticated, validateUuidParam('id'),
 AdminRouter.put("/admin-trips/:id/status", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.status.update', 'trip'), updateTripStatus);
 AdminRouter.put("/admin-trips/:id/price", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.price.update', 'trip'), updateTripPrice);
 AdminRouter.delete("/admin-trips/:id", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.delete', 'trip'), deleteTrip);
+AdminRouter.put("/admin-trips/batch/:batchId/status", adminAuthenticated, can('trips.manage'), validateUuidParam('batchId'), audit('admin.trip.batch.status.update', 'trip'), updateTripStatusBatch);
+AdminRouter.put("/admin-trips/batch/:batchId/price", adminAuthenticated, can('trips.manage'), validateUuidParam('batchId'), audit('admin.trip.batch.price.update', 'trip'), updateTripPriceBatch);
+AdminRouter.delete("/admin-trips/batch/:batchId", adminAuthenticated, can('trips.manage'), validateUuidParam('batchId'), audit('admin.trip.batch.delete', 'trip'), deleteTripBatch);
 
 // General Admin Asset Upload (for promo emails etc)
 AdminRouter.post("/upload", adminAuthenticated, can('promos.manage'), upload.single('file'), audit('admin.asset.upload', 'asset'), adminUploadFile);

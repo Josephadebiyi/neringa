@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import cloudinary from 'cloudinary';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import {
@@ -162,6 +163,11 @@ export const AddAtrip = async (req, res, next) => {
       ? await uploadTravelDocument(travelDocument, userid)
       : null;
 
+    // One batch_id per submission — groups every date from this post into a
+    // single "posting" for admin and the traveler's own dashboard to display
+    // as one entry with a date count, rather than N separate trip rows.
+    const batchId = crypto.randomUUID();
+
     const createdTrips = [];
     for (const { departureAt, arrivalAt } of parsedDates) {
       const trip = await createTripRecord({
@@ -181,6 +187,7 @@ export const AddAtrip = async (req, res, next) => {
         landmark: landmark || '',
         travelDocument: travelDocumentUrl,
         proofExempt: isBusinessAccount,
+        batchId,
       });
       createdTrips.push(await getTripById(trip.id));
     }
@@ -205,12 +212,12 @@ export const AddAtrip = async (req, res, next) => {
       }
     })();
 
+    const reviewNote = isBusinessAccount
+      ? "no travel document is required, but it still needs" : "it needs";
     res.status(201).json({
-      message: isBusinessAccount
-        ? (createdTrips.length > 1
-          ? `${createdTrips.length} trips listed successfully. Business accounts do not require travel proof.`
-          : "Trip listed successfully. Business accounts do not require travel proof.")
-        : "Trip submitted for review. It will be visible to senders once an admin approves it.",
+      message: createdTrips.length > 1
+        ? `${createdTrips.length} trips submitted — ${reviewNote} admin approval before senders can see them.`
+        : `Trip submitted — ${reviewNote} admin approval before senders can see it.`,
       trip: createdTrips[0],
       trips: createdTrips,
       count: createdTrips.length,
