@@ -22,6 +22,7 @@ import {
   CurrencyService,
   FLUTTERWAVE_COLLECTION_CURRENCIES,
   getFlutterwavePaymentCurrencyForCountry,
+  convertCurrency,
 } from '../services/currencyConverter.js';
 import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { resend } from '../services/resendClient.js';
@@ -639,7 +640,7 @@ export const withdrawFundsFlutterwave = async (req, res) => {
     }
 
     const profile = await queryOne(
-      `SELECT p.kyc_status, p.email, p.first_name, p.last_name,
+      `SELECT p.kyc_status, p.email, p.first_name, p.last_name, p.account_type,
               wa.id as wallet_id, wa.available_balance, wa.currency
        FROM public.profiles p
        JOIN public.wallet_accounts wa on wa.user_id = p.id
@@ -671,6 +672,32 @@ export const withdrawFundsFlutterwave = async (req, res) => {
         success: false,
         message: `This payout route is not currently supported. Add a payout account in your wallet currency (${walletCurrency}).`,
       });
+    }
+
+    // Business accounts are capped at ₦5,000,000 (or currency-equivalent) per
+    // rolling 24 hours, summed across withdrawals already made in that window.
+    const BUSINESS_DAILY_WITHDRAWAL_LIMIT_NGN = 5_000_000;
+    if (profile.account_type === 'company') {
+      const recentWithdrawals = await pgQuery(
+        `SELECT amount, currency
+         FROM public.wallet_transactions
+         WHERE user_id = $1 AND type = 'withdrawal' AND status IN ('processing', 'completed', 'paid')
+           AND created_at >= NOW() - INTERVAL '24 hours'`,
+        [user.id],
+      );
+      let withdrawnTodayNgn = 0;
+      for (const row of recentWithdrawals.rows) {
+        withdrawnTodayNgn += await convertCurrency(Number(row.amount || 0), row.currency, 'NGN').catch(() => 0);
+      }
+      const requestedAmountNgn = await convertCurrency(withdrawalAmount, walletCurrency, 'NGN').catch(() => 0);
+      if (withdrawnTodayNgn + requestedAmountNgn > BUSINESS_DAILY_WITHDRAWAL_LIMIT_NGN) {
+        const remainingNgn = Math.max(0, BUSINESS_DAILY_WITHDRAWAL_LIMIT_NGN - withdrawnTodayNgn);
+        return res.status(400).json({
+          success: false,
+          code: 'DAILY_WITHDRAWAL_LIMIT_EXCEEDED',
+          message: `Business accounts can withdraw up to ₦5,000,000 per 24 hours. You have approximately ₦${Math.round(remainingNgn).toLocaleString()} of that limit remaining right now. Please try a smaller amount or again later.`,
+        });
+      }
     }
 
     if ((profile.available_balance || 0) < withdrawalAmount) {

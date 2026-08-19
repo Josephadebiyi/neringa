@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Building2, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { createBusiness, type CreateBusinessPayload } from "../services/api";
 
+const OPERATIONAL_CURRENCIES = ['EUR', 'GBP', 'GHS', 'KES', 'MWK', 'NGN', 'SLL', 'TZS', 'UGX', 'USD', 'XAF', 'XOF', 'ZAR', 'ZMW'];
+
 const FIELDS: { key: keyof CreateBusinessPayload; label: string; required?: boolean; type?: string }[] = [
   { key: "companyName", label: "Registered company name", required: true },
   { key: "tradingName", label: "Trading name shown to senders", required: true },
@@ -10,7 +12,6 @@ const FIELDS: { key: keyof CreateBusinessPayload; label: string; required?: bool
   { key: "businessAddress", label: "Business address" },
   { key: "businessTaxId", label: "Tax ID" },
   { key: "country", label: "Country (e.g. NG, GH, US)" },
-  { key: "operationalCurrency", label: "Operational currency (e.g. NGN, USD)" },
 ];
 
 const REP_FIELDS: { key: keyof CreateBusinessPayload; label: string; required?: boolean; type?: string }[] = [
@@ -34,7 +35,7 @@ export default function CreateBusinessPage() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  const change = (key: keyof CreateBusinessPayload) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const change = (key: keyof CreateBusinessPayload) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   const submit = async (e: React.FormEvent) => {
@@ -107,6 +108,18 @@ export default function CreateBusinessPage() {
                 />
               </label>
             ))}
+            <label>
+              <span className="block text-sm font-medium text-gray-700 mb-1">Operational currency</span>
+              <select
+                value={form.operationalCurrency || ""}
+                onChange={change("operationalCurrency")}
+                className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                <option value="">Select currency</option>
+                {OPERATIONAL_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <span className="text-xs text-gray-400">Sets the business's wallet and payout currency. Only supported payout currencies are listed.</span>
+            </label>
           </div>
         </div>
 

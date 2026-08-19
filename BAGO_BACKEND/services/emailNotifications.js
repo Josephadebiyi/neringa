@@ -963,6 +963,7 @@ export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, 
         <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
           <li>Sign in and change this temporary password to one only you know</li>
           <li>Add and verify your phone number in Settings for account security</li>
+          <li>Set up your payout method and connect your bank account so you can receive earnings</li>
         </ul>
       </div>
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
