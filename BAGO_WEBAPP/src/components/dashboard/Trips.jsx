@@ -21,17 +21,63 @@ function isHistoryTrip(trip) {
     return false;
 }
 
+const LEGACY_BATCH_WINDOW_MS = 30 * 60 * 1000;
+
+// Trips created before batchId existed have no recorded link to the
+// submission they came from. Reconstruct their probable batches by
+// clustering same-route/same-price trips whose createdAt timestamps land
+// close together — the signature of one multi-date submission (all
+// inserted back-to-back in a single request). Purely a display-time
+// heuristic — mirrors the same logic on the admin side.
+function clusterLegacyTrips(trips) {
+    const submissionKey = (t) =>
+        [t.fromLocation, t.toLocation, t.travelMeans, t.pricePerKg, t.currency].join('|');
+
+    const sorted = [...trips].sort((a, b) => {
+        const keyA = submissionKey(a);
+        const keyB = submissionKey(b);
+        if (keyA !== keyB) return keyA < keyB ? -1 : 1;
+        return new Date(a.createdAt) - new Date(b.createdAt);
+    });
+
+    const clusters = [];
+    let currentKey = null;
+    let lastCreatedAt = null;
+    for (const trip of sorted) {
+        const key = submissionKey(trip);
+        const createdAt = new Date(trip.createdAt).getTime();
+        const withinWindow = lastCreatedAt != null && createdAt - lastCreatedAt <= LEGACY_BATCH_WINDOW_MS;
+        if (key === currentKey && withinWindow) {
+            clusters[clusters.length - 1].push(trip);
+        } else {
+            clusters.push([trip]);
+            currentKey = key;
+        }
+        lastCreatedAt = createdAt;
+    }
+    return clusters;
+}
+
 // Groups trips posted together from one multi-date submission (same batchId)
 // into a single card with a date count, instead of one card per date.
-// Ungrouped/legacy trips form a singleton batch of their own id.
+// Legacy (pre-batchId) trips are clustered heuristically via
+// clusterLegacyTrips; anything left over forms its own singleton batch.
 function groupTripsByBatch(trips) {
-    const groups = new Map();
+    const explicitGroups = new Map();
+    const legacyTrips = [];
     for (const trip of trips) {
-        const key = trip.batchId || trip._id || trip.id;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(trip);
+        const batchId = trip.batchId;
+        if (batchId) {
+            if (!explicitGroups.has(batchId)) explicitGroups.set(batchId, []);
+            explicitGroups.get(batchId).push(trip);
+        } else {
+            legacyTrips.push(trip);
+        }
     }
-    return Array.from(groups.values()).map((group) => {
+
+    const allGroups = [...explicitGroups.values(), ...clusterLegacyTrips(legacyTrips)];
+
+    return allGroups.map((group) => {
         group.sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
         const first = group[0];
         const statuses = new Set(group.map(t => t.status));

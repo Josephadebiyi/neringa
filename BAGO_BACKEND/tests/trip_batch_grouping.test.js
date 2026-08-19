@@ -84,4 +84,45 @@ describe('groupTripsByBatch', () => {
     const groups = groupTripsByBatch(trips);
     expect(groups.map((g) => g.id)).toEqual(['new', 'old']);
   });
+
+  it('reconstructs a legacy (pre-batch_id) multi-date posting by clustering same-route, same-price trips created moments apart', () => {
+    const trips = [
+      trip({ id: 'l1', batchId: null, departureDate: '2026-09-27', createdAt: '2026-08-20T10:00:00.000Z' }),
+      trip({ id: 'l2', batchId: null, departureDate: '2026-09-28', createdAt: '2026-08-20T10:00:01.000Z' }),
+      trip({ id: 'l3', batchId: null, departureDate: '2026-09-29', createdAt: '2026-08-20T10:00:02.000Z' }),
+      trip({ id: 'l4', batchId: null, departureDate: '2026-09-30', createdAt: '2026-08-20T10:00:03.000Z' }),
+      trip({ id: 'l5', batchId: null, departureDate: '2026-10-01', createdAt: '2026-08-20T10:00:04.000Z' }),
+    ];
+    const groups = groupTripsByBatch(trips);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].dateCount).toBe(5);
+    expect(groups[0].tripIds.sort()).toEqual(['l1', 'l2', 'l3', 'l4', 'l5']);
+  });
+
+  it('does not cluster legacy trips on the same route whose created_at is far apart (separate postings)', () => {
+    const trips = [
+      trip({ id: 'a', batchId: null, createdAt: '2026-08-01T10:00:00.000Z' }),
+      trip({ id: 'b', batchId: null, createdAt: '2026-08-01T11:00:00.000Z' }), // 1 hour later — outside the window
+    ];
+    const groups = groupTripsByBatch(trips);
+    expect(groups).toHaveLength(2);
+  });
+
+  it('does not cluster legacy trips created together but on different routes or prices', () => {
+    const trips = [
+      trip({ id: 'a', batchId: null, toLocation: 'Abuja, Nigeria', createdAt: '2026-08-20T10:00:00.000Z' }),
+      trip({ id: 'b', batchId: null, toLocation: 'Kano, Nigeria', createdAt: '2026-08-20T10:00:01.000Z' }),
+    ];
+    const groups = groupTripsByBatch(trips);
+    expect(groups).toHaveLength(2);
+  });
+
+  it('never mixes an explicit batch_id group with a legacy trip that happens to share the same route/price', () => {
+    const trips = [
+      trip({ id: 'a', batchId: 'batch-9', createdAt: '2026-08-20T10:00:00.000Z' }),
+      trip({ id: 'b', batchId: null, createdAt: '2026-08-20T10:00:01.000Z' }),
+    ];
+    const groups = groupTripsByBatch(trips);
+    expect(groups).toHaveLength(2);
+  });
 });

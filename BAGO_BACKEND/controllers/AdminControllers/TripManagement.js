@@ -19,6 +19,9 @@ function normalizeTrip(row) {
           lastName: row.last_name,
           email: row.email,
           phone: row.phone,
+          accountType: row.account_type,
+          companyName: row.company_name,
+          tradingName: row.trading_name,
         }
       : null,
     fromLocation: row.from_location,
@@ -51,6 +54,9 @@ const adminTripSelect = `
     p.last_name,
     p.email,
     p.phone,
+    p.account_type,
+    p.company_name,
+    p.trading_name,
     coalesce(shipments.sold_shipments, '[]'::json) as sold_shipments
   from public.trips t
   left join public.profiles p on p.id = t.user_id
@@ -85,19 +91,62 @@ const adminTripSelect = `
   ) shipments on true
 `;
 
+const LEGACY_BATCH_WINDOW_MS = 30 * 60 * 1000;
+
+// Trips created before batch_id existed have no recorded link to the
+// submission they came from. Reconstruct their probable batches by
+// clustering same-user/same-route/same-price trips whose created_at
+// timestamps land close together in time — exactly the signature of one
+// multi-date submission (all inserted back-to-back in a single request).
+// Purely a read-time heuristic — no data is written or migrated.
+function clusterLegacyTrips(trips) {
+  const submissionKey = (t) =>
+    [t.userId, t.fromLocation, t.toLocation, t.travelMeans, t.pricePerKg, t.currency].join('|');
+
+  const sorted = [...trips].sort((a, b) => {
+    const keyA = submissionKey(a);
+    const keyB = submissionKey(b);
+    if (keyA !== keyB) return keyA < keyB ? -1 : 1;
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
+
+  const clusters = [];
+  let currentKey = null;
+  let lastCreatedAt = null;
+  for (const trip of sorted) {
+    const key = submissionKey(trip);
+    const createdAt = new Date(trip.createdAt).getTime();
+    const withinWindow = lastCreatedAt != null && createdAt - lastCreatedAt <= LEGACY_BATCH_WINDOW_MS;
+    if (key === currentKey && withinWindow) {
+      clusters[clusters.length - 1].push(trip);
+    } else {
+      clusters.push([trip]);
+      currentKey = key;
+    }
+    lastCreatedAt = createdAt;
+  }
+  return clusters;
+}
+
 // Groups trips that were posted together (same batch_id — one multi-date
 // submission) into a single entry with a date count, instead of one row per
-// date. Trips without a batch_id (legacy rows, or true one-offs) form their
-// own singleton batch of their own id.
+// date. Trips without a batch_id (legacy rows) are clustered heuristically
+// via clusterLegacyTrips; anything left over forms its own singleton batch.
 export function groupTripsByBatch(trips) {
-  const groups = new Map();
+  const explicitGroups = new Map();
+  const legacyTrips = [];
   for (const trip of trips) {
-    const key = trip.batchId || trip.id;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(trip);
+    if (trip.batchId) {
+      if (!explicitGroups.has(trip.batchId)) explicitGroups.set(trip.batchId, []);
+      explicitGroups.get(trip.batchId).push(trip);
+    } else {
+      legacyTrips.push(trip);
+    }
   }
 
-  return Array.from(groups.values()).map((group) => {
+  const allGroups = [...explicitGroups.values(), ...clusterLegacyTrips(legacyTrips)];
+
+  return allGroups.map((group) => {
     group.sort((a, b) => new Date(a.departureDate) - new Date(b.departureDate));
     const first = group[0];
     const statuses = new Set(group.map((t) => t.status));

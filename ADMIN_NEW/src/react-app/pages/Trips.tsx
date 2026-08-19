@@ -31,16 +31,21 @@ interface TripDate {
 
 interface Trip {
     _id: string;
+    tripNumber?: string;
     batchId?: string;
     dateCount?: number;
     dates?: TripDate[];
     tripIds?: string[];
+    soldShipments?: unknown[];
     user: {
         _id: string;
         firstName: string;
         lastName: string;
         email: string;
         phone: string;
+        accountType?: string;
+        companyName?: string;
+        tradingName?: string;
     };
     fromLocation: string;
     fromCountry?: string;
@@ -62,6 +67,18 @@ interface Trip {
     payoutStatus?: string;
     bookingStatusSummary?: string;
     activeShipmentCount?: number;
+}
+
+function businessName(user: Trip['user']): string | null {
+    if (!user || user.accountType !== 'company') return null;
+    return user.tradingName || user.companyName || null;
+}
+
+function formatDateRange(dates?: TripDate[]): string {
+    if (!dates || dates.length < 2) return '';
+    const first = new Date(dates[0].departureDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const last = new Date(dates[dates.length - 1].departureDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${first} – ${last}`;
 }
 
 function formatPayoutStatus(raw: string | undefined): string {
@@ -241,13 +258,18 @@ export default function Trips() {
         }
     };
 
-    const filteredTrips = trips.filter(trip =>
-        (trip.fromLocation?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (trip.toLocation?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (trip.user?.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (trip.user?.firstName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (trip.user?.lastName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-    );
+    const filteredTrips = trips.filter(trip => {
+        const term = searchTerm.toLowerCase();
+        return (
+            (trip.fromLocation?.toLowerCase() || '').includes(term) ||
+            (trip.toLocation?.toLowerCase() || '').includes(term) ||
+            (trip.user?.email?.toLowerCase() || '').includes(term) ||
+            (trip.user?.firstName?.toLowerCase() || '').includes(term) ||
+            (trip.user?.lastName?.toLowerCase() || '').includes(term) ||
+            (trip.tripNumber?.toLowerCase() || '').includes(term) ||
+            (businessName(trip.user)?.toLowerCase() || '').includes(term)
+        );
+    });
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -347,29 +369,44 @@ export default function Trips() {
                                             <td className="py-5 px-4">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-[#1e2749] font-black text-xs">
-                                                        {trip.user?.firstName ? trip.user.firstName[0] : 'T'}
+                                                        {(businessName(trip.user) || trip.user?.firstName || 'T')[0]}
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-[#1e2749] text-sm">{trip.user?.firstName || 'Unknown'} {trip.user?.lastName || 'User'}</div>
-                                                        <div className="text-[10px] font-bold text-gray-400">{trip.user?.email || 'No email available'}</div>
+                                                        {businessName(trip.user) ? (
+                                                            <>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="font-bold text-[#1e2749] text-sm">{businessName(trip.user)}</span>
+                                                                    <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-500 rounded-md text-[8px] font-black uppercase">Business</span>
+                                                                </div>
+                                                                <div className="text-[10px] font-bold text-gray-400">{trip.user?.firstName} {trip.user?.lastName} · {trip.user?.email || 'No email available'}</div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="font-bold text-[#1e2749] text-sm">{trip.user?.firstName || 'Unknown'} {trip.user?.lastName || 'User'}</div>
+                                                                <div className="text-[10px] font-bold text-gray-400">{trip.user?.email || 'No email available'}</div>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-8">
                                                 <div className="space-y-1.5">
+                                                    {trip.tripNumber && (
+                                                        <div className="text-[9px] font-mono font-bold text-gray-400">#{trip.tripNumber}</div>
+                                                    )}
                                                     <div className="flex items-center gap-2">
                                                         <div className="text-sm font-black text-[#5240E8]">{trip.fromLocation}</div>
                                                         <ArrowRight className="w-3 h-3 text-gray-300" />
                                                         <div className="text-sm font-black text-[#5240E8]">{trip.toLocation}</div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <div className="p-1.5 bg-gray-50 rounded-lg text-gray-500">
                                                             {getTravelIcon(trip.travelMeans)}
                                                         </div>
                                                         <span className="text-[10px] font-black uppercase tracking-widest text-[#1e2749]">{trip.travelMeans}</span>
                                                         <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
                                                             <Calendar className="w-3 h-3" />
-                                                            {new Date(trip.departureDate).toLocaleDateString()}
+                                                            {(trip.dateCount ?? 1) > 1 ? formatDateRange(trip.dates) : new Date(trip.departureDate).toLocaleDateString()}
                                                         </span>
                                                         {(trip.dateCount ?? 1) > 1 && (
                                                             <span className="px-1.5 py-0.5 bg-[#5240E8]/10 text-[#5240E8] rounded-md text-[9px] font-black">
@@ -377,8 +414,15 @@ export default function Trips() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black">
-                                                        {trip.availableKg}kg Available
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black">
+                                                            {trip.availableKg}kg Available
+                                                        </div>
+                                                        {Array.isArray(trip.soldShipments) && trip.soldShipments.length > 0 && (
+                                                            <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black">
+                                                                {trip.soldShipments.length} booking{trip.soldShipments.length > 1 ? 's' : ''}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
@@ -490,8 +534,15 @@ export default function Trips() {
                     <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between p-6 border-b border-gray-100">
                             <div>
-                                <h3 className="text-lg font-black text-[#1e2749]">{detailTrip.fromLocation} → {detailTrip.toLocation}</h3>
-                                <p className="text-xs font-bold text-gray-400 mt-0.5">{detailTrip.user?.firstName} {detailTrip.user?.lastName} · {detailTrip.user?.email}</p>
+                                <h3 className="text-lg font-black text-[#1e2749]">
+                                    {detailTrip.fromLocation} → {detailTrip.toLocation}
+                                    {detailTrip.tripNumber && <span className="ml-2 text-[10px] font-mono font-bold text-gray-400 align-middle">#{detailTrip.tripNumber}</span>}
+                                </h3>
+                                <p className="text-xs font-bold text-gray-400 mt-0.5">
+                                    {businessName(detailTrip.user)
+                                        ? `${businessName(detailTrip.user)} (${detailTrip.user?.firstName} ${detailTrip.user?.lastName})`
+                                        : `${detailTrip.user?.firstName} ${detailTrip.user?.lastName}`} · {detailTrip.user?.email}
+                                </p>
                             </div>
                             <button onClick={() => setDetailTrip(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
                                 <X className="w-5 h-5 text-gray-400" />
