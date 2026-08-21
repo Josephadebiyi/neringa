@@ -73,7 +73,11 @@ export default function Login() {
             if (response.data.success) {
                 setAuthSession(response.data);
                 login(response.data.user);
-                navigate(redirectPath);
+                if (response.data.user?.mustChangePassword) {
+                    navigate('/set-password', { state: { currentPassword: password, redirectPath } });
+                } else {
+                    navigate(redirectPath);
+                }
             } else {
                 setError(response.data.message || 'Login failed');
             }

@@ -20,6 +20,7 @@ import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
 import { startBirthdayGreetings } from './cron/birthdayCron.js'
+import { startBusinessGracePeriodCron } from './cron/businessGracePeriodCron.js'
 import {
   initializeFlutterwavePayment,
   verifyFlutterwavePayment,
@@ -1212,6 +1213,7 @@ async function startApplication() {
   startEscrowAutoRelease();
   startCurrencyRateSync();
   startBirthdayGreetings();
+  startBusinessGracePeriodCron();
   startPremblySessionReconciler();
 
   httpServer.listen(PORT, () => {

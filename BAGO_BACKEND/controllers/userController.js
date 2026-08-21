@@ -211,6 +211,53 @@ export const saveBusinessPayoutDraft = async (req, res) => {
   }
 };
 
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required.' });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+    }
+
+    const profile = await queryOne(
+      `SELECT password_hash, account_type, signup_method FROM public.profiles WHERE id = $1`,
+      [userId],
+    );
+    if (!profile?.password_hash) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const matches = await bcrypt.compare(currentPassword, profile.password_hash);
+    if (!matches) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    const startsGracePeriod = profile.account_type === 'company' && profile.signup_method === 'admin_created';
+    await pgQuery(
+      `UPDATE public.profiles
+       SET password_hash = $2,
+           must_change_password = false,
+           business_grace_period_started_at = COALESCE(
+             business_grace_period_started_at,
+             CASE WHEN $3 THEN NOW() END
+           ),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [userId, newHash, startsGracePeriod],
+    );
+
+    return res.status(200).json({ success: true, message: 'Password updated.' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ success: false, message: 'Could not update password.' });
+  }
+};
+
 export const updateAvatar = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -255,7 +302,7 @@ export const edit = async (req, res, next) => {
       }
     }
 
-    const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'preferredLanguage', 'country', 'bio'];
+    const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'preferredLanguage', 'country', 'bio', 'representativeRole'];
     const updateKeys = Object.keys(updates).filter(k => allowed.includes(k));
 
     if (updateKeys.length === 0) {
@@ -317,6 +364,7 @@ export const edit = async (req, res, next) => {
         preferredLanguage: 'preferred_language',
         country: 'country',
         bio: 'bio',
+        representativeRole: 'representative_role',
       };
       const col = colMap[key];
       if (!col) continue;

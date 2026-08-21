@@ -12,6 +12,7 @@ import {
     Shield,
     CheckCircle,
     FileText,
+    ShieldCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
@@ -30,6 +31,7 @@ function getAccountItems(isBusinessAccount) {
     ];
     if (isBusinessAccount) {
         items.push({ id: 'financial', label: 'Financial Reports', icon: FileText });
+        items.push({ id: 'business-verification', label: 'Business Verification', icon: ShieldCheck });
     }
     items.push(
         { id: 'referral', label: 'Referrals', icon: Gift },

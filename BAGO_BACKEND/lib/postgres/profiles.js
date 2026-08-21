@@ -178,7 +178,12 @@ function normalizeProfileRow(row) {
     representativeRole: row.representative_role || null,
     businessDocumentUrl: row.business_document_url || null,
     businessDocumentStatus: row.business_document_status || 'not_uploaded',
+    businessDocumentRejectionReason: row.business_document_rejection_reason || null,
     businessStatus: row.business_status || null,
+    mustChangePassword: row.must_change_password ?? false,
+    businessGracePeriodStartedAt: row.business_grace_period_started_at || null,
+    businessGraceReminderSentAt: row.business_grace_reminder_sent_at || null,
+    businessRestrictedNotifiedAt: row.business_restricted_notified_at || null,
     accountStatus: row.account_status || 'active',
     googleSub: row.google_sub || null,
     deviceFingerprint: row.device_fingerprint || null,
@@ -244,7 +249,12 @@ const baseSelect = `
     p.representative_role,
     p.business_document_url,
     p.business_document_status,
+    p.business_document_rejection_reason,
     p.business_status,
+    p.must_change_password,
+    p.business_grace_period_started_at,
+    p.business_grace_reminder_sent_at,
+    p.business_restricted_notified_at,
     p.phone,
     p.image_url,
     p.selected_avatar,
@@ -378,6 +388,7 @@ export async function createProfileWithWallet({
   businessAddress = null,
   businessTaxId = null,
   representativeRole = null,
+  mustChangePassword = false,
 }) {
   await ensureEarningCurrencyColumns();
   return withTransaction(async (client) => {
@@ -402,10 +413,10 @@ export async function createProfileWithWallet({
           status,
           account_type, company_name, trading_name, business_registration_number,
           business_type, business_address, business_tax_id, representative_role,
-          business_status
+          business_status, must_change_password, business_grace_period_started_at
         )
         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10,$11,$12,$13,$14,'verified',
-                $15,$16,$17,$18,$19,$20,$21,$22,$23)
+                $15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
         returning id
       `,
       [
@@ -432,6 +443,12 @@ export async function createProfileWithWallet({
         businessTaxId?.trim() || null,
         representativeRole?.trim() || null,
         accountType === 'company' ? 'representative_kyc_required' : 'not_applicable',
+        Boolean(mustChangePassword),
+        // Admin-created accounts start their grace period on first forced
+        // password change instead (see userController.js#changePassword) —
+        // self-signup businesses become usable immediately, so their 14-day
+        // window starts right at signup.
+        accountType === 'company' && !mustChangePassword ? new Date() : null,
       ],
     );
 

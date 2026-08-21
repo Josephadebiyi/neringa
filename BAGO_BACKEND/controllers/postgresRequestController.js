@@ -37,6 +37,7 @@ import { convertCurrency } from '../services/currencyConverter.js';
 import { getAppSettings } from './AdminControllers/setting.js';
 import { checkTermsAccepted, getItemCategoryBySlug } from './SenderOnboardingController.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
+import { getBusinessRestrictionState } from '../services/businessRestrictionService.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
 import { recordOperationalEvent } from '../lib/postgres/operationalRecords.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
@@ -456,6 +457,18 @@ export async function RequestPackage(req, res) {
       return res.status(403).json({
         code: 'TERMS_NOT_ACCEPTED',
         message: 'Please read and accept the Bago shipment rules before continuing.',
+      });
+    }
+
+    // ── Traveler (trip owner) restriction gate ──────────────────────────────
+    const travelerProfile = await findProfileById(travelerId);
+    if (!travelerProfile) {
+      return res.status(404).json({ message: 'Traveler not found' });
+    }
+    if (getBusinessRestrictionState(travelerProfile).restricted) {
+      return res.status(403).json({
+        code: 'BUSINESS_ACCOUNT_RESTRICTED',
+        message: "This business is currently restricted and can't accept new bookings until verification is complete.",
       });
     }
 

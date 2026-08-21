@@ -43,10 +43,14 @@ describe('business profile persistence', () => {
     });
 
     const insertParams = mocks.clientQuery.mock.calls[0][1];
-    expect(insertParams.slice(14)).toEqual([
+    expect(insertParams.slice(14, 23)).toEqual([
       'company', 'Acme Logistics Ltd', 'Acme Express', 'RC-12345', 'Logistics',
       '1 Market Street', 'TAX-9', 'Director', 'representative_kyc_required',
     ]);
+    // Not admin-created (no mustChangePassword), so the account is usable
+    // immediately and its 14-day grace period starts right at signup.
+    expect(insertParams[23]).toBe(false);
+    expect(insertParams[24]).toBeInstanceOf(Date);
     expect(mocks.clientQuery.mock.calls[1][1]).toEqual(['business-user-id', 'EUR']);
     expect(profile).toMatchObject({
       accountType: 'company', companyName: 'Acme Logistics Ltd', tradingName: 'Acme Express',

@@ -12,6 +12,7 @@ import Earnings from '../components/dashboard/Earnings';
 import Referral from '../components/dashboard/Referral';
 import Settings from '../components/dashboard/Settings';
 import FinancialReports from '../components/dashboard/FinancialReports';
+import BusinessVerification from '../components/dashboard/BusinessVerification';
 import {
     LayoutDashboard,
     Menu,
@@ -216,6 +217,8 @@ export default function Dashboard() {
                         : <Overview user={user} kycStatus={effectiveKycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
                 case 'referral':
                     return <Referral user={user} />;
+                case 'business-verification':
+                    return <BusinessVerification user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'settings':
                     return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'insurance':

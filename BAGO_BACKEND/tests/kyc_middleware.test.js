@@ -87,3 +87,78 @@ describe('requireKycVerification middleware', () => {
     });
   });
 });
+
+describe('requireKycVerification — business grace period', () => {
+  const hoursAgo = (h) => new Date(Date.now() - h * 60 * 60 * 1000).toISOString();
+  const daysAgo = (d) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
+
+  it('bypasses the KYC gate entirely while a company account is inside its 14-day grace period (self-signup, unverified KYC)', () => {
+    const req = {
+      user: {
+        id: 'biz1', accountType: 'company', businessStatus: 'representative_kyc_required',
+        businessGracePeriodStartedAt: hoursAgo(1), kycStatus: null,
+      },
+    };
+    const res = mockRes();
+    const next = vi.fn();
+    requireKycVerification(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+    expect(res._code).toBeNull();
+  });
+
+  it('bypasses the KYC gate for an admin-created business account whose grace period started at first login', () => {
+    const req = {
+      user: {
+        id: 'biz2', accountType: 'company', signupMethod: 'admin_created',
+        businessStatus: 'pending_review', businessGracePeriodStartedAt: daysAgo(3), kycStatus: null,
+      },
+    };
+    const res = mockRes();
+    const next = vi.fn();
+    requireKycVerification(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('blocks with BUSINESS_ACCOUNT_RESTRICTED once the grace period has expired without admin approval', () => {
+    const req = {
+      user: {
+        id: 'biz3', accountType: 'company', businessStatus: 'pending_review',
+        businessGracePeriodStartedAt: daysAgo(15), kycStatus: null,
+      },
+    };
+    const res = mockRes();
+    const next = vi.fn();
+    requireKycVerification(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res._code).toBe(403);
+    expect(res._body.code).toBe('BUSINESS_ACCOUNT_RESTRICTED');
+  });
+
+  it('does not apply the grace-period bypass to a company account that has not logged in yet (no grace period start)', () => {
+    const req = {
+      user: {
+        id: 'biz4', accountType: 'company', businessStatus: 'not_started',
+        businessGracePeriodStartedAt: null, kycStatus: null,
+      },
+    };
+    const res = mockRes();
+    const next = vi.fn();
+    requireKycVerification(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res._code).toBe(403);
+    expect(res._body.code).toBe('VERIFICATION_REQUIRED');
+  });
+
+  it('falls through to the normal KYC check once a business is admin-approved, and passes since KYC is approved', () => {
+    const req = {
+      user: {
+        id: 'biz5', accountType: 'company', businessStatus: 'verified',
+        businessGracePeriodStartedAt: daysAgo(200), kycStatus: 'approved',
+      },
+    };
+    const res = mockRes();
+    const next = vi.fn();
+    requireKycVerification(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+});

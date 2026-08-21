@@ -10,7 +10,21 @@ type Business = {
   walletBalance?: number; walletCurrency?: string; createdAt?: string;
   businessDocumentUrl?: string; businessDocumentStatus?: string;
   businessAddress?: string; businessTaxId?: string;
+  mustChangePassword?: boolean; businessGracePeriodStartedAt?: string;
 };
+
+const GRACE_PERIOD_DAYS = 14;
+
+function graceStatus(b: Business): { label: string; className: string } {
+  if (b.businessStatus === 'verified') return { label: 'Verified', className: 'bg-emerald-100 text-emerald-700' };
+  if (b.businessStatus === 'restricted') return { label: 'Restricted', className: 'bg-red-100 text-red-700' };
+  if (!b.businessGracePeriodStartedAt) return { label: 'Awaiting first login', className: 'bg-gray-100 text-gray-500' };
+  const deadline = new Date(b.businessGracePeriodStartedAt).getTime() + GRACE_PERIOD_DAYS * 86400_000;
+  const msLeft = deadline - Date.now();
+  if (msLeft <= 0) return { label: 'Restricted', className: 'bg-red-100 text-red-700' };
+  const daysLeft = Math.ceil(msLeft / 86400_000);
+  return { label: `Grace period — ${daysLeft}d left`, className: 'bg-amber-100 text-amber-700' };
+}
 
 const BUSINESS_EDIT_FIELDS: { key: keyof Business; label: string }[] = [
   { key: "companyName", label: "Registered company name" },
@@ -183,7 +197,8 @@ export default function BusinessesPage() {
     {actionError && <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm font-semibold text-red-600">{actionError}</p>}
     <div className="rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-5 border-b"><div className="relative max-w-md"><Search className="absolute left-3 top-3 text-gray-400 h-5 w-5"/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search business, email or registration…" className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-4"/></div></div>
-      {error ? <p className="p-6 text-red-600">{error}</p> : loading ? <p className="p-6 text-gray-500">Loading businesses…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-500"><tr>{["Business","Registration","Representative","KYC","Document","Wallet","Joined",""].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y">{shown.map((b)=><tr key={b.id} className="hover:bg-gray-50"><td className="px-5 py-4"><div className="flex items-center gap-3">{b.image?<img src={b.image} className="h-10 w-10 rounded-xl object-cover"/>:<div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center"><Building2 className="h-5 w-5 text-indigo-600"/></div>}<div><b>{b.tradingName || b.companyName}</b><p className="text-gray-500">{b.email}</p></div></div></td><td className="px-5 py-4">{b.businessRegistrationNumber || "—"}<p className="text-gray-500">{b.country || ""}</p></td><td className="px-5 py-4">{[b.firstName,b.lastName].filter(Boolean).join(" ")}<p className="text-gray-500">{b.representativeRole || "—"}</p></td><td className="px-5 py-4"><span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold capitalize">{b.kycStatus || "pending"}</span></td>
+      {error ? <p className="p-6 text-red-600">{error}</p> : loading ? <p className="p-6 text-gray-500">Loading businesses…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-500"><tr>{["Business","Registration","Representative","KYC","Verification","Document","Wallet","Joined",""].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y">{shown.map((b)=>{const grace=graceStatus(b);return <tr key={b.id} className="hover:bg-gray-50"><td className="px-5 py-4"><div className="flex items-center gap-3">{b.image?<img src={b.image} className="h-10 w-10 rounded-xl object-cover"/>:<div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center"><Building2 className="h-5 w-5 text-indigo-600"/></div>}<div><b>{b.tradingName || b.companyName}</b><p className="text-gray-500">{b.email}</p></div></div></td><td className="px-5 py-4">{b.businessRegistrationNumber || "—"}<p className="text-gray-500">{b.country || ""}</p></td><td className="px-5 py-4">{[b.firstName,b.lastName].filter(Boolean).join(" ")}<p className="text-gray-500">{b.representativeRole || "—"}</p></td><td className="px-5 py-4"><span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold capitalize">{b.kycStatus || "pending"}</span></td>
+        <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 font-semibold ${grace.className}`}>{grace.label}</span></td>
         <td className="px-5 py-4">
           <div className="flex flex-col gap-1.5 items-start">
             <span className={`rounded-full px-2.5 py-1 font-semibold capitalize ${DOC_STATUS_STYLES[b.businessDocumentStatus || 'not_uploaded'] || 'bg-gray-100 text-gray-500'}`}>
@@ -240,7 +255,7 @@ export default function BusinessesPage() {
             </button>
           </div>
         </td>
-        </tr>)}</tbody></table>{!shown.length&&<p className="p-8 text-center text-gray-500">No businesses found.</p>}</div>}
+        </tr>;})}</tbody></table>{!shown.length&&<p className="p-8 text-center text-gray-500">No businesses found.</p>}</div>}
     </div>
 
     {rejectTarget && (

@@ -1001,10 +1001,17 @@ export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, 
       <div style="background:#fffbeb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #f59e0b;">
         <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Before you get started, please:</p>
         <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
-          <li>Sign in and change this temporary password to one only you know</li>
+          <li>Sign in and set a new password only you know — you'll be asked for this the first time you sign in</li>
           <li>Add and verify your phone number in Settings for account security</li>
           <li>Set up your payout method and connect your bank account so you can receive earnings</li>
         </ul>
+      </div>
+      <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5845D8;">
+        <p style="margin:0; font-size:14px; color:#374151; line-height:1.6;">
+          Your account is fully active from the moment you set your password. You'll have <strong>14 days</strong> to
+          upload your CAC/registration document and complete identity verification for the business representative —
+          after that, the account is restricted until verification is complete and approved.
+        </p>
       </div>
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         New to Bago? Watch our tutorial videos to see how everything works:
@@ -1064,6 +1071,87 @@ export async function sendBusinessWelcomeEmail(userEmail, userName, businessName
     return true;
   } catch (err) {
     console.error('❌ Failed to send business welcome email:', err);
+    return false;
+  }
+}
+
+// Sent a few days before an admin-created business account's 14-day grace
+// period ends, if verification (KYC + CAC) still isn't complete.
+export async function sendBusinessGracePeriodReminderEmail(userEmail, userName, businessName, daysLeft) {
+  if (!resend) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const displayName = businessName || 'your business';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        <strong>${displayName}</strong>'s Bago account is still awaiting verification. You have
+        <strong>${daysLeft} day${daysLeft === 1 ? '' : 's'}</strong> left to complete it before your account is restricted.
+      </p>
+      <div style="background:#fffbeb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #f59e0b;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Still needed:</p>
+        <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
+          <li>Upload your CAC or business registration certificate</li>
+          <li>Complete identity verification for the business representative</li>
+        </ul>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Head to Business Verification in your Bago dashboard to finish up.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: `Action needed: ${daysLeft} day${daysLeft === 1 ? '' : 's'} left to verify ${displayName} on Bago`,
+      html: generateEmailTemplate('Verification Reminder', content, 'Complete Verification', `${FRONTEND_URL}/dashboard`),
+    });
+    console.log(`✅ Sent business grace period reminder email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send business grace period reminder email:', err);
+    return false;
+  }
+}
+
+// Sent once an admin-created business account's 14-day grace period has
+// expired without KYC + CAC verification being complete.
+export async function sendBusinessAccountRestrictedEmail(userEmail, userName, businessName) {
+  if (!resend) return false;
+  try {
+    const firstName = (userName || 'there').split(' ')[0];
+    const displayName = businessName || 'your business';
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi <strong style="color:#111827;">${firstName}</strong>,
+      </p>
+      <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        The 14-day grace period for <strong>${displayName}</strong> has ended without verification being completed.
+        Your account is now restricted — you can't post trips, receive bookings, or withdraw funds until this is resolved.
+      </p>
+      <div style="background:#fef2f2; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #ef4444;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">To restore access:</p>
+        <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
+          <li>Upload your CAC or business registration certificate</li>
+          <li>Complete identity verification for the business representative</li>
+        </ul>
+        <p style="margin:12px 0 0; font-size:13px; color:#6b7280;">Once submitted, our team will review and approve your account.</p>
+      </div>
+      <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Head to Business Verification in your Bago dashboard to finish up.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: userEmail,
+      subject: `${displayName}'s Bago account is restricted — verification required`,
+      html: generateEmailTemplate('Account Restricted', content, 'Complete Verification', `${FRONTEND_URL}/dashboard`),
+    });
+    console.log(`✅ Sent business account restricted email to ${userEmail}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Failed to send business account restricted email:', err);
     return false;
   }
 }

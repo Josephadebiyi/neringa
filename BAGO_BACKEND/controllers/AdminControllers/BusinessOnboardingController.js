@@ -58,6 +58,7 @@ export const createBusinessAccount = async (req, res, next) => {
       businessAddress,
       businessTaxId,
       representativeRole,
+      mustChangePassword: true,
     });
 
     sendAdminCreatedBusinessAccountEmail(email, `${firstName} ${lastName}`, tradingName || companyName, tempPassword)
@@ -145,6 +146,20 @@ export const approveBusinessAccount = async (req, res, next) => {
     if (profile.accountType !== 'company') {
       return res.status(400).json({ success: false, message: 'This user is not a business account' });
     }
+
+    const kycStatus = String(profile.kycStatus || '').trim().toLowerCase();
+    const kycApproved = ['approved', 'verified', 'completed'].includes(kycStatus);
+    if (!kycApproved || profile.businessDocumentStatus !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Both representative KYC and the business document must be approved before the account can be approved.',
+      });
+    }
+
+    await query(
+      `UPDATE public.profiles SET business_status = 'verified', updated_at = NOW() WHERE id = $1`,
+      [userId],
+    );
 
     const representativeName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
     const businessName = profile.tradingName || profile.companyName;

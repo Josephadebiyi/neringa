@@ -810,7 +810,7 @@ export async function markKycApproved(userId, payload = {}) {
             kyc_provider = $7,
             verification_provider = $7,
             identity_fields_locked = true,
-            business_status = case when account_type = 'company' then 'verified' else business_status end,
+            business_status = case when account_type = 'company' and business_status <> 'verified' then 'pending_review' else business_status end,
             updated_at = timezone('utc', now())
         where id = $1
       `,

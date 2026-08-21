@@ -20,7 +20,10 @@ function normalizeUser(row) {
     representativeRole: row.representative_role || null,
     businessDocumentUrl: row.business_document_url || null,
     businessDocumentStatus: row.business_document_status || 'not_uploaded',
+    businessDocumentRejectionReason: row.business_document_rejection_reason || null,
     businessStatus: row.business_status || null,
+    mustChangePassword: row.must_change_password ?? false,
+    businessGracePeriodStartedAt: row.business_grace_period_started_at || null,
     email: row.email,
     phone: row.phone,
     dateOfBirth: row.date_of_birth,
@@ -117,7 +120,10 @@ export const GetAllUsers = async (req, res, next) => {
           p.representative_role,
           p.business_document_url,
           p.business_document_status,
+          p.business_document_rejection_reason,
           p.business_status,
+          p.must_change_password,
+          p.business_grace_period_started_at,
           p.email,
           p.phone,
           p.date_of_birth,
@@ -389,11 +395,13 @@ export const reviewBusinessDocument = async (req, res, next) => {
     const user = await queryOne(
       `
         update public.profiles
-        set business_document_status = $2, updated_at = timezone('utc', now())
+        set business_document_status = $2,
+            business_document_rejection_reason = case when $2 = 'rejected' then $3 else null end,
+            updated_at = timezone('utc', now())
         where id = $1
         returning *
       `,
-      [userId, action],
+      [userId, action, action === 'rejected' ? String(reason || '').trim() : null],
     );
 
     sendPushNotification(

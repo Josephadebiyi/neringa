@@ -18,6 +18,7 @@ const SendPackage = lazy(() => import('./pages/SendPackage'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const VerifyOtp = lazy(() => import('./pages/VerifyOtp'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const SetPassword = lazy(() => import('./pages/SetPassword'));
 const AboutUs = lazy(() => import('./pages/AboutUs'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Terms = lazy(() => import('./pages/Terms'));
@@ -60,6 +61,7 @@ function App() {
                         <Route path="/forgot-password" element={<ForgotPassword />} />
                         <Route path="/verify-otp" element={<VerifyOtp />} />
                         <Route path="/reset-password" element={<ResetPassword />} />
+                        <Route path="/set-password" element={<SetPassword />} />
                         <Route path="/verify" element={<Verify />} />
                         <Route path="/support" element={<Support />} />
                         <Route path="/shipping-success" element={<ShippingSuccess />} />

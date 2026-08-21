@@ -27,6 +27,7 @@ import {
 import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { resend } from '../services/resendClient.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
+import { getBusinessRestrictionState, BUSINESS_MIN_PAYOUT_NGN } from '../services/businessRestrictionService.js';
 import { buildShipmentCheckoutPreview } from './CurrencyController.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
@@ -641,21 +642,47 @@ export const withdrawFundsFlutterwave = async (req, res) => {
 
     const profile = await queryOne(
       `SELECT p.kyc_status, p.email, p.first_name, p.last_name, p.account_type,
+              p.signup_method, p.business_status, p.business_grace_period_started_at,
               wa.id as wallet_id, wa.available_balance, wa.currency
        FROM public.profiles p
        JOIN public.wallet_accounts wa on wa.user_id = p.id
        WHERE p.id = $1`,
       [user.id],
     );
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
     const walletCurrency = CurrencyService.normalizeCurrency(profile?.currency || currency || 'USD');
     const requestedCurrency = currency ? CurrencyService.normalizeCurrency(currency) : walletCurrency;
     if (requestedCurrency !== walletCurrency) {
       return res.status(400).json({ success: false, message: `Withdraw in your wallet currency (${walletCurrency}).` });
     }
 
-    const kycStatus = String(profile?.kyc_status || '').trim().toLowerCase();
+    const kycStatus = String(profile.kyc_status || '').trim().toLowerCase();
     const hasPassedKyc = ['approved', 'verified', 'completed'].includes(kycStatus);
-    if (!profile || !hasPassedKyc) {
+    const businessRestriction = getBusinessRestrictionState({
+      accountType: profile.account_type,
+      signupMethod: profile.signup_method,
+      businessStatus: profile.business_status,
+      businessGracePeriodStartedAt: profile.business_grace_period_started_at,
+    });
+
+    if (businessRestriction.graceActive) {
+      const requestedAmountNgnForFloor = await convertCurrency(withdrawalAmount, walletCurrency, 'NGN').catch(() => null);
+      if (requestedAmountNgnForFloor === null || requestedAmountNgnForFloor < BUSINESS_MIN_PAYOUT_NGN) {
+        return res.status(400).json({
+          success: false,
+          code: 'BELOW_GRACE_PERIOD_MIN_PAYOUT',
+          message: `While your business account is being verified, withdrawals must be at least ₦${BUSINESS_MIN_PAYOUT_NGN.toLocaleString()} (or currency-equivalent).`,
+        });
+      }
+    } else if (businessRestriction.restricted) {
+      return res.status(403).json({
+        success: false,
+        code: 'BUSINESS_ACCOUNT_RESTRICTED',
+        message: 'Your business account is restricted. Complete KYC and business document verification to withdraw funds.',
+      });
+    } else if (!hasPassedKyc) {
       return res.status(403).json({
         success: false,
         code: 'KYC_REQUIRED',
