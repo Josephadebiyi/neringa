@@ -4,6 +4,19 @@ import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, Sh
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
+// Displays a date of birth with the exact year hidden — shows the month, day,
+// and only the century (first two digits of the year), e.g. "Mar 15, 19**"
+// for 1985-03-15. Once KYC is approved, DOB becomes a locked, read-only
+// field, so we show this masked form instead of the true birth year.
+function maskDateOfBirth(dateString) {
+    if (!dateString) return 'Not provided';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return 'Not provided';
+    const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const centuryDigits = String(date.getFullYear()).slice(0, 2);
+    return `${monthDay}, ${centuryDigits}**`;
+}
+
 const COUNTRY_CODES = [
     { code: 'NG', name: 'Nigeria', dial: '+234', flag: '🇳🇬' },
     { code: 'GH', name: 'Ghana', dial: '+233', flag: '🇬🇭' },
@@ -600,14 +613,22 @@ export default function Settings({ user, checkAuthStatus }) {
                         </div>
 
                         <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('dateOfBirth') || 'Date of Birth'}</label>
-                            <input
-                                type="date"
-                                value={dateOfBirth}
-                                onChange={(e) => setDateOfBirth(e.target.value)}
-                                disabled={user?.kycStatus === 'approved'}
-                                className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
-                            />
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-1">
+                                {t('dateOfBirth') || 'Date of Birth'}
+                                {user?.kycStatus === 'approved' && <Shield size={8} className="text-green-500" />}
+                            </label>
+                            {user?.kycStatus === 'approved' ? (
+                                <div className="w-full px-4 py-2 rounded-xl border bg-gray-100 border-transparent text-gray-400 font-black text-[11px] uppercase tracking-tight cursor-not-allowed">
+                                    {maskDateOfBirth(dateOfBirth)}
+                                </div>
+                            ) : (
+                                <input
+                                    type="date"
+                                    value={dateOfBirth}
+                                    onChange={(e) => setDateOfBirth(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none"
+                                />
+                            )}
                         </div>
 
                         <div>
