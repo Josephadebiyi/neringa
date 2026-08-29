@@ -11,10 +11,12 @@ import { createPremblySessionForUser } from '../PremblyController.js';
 // business account on behalf of a business that can't/won't self-onboard
 // through the public /business signup wizard.
 
-function generateTempPassword() {
-  // Not stored anywhere in plaintext beyond this request — hashed immediately
-  // and emailed once. Base64url keeps it easy to read/type over email.
-  return crypto.randomBytes(9).toString('base64url');
+// Admin never assigns or knows this — it exists only to satisfy the
+// password_hash column until the business sets its own real password via
+// the normal Forgot Password flow (see sendAdminCreatedBusinessAccountEmail
+// and clearOtpAndUpdatePassword's grace-period handling).
+function generateDiscardedPassword() {
+  return crypto.randomBytes(24).toString('base64url');
 }
 
 export const createBusinessAccount = async (req, res, next) => {
@@ -24,23 +26,28 @@ export const createBusinessAccount = async (req, res, next) => {
       representativeRole, firstName, lastName, dateOfBirth, email, country, operationalCurrency,
     } = req.body;
 
-    if (!companyName || !tradingName || !businessRegistrationNumber || !email || !firstName || !lastName) {
+    // Only a company name, trading name, and email are required — everything
+    // about the representative and registration/tax details is something
+    // the business fills in themselves afterward, so admin isn't blocked
+    // from creating the account without them.
+    if (!companyName || !tradingName || !email) {
       return res.status(400).json({
         success: false,
-        message: 'Company name, trading name, registration number, representative name, and email are required.',
+        message: 'Company name, trading name, and email are required.',
       });
     }
 
-    const tempPassword = generateTempPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    const passwordHash = await bcrypt.hash(generateDiscardedPassword(), 10);
 
     let preferredCurrency = getCurrencyByCountry(country);
     let paymentGateway = getPaymentGateway(country);
     if (operationalCurrency) preferredCurrency = operationalCurrency;
 
     const newUser = await createProfileWithWallet({
-      firstName,
-      lastName,
+      // profiles.first_name/last_name have no default — fall back to the
+      // trading name until the business fills in a real representative.
+      firstName: firstName || tradingName || companyName,
+      lastName: lastName || '',
       email,
       phone: null,
       passwordHash,
@@ -54,14 +61,14 @@ export const createBusinessAccount = async (req, res, next) => {
       accountType: 'company',
       companyName,
       tradingName,
-      businessRegistrationNumber,
-      businessAddress,
-      businessTaxId,
-      representativeRole,
+      businessRegistrationNumber: businessRegistrationNumber || null,
+      businessAddress: businessAddress || null,
+      businessTaxId: businessTaxId || null,
+      representativeRole: representativeRole || null,
       mustChangePassword: true,
     });
 
-    sendAdminCreatedBusinessAccountEmail(email, `${firstName} ${lastName}`, tradingName || companyName, tempPassword)
+    sendAdminCreatedBusinessAccountEmail(email, firstName ? `${firstName} ${lastName || ''}`.trim() : null, tradingName || companyName)
       .catch((err) => console.error('Admin-created business account email failed:', err.message));
 
     return res.status(201).json({ success: true, message: 'Business account created.', data: newUser });

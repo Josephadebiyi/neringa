@@ -52,7 +52,7 @@ describe('admin-created business account flow', () => {
     mocks.sendBusinessWelcomeEmail.mockReset().mockResolvedValue(true);
   });
 
-  it('creates the account as a company with mustChangePassword set, and emails a temp password', async () => {
+  it('creates the account as a company with mustChangePassword set, and emails a set-your-password link (no temp password)', async () => {
     mocks.createProfileWithWallet.mockResolvedValue({ id: 'biz-1', email: 'ops@acme.test' });
     const req = {
       body: {
@@ -67,18 +67,44 @@ describe('admin-created business account flow', () => {
     const createArgs = mocks.createProfileWithWallet.mock.calls[0][0];
     expect(createArgs).toMatchObject({ accountType: 'company', signupMethod: 'admin_created', mustChangePassword: true });
     // No grace period is stamped at creation for admin-created accounts —
-    // it only starts once the temp password is changed (see
-    // userController.js#changePassword) — the caller is responsible for
-    // not passing a grace-period timestamp here.
+    // it only starts once the business sets its real password via Forgot
+    // Password (see clearOtpAndUpdatePassword) — the caller is responsible
+    // for not passing a grace-period timestamp here.
     expect(createArgs.businessGracePeriodStartedAt).toBeUndefined();
 
     expect(res._code).toBe(201);
+    // No temp password is emailed — the business sets its own via Forgot Password.
     expect(mocks.sendAdminCreatedBusinessAccountEmail).toHaveBeenCalledWith(
-      'ops@acme.test', 'Ada Cole', 'Acme Express', expect.any(String),
+      'ops@acme.test', 'Ada Cole', 'Acme Express',
     );
   });
 
-  it('rejects account creation when required fields are missing', async () => {
+  it('creates the account with only company name, trading name, and email — no registration number or representative required', async () => {
+    mocks.createProfileWithWallet.mockResolvedValue({ id: 'biz-2', email: 'hello@newco.test' });
+    const req = {
+      body: { companyName: 'NewCo Ltd', tradingName: 'NewCo', email: 'hello@newco.test' },
+    };
+    const res = mockRes();
+    await createBusinessAccount(req, res, vi.fn());
+
+    expect(res._code).toBe(201);
+    const createArgs = mocks.createProfileWithWallet.mock.calls[0][0];
+    expect(createArgs).toMatchObject({
+      accountType: 'company',
+      companyName: 'NewCo Ltd',
+      tradingName: 'NewCo',
+      businessRegistrationNumber: null,
+      businessAddress: null,
+      businessTaxId: null,
+      representativeRole: null,
+    });
+    // firstName/lastName have no DB default — falls back to the trading name
+    // rather than passing undefined through to the insert.
+    expect(createArgs.firstName).toBe('NewCo');
+    expect(createArgs.lastName).toBe('');
+  });
+
+  it('rejects account creation when company name, trading name, or email is missing', async () => {
     const req = { body: { companyName: 'Acme' } };
     const res = mockRes();
     await createBusinessAccount(req, res, vi.fn());

@@ -127,14 +127,16 @@ export async function reviewBusinessDocument(userId: string, action: 'approved' 
 export interface CreateBusinessPayload {
   companyName: string;
   tradingName: string;
-  businessRegistrationNumber: string;
+  email: string;
+  // Everything below is optional — the business fills these in themselves
+  // after they set up their own account (see Forgot Password flow).
+  businessRegistrationNumber?: string;
   businessAddress?: string;
   businessTaxId?: string;
   representativeRole?: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   dateOfBirth?: string;
-  email: string;
   country?: string;
   operationalCurrency?: string;
 }

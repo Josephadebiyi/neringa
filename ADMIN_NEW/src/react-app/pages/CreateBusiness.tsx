@@ -5,27 +5,22 @@ import { createBusiness, type CreateBusinessPayload } from "../services/api";
 
 const OPERATIONAL_CURRENCIES = ['EUR', 'GBP', 'GHS', 'KES', 'MWK', 'NGN', 'SLL', 'TZS', 'UGX', 'USD', 'XAF', 'XOF', 'ZAR', 'ZMW'];
 
+// Only company name, trading name, and email are required — everything else
+// is something the business fills in themselves once they set up their own
+// account, so admin isn't blocked from creating it without those details.
 const FIELDS: { key: keyof CreateBusinessPayload; label: string; required?: boolean; type?: string }[] = [
   { key: "companyName", label: "Registered company name", required: true },
   { key: "tradingName", label: "Trading name shown to senders", required: true },
-  { key: "businessRegistrationNumber", label: "Registration number", required: true },
-  { key: "businessAddress", label: "Business address" },
-  { key: "businessTaxId", label: "Tax ID" },
-  { key: "country", label: "Country (e.g. NG, GH, US)" },
-];
-
-const REP_FIELDS: { key: keyof CreateBusinessPayload; label: string; required?: boolean; type?: string }[] = [
-  { key: "firstName", label: "Representative first name", required: true },
-  { key: "lastName", label: "Representative last name", required: true },
-  { key: "representativeRole", label: "Role in the business" },
-  { key: "dateOfBirth", label: "Date of birth", type: "date" },
   { key: "email", label: "Business email (login)", required: true, type: "email" },
+  { key: "businessRegistrationNumber", label: "Registration number (optional)" },
+  { key: "businessAddress", label: "Business address (optional)" },
+  { key: "businessTaxId", label: "Tax ID (optional)" },
+  { key: "country", label: "Country (e.g. NG, GH, US) (optional)" },
 ];
 
 const initialForm: CreateBusinessPayload = {
-  companyName: "", tradingName: "", businessRegistrationNumber: "", businessAddress: "",
-  businessTaxId: "", country: "", operationalCurrency: "", firstName: "", lastName: "",
-  representativeRole: "", dateOfBirth: "", email: "",
+  companyName: "", tradingName: "", email: "", businessRegistrationNumber: "",
+  businessAddress: "", businessTaxId: "", country: "", operationalCurrency: "",
 };
 
 export default function CreateBusinessPage() {
@@ -41,7 +36,7 @@ export default function CreateBusinessPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const missing = [...FIELDS, ...REP_FIELDS].find((f) => f.required && !String(form[f.key] || "").trim());
+    const missing = FIELDS.find((f) => f.required && !String(form[f.key] || "").trim());
     if (missing) {
       setError(`Please fill in "${missing.label}".`);
       return;
@@ -64,9 +59,9 @@ export default function CreateBusinessPage() {
         <CheckCircle2 className="mx-auto text-emerald-500 mb-5" size={56} />
         <h1 className="text-2xl font-black text-gray-900 mb-2">Business account created</h1>
         <p className="text-gray-500 mb-8">
-          {form.tradingName || form.companyName} can now sign in with <strong>{form.email}</strong> — a welcome
-          email with their temporary password has been sent. Next, upload their CAC document and generate a KYC
-          link from the Businesses page.
+          {form.tradingName || form.companyName} can sign in with <strong>{form.email}</strong> once they set their
+          password — a welcome email with instructions has been sent. Next, upload their CAC document and generate
+          a KYC link from the Businesses page.
         </p>
         <button
           onClick={() => navigate("/businesses")}
@@ -123,26 +118,11 @@ export default function CreateBusinessPage() {
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-6">
-          <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Representative details</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {REP_FIELDS.map(({ key, label, required, type }) => (
-              <label key={key}>
-                <span className="block text-sm font-medium text-gray-700 mb-1">{label}{required && <span className="text-red-500"> *</span>}</span>
-                <input
-                  type={type || "text"}
-                  required={required}
-                  value={form[key] || ""}
-                  onChange={change(key)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                />
-              </label>
-            ))}
-          </div>
-          <p className="text-xs text-gray-400 mt-3">
-            No password is needed here — a temporary one is generated automatically and emailed to the business along with a welcome message and tutorial link.
-          </p>
-        </div>
+        <p className="text-xs text-gray-400">
+          No password is needed here, and no representative details either — the business sets their own password
+          via "Forgot password" once they receive the welcome email, and fills in their representative and any
+          remaining business details themselves from Settings afterward.
+        </p>
 
         {error && <p className="rounded-lg bg-red-50 border border-red-100 px-4 py-3 text-sm font-semibold text-red-600">{error}</p>}
 

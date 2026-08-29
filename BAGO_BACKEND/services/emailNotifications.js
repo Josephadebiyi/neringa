@@ -1024,10 +1024,14 @@ export async function sendKycVerificationLinkEmail(userEmail, userName, business
   }
 }
 
-export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, businessName, tempPassword) {
+// The business sets its own password from the start (via the existing
+// Forgot Password / OTP flow) rather than an admin-assigned temp password —
+// admin-created accounts are given a random, never-shared password hash at
+// creation, so this is the account's actual first login credential.
+export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, businessName) {
   if (!resend) return false;
   try {
-    const firstName = (userName || 'there').split(' ')[0];
+    const firstName = (userName || '').split(' ')[0] || businessName || 'there';
     const displayName = businessName || 'your business';
     const content = `
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
@@ -1037,15 +1041,17 @@ export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, 
         Welcome to Bago! The Bago team has set up a business account for <strong>${displayName}</strong> on your behalf.
       </p>
       <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5845D8;">
-        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Your login details</p>
-        <p style="margin:0 0 4px; font-size:14px; color:#374151;">Email: <strong>${userEmail}</strong></p>
-        <p style="margin:0; font-size:14px; color:#374151;">Temporary password: <strong style="font-family:monospace; font-size:15px;">${tempPassword}</strong></p>
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Get started</p>
+        <p style="margin:0; font-size:14px; color:#374151;">
+          Your login email is <strong>${userEmail}</strong>. To set your password, choose "Forgot password" on the
+          sign-in page and follow the instructions — you'll set your own password there, we never assign one for you.
+        </p>
       </div>
       <div style="background:#fffbeb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #f59e0b;">
-        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Before you get started, please:</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Once you're in, please:</p>
         <ul style="margin:0; padding-left:20px; font-size:14px; color:#374151; line-height:1.8;">
-          <li>Sign in and set a new password only you know — you'll be asked for this the first time you sign in</li>
-          <li>Add and verify your phone number in Settings for account security</li>
+          <li>Add your registration number, business address and representative details in Settings</li>
+          <li>Add and verify your phone number for account security</li>
           <li>Set up your payout method and connect your bank account so you can receive earnings</li>
         </ul>
       </div>
@@ -1067,8 +1073,8 @@ export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, 
     await resend.emails.send({
       from: 'Bago <no-reply@sendwithbago.com>',
       to: userEmail,
-      subject: `Welcome to Bago, ${displayName} — your account is ready`,
-      html: generateEmailTemplate('Welcome to Bago', content, 'Sign in to Bago', `${FRONTEND_URL}/login`),
+      subject: `Welcome to Bago, ${displayName} — set up your account`,
+      html: generateEmailTemplate('Welcome to Bago', content, 'Set your password', `${FRONTEND_URL}/forgot-password`),
     });
     console.log(`✅ Sent admin-created business account email to ${userEmail}`);
     return true;

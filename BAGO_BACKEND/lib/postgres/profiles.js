@@ -484,10 +484,22 @@ export async function updatePasswordOtp(email, otpCode, otpExpiresAt) {
 }
 
 export async function clearOtpAndUpdatePassword(email, passwordHash) {
+  // Admin-created business accounts get no admin-assigned password — they
+  // set their own via this same forgot-password/OTP flow. Mirror
+  // userController.js#changePassword's grace-period start so setting a
+  // password this way starts the 14-day grace period exactly like the
+  // "log in with a temp password, then change it" flow used to.
   await query(
     `
       update public.profiles
-      set password_hash = $2, otp_code = null, otp_expires_at = null
+      set password_hash = $2,
+          otp_code = null,
+          otp_expires_at = null,
+          must_change_password = false,
+          business_grace_period_started_at = coalesce(
+            business_grace_period_started_at,
+            case when account_type = 'company' and signup_method = 'admin_created' then timezone('utc', now()) end
+          )
       where lower(email::text) = lower($1)
     `,
     [email, passwordHash],
