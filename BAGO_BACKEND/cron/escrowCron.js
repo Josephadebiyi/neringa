@@ -16,6 +16,7 @@ export const startEscrowAutoRelease = () => {
          WHERE sender_proof_url IS NOT NULL
            AND (sender_received IS NULL OR sender_received = false)
            AND (auto_released IS NULL OR auto_released = false)
+           AND fast_payout_released_at IS NULL
            AND status = 'completed'
            AND (
              dispute IS NULL

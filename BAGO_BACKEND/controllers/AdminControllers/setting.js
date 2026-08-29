@@ -30,6 +30,7 @@ const DEFAULTS = {
   itemImageAutoRejectEnabled: true,
   itemImageAutoRejectConfidence: 0.98,
   banner: null,
+  fastPayoutWaitHours: 2,
 };
 
 let _cached = { ...DEFAULTS };
@@ -95,7 +96,8 @@ export const updateSettings = async (req, res, next) => {
   const { autoVerification, commissionPercentage, insuranceType, insurancePercentage,
           insuranceFixedAmount, banner, baseCurrency, supportedCurrencies, exchangeRates,
           platformCommissionPercent, processingFeePercent, fxBufferPercent, senderInsurancePercent,
-          referralEnabled, referralWelcomeBonusNgn, referralShipmentThresholdUsd, referralShipmentBonusUsd } = req.body;
+          referralEnabled, referralWelcomeBonusNgn, referralShipmentThresholdUsd, referralShipmentBonusUsd,
+          fastPayoutWaitHours } = req.body;
   try {
     await loadSettings();
     if (typeof autoVerification === 'boolean') _cached.autoVerification = autoVerification;
@@ -131,6 +133,9 @@ export const updateSettings = async (req, res, next) => {
     if (typeof req.body.itemImageAutoRejectEnabled === 'boolean') _cached.itemImageAutoRejectEnabled = req.body.itemImageAutoRejectEnabled;
     if (typeof req.body.itemImageAutoRejectConfidence === 'number') {
       _cached.itemImageAutoRejectConfidence = Math.max(0.9, Math.min(0.999, req.body.itemImageAutoRejectConfidence));
+    }
+    if (typeof fastPayoutWaitHours === 'number' && fastPayoutWaitHours > 0) {
+      _cached.fastPayoutWaitHours = fastPayoutWaitHours;
     }
     await persistSettings(_cached);
     res.status(200).json({ message: 'Settings updated successfully', setting: _cached, success: true });

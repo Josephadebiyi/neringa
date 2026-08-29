@@ -11,7 +11,7 @@ import { getTravelers } from '../controllers/getTravelers.js';
 import { Profile } from '../controllers/Profile.js';
 import { getKyc, KycVerifications } from '../controllers/KycVerificationsController.js';
 import { createPackage, updatePackage, deletePackage } from '../controllers/PackageController.js';
-import { getPublicTracking, getNotifications, getCompletedRequests, updatePaymentStatus, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory, submitPackageInspection } from '../controllers/postgresRequestController.js';
+import { getPublicTracking, getNotifications, getCompletedRequests, updatePaymentStatus, getRequests, getIncomingRequests, uploadRequestImage, uploadTravelerProof, confirmReceivedBySender, markAllNotificationsAsRead, markNotificationAsRead, RequestPackage, raiseDispute, updateRequestDates, updateRequestStatus, downloadRequestPDF, getPublicTrackingByNumber, getRequestDetails, recentOrder, redeemHandoverQR, deleteRequestFromHistory, submitPackageInspection, updateExternalTracking } from '../controllers/postgresRequestController.js';
 import { getConversations, getMessages, resolveConversation, sendMessage, deleteConversation, markMessagesRead, getUnreadCount } from '../controllers/MessageController.js';
 import { GetDetials } from '../controllers/GetProductDetails.js';
 import { requestRefund, getAllRefunds, getRefundByRequestId } from "../controllers/refundController.js";
@@ -224,6 +224,7 @@ userRouter.get("/incoming-requests", isAuthenticated, getIncomingRequests)
 // against them. No client app calls these user-router paths — removed.
 userRouter.get('/completed', isAuthenticated, requireKycVerification, getCompletedRequests);
 userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, requireKycVerification, updateRequestStatus)
+userRouter.put("/request/:requestId/external-tracking", isAuthenticated, requireKycVerification, updateExternalTracking)
 userRouter.put('/request/:requestId/image', isAuthenticated, requireKycVerification, uploadRequestImage);
 userRouter.put('/request/:requestId/confirm-received', isAuthenticated, requireKycVerification, confirmReceivedBySender);
 userRouter.put('/request/:requestId/traveler-proof', isAuthenticated, requireKycVerification, uploadTravelerProof);

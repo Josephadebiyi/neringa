@@ -35,6 +35,12 @@ String formatFrontendStatus(String? rawStatus) {
       return 'Matched';
     case 'accepted':
       return 'Accepted';
+    case 'package_received':
+      return 'Package Received';
+    case 'delivery_started':
+      return 'Delivery Started';
+    case 'arrived_at_hub':
+      return 'Arrived at Hub';
     case 'in_transit':
     case 'intransit':
     case 'delivering':

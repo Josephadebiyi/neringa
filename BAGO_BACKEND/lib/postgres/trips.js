@@ -230,26 +230,26 @@ const baseTripSelect = `
   left join lateral (
     select
       coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
-      coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
-      coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering') then coalesce(pkg.package_weight, 0) else 0 end), 0) as pending_kg,
+      coalesce(sum(case when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
+      coalesce(sum(case when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering') then coalesce(pkg.package_weight, 0) else 0 end), 0) as pending_kg,
       coalesce(sum(
         case
-          when sr.status in ('accepted', 'intransit', 'delivering', 'completed')
+          when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed')
             then coalesce(sr.traveler_payout, sr.amount, 0)
           else 0
         end
       ), 0) as traveler_earnings,
-      count(*) filter (where sr.status in ('pending', 'accepted', 'intransit', 'delivering'))::int as active_shipment_count,
+      count(*) filter (where sr.status in ('pending', 'accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering'))::int as active_shipment_count,
       count(*) filter (where sr.status = 'pending')::int as pending_booking_count,
       count(*) filter (where sr.status = 'accepted')::int as accepted_booking_count,
-      count(*) filter (where sr.status in ('intransit', 'delivering'))::int as in_transit_booking_count,
+      count(*) filter (where sr.status in ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering'))::int as in_transit_booking_count,
       count(*) filter (where sr.status = 'completed')::int as completed_booking_count,
       trim(
         both ' ' from concat_ws(
           ' · ',
           case when count(*) filter (where sr.status = 'pending') > 0 then (count(*) filter (where sr.status = 'pending'))::text || ' pending' end,
           case when count(*) filter (where sr.status = 'accepted') > 0 then (count(*) filter (where sr.status = 'accepted'))::text || ' approved' end,
-          case when count(*) filter (where sr.status in ('intransit', 'delivering')) > 0 then (count(*) filter (where sr.status in ('intransit', 'delivering')))::text || ' in transit' end,
+          case when count(*) filter (where sr.status in ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')) > 0 then (count(*) filter (where sr.status in ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')))::text || ' in transit' end,
           case when count(*) filter (where sr.status = 'completed') > 0 then (count(*) filter (where sr.status = 'completed'))::text || ' delivered' end
         )
       ) as booking_status_summary
@@ -322,6 +322,12 @@ export async function createTripRecord({
   travelDocument,
   proofExempt = false,
   batchId = null,
+  // Every trip normally starts 'pending_admin_review' — even business-account
+  // ones (proofExempt only skips the travel-document requirement). Admin-
+  // initiated trip creation is the one legitimate exception: the admin IS the
+  // approver, so that path passes status: 'active' directly.
+  status = 'pending_admin_review',
+  travelDocumentVerified = proofExempt,
 }) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
@@ -380,18 +386,15 @@ export async function createTripRecord({
           landmark,
           travelDocument,
           travelDocument ? departureDate : null,
-          proofExempt,
-          // Business accounts skip the travel-document requirement (proofExempt)
-          // but their trips still need admin review before going live, same as
-          // everyone else's — proofExempt no longer implies auto-active.
-          'pending_admin_review',
+          travelDocumentVerified,
+          status,
         ],
       );
       await recordOperationalEvent(null, {
         entityType: 'trip',
         entityId: trip.id,
         eventType: 'created',
-        status: 'pending_admin_review',
+        status,
         actorUserId: userId,
         travelerId: userId,
         tripId: trip.id,

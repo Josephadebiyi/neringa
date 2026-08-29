@@ -27,6 +27,7 @@ import {
   updateShipmentRequestStatus,
   updateTravelerProof,
   savePackageInspection,
+  setExternalTracking,
 } from '../lib/postgres/shipping.js';
 import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
@@ -141,6 +142,7 @@ export async function mergePaidDuplicateRequest({
         where id = $1
           and sender_id = $2
           and status in ('pending', 'accepted')
+          and fast_payout_released_at is null
         for update
       `,
       [requestId, senderId],
@@ -273,6 +275,7 @@ async function applyPaidAdditionalKg({
         where id = $1
           and sender_id = $2
           and status in ('pending', 'accepted')
+          and fast_payout_released_at is null
         for update
       `,
       [requestId, senderId],
@@ -875,7 +878,7 @@ export async function updateRequestStatus(req, res) {
     const validStatuses = [
       'pending', 'accepted', 'rejected', 'intransit', 'delivering', 'completed', 'cancelled',
       'accepted_awaiting_inspection', 'inspection_in_progress', 'inspection_completed',
-      'approved_for_trip',
+      'approved_for_trip', 'package_received', 'delivery_started', 'arrived_at_hub',
     ];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
@@ -986,6 +989,11 @@ export async function updateRequestStatus(req, res) {
           updatedRequest.senderName || 'Sender',
           `${updatedRequest.package.description}, ${updatedRequest.package.packageWeight}kg`,
           updatedRequest.trackingNumber,
+          updatedRequest.externalTrackingNumber ? {
+            carrierName: updatedRequest.externalCarrierName,
+            trackingNumber: updatedRequest.externalTrackingNumber,
+            url: updatedRequest.externalTrackingUrl,
+          } : null,
         );
       }
     } catch (notificationError) {
@@ -1008,6 +1016,41 @@ export async function updateRequestStatus(req, res) {
     }
     console.error('Error updating request status:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+}
+
+// Business/traveler attaches, edits or removes a secondary third-party
+// carrier tracking reference on a shipment they own. The Bago tracking
+// number is never replaced — both stay attached to the shipment.
+export async function updateExternalTracking(req, res) {
+  try {
+    const { requestId } = req.params;
+    const actorId = req.user.id || req.user._id;
+    const { carrier, carrierCustomName, trackingNumber } = req.body;
+
+    const existing = await getShipmentRequestById(requestId);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+    if (existing.travelerId !== actorId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to update this shipment' });
+    }
+
+    const updated = await setExternalTracking({
+      requestId,
+      carrier,
+      carrierCustomName,
+      trackingNumber,
+      actorUserId: actorId,
+    });
+
+    return res.status(200).json({ success: true, message: 'External tracking updated', data: updated });
+  } catch (error) {
+    if (['INVALID_CARRIER', 'CARRIER_NAME_REQUIRED', 'TRACKING_NUMBER_REQUIRED'].includes(error.code)) {
+      return res.status(400).json({ success: false, message: error.message, code: error.code });
+    }
+    console.error('Error updating external tracking:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }
 

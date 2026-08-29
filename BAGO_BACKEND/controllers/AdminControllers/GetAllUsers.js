@@ -1,10 +1,12 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
+import { getBusinessFeatureSummary } from '../../lib/postgres/businessFeatures.js';
 
 const BUSINESS_DOCUMENT_STATUSES = new Set(['approved', 'rejected']);
 function normalizeUser(row) {
   const isTraveler = row.earning_currency_locked === true;
+  const businessFeatures = row.account_type === 'company' ? getBusinessFeatureSummary(row) : null;
   return {
     _id: row.id,
     id: row.id,
@@ -24,6 +26,8 @@ function normalizeUser(row) {
     businessStatus: row.business_status || null,
     mustChangePassword: row.must_change_password ?? false,
     businessGracePeriodStartedAt: row.business_grace_period_started_at || null,
+    fastPayoutEnabled: Boolean(row.fast_payout_enabled),
+    businessFeatures,
     email: row.email,
     phone: row.phone,
     dateOfBirth: row.date_of_birth,
@@ -124,6 +128,7 @@ export const GetAllUsers = async (req, res, next) => {
           p.business_status,
           p.must_change_password,
           p.business_grace_period_started_at,
+          p.fast_payout_enabled,
           p.email,
           p.phone,
           p.date_of_birth,
@@ -242,6 +247,7 @@ export const getUserDetail = async (req, res, next) => {
           p.id, p.first_name, p.last_name, p.account_type, p.company_name, p.trading_name,
           p.business_registration_number, p.business_type, p.business_address, p.business_tax_id,
           p.representative_role, p.business_document_url, p.business_document_status, p.business_status,
+          p.fast_payout_enabled,
           p.email, p.phone, p.date_of_birth, p.country, p.banned, p.is_active, p.deactivated_at,
           p.kyc_status, p.kyc_provider, p.kyc_failure_reason, p.email_verified, p.identity_fields_locked,
           p.verified_full_legal_name, p.verified_date_of_birth, p.phone_verified, p.signup_method,
@@ -317,6 +323,7 @@ export const updateUser = async (req, res, next) => {
     businessTaxId: 'business_tax_id',
     representativeRole: 'representative_role',
     businessStatus: 'business_status',
+    fastPayoutEnabled: 'fast_payout_enabled',
   };
 
   try {
@@ -327,7 +334,7 @@ export const updateUser = async (req, res, next) => {
     for (const [key, column] of Object.entries(allowed)) {
       if (Object.prototype.hasOwnProperty.call(req.body, key)) {
         fields.push(`${column} = $${index++}`);
-        values.push(req.body[key]);
+        values.push(key === 'fastPayoutEnabled' ? Boolean(req.body[key]) : req.body[key]);
       }
     }
 

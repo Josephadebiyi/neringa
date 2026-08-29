@@ -63,7 +63,10 @@ enum RequestStatus {
   partialRefundApproved,
   refundDeclined,
   rejected,
+  packageReceived,
+  deliveryStarted,
   intransit,
+  arrivedAtHub,
   delivering,
   completed,
   cancelled;
@@ -79,7 +82,10 @@ enum RequestStatus {
         RequestStatus.inspectionCompleted ||
         RequestStatus.rejectedAtInspectionUnderReview ||
         RequestStatus.approvedForTrip ||
+        RequestStatus.packageReceived ||
+        RequestStatus.deliveryStarted ||
         RequestStatus.intransit ||
+        RequestStatus.arrivedAtHub ||
         RequestStatus.delivering =>
           true,
         _ => false,
@@ -98,7 +104,10 @@ enum RequestStatus {
         'partial_refund_approved' => RequestStatus.partialRefundApproved,
         'refund_declined' => RequestStatus.refundDeclined,
         'rejected' => RequestStatus.rejected,
+        'package_received' => RequestStatus.packageReceived,
+        'delivery_started' => RequestStatus.deliveryStarted,
         'intransit' => RequestStatus.intransit,
+        'arrived_at_hub' => RequestStatus.arrivedAtHub,
         'delivering' => RequestStatus.delivering,
         'completed' || 'delivered' => RequestStatus.completed,
         'cancelled' => RequestStatus.cancelled,
@@ -127,8 +136,11 @@ enum RequestStatus {
       RequestStatus.refundDeclined => 'Refund Declined',
       RequestStatus.rejected =>
         isTraveler ? 'Booking Declined' : 'Request Declined',
+      RequestStatus.packageReceived => 'Package Received',
+      RequestStatus.deliveryStarted => 'Delivery Started',
       RequestStatus.intransit =>
         isTraveler ? 'Carrying Package' : 'Package In Transit',
+      RequestStatus.arrivedAtHub => 'Arrived at Hub',
       RequestStatus.delivering =>
         isTraveler ? 'Delivering Now' : 'Out for Delivery',
       RequestStatus.completed => 'Delivered',
@@ -148,7 +160,10 @@ enum RequestStatus {
         RequestStatus.refundApproved => const Color(0xFF10B981),
         RequestStatus.partialRefundApproved => const Color(0xFF10B981),
         RequestStatus.refundDeclined => const Color(0xFFEF4444),
+        RequestStatus.packageReceived => const Color(0xFF3B82F6),
+        RequestStatus.deliveryStarted => const Color(0xFF8B5CF6),
         RequestStatus.intransit => const Color(0xFF8B5CF6),
+        RequestStatus.arrivedAtHub => const Color(0xFF8B5CF6),
         RequestStatus.delivering => const Color(0xFFF97316),
         RequestStatus.completed => const Color(0xFF10B981),
         RequestStatus.rejected => const Color(0xFFEF4444),
@@ -166,6 +181,9 @@ enum RequestStatus {
         RequestStatus.refundApproved => 'refund_approved',
         RequestStatus.partialRefundApproved => 'partial_refund_approved',
         RequestStatus.refundDeclined => 'refund_declined',
+        RequestStatus.packageReceived => 'package_received',
+        RequestStatus.deliveryStarted => 'delivery_started',
+        RequestStatus.arrivedAtHub => 'arrived_at_hub',
         _ => name,
       };
 }

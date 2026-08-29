@@ -54,8 +54,9 @@ function interpolateLatLng(from, to, t) {
 function naturalProgress(status, departureDate, arrivalDate) {
     const s = (status || '').toLowerCase();
     if (s === 'pending') return 0.0;
-    if (s === 'accepted') return 0.05;
+    if (s === 'accepted' || s === 'package_received' || s === 'delivery_started') return 0.05;
     if (s === 'completed' || s === 'delivered') return 1.0;
+    if (s === 'arrived_at_hub') return 0.85;
 
     if ((s === 'intransit' || s === 'delivering') && departureDate) {
         const now = Date.now();

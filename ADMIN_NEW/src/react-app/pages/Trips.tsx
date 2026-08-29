@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
     Search,
     Truck,
@@ -16,7 +17,8 @@ import {
     X,
     TrendingUp,
     Pencil,
-    Check
+    Check,
+    Plus
 } from 'lucide-react';
 import { getTrips, updateTripStatus, deleteTrip, updateTripPrice, deleteSingleTrip, updateSingleTripStatus } from '../services/api';
 import JourneyMap from '../components/JourneyMap';
@@ -285,6 +287,13 @@ export default function Trips() {
                         <LayoutGrid className="w-4 h-4 text-[#5240E8]" />
                         <span className="text-xs font-black text-[#1e2749]">{totalCount} Total Routes</span>
                     </div>
+                    <Link
+                        to="/trips/create"
+                        className="bg-[#5240E8] text-white px-4 py-2 rounded-2xl shadow-sm flex items-center gap-2 hover:bg-[#4432c9] transition-all"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span className="text-xs font-black uppercase tracking-widest">Create Trip for Business</span>
+                    </Link>
                 </div>
                 {selectedTrips.length > 0 && (
                     <button

@@ -1,12 +1,17 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
-import { getShipmentRequestById } from '../../lib/postgres/shipping.js';
+import { getShipmentRequestById, setExternalTracking } from '../../lib/postgres/shipping.js';
+import { buildCarrierTrackingUrl, getCarrierLabel } from '../../services/carrierTracking.js';
 import { generateShippingLabelPDF } from '../../services/pdfGenerator.js';
 import { refundPaidShipmentRequest } from '../../services/shipmentRefundService.js';
 import { adminHasPermission } from '../../services/supportAutomationService.js';
 
 const CANCEL_BLOCKED_STATUSES = new Set(['completed', 'cancelled', 'refund_approved']);
 
+// Granular business delivery-workflow statuses (Booking Confirmed → Package
+// Received → Delivery Started → In Transit → Arrived at Hub → Out for
+// Delivery → Delivered) reuse 'accepted'/'intransit'/'delivering'/'completed'
+// where those already exist; only the three genuinely new steps are added.
 const VALID_SHIPMENT_STATUSES = new Set([
   'pending',
   'accepted',
@@ -16,7 +21,10 @@ const VALID_SHIPMENT_STATUSES = new Set([
   'rejected_at_inspection_under_review',
   'approved_for_trip',
   'rejected',
+  'package_received',
+  'delivery_started',
   'intransit',
+  'arrived_at_hub',
   'delivering',
   'completed',
   'refund_approved',
@@ -34,7 +42,10 @@ const ADMIN_VISIBLE_SHIPMENT_STATUSES = new Set([
   'rejected_at_inspection_under_review',
   'approved_for_trip',
   'rejected',
+  'package_received',
+  'delivery_started',
   'intransit',
+  'arrived_at_hub',
   'delivering',
   'completed',
   'refund_approved',
@@ -45,7 +56,7 @@ const ADMIN_VISIBLE_SHIPMENT_STATUSES = new Set([
 
 const STATUS_LABELS = {
   pending: 'Pending',
-  accepted: 'Accepted',
+  accepted: 'Booking Confirmed',
   accepted_awaiting_inspection: 'Accepted — Awaiting Package Inspection',
   inspection_in_progress: 'Inspection in Progress',
   inspection_completed: 'Inspection Completed',
@@ -55,9 +66,12 @@ const STATUS_LABELS = {
   partial_refund_approved: 'Partial Refund Approved',
   refund_declined: 'Refund Declined',
   rejected: 'Declined',
+  package_received: 'Package Received',
+  delivery_started: 'Delivery Started',
   intransit: 'In transit',
+  arrived_at_hub: 'Arrived at Hub',
   delivering: 'Out for delivery',
-  completed: 'Completed',
+  completed: 'Delivered',
   cancelled: 'Cancelled',
 };
 
@@ -290,6 +304,10 @@ export const getAllOrders = async (req, res, next) => {
          sr.amount,
          sr.currency,
          sr.tracking_number,
+         sr.external_carrier,
+         sr.external_carrier_custom_name,
+         sr.external_tracking_number,
+         sr.external_tracking_updated_at,
          sr.insurance,
          sr.insurance_cost,
          sr.insurance_status,
@@ -360,6 +378,12 @@ export const getAllOrders = async (req, res, next) => {
       amount: Number(r.amount || 0),
       currency: r.currency,
       trackingNumber: r.tracking_number,
+      externalCarrier: r.external_carrier || null,
+      externalCarrierName: getCarrierLabel(r.external_carrier, r.external_carrier_custom_name),
+      externalCarrierCustomName: r.external_carrier_custom_name || null,
+      externalTrackingNumber: r.external_tracking_number || null,
+      externalTrackingUpdatedAt: r.external_tracking_updated_at || null,
+      externalTrackingUrl: buildCarrierTrackingUrl(r.external_carrier, r.external_tracking_number),
       insurance: r.insurance,
       insuranceCost: Number(r.insurance_cost || 0),
       insuranceStatus: r.insurance_status,
@@ -611,7 +635,7 @@ export const activeShipmentLocations = async (req, res, next) => {
        LEFT JOIN public.profiles sender ON sender.id = sr.sender_id
        LEFT JOIN public.profiles traveler ON traveler.id = sr.traveler_id
        LEFT JOIN public.packages pkg ON pkg.id = sr.package_id
-       WHERE sr.status IN ('accepted', 'intransit', 'delivering')
+       WHERE sr.status IN ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')
        ORDER BY sr.updated_at DESC, sr.created_at DESC
        LIMIT $1`,
       [Number(limit)]
@@ -687,6 +711,35 @@ export const activeShipmentLocations = async (req, res, next) => {
   }
 };
 
+// Admin attaches, edits or removes a shipment's secondary third-party
+// carrier tracking reference — the Bago tracking number is never replaced.
+export const updateExternalTracking = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { carrier, carrierCustomName, trackingNumber } = req.body;
+
+    const existing = await getShipmentRequestById(id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    const updated = await setExternalTracking({
+      requestId: id,
+      carrier,
+      carrierCustomName,
+      trackingNumber,
+      actorAdminId: req.admin?.id || null,
+    });
+
+    return res.status(200).json({ success: true, message: 'External tracking updated', data: updated });
+  } catch (error) {
+    if (['INVALID_CARRIER', 'CARRIER_NAME_REQUIRED', 'TRACKING_NUMBER_REQUIRED'].includes(error.code)) {
+      return res.status(400).json({ success: false, message: error.message, code: error.code });
+    }
+    next(error);
+  }
+};
+
 export const updateRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -719,7 +772,7 @@ export const updateRequest = async (req, res, next) => {
         nextTrackingNumber = buildTrackingNumber();
       }
 
-      if (['intransit', 'delivering', 'completed'].includes(status)) {
+      if (['accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed'].includes(status)) {
         movementTracking = [
           ...movementTracking,
           {

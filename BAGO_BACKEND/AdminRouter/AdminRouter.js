@@ -5,7 +5,7 @@ import { auditAdminAction, requireAdminPermission } from '../middleware/adminAut
 import { banUser, GetAllUsers, deleteUser, updateUser, getUserDetail, reviewBusinessDocument } from '../controllers/AdminControllers/GetAllUsers.js';
 import { createBusinessAccount, adminUploadBusinessDocument, adminGenerateKycLink, approveBusinessAccount } from '../controllers/AdminControllers/BusinessOnboardingController.js';
 import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controllers/postgresUserController.js';
-import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord, getOrderConversation, adminCancelRequest } from '../controllers/AdminControllers/Tracking.js';
+import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord, getOrderConversation, adminCancelRequest, updateExternalTracking } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
@@ -61,6 +61,7 @@ import {
   updateTripPriceBatch,
   deleteTripBatch
 } from '../controllers/AdminControllers/TripManagement.js';
+import { createTripForBusiness } from '../controllers/AdminControllers/AdminTripController.js';
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
 import { getAdminProfile, updateAdminProfile } from '../controllers/AdminControllers/AdminProfileController.js';
 import { upload } from '../utils/multer.js';
@@ -149,6 +150,7 @@ AdminRouter.post("/orders/:id/cancel", adminAuthenticated, can('trips.manage'), 
 AdminRouter.get("/tracking", adminAuthenticated, tracking)
 AdminRouter.get("/tracking/active-shipments", adminAuthenticated, activeShipmentLocations)
 AdminRouter.put("/tracking/:id", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.tracking.update', 'shipment_request'), updateRequest)
+AdminRouter.put("/tracking/:id/external-tracking", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), updateExternalTracking)
 AdminRouter.get("/dashboard", adminAuthenticated, dashboard)
 AdminRouter.get("/analystic", adminAuthenticated, analystic)
 AdminRouter.get("/getAllkyc", adminAuthenticated, can('kyc.review'), getAllkyc)
@@ -222,6 +224,7 @@ AdminRouter.delete("/promo-codes/:id", adminAuthenticated, can('promos.manage'),
 AdminRouter.put("/promo-codes/:id/toggle", adminAuthenticated, can('promos.manage'), validateUuidParam('id'), audit('admin.promo_code.toggle', 'promo_code'), togglePromoCodeStatus);
 
 // Trip Management (Real trips from DB)
+AdminRouter.post("/admin-trips", adminAuthenticated, can('trips.manage'), audit('admin.trip.create', 'trip'), createTripForBusiness);
 AdminRouter.get("/admin-trips", adminAuthenticated, getAllTrips);
 AdminRouter.get("/admin-trips/:id", adminAuthenticated, validateUuidParam('id'), getTripById);
 AdminRouter.put("/admin-trips/:id/status", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.status.update', 'trip'), updateTripStatus);

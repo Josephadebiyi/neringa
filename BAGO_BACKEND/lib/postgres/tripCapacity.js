@@ -80,11 +80,11 @@ export async function buildTripCapacitySnapshot(executor, tripId, { lockTrip = f
     `
       SELECT
         COALESCE(SUM(CASE WHEN sr.status = 'pending' THEN COALESCE(pkg.package_weight, 0) ELSE 0 END), 0) AS reserved_kg,
-        COALESCE(SUM(CASE WHEN sr.status IN ('accepted', 'intransit', 'delivering', 'completed') THEN COALESCE(pkg.package_weight, 0) ELSE 0 END), 0) AS sold_kg,
+        COALESCE(SUM(CASE WHEN sr.status IN ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed') THEN COALESCE(pkg.package_weight, 0) ELSE 0 END), 0) AS sold_kg,
         COUNT(*) FILTER (WHERE sr.status NOT IN ('rejected', 'cancelled'))::int AS active_booking_count,
         COUNT(*) FILTER (WHERE sr.status = 'pending')::int AS pending_booking_count,
         COUNT(*) FILTER (WHERE sr.status = 'accepted')::int AS accepted_booking_count,
-        COUNT(*) FILTER (WHERE sr.status IN ('intransit', 'delivering'))::int AS in_transit_booking_count,
+        COUNT(*) FILTER (WHERE sr.status IN ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering'))::int AS in_transit_booking_count,
         COUNT(*) FILTER (WHERE sr.status = 'completed')::int AS completed_booking_count,
         COUNT(*) FILTER (WHERE sr.status = 'rejected')::int AS rejected_booking_count,
         COUNT(*) FILTER (WHERE sr.status = 'cancelled')::int AS cancelled_booking_count

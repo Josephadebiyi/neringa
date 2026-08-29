@@ -18,6 +18,19 @@ export async function refundFlutterwavePayment(reference, comments = 'Shipment r
 }
 
 export async function reverseTravelerEscrowForRefund(client, requestId, reason) {
+  // Fast Payout can move this shipment's held funds out of escrow_balance and
+  // into the traveler's available_balance *before* delivery completes (see
+  // cron/fastPayoutCron.js). If that already happened, the money is no longer
+  // sitting in escrow_balance to claw back — it must be clawed back from
+  // available_balance instead, even if that drives the balance negative,
+  // otherwise a fast-payout business can get paid and then reject/cancel the
+  // shipment (or have it admin-cancelled) to make the sender's refund "free".
+  const requestRow = await client.query(
+    `select fast_payout_released_at from public.shipment_requests where id = $1`,
+    [requestId],
+  );
+  const fastPayoutReleased = Boolean(requestRow.rows[0]?.fast_payout_released_at);
+
   const txResult = await client.query(
     `
       select wt.id, wt.wallet_id, wt.user_id, wt.trip_id, wt.amount, wt.currency
@@ -30,15 +43,27 @@ export async function reverseTravelerEscrowForRefund(client, requestId, reason) 
     [requestId],
   );
   for (const escrowTx of txResult.rows) {
-    await client.query(
-      `
-        update public.wallet_accounts
-        set escrow_balance = greatest(0, escrow_balance - $2),
-            updated_at = timezone('utc', now())
-        where id = $1
-      `,
-      [escrowTx.wallet_id, escrowTx.amount],
-    );
+    if (fastPayoutReleased) {
+      await client.query(
+        `
+          update public.wallet_accounts
+          set available_balance = available_balance - $2,
+              updated_at = timezone('utc', now())
+          where id = $1
+        `,
+        [escrowTx.wallet_id, escrowTx.amount],
+      );
+    } else {
+      await client.query(
+        `
+          update public.wallet_accounts
+          set escrow_balance = greatest(0, escrow_balance - $2),
+              updated_at = timezone('utc', now())
+          where id = $1
+        `,
+        [escrowTx.wallet_id, escrowTx.amount],
+      );
+    }
 
     await client.query(
       `
@@ -53,7 +78,7 @@ export async function reverseTravelerEscrowForRefund(client, requestId, reason) 
         escrowTx.amount,
         escrowTx.currency || 'USD',
         reason,
-        { sourceTransactionId: escrowTx.id },
+        { sourceTransactionId: escrowTx.id, clawedBackFromAvailableBalance: fastPayoutReleased },
       ],
     );
   }

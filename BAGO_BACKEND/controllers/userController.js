@@ -665,7 +665,7 @@ export const getUserStats = async (req, res) => {
       queryOne(
         `SELECT COUNT(*) as count FROM public.shipment_requests
          WHERE (sender_id = $1 OR traveler_id = $1)
-           AND status IN ('accepted', 'intransit', 'delivering')`,
+           AND status IN ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')`,
         [userId]
       ),
       queryOne(`SELECT COUNT(*) as count FROM public.profiles`, []),

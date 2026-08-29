@@ -9,6 +9,10 @@ import {
   syncTripCapacity,
 } from './tripCapacity.js';
 import { maskPublicUserName, publicDisplayName } from '../privacy/publicUser.js';
+import { buildCarrierTrackingUrl, getCarrierLabel } from '../../services/carrierTracking.js';
+import { createAuditLog } from './audit.js';
+
+const EXTERNAL_CARRIERS = new Set(['dhl', 'fedex', 'ups', 'gig', 'other']);
 
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
@@ -253,6 +257,12 @@ function normalizeRequest(row) {
       currency: row.trip_currency || row.currency,
     } : null,
     trackingNumber: row.tracking_number,
+    externalCarrier: row.external_carrier || null,
+    externalCarrierName: getCarrierLabel(row.external_carrier, row.external_carrier_custom_name),
+    externalCarrierCustomName: row.external_carrier_custom_name || null,
+    externalTrackingNumber: row.external_tracking_number || null,
+    externalTrackingUpdatedAt: row.external_tracking_updated_at || null,
+    externalTrackingUrl: buildCarrierTrackingUrl(row.external_carrier, row.external_tracking_number),
     image: row.image_url || row.package_image_url || null,
     senderProof: row.sender_proof_url,
     travelerProof: row.traveler_proof_url,
@@ -309,6 +319,10 @@ const requestSelect = `
     sr.package_id,
     sr.trip_id,
     sr.tracking_number,
+    sr.external_carrier,
+    sr.external_carrier_custom_name,
+    sr.external_tracking_number,
+    sr.external_tracking_updated_at,
     sr.image_url,
     sr.sender_proof_url,
     sr.traveler_proof_url,
@@ -686,11 +700,11 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
       left join lateral (
         select
           coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
-          coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
-          coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering') then coalesce(pkg.package_weight, 0) else 0 end), 0) as pending_kg,
+          coalesce(sum(case when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
+          coalesce(sum(case when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering') then coalesce(pkg.package_weight, 0) else 0 end), 0) as pending_kg,
           coalesce(sum(
             case
-              when sr.status in ('accepted', 'intransit', 'delivering', 'completed')
+              when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed')
                 then coalesce(nullif(sr.traveler_payout, 0), coalesce(pkg.package_weight, 0) * coalesce(t.price_per_kg, 0), 0)
               else 0
             end
@@ -702,7 +716,7 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
               ' · ',
               case when count(*) filter (where sr.status = 'pending') > 0 then (count(*) filter (where sr.status = 'pending'))::text || ' pending' end,
               case when count(*) filter (where sr.status = 'accepted') > 0 then (count(*) filter (where sr.status = 'accepted'))::text || ' approved' end,
-              case when count(*) filter (where sr.status in ('intransit', 'delivering')) > 0 then (count(*) filter (where sr.status in ('intransit', 'delivering')))::text || ' in transit' end,
+              case when count(*) filter (where sr.status in ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')) > 0 then (count(*) filter (where sr.status in ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')))::text || ' in transit' end,
               case when count(*) filter (where sr.status = 'completed') > 0 then (count(*) filter (where sr.status = 'completed'))::text || ' delivered' end
             )
           ) as booking_status_summary
@@ -847,11 +861,11 @@ export async function getTripById(id) {
       left join lateral (
         select
           coalesce(sum(case when sr.status = 'pending' then coalesce(pkg.package_weight, 0) else 0 end), 0) as reserved_kg,
-          coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
-          coalesce(sum(case when sr.status in ('accepted', 'intransit', 'delivering') then coalesce(pkg.package_weight, 0) else 0 end), 0) as pending_kg,
+          coalesce(sum(case when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed') then coalesce(pkg.package_weight, 0) else 0 end), 0) as sold_kg,
+          coalesce(sum(case when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering') then coalesce(pkg.package_weight, 0) else 0 end), 0) as pending_kg,
           coalesce(sum(
             case
-              when sr.status in ('accepted', 'intransit', 'delivering', 'completed')
+              when sr.status in ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed')
                 then coalesce(nullif(sr.traveler_payout, 0), coalesce(pkg.package_weight, 0) * coalesce(t.price_per_kg, 0), 0)
               else 0
             end
@@ -863,7 +877,7 @@ export async function getTripById(id) {
               ' · ',
               case when count(*) filter (where sr.status = 'pending') > 0 then (count(*) filter (where sr.status = 'pending'))::text || ' pending' end,
               case when count(*) filter (where sr.status = 'accepted') > 0 then (count(*) filter (where sr.status = 'accepted'))::text || ' approved' end,
-              case when count(*) filter (where sr.status in ('intransit', 'delivering')) > 0 then (count(*) filter (where sr.status in ('intransit', 'delivering')))::text || ' in transit' end,
+              case when count(*) filter (where sr.status in ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')) > 0 then (count(*) filter (where sr.status in ('package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering')))::text || ' in transit' end,
               case when count(*) filter (where sr.status = 'completed') > 0 then (count(*) filter (where sr.status = 'completed'))::text || ' delivered' end
             )
           ) as booking_status_summary
@@ -1190,7 +1204,7 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
     }
 
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
-    if (['intransit', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
+    if (['package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
       movementTracking = [
         ...movementTracking,
         {
@@ -1264,6 +1278,73 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
   return getShipmentRequestById(updatedRequestId);
 }
 
+// Attaches/edits/removes a secondary, third-party carrier tracking reference
+// on a shipment. This never replaces the Bago tracking number — both always
+// remain attached to the shipment. `actor` identifies who made the change for
+// the audit trail; ownership (business/traveler vs admin) is enforced by callers.
+export async function setExternalTracking({ requestId, carrier, carrierCustomName, trackingNumber, actorUserId = null, actorAdminId = null }) {
+  const normalizedCarrier = carrier ? String(carrier).toLowerCase().trim() : null;
+  if (normalizedCarrier && !EXTERNAL_CARRIERS.has(normalizedCarrier)) {
+    const error = new Error('Unsupported carrier. Choose DHL, FedEx, UPS, GIG Logistics or Other.');
+    error.code = 'INVALID_CARRIER';
+    throw error;
+  }
+  if (normalizedCarrier === 'other' && !String(carrierCustomName || '').trim()) {
+    const error = new Error('Enter the carrier/logistics company name.');
+    error.code = 'CARRIER_NAME_REQUIRED';
+    throw error;
+  }
+  const normalizedTrackingNumber = trackingNumber ? String(trackingNumber).trim() : null;
+  if (normalizedCarrier && !normalizedTrackingNumber) {
+    const error = new Error('Enter the external tracking number.');
+    error.code = 'TRACKING_NUMBER_REQUIRED';
+    throw error;
+  }
+
+  const current = await queryOne(
+    `select id, traveler_id, external_carrier, external_carrier_custom_name, external_tracking_number
+     from public.shipment_requests where id = $1`,
+    [requestId],
+  );
+  if (!current) return null;
+
+  // A tracking number without a carrier is meaningless orphaned data — treat
+  // "no carrier" as a full clear regardless of what tracking number came along with it.
+  const clearing = !normalizedCarrier;
+  const nextCarrier = clearing ? null : normalizedCarrier;
+  const nextCustomName = clearing ? null : (nextCarrier === 'other' ? String(carrierCustomName).trim() : null);
+  const nextTrackingNumber = clearing ? null : normalizedTrackingNumber;
+
+  await query(
+    `update public.shipment_requests
+     set external_carrier = $2,
+         external_carrier_custom_name = $3,
+         external_tracking_number = $4,
+         external_tracking_updated_at = timezone('utc', now()),
+         updated_at = timezone('utc', now())
+     where id = $1`,
+    [requestId, nextCarrier, nextCustomName, nextTrackingNumber],
+  );
+
+  await createAuditLog({
+    actorUserId,
+    actorAdminId,
+    action: actorAdminId ? 'admin.external_tracking.update' : 'business.external_tracking.update',
+    targetType: 'shipment_request',
+    targetId: requestId,
+    metadata: {
+      before: {
+        carrier: current.external_carrier,
+        carrierCustomName: current.external_carrier_custom_name,
+        trackingNumber: current.external_tracking_number,
+      },
+      after: { carrier: nextCarrier, carrierCustomName: nextCustomName, trackingNumber: nextTrackingNumber },
+    },
+  }).catch(() => {});
+
+  return getShipmentRequestById(requestId);
+}
+
 export async function savePackageInspection({
   requestId,
   actorId,
@@ -1288,7 +1369,7 @@ export async function savePackageInspection({
       error.code = 'UNAUTHORIZED';
       throw error;
     }
-    if (['intransit', 'delivering', 'completed'].includes(request.status)) {
+    if (['package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed'].includes(request.status)) {
       const error = new Error('Inspection evidence cannot be changed after the trip starts');
       error.code = 'INSPECTION_LOCKED';
       throw error;
@@ -2017,7 +2098,7 @@ export async function redeemHandoverToken({ requestId, pin, travelerId }) {
       throw err;
     }
 
-    const allowed = ['accepted', 'intransit', 'delivering', 'awaiting_sender_confirmation'];
+    const allowed = ['accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'awaiting_sender_confirmation'];
     if (!allowed.includes(sr.status)) {
       const err = new Error(`Cannot confirm handover for a shipment with status: ${sr.status}`);
       err.code = 'INVALID_STATUS';

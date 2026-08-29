@@ -65,7 +65,7 @@ export const dashboard = async (req, res, next) => {
         ) AS total_income_eur
         FROM public.shipment_requests sr
         LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
-        WHERE sr.status IN ('accepted', 'intransit', 'delivering', 'completed')
+        WHERE sr.status IN ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed')
       `, [], { total_income_eur: 0 }),
       // Real platform commission (shipment_ledgers.bago_commission_amount), converted to
       // EUR the same way — replaces the previous hardcoded totalIncome * 0.1 estimate.

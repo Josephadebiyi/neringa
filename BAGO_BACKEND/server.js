@@ -19,6 +19,7 @@ import priceRoutes from "./AdminRouter/priceperkgRoute.js";
 import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
 import { startEscrowAutoRelease } from './cron/escrowCron.js'
+import { startFastPayoutRelease } from './cron/fastPayoutCron.js'
 import { startBirthdayGreetings } from './cron/birthdayCron.js'
 import { startBusinessGracePeriodCron } from './cron/businessGracePeriodCron.js'
 import {
@@ -139,6 +140,9 @@ async function ensureRequestStatusEnumValues() {
     'refund_approved',
     'partial_refund_approved',
     'refund_declined',
+    'package_received',
+    'delivery_started',
+    'arrived_at_hub',
   ];
   for (const value of inspectionStatuses) {
     await pgQuery(`ALTER TYPE public.request_status ADD VALUE IF NOT EXISTS '${value}'`);
@@ -1211,6 +1215,7 @@ async function startApplication() {
   await ensureSupportTable();
 
   startEscrowAutoRelease();
+  startFastPayoutRelease();
   startCurrencyRateSync();
   startBirthdayGreetings();
   startBusinessGracePeriodCron();

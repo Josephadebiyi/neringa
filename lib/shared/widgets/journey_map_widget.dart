@@ -69,6 +69,11 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
 
   double _naturalProgress() {
     final s = widget.status.toLowerCase();
+    // Check these exact granular statuses before the 'deliver'/'complet'
+    // substring checks below — 'delivery_started' would otherwise match
+    // .contains('deliver') and incorrectly jump straight to 100% progress.
+    if (s == 'package_received' || s == 'delivery_started') return 0.05;
+    if (s == 'arrived_at_hub') return 0.85;
     if (s.contains('deliver') || s.contains('complet')) return 1.0;
     if (s == 'pending' || s == 'accepted') return 0.05;
     final dep = widget.departureDate;

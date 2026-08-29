@@ -184,7 +184,7 @@ export async function sendAccountUnblockedEmail(userEmail, userName) {
 /**
  * Send notification to receiver when shipping starts
  */
-export async function sendReceiverShippingStartedEmail(receiverEmail, receiverName, senderName, packageDetails, trackingNumber) {
+export async function sendReceiverShippingStartedEmail(receiverEmail, receiverName, senderName, packageDetails, trackingNumber, externalTracking = null) {
   if (!resend) return false;
 
   try {
@@ -200,6 +200,7 @@ export async function sendReceiverShippingStartedEmail(receiverEmail, receiverNa
         <p style="margin:0 0 8px; font-size:14px; color:#374151;">${packageDetails}</p>
         <p style="margin:0; font-size:13px; color:#6b7280;">Tracking: <strong style="color:#3b82f6;">${trackingNumber}</strong></p>
       </div>
+      ${buildExternalTrackingBlock(externalTracking)}
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         The package is currently in transit. You'll receive updates as it progresses toward delivery.
       </p>
@@ -260,6 +261,39 @@ export async function sendReceiverShipmentAcceptedEmail(receiverEmail, receiverN
     console.error('❌ Failed to send receiver accepted email:', error);
     return false;
   }
+}
+
+// Renders the "External Tracking" block spliced into shipment-update emails
+// when a business has attached a third-party carrier's tracking number.
+// Never replaces the Bago tracking number shown above it — always additive.
+// carrierName (from a business's freeform "Other" carrier name) and
+// trackingNumber are user-controlled and land in emails sent to a different
+// party (the sender) — always HTML-escape them before interpolation.
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildExternalTrackingBlock(externalTracking) {
+  if (!externalTracking?.trackingNumber) return '';
+  const carrierName = escapeHtml(externalTracking.carrierName);
+  const trackingNumber = escapeHtml(externalTracking.trackingNumber);
+  const { url } = externalTracking;
+  const trackButton = url
+    ? `<p style="margin:12px 0 0;"><a href="${url}" style="display:inline-block; background:#5240E8; color:#ffffff; text-decoration:none; padding:8px 16px; border-radius:8px; font-size:12px; font-weight:600;">Track with ${carrierName}</a></p>`
+    : '';
+  return `
+    <div style="background:#f9fafb; padding:16px; border-radius:8px; margin:12px 0 20px; border-left:4px solid #6b7280;">
+      <p style="margin:0 0 8px; font-size:13px; color:#374151; font-weight:600;">EXTERNAL CARRIER TRACKING</p>
+      <p style="margin:0; font-size:13px; color:#6b7280;">Provider: <strong style="color:#111827;">${carrierName}</strong></p>
+      <p style="margin:4px 0 0; font-size:13px; color:#6b7280;">Tracking Number: <strong style="color:#111827;">${trackingNumber}</strong></p>
+      ${trackButton}
+    </div>
+  `;
 }
 
 /**
@@ -418,7 +452,7 @@ export async function sendWithdrawalProcessedEmail(userEmail, userName, { amount
 /**
  * Send email notification for request accepted
  */
-export async function sendRequestAcceptedEmail(senderEmail, senderName, travelerName, packageDetails, trackingNumber) {
+export async function sendRequestAcceptedEmail(senderEmail, senderName, travelerName, packageDetails, trackingNumber, externalTracking = null) {
   if (!resend) {
     console.warn('⚠️ Email service not configured');
     return false;
@@ -437,6 +471,7 @@ export async function sendRequestAcceptedEmail(senderEmail, senderName, traveler
         <p style="margin:0; font-size:14px; color:#111827;">${packageDetails}</p>
         ${trackingNumber ? `<p style="margin:8px 0 0; font-size:13px; color:#6b7280;">Tracking: <strong style="color:#5240E8;">${trackingNumber}</strong></p>` : ''}
       </div>
+      ${buildExternalTrackingBlock(externalTracking)}
       <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         You can now communicate with your traveler and track your shipment in real-time.
       </p>
@@ -460,7 +495,7 @@ export async function sendRequestAcceptedEmail(senderEmail, senderName, traveler
 /**
  * Send email notification for in-transit status
  */
-export async function sendInTransitEmail(senderEmail, senderName, packageDetails, location, trackingNumber) {
+export async function sendInTransitEmail(senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking = null) {
   if (!resend) return false;
 
   try {
@@ -477,6 +512,7 @@ export async function sendInTransitEmail(senderEmail, senderName, packageDetails
         ${location ? `<p style="margin:8px 0 0; font-size:13px; color:#6b7280;">Current Location: <strong>${location}</strong></p>` : ''}
         <p style="margin:8px 0 0; font-size:13px; color:#6b7280;">Tracking: <strong style="color:#3b82f6;">${trackingNumber}</strong></p>
       </div>
+      ${buildExternalTrackingBlock(externalTracking)}
       <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         Your traveler has started the journey. You'll receive updates as your package progresses.
       </p>
@@ -500,7 +536,7 @@ export async function sendInTransitEmail(senderEmail, senderName, packageDetails
 /**
  * Send email notification for out for delivery status
  */
-export async function sendOutForDeliveryEmail(senderEmail, senderName, packageDetails, location, trackingNumber) {
+export async function sendOutForDeliveryEmail(senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking = null) {
   if (!resend) return false;
 
   try {
@@ -517,6 +553,7 @@ export async function sendOutForDeliveryEmail(senderEmail, senderName, packageDe
         ${location ? `<p style="margin:8px 0 0; font-size:13px; color:#6b7280;">Delivery Location: <strong>${location}</strong></p>` : ''}
         <p style="margin:8px 0 0; font-size:13px; color:#6b7280;">Tracking: <strong style="color:#f59e0b;">${trackingNumber}</strong></p>
       </div>
+      ${buildExternalTrackingBlock(externalTracking)}
       <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         Your traveler is on the way to deliver your package. Make sure your recipient is available!
       </p>
@@ -540,7 +577,7 @@ export async function sendOutForDeliveryEmail(senderEmail, senderName, packageDe
 /**
  * Send email notification for delivery completed
  */
-export async function sendDeliveryCompletedEmail(senderEmail, senderName, packageDetails, trackingNumber) {
+export async function sendDeliveryCompletedEmail(senderEmail, senderName, packageDetails, trackingNumber, externalTracking = null) {
   if (!resend) return false;
 
   try {
@@ -556,6 +593,7 @@ export async function sendDeliveryCompletedEmail(senderEmail, senderName, packag
         <p style="margin:0; font-size:14px; color:#111827;">${packageDetails}</p>
         <p style="margin:8px 0 0; font-size:13px; color:#6b7280;">Tracking: <strong style="color:#10b981;">${trackingNumber}</strong></p>
       </div>
+      ${buildExternalTrackingBlock(externalTracking)}
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         Please confirm receipt in the app to release payment to your traveler. If there are any issues, you can raise a dispute within 48 hours.
       </p>
@@ -871,19 +909,24 @@ export async function sendShippingStatusEmail(request, status, location = null) 
     const travelerName = request.traveler.firstName ? `${request.traveler.firstName} ${request.traveler.lastName || ''}`.trim() : 'Traveler';
     const packageDetails = request.package?.description || 'Your package';
     const trackingNumber = request.trackingNumber || 'N/A';
+    const externalTracking = request.externalTrackingNumber ? {
+      carrierName: request.externalCarrierName,
+      trackingNumber: request.externalTrackingNumber,
+      url: request.externalTrackingUrl,
+    } : null;
 
     switch (status) {
       case 'accepted':
-        return await sendRequestAcceptedEmail(senderEmail, senderName, travelerName, packageDetails, trackingNumber);
+        return await sendRequestAcceptedEmail(senderEmail, senderName, travelerName, packageDetails, trackingNumber, externalTracking);
 
       case 'intransit':
-        return await sendInTransitEmail(senderEmail, senderName, packageDetails, location, trackingNumber);
+        return await sendInTransitEmail(senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking);
 
       case 'delivering':
-        return await sendOutForDeliveryEmail(senderEmail, senderName, packageDetails, location, trackingNumber);
+        return await sendOutForDeliveryEmail(senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking);
 
       case 'completed':
-        return await sendDeliveryCompletedEmail(senderEmail, senderName, packageDetails, trackingNumber);
+        return await sendDeliveryCompletedEmail(senderEmail, senderName, packageDetails, trackingNumber, externalTracking);
 
       case 'rejected':
         return await sendRequestRejectedEmail(senderEmail, senderName, travelerName, packageDetails);

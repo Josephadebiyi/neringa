@@ -730,6 +730,26 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                 </p>
                             </div>
                         </div>
+                        {req.externalTrackingNumber && (
+                            <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between gap-3 flex-wrap">
+                                <div>
+                                    <p className="text-[7px] font-black text-gray-400 uppercase mb-1">External Tracking</p>
+                                    <p className="text-[10px] font-black text-[#111827]">
+                                        {req.externalCarrierName}: {req.externalTrackingNumber}
+                                    </p>
+                                </div>
+                                {req.externalTrackingUrl && (
+                                    <a
+                                        href={req.externalTrackingUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="px-3 py-1.5 bg-[#5845D8]/10 text-[#5845D8] rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-[#5845D8]/15"
+                                    >
+                                        Track with {req.externalCarrierName}
+                                    </a>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Package + payment info */}

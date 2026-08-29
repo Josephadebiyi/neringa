@@ -249,6 +249,13 @@ export async function updateOrderStatus(id: string, status: string, location?: s
   });
 }
 
+export async function updateExternalTracking(id: string, carrier: string | null, carrierCustomName?: string, trackingNumber?: string | null) {
+  return apiCall(`${ADMIN_API}/tracking/${id}/external-tracking`, {
+    method: 'PUT',
+    body: JSON.stringify({ carrier, carrierCustomName, trackingNumber }),
+  });
+}
+
 export async function downloadOrderRecord(id: string) {
   const response = await fetch(`${ADMIN_API}/orders/${id}/pdf`, {
     credentials: 'include',
@@ -353,6 +360,29 @@ export async function syncFlutterwaveWithdrawal(transactionId: string) {
 // Trips
 export async function getTrips(page = 1, limit = 20) {
   return apiCall(`${ADMIN_API}/admin-trips?page=${page}&limit=${limit}`);
+}
+
+export async function searchBusinesses(search: string) {
+  return apiCall(`${ADMIN_API}/GetAllUsers?accountType=company&limit=20&search=${encodeURIComponent(search)}`);
+}
+
+export interface CreateTripForBusinessPayload {
+  businessUserId: string;
+  fromLocation: string; fromCountry?: string; toLocation: string; toCountry?: string;
+  collectionCity?: string; collectionCountry?: string;
+  departureDate?: string; departureDates?: string[]; arrivalDate?: string;
+  // Currency is intentionally NOT settable here — the backend always prices the
+  // trip in the business's own wallet currency (profiles.preferred_currency),
+  // never a client-supplied value, so payout/earnings math stays consistent.
+  availableKg: number; travelMeans: string; pricePerKg: number;
+  landmark?: string;
+}
+
+export async function createTripForBusiness(payload: CreateTripForBusinessPayload) {
+  return apiCall(`${ADMIN_API}/admin-trips`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 // These act on a "batch" — every trip posted together as one multi-date

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { useLanguage } from '../context/LanguageContext';
@@ -12,7 +12,8 @@ import {
     CheckCircle,
     Truck,
     RefreshCw,
-    Shield
+    Shield,
+    ExternalLink
 } from 'lucide-react';
 import JourneyMap from '../components/JourneyMap';
 
@@ -72,9 +73,17 @@ export default function TrackShipment() {
         }
     };
 
+    // Business granular delivery statuses map onto the nearest of the 5
+    // display stages below rather than getting their own step in this bar.
+    const GRANULAR_STATUS_STAGE = {
+        package_received: 'accepted',
+        delivery_started: 'accepted',
+        arrived_at_hub: 'intransit',
+    };
+
     const getStatusStep = (status) => {
         const stages = ['pending', 'accepted', 'intransit', 'delivering', 'completed'];
-        return stages.indexOf(status);
+        return stages.indexOf(GRANULAR_STATUS_STAGE[status] || status);
     };
 
     const steps = [
@@ -133,7 +142,7 @@ export default function TrackShipment() {
                                 <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">{t('currentStatus')}</p>
                                 <div className="flex items-center gap-2">
                                     <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)] animate-pulse"></span>
-                                    <h3 className="text-base font-black text-[#012126] capitalize">{shipment.status}</h3>
+                                    <h3 className="text-base font-black text-[#012126] capitalize">{String(shipment.status || '').replace(/_/g, ' ')}</h3>
                                 </div>
                             </div>
                             <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm relative overflow-hidden group">
@@ -152,6 +161,26 @@ export default function TrackShipment() {
                                     {shipment.estimatedArrival ? new Date(shipment.estimatedArrival).toLocaleDateString() : 'Pending'}
                                 </h3>
                             </div>
+                            {shipment.externalTrackingNumber && (
+                                <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm relative overflow-hidden group md:col-span-3">
+                                    <p className="text-[9px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-0.5">External Carrier Tracking</p>
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <h3 className="text-sm font-black text-[#012126]">
+                                            {shipment.externalCarrierName}: {shipment.externalTrackingNumber}
+                                        </h3>
+                                        {shipment.externalTrackingUrl && (
+                                            <a
+                                                href={shipment.externalTrackingUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5845D8]/10 text-[#5845D8] rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-[#5845D8]/15"
+                                            >
+                                                Track with {shipment.externalCarrierName} <ExternalLink size={12} />
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Visual Progressbar */}

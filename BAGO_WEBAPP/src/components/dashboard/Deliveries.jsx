@@ -4,8 +4,16 @@ import api from '../../api';
 import {
     Package, Clock, CheckCircle, RefreshCw, X,
     MessageSquare, User, Camera, ShieldCheck, AlertTriangle,
-    ZoomIn, MapPin, ArrowRight, Truck,
+    ZoomIn, MapPin, ArrowRight, Truck, Link2,
 } from 'lucide-react';
+
+const EXTERNAL_CARRIER_OPTIONS = [
+    { value: 'dhl', label: 'DHL' },
+    { value: 'fedex', label: 'FedEx' },
+    { value: 'ups', label: 'UPS' },
+    { value: 'gig', label: 'GIG Logistics' },
+    { value: 'other', label: 'Other' },
+];
 
 const asArray = (v) => Array.isArray(v) ? v : [];
 const rid = (r) => r?._id || r?.id || r?.requestId;
@@ -37,7 +45,52 @@ const STATUS_UPDATE_OPTIONS = [
     },
 ];
 
-export default function Deliveries({ onNavigateToChat }) {
+// Business accounts get the fuller delivery-workflow sequence. 'completed' is
+// never set here — only the sender/receiver confirming (or the escrow
+// auto-release cron) ever finalizes a shipment as Delivered.
+const BUSINESS_STATUS_UPDATE_OPTIONS = [
+    {
+        value: 'package_received',
+        label: 'Package Received',
+        description: "You've received the package from the sender and are preparing it for the trip.",
+        icon: Package,
+    },
+    {
+        value: 'delivery_started',
+        label: 'Delivery Started',
+        description: "You've begun the delivery journey with this package.",
+        icon: Truck,
+    },
+    {
+        value: 'intransit',
+        label: 'In Transit',
+        description: 'The shipment has been picked up and is moving to the destination.',
+        icon: Clock,
+    },
+    {
+        value: 'arrived_at_hub',
+        label: 'Arrived at Hub',
+        description: 'The package has arrived at a sorting hub or facility along the route.',
+        icon: MapPin,
+    },
+    {
+        value: 'delivered',
+        label: 'Out for Delivery / Delivered',
+        description: 'The item has reached the receiver. The sender must still confirm before funds are released.',
+        icon: CheckCircle,
+    },
+];
+
+const BUSINESS_STATUS_SEQUENCE = ['package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivered'];
+
+function nextBusinessStatus(currentStatus) {
+    const idx = BUSINESS_STATUS_SEQUENCE.indexOf((currentStatus || '').toLowerCase());
+    if (idx === -1 || idx === BUSINESS_STATUS_SEQUENCE.length - 1) return BUSINESS_STATUS_SEQUENCE[0];
+    return BUSINESS_STATUS_SEQUENCE[idx + 1];
+}
+
+export default function Deliveries({ user, onNavigateToChat }) {
+    const isBusinessAccount = user?.accountType === 'company' || user?.account_type === 'company';
     const navigate = useNavigate();
     const location = useLocation();
     const [deliveries, setDeliveries] = useState([]);
@@ -54,6 +107,13 @@ export default function Deliveries({ onNavigateToChat }) {
     const [previewImage, setPreviewImage] = useState(null);
     const [acceptedTerms, setAcceptedTerms] = useState([false, false, false]);
     const [toast, setToast] = useState({ show: false, msg: '', ok: true });
+
+    const [extTrackingTarget, setExtTrackingTarget] = useState(null);
+    const [extCarrier, setExtCarrier] = useState('');
+    const [extCarrierCustomName, setExtCarrierCustomName] = useState('');
+    const [extTrackingNumber, setExtTrackingNumber] = useState('');
+    const [extSaving, setExtSaving] = useState(false);
+    const [extError, setExtError] = useState('');
 
     useEffect(() => { fetchDeliveries(); }, []);
     useEffect(() => { setAcceptedTerms([false, false, false]); }, [viewingDetails]);
@@ -93,7 +153,7 @@ export default function Deliveries({ onNavigateToChat }) {
     const openStatusModal = (req) => {
         const status = String(req?.status || '').toLowerCase();
         setUpdatingStatus(req);
-        setSelectedStatus(status === 'intransit' ? 'delivered' : 'intransit');
+        setSelectedStatus(isBusinessAccount ? nextBusinessStatus(status) : (status === 'intransit' ? 'delivered' : 'intransit'));
         setStatusNote('');
         setStatusLocation('');
         setProofImage(null);
@@ -162,6 +222,61 @@ export default function Deliveries({ onNavigateToChat }) {
         finally { setIsSubmitting(false); }
     };
 
+    const openExternalTracking = (req) => {
+        setExtTrackingTarget(req);
+        setExtCarrier(req.externalCarrier || '');
+        setExtCarrierCustomName(req.externalCarrierCustomName || '');
+        setExtTrackingNumber(req.externalTrackingNumber || '');
+        setExtError('');
+    };
+
+    const saveExternalTracking = async () => {
+        if (!extTrackingTarget) return;
+        if (extCarrier === 'other' && !extCarrierCustomName.trim()) {
+            setExtError('Enter the carrier/logistics company name.');
+            return;
+        }
+        if (extCarrier && !extTrackingNumber.trim()) {
+            setExtError('Enter the tracking number.');
+            return;
+        }
+        setExtSaving(true);
+        setExtError('');
+        try {
+            const id = rid(extTrackingTarget);
+            const res = await api.put(`/api/bago/request/${id}/external-tracking`, {
+                carrier: extCarrier || null,
+                carrierCustomName: extCarrierCustomName || undefined,
+                trackingNumber: extTrackingNumber || null,
+            });
+            if (!res.data?.success) throw new Error(res.data?.message || 'Could not save external tracking.');
+            notify('External tracking saved.');
+            setExtTrackingTarget(null);
+            fetchDeliveries();
+        } catch (e) {
+            setExtError(e?.response?.data?.message || e?.message || 'Could not save external tracking.');
+        } finally {
+            setExtSaving(false);
+        }
+    };
+
+    const removeExternalTracking = async () => {
+        if (!extTrackingTarget) return;
+        setExtSaving(true);
+        setExtError('');
+        try {
+            const id = rid(extTrackingTarget);
+            await api.put(`/api/bago/request/${id}/external-tracking`, { carrier: null, trackingNumber: null });
+            notify('External tracking removed.');
+            setExtTrackingTarget(null);
+            fetchDeliveries();
+        } catch (e) {
+            setExtError(e?.response?.data?.message || e?.message || 'Could not remove external tracking.');
+        } finally {
+            setExtSaving(false);
+        }
+    };
+
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -176,6 +291,9 @@ export default function Deliveries({ onNavigateToChat }) {
             case 'completed':  return 'text-green-600 bg-green-50';
             case 'delivering': return 'text-amber-600 bg-amber-50';
             case 'pending':    return 'text-amber-600 bg-amber-50';
+            case 'package_received':
+            case 'delivery_started':
+            case 'arrived_at_hub':
             case 'intransit':  return 'text-blue-600 bg-blue-50';
             case 'accepted':   return 'text-indigo-600 bg-indigo-50';
             case 'rejected':   return 'text-red-600 bg-red-50';
@@ -186,7 +304,10 @@ export default function Deliveries({ onNavigateToChat }) {
     const statusLabel = (s) => {
         switch ((s || '').toLowerCase()) {
             case 'accepted': return 'Accepted';
+            case 'package_received': return 'Package Received';
+            case 'delivery_started': return 'Delivery Started';
             case 'intransit': return 'In Transit';
+            case 'arrived_at_hub': return 'Arrived at Hub';
             case 'delivering': return 'Delivered — Awaiting Sender';
             case 'completed': return 'Completed';
             case 'rejected': return 'Rejected';
@@ -316,10 +437,20 @@ export default function Deliveries({ onNavigateToChat }) {
                                                         onClick={() => openStatusModal(req)}
                                                         className="flex items-center gap-1.5 bg-[#5845D8] text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/10"
                                                     >
-                                                        <CheckCircle size={13} /> Update Status
+                                                        <CheckCircle size={13} />
+                                                        {isBusinessAccount && !BUSINESS_STATUS_SEQUENCE.includes(status) ? 'Start Delivery' : 'Update Status'}
                                                     </button>
                                                 )}
                                             </>
+                                        )}
+                                        {isBusinessAccount && !isPending && (
+                                            <button
+                                                onClick={() => openExternalTracking(req)}
+                                                className="p-2 rounded-xl border border-gray-100 text-[#5845D8] hover:bg-[#5845D8]/5 transition-all shadow-sm"
+                                                title="External Carrier Tracking"
+                                            >
+                                                <Link2 size={13} />
+                                            </button>
                                         )}
                                         <button
                                             onClick={() => setSelectedDispute(req)}
@@ -384,6 +515,93 @@ export default function Deliveries({ onNavigateToChat }) {
                 </div>
             )}
 
+            {/* ─── External Carrier Tracking Modal ─── */}
+            {extTrackingTarget && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
+                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-gray-100/50">
+                        <div className="p-6 border-b border-gray-50 flex flex-col items-center gap-3 bg-gray-50/30">
+                            <div className="w-14 h-14 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-gray-100">
+                                <Link2 size={24} />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">External Carrier Tracking</h3>
+                                <p className="text-[9px] text-gray-500 font-black mt-1 uppercase tracking-widest opacity-70">
+                                    Bago Tracking: {extTrackingTarget.trackingNumber || 'Pending'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Carrier</label>
+                                <select
+                                    value={extCarrier}
+                                    onChange={(e) => {
+                                        const next = e.target.value;
+                                        setExtCarrier(next);
+                                        if (!next) { setExtTrackingNumber(''); setExtCarrierCustomName(''); }
+                                        else if (next !== 'other') setExtCarrierCustomName('');
+                                    }}
+                                    className="w-full px-5 py-3.5 bg-gray-50 rounded-xl border border-transparent outline-none focus:border-[#5845D8]/20 focus:bg-white text-xs font-bold transition-all"
+                                >
+                                    <option value="">No external carrier</option>
+                                    {EXTERNAL_CARRIER_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                </select>
+                            </div>
+                            {extCarrier === 'other' && (
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Carrier / logistics company name</label>
+                                    <input
+                                        type="text"
+                                        value={extCarrierCustomName}
+                                        onChange={(e) => setExtCarrierCustomName(e.target.value)}
+                                        placeholder="e.g. Sendbox"
+                                        className="w-full px-5 py-3.5 bg-gray-50 rounded-xl border border-transparent outline-none focus:border-[#5845D8]/20 focus:bg-white text-xs font-bold transition-all"
+                                    />
+                                </div>
+                            )}
+                            {extCarrier && (
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tracking Number</label>
+                                    <input
+                                        type="text"
+                                        value={extTrackingNumber}
+                                        onChange={(e) => setExtTrackingNumber(e.target.value)}
+                                        placeholder="e.g. 1234567890"
+                                        className="w-full px-5 py-3.5 bg-gray-50 rounded-xl border border-transparent outline-none focus:border-[#5845D8]/20 focus:bg-white text-xs font-bold transition-all"
+                                    />
+                                </div>
+                            )}
+                            {extError && <p className="text-[10px] font-bold text-red-600">{extError}</p>}
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => setExtTrackingTarget(null)}
+                                    disabled={extSaving}
+                                    className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-2xl text-xs font-black uppercase tracking-widest"
+                                >
+                                    Cancel
+                                </button>
+                                {extTrackingTarget.externalTrackingNumber && (
+                                    <button
+                                        onClick={removeExternalTracking}
+                                        disabled={extSaving}
+                                        className="flex-1 py-3 bg-red-50 text-red-600 rounded-2xl text-xs font-black uppercase tracking-widest"
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                                <button
+                                    onClick={saveExternalTracking}
+                                    disabled={extSaving}
+                                    className="flex-1 py-3 bg-[#5845D8] text-white rounded-2xl text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                                >
+                                    {extSaving ? <RefreshCw className="animate-spin mx-auto" size={14} /> : 'Save'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ─── Status Update Modal ─── */}
             {updatingStatus && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
@@ -393,7 +611,9 @@ export default function Deliveries({ onNavigateToChat }) {
                                 <ShieldCheck size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">Update Delivery Status</h3>
+                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">
+                                    {isBusinessAccount ? 'Start Delivery' : 'Update Delivery Status'}
+                                </h3>
                                 <p className="text-[9px] text-gray-500 font-black mt-1 uppercase tracking-widest opacity-70">
                                     Order #{updatingStatus.trackingNumber}
                                 </p>
@@ -403,7 +623,7 @@ export default function Deliveries({ onNavigateToChat }) {
                             <div className="space-y-2">
                                 <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Select the new status</label>
                                 <div className="space-y-2">
-                                    {STATUS_UPDATE_OPTIONS.map((option) => {
+                                    {(isBusinessAccount ? BUSINESS_STATUS_UPDATE_OPTIONS : STATUS_UPDATE_OPTIONS).map((option) => {
                                         const Icon = option.icon;
                                         const active = selectedStatus === option.value;
                                         return (

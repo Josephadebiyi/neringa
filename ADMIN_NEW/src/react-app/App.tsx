@@ -27,6 +27,7 @@ const RoutesPage = lazy(() => import("./pages/Routes"));
 const LocationsPage = lazy(() => import("./pages/Locations"));
 const PromoEmailPage = lazy(() => import("./pages/PromoEmail"));
 const TripsPage = lazy(() => import("./pages/Trips"));
+const CreateTripPage = lazy(() => import("./pages/CreateTrip"));
 const PromoCodesPage = lazy(() => import("./pages/PromoCodes"));
 const OrdersPage = lazy(() => import("./pages/Orders"));
 const BannersPage = lazy(() => import("./pages/Banners"));
@@ -60,6 +61,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <TripsPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/trips/create"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <CreateTripPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

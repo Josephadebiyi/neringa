@@ -6,8 +6,16 @@ import {
 } from 'lucide-react';
 import {
   getOrders, updateOrderStatus, getInsuredShipments, downloadOrderRecord,
-  getOrderConversation, cancelOrder, updateTripPrice,
+  getOrderConversation, cancelOrder, updateTripPrice, updateExternalTracking,
 } from '../services/api';
+
+const EXTERNAL_CARRIER_OPTIONS = [
+  { value: 'dhl', label: 'DHL' },
+  { value: 'fedex', label: 'FedEx' },
+  { value: 'ups', label: 'UPS' },
+  { value: 'gig', label: 'GIG Logistics' },
+  { value: 'other', label: 'Other' },
+];
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -44,6 +52,11 @@ interface Order {
   amount: number;
   currency?: string;
   trackingNumber?: string;
+  externalCarrier?: string | null;
+  externalCarrierName?: string | null;
+  externalCarrierCustomName?: string | null;
+  externalTrackingNumber?: string | null;
+  externalTrackingUrl?: string | null;
   insurance: boolean;
   insuranceCost: number;
   insuranceStatus?: string;
@@ -186,7 +199,61 @@ function OrderDetail({ order, onClose, onStatusChange, onCancelled }: {
   const [tripPriceError, setTripPriceError] = useState<string | null>(null);
   const [tripPrice, setTripPrice] = useState(order.trip?.pricePerKg);
 
+  const [editingExternalTracking, setEditingExternalTracking] = useState(false);
+  const [extCarrier, setExtCarrier] = useState(order.externalCarrier || '');
+  const [extCarrierCustomName, setExtCarrierCustomName] = useState(order.externalCarrierCustomName || '');
+  const [extTrackingNumber, setExtTrackingNumber] = useState(order.externalTrackingNumber || '');
+  const [extSaving, setExtSaving] = useState(false);
+  const [extError, setExtError] = useState<string | null>(null);
+  const [currentOrder, setCurrentOrder] = useState(order);
+
   const canCancel = !CANCEL_BLOCKED_STATUSES.has(order.status);
+
+  const handleSaveExternalTracking = async () => {
+    if (extCarrier === 'other' && !extCarrierCustomName.trim()) {
+      setExtError('Enter the carrier/logistics company name.');
+      return;
+    }
+    if (extCarrier && !extTrackingNumber.trim()) {
+      setExtError('Enter the external tracking number.');
+      return;
+    }
+    setExtSaving(true);
+    setExtError(null);
+    try {
+      const res = await updateExternalTracking(order.id, extCarrier || null, extCarrierCustomName || undefined, extTrackingNumber || null);
+      if (!res?.success) throw new Error(res?.message || 'Could not save external tracking.');
+      setCurrentOrder((prev) => ({
+        ...prev,
+        externalCarrier: res.data?.externalCarrier ?? null,
+        externalCarrierName: res.data?.externalCarrierName ?? null,
+        externalCarrierCustomName: res.data?.externalCarrierCustomName ?? null,
+        externalTrackingNumber: res.data?.externalTrackingNumber ?? null,
+        externalTrackingUrl: res.data?.externalTrackingUrl ?? null,
+      }));
+      setEditingExternalTracking(false);
+    } catch (e: any) {
+      setExtError(e?.message || 'Could not save external tracking.');
+    } finally {
+      setExtSaving(false);
+    }
+  };
+
+  const handleRemoveExternalTracking = async () => {
+    setExtSaving(true);
+    setExtError(null);
+    try {
+      const res = await updateExternalTracking(order.id, null, undefined, null);
+      if (!res?.success) throw new Error(res?.message || 'Could not remove external tracking.');
+      setCurrentOrder((prev) => ({ ...prev, externalCarrier: null, externalCarrierName: null, externalCarrierCustomName: null, externalTrackingNumber: null, externalTrackingUrl: null }));
+      setExtCarrier(''); setExtCarrierCustomName(''); setExtTrackingNumber('');
+      setEditingExternalTracking(false);
+    } catch (e: any) {
+      setExtError(e?.message || 'Could not remove external tracking.');
+    } finally {
+      setExtSaving(false);
+    }
+  };
 
   const openConversation = async () => {
     setShowConversation(true);
@@ -446,6 +513,87 @@ function OrderDetail({ order, onClose, onStatusChange, onCancelled }: {
               )}
               {tripPriceError && (
                 <p className="text-[10px] font-bold text-red-600 mt-1">{tripPriceError}</p>
+              )}
+            </section>
+
+            {/* Tracking */}
+            <section>
+              <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Tracking</h3>
+              <div className="bg-gray-50 rounded-xl p-3 mb-2">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Bago Tracking</p>
+                <p className="text-xs font-mono font-bold text-gray-800">{order.trackingNumber || '—'}</p>
+              </div>
+
+              {editingExternalTracking ? (
+                <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">External Carrier Tracking</p>
+                  <select
+                    value={extCarrier}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setExtCarrier(next);
+                      if (!next) { setExtTrackingNumber(""); setExtCarrierCustomName(""); }
+                      else if (next !== "other") setExtCarrierCustomName("");
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs font-bold bg-white"
+                  >
+                    <option value="">No external carrier</option>
+                    {EXTERNAL_CARRIER_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                  {extCarrier === 'other' && (
+                    <input
+                      value={extCarrierCustomName}
+                      onChange={(e) => setExtCarrierCustomName(e.target.value)}
+                      placeholder="Carrier / logistics company name"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold"
+                    />
+                  )}
+                  {extCarrier && (
+                    <input
+                      value={extTrackingNumber}
+                      onChange={(e) => setExtTrackingNumber(e.target.value)}
+                      placeholder="Tracking number"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold"
+                    />
+                  )}
+                  {extError && <p className="text-[10px] font-bold text-red-600">{extError}</p>}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={handleSaveExternalTracking} disabled={extSaving} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-black disabled:opacity-50">
+                      {extSaving ? 'Saving…' : 'Save'}
+                    </button>
+                    <button onClick={() => { setEditingExternalTracking(false); setExtError(null); }} disabled={extSaving} className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg text-xs font-black">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">External Tracking</p>
+                    {currentOrder.externalTrackingNumber ? (
+                      <>
+                        <p className="text-xs font-bold text-gray-800">{currentOrder.externalCarrierName}: {currentOrder.externalTrackingNumber}</p>
+                        {currentOrder.externalTrackingUrl && (
+                          <a href={currentOrder.externalTrackingUrl} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-indigo-600 hover:underline">
+                            Track with {currentOrder.externalCarrierName} →
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-gray-400">Not set</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => setEditingExternalTracking(true)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    {currentOrder.externalTrackingNumber && (
+                      <button onClick={handleRemoveExternalTracking} disabled={extSaving} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </section>
 

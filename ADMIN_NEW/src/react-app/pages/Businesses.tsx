@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, Search, ShieldCheck, Wallet, FileText, Check, X, Loader2, Pencil, Plus, Upload, KeyRound, Copy } from "lucide-react";
+import { Building2, Search, ShieldCheck, Wallet, FileText, Check, X, Loader2, Pencil, Plus, Upload, KeyRound, Copy, Zap } from "lucide-react";
 import { getBusinesses, reviewBusinessDocument, updateUser, adminUploadBusinessDocument, adminGenerateKycLink, approveBusinessAccount } from "../services/api";
 
 type Business = {
@@ -11,9 +11,25 @@ type Business = {
   businessDocumentUrl?: string; businessDocumentStatus?: string;
   businessAddress?: string; businessTaxId?: string;
   mustChangePassword?: boolean; businessGracePeriodStartedAt?: string;
+  fastPayoutEnabled?: boolean;
 };
 
 const GRACE_PERIOD_DAYS = 14;
+const KYC_VERIFIED_STATUSES = new Set(["approved", "verified", "completed"]);
+
+// Standard business features unlock automatically once KYC is verified —
+// this list is purely a read-only reflection of that rule for the admin.
+// Fast Payout is deliberately NOT in this list: it is manual-only (see the
+// toggle below) and must never be granted just because KYC passed.
+const KYC_TIED_FEATURES = [
+  "Trips (create, edit, pricing, routes)",
+  "Recurring trips",
+  "Bookings (view & accept)",
+  "Start Delivery & shipment status updates",
+  "External carrier tracking",
+  "Withdrawals (normal payout rules)",
+  "Analytics",
+];
 
 function graceStatus(b: Business): { label: string; className: string } {
   if (b.businessStatus === 'verified') return { label: 'Verified', className: 'bg-emerald-100 text-emerald-700' };
@@ -53,6 +69,7 @@ export default function BusinessesPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [editTarget, setEditTarget] = useState<Business | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editFastPayout, setEditFastPayout] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
   const [uploadTarget, setUploadTarget] = useState<Business | null>(null);
@@ -147,6 +164,7 @@ export default function BusinessesPage() {
     const initial: Record<string, string> = {};
     BUSINESS_EDIT_FIELDS.forEach(({ key }) => { initial[key] = String(b[key] || ""); });
     setEditForm(initial);
+    setEditFastPayout(Boolean(b.fastPayoutEnabled));
     setEditTarget(b);
     setEditError("");
   };
@@ -156,9 +174,9 @@ export default function BusinessesPage() {
     setEditSaving(true);
     setEditError("");
     try {
-      const res = await updateUser(editTarget.id, editForm);
+      const res = await updateUser(editTarget.id, { ...editForm, fastPayoutEnabled: editFastPayout });
       if (!res?.success) throw new Error(res?.message || "Could not save business details.");
-      setBusinesses((prev) => prev.map((x) => (x.id === editTarget.id ? { ...x, ...editForm } : x)));
+      setBusinesses((prev) => prev.map((x) => (x.id === editTarget.id ? { ...x, ...editForm, fastPayoutEnabled: editFastPayout } : x)));
       setEditTarget(null);
     } catch (e: any) {
       setEditError(e?.message || "Could not save business details.");
@@ -197,7 +215,7 @@ export default function BusinessesPage() {
     {actionError && <p className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm font-semibold text-red-600">{actionError}</p>}
     <div className="rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-5 border-b"><div className="relative max-w-md"><Search className="absolute left-3 top-3 text-gray-400 h-5 w-5"/><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search business, email or registration…" className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-4"/></div></div>
-      {error ? <p className="p-6 text-red-600">{error}</p> : loading ? <p className="p-6 text-gray-500">Loading businesses…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-500"><tr>{["Business","Registration","Representative","KYC","Verification","Document","Wallet","Joined",""].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y">{shown.map((b)=>{const grace=graceStatus(b);return <tr key={b.id} className="hover:bg-gray-50"><td className="px-5 py-4"><div className="flex items-center gap-3">{b.image?<img src={b.image} className="h-10 w-10 rounded-xl object-cover"/>:<div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center"><Building2 className="h-5 w-5 text-indigo-600"/></div>}<div><b>{b.tradingName || b.companyName}</b><p className="text-gray-500">{b.email}</p></div></div></td><td className="px-5 py-4">{b.businessRegistrationNumber || "—"}<p className="text-gray-500">{b.country || ""}</p></td><td className="px-5 py-4">{[b.firstName,b.lastName].filter(Boolean).join(" ")}<p className="text-gray-500">{b.representativeRole || "—"}</p></td><td className="px-5 py-4"><span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold capitalize">{b.kycStatus || "pending"}</span></td>
+      {error ? <p className="p-6 text-red-600">{error}</p> : loading ? <p className="p-6 text-gray-500">Loading businesses…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 text-left text-gray-500"><tr>{["Business","Registration","Representative","KYC","Verification","Document","Wallet","Joined",""].map(h=><th key={h} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead><tbody className="divide-y">{shown.map((b)=>{const grace=graceStatus(b);return <tr key={b.id} className="hover:bg-gray-50"><td className="px-5 py-4"><div className="flex items-center gap-3">{b.image?<img src={b.image} className="h-10 w-10 rounded-xl object-cover"/>:<div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center"><Building2 className="h-5 w-5 text-indigo-600"/></div>}<div><b>{b.tradingName || b.companyName}</b><p className="text-gray-500">{b.email}</p></div></div></td><td className="px-5 py-4">{b.businessRegistrationNumber || "—"}<p className="text-gray-500">{b.country || ""}</p></td><td className="px-5 py-4">{[b.firstName,b.lastName].filter(Boolean).join(" ")}<p className="text-gray-500">{b.representativeRole || "—"}</p></td><td className="px-5 py-4"><div className="flex flex-col gap-1.5 items-start"><span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold capitalize">{b.kycStatus || "pending"}</span>{b.fastPayoutEnabled && <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-700"><Zap className="h-3 w-3" /> Fast Payout</span>}</div></td>
         <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 font-semibold ${grace.className}`}>{grace.label}</span></td>
         <td className="px-5 py-4">
           <div className="flex flex-col gap-1.5 items-start">
@@ -304,6 +322,45 @@ export default function BusinessesPage() {
               </label>
             ))}
           </div>
+
+          <div className="mt-6 border-t pt-5">
+            <h3 className="text-sm font-bold text-gray-900">Features &amp; Restrictions</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Business KYC: <span className="font-semibold capitalize">{editTarget.kycStatus || "pending"}</span>
+              {" — "}standard features below activate automatically once KYC is verified.
+            </p>
+            <ul className="mt-3 grid sm:grid-cols-2 gap-x-4 gap-y-1.5">
+              {KYC_TIED_FEATURES.map((feature) => (
+                <li key={feature} className="flex items-center gap-2 text-sm">
+                  {KYC_VERIFIED_STATUSES.has(String(editTarget.kycStatus || "").toLowerCase())
+                    ? <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    : <X className="h-3.5 w-3.5 text-gray-300 shrink-0" />}
+                  <span className={KYC_VERIFIED_STATUSES.has(String(editTarget.kycStatus || "").toLowerCase()) ? "text-gray-700" : "text-gray-400"}>
+                    {feature}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Zap className={`h-4 w-4 ${editFastPayout ? "text-amber-500" : "text-gray-300"}`} />
+                <div>
+                  <p className="text-sm font-bold text-gray-900">Fast Payout</p>
+                  <p className="text-xs text-gray-500">Manual admin control only — never activated by KYC verification.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditFastPayout((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editFastPayout ? "bg-indigo-600" : "bg-gray-200"}`}
+                aria-pressed={editFastPayout}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editFastPayout ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+          </div>
+
           {editError && <p className="mt-4 rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-sm font-semibold text-red-600">{editError}</p>}
           <div className="flex justify-end gap-3 mt-6">
             <button onClick={() => setEditTarget(null)} disabled={editSaving} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">Cancel</button>
