@@ -1,7 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Upload, FileText, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { ShieldCheck, Shield, Upload, FileText, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import api from '../../api';
+
+// Displays a date of birth with the exact year hidden — shows the month, day,
+// and only the century (first two digits of the year), e.g. "Mar 15, 19**"
+// for 1985-03-15. Once KYC is approved, the representative's DOB becomes a
+// locked, read-only field, so we show this masked form instead.
+function maskDateOfBirth(dateString) {
+    if (!dateString) return 'Not provided';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return 'Not provided';
+    const monthDay = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const centuryDigits = String(date.getFullYear()).slice(0, 2);
+    return `${monthDay}, ${centuryDigits}**`;
+}
 
 const GRACE_PERIOD_DAYS = 14;
 
@@ -61,13 +74,19 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
 
     const change = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
+    const kycStatus = String(user?.kycStatus || '').toLowerCase();
+    const kycApproved = ['approved', 'verified', 'completed'].includes(kycStatus);
+
     const saveRepresentative = async (e) => {
         e.preventDefault();
         setSaveError('');
         setSaveSuccess('');
         setSaving(true);
         try {
-            await api.put('/api/bago/edit', form);
+            const payload = kycApproved
+                ? { representativeRole: form.representativeRole }
+                : form;
+            await api.put('/api/bago/edit', payload);
             setSaveSuccess('Representative details saved.');
             await checkAuthStatus?.();
         } catch (err) {
@@ -99,8 +118,6 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
     };
 
     const banner = graceBanner(user);
-    const kycStatus = String(user?.kycStatus || '').toLowerCase();
-    const kycApproved = ['approved', 'verified', 'completed'].includes(kycStatus);
     const docStatus = user?.businessDocumentStatus || 'not_uploaded';
 
     return (
@@ -133,19 +150,34 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                 <p className="text-sm text-gray-500 mb-6">The person authorised to act on behalf of the business.</p>
                 <form onSubmit={saveRepresentative} className="grid md:grid-cols-2 gap-5">
                     <label>
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">First name</span>
-                        <input value={form.firstName} onChange={change('firstName')} required
-                            className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-sm font-bold" />
+                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                            First name
+                            {kycApproved && <Shield size={10} className="text-green-500" />}
+                        </span>
+                        <input value={form.firstName} onChange={change('firstName')} required disabled={kycApproved}
+                            className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all text-sm font-bold ${kycApproved ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-[#f8f9fa] border-transparent focus:border-[#5845D8] focus:bg-white'}`} />
                     </label>
                     <label>
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">Last name</span>
-                        <input value={form.lastName} onChange={change('lastName')} required
-                            className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-sm font-bold" />
+                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                            Last name
+                            {kycApproved && <Shield size={10} className="text-green-500" />}
+                        </span>
+                        <input value={form.lastName} onChange={change('lastName')} required disabled={kycApproved}
+                            className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all text-sm font-bold ${kycApproved ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-[#f8f9fa] border-transparent focus:border-[#5845D8] focus:bg-white'}`} />
                     </label>
                     <label>
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">Date of birth</span>
-                        <input type="date" value={form.dateOfBirth} onChange={change('dateOfBirth')}
-                            className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-sm font-bold" />
+                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                            Date of birth
+                            {kycApproved && <Shield size={10} className="text-green-500" />}
+                        </span>
+                        {kycApproved ? (
+                            <div className="w-full px-4 py-3 rounded-xl border-2 border-transparent bg-gray-100 text-gray-400 text-sm font-bold cursor-not-allowed">
+                                {maskDateOfBirth(form.dateOfBirth)}
+                            </div>
+                        ) : (
+                            <input type="date" value={form.dateOfBirth} onChange={change('dateOfBirth')}
+                                className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-sm font-bold" />
+                        )}
                     </label>
                     <label>
                         <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">Role in the business</span>
