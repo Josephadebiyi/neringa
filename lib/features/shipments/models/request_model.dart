@@ -28,6 +28,11 @@ class RequestModel {
   final String? originCountry;
   final String? destinationCountry;
   final String? trackingNumber;
+  final String? externalCarrier;
+  final String? externalCarrierName;
+  final String? externalCarrierCustomName;
+  final String? externalTrackingNumber;
+  final String? externalTrackingUrl;
   final String? conversationId;
   final String? role;
   final String rawStatus;
@@ -78,6 +83,11 @@ class RequestModel {
     this.originCountry,
     this.destinationCountry,
     this.trackingNumber,
+    this.externalCarrier,
+    this.externalCarrierName,
+    this.externalCarrierCustomName,
+    this.externalTrackingNumber,
+    this.externalTrackingUrl,
     this.conversationId,
     this.role,
     this.rawStatus = '',
@@ -225,6 +235,11 @@ class RequestModel {
       destinationCountry: json['destinationCountry']?.toString() ??
           package?['toCountry']?.toString(),
       trackingNumber: json['trackingNumber']?.toString(),
+      externalCarrier: json['externalCarrier']?.toString(),
+      externalCarrierName: json['externalCarrierName']?.toString(),
+      externalCarrierCustomName: json['externalCarrierCustomName']?.toString(),
+      externalTrackingNumber: json['externalTrackingNumber']?.toString(),
+      externalTrackingUrl: json['externalTrackingUrl']?.toString(),
       conversationId: json['conversationId']?.toString() ??
           json['conversation']?['_id']?.toString() ??
           json['conversation']?['id']?.toString(),

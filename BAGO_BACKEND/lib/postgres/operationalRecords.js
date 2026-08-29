@@ -4,7 +4,13 @@ function executorFor(client) {
   return client?.query ? client : { query };
 }
 
+// Idempotent DDL — only needs to succeed once per process, not once per
+// event recorded. This function is on the hot path of nearly every write in
+// the app (trip creation, shipment status updates, etc.), so re-running 6
+// schema statements before every single insert was a real, avoidable cost.
+let operationalRecordsEnsured = false;
 export async function ensureOperationalRecords(client) {
+  if (operationalRecordsEnsured) return;
   const executor = executorFor(client);
   await executor.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
   await executor.query(`
@@ -45,6 +51,7 @@ export async function ensureOperationalRecords(client) {
     CREATE INDEX IF NOT EXISTS operational_records_user_idx
       ON public.operational_records (sender_id, traveler_id, created_at DESC)
   `);
+  operationalRecordsEnsured = true;
 }
 
 export async function recordOperationalEvent(client, event) {

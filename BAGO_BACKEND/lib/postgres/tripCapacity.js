@@ -23,7 +23,11 @@ export function isTripPubliclyVisible(snapshot) {
   );
 }
 
+// Idempotent DDL — only needs to run once per process, not once per call.
+// See the comment on ensureTripReferenceColumn in trips.js for why this matters.
+let tripCapacityColumnsEnsured = false;
 export async function ensureTripCapacityColumns(executor = { query }) {
+  if (tripCapacityColumnsEnsured) return;
   await executor.query(`
     ALTER TABLE public.trips
       ADD COLUMN IF NOT EXISTS total_kg NUMERIC NOT NULL DEFAULT 0,
@@ -47,6 +51,7 @@ export async function ensureTripCapacityColumns(executor = { query }) {
   try {
     await executor.query(`ALTER TABLE public.trips DROP CONSTRAINT IF EXISTS trips_status_check`);
   } catch (_) { /* constraint may not exist or may have a different name — safe to ignore */ }
+  tripCapacityColumnsEnsured = true;
 }
 
 export async function buildTripCapacitySnapshot(executor, tripId, { lockTrip = false } = {}) {

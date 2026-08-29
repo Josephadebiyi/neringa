@@ -127,7 +127,10 @@ export const AddAtrip = async (req, res, next) => {
         proofExempt: isBusinessAccount,
         batchId,
       });
-      createdTrips.push(await getTripById(trip.id));
+      // createTripRecord already returns the fully hydrated trip — re-fetching
+      // it here was a redundant extra round trip per date, doubling the cost
+      // of every bulk business post for no reason.
+      createdTrips.push(trip);
     }
 
     // Notify admins — fire-and-forget so a slow/large admin list or a slow

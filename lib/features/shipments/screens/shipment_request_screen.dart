@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -527,6 +528,30 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
             const SizedBox(height: 14),
           ],
 
+          if ((req.externalTrackingNumber != null &&
+                  req.externalTrackingNumber!.isNotEmpty) ||
+              (isTraveler &&
+                  (ref.watch(authProvider).user?.isCompany ?? false))) ...[
+            _ExternalTrackingCard(
+              requestId: req.id,
+              carrier: req.externalCarrier,
+              carrierName: req.externalCarrierName,
+              trackingNumber: req.externalTrackingNumber,
+              trackingUrl: req.externalTrackingUrl,
+              canManage: isTraveler &&
+                  (ref.watch(authProvider).user?.isCompany ?? false),
+              onUpdated: () {
+                setState(() {
+                  _requestFuture = ShipmentService.instance
+                      .getRequestDetails(widget.requestId)
+                      .then<RequestModel?>((value) => value)
+                      .catchError((_) => null);
+                });
+              },
+            ),
+            const SizedBox(height: 14),
+          ],
+
           // Pricing
           Builder(builder: (context) {
             final displayAmount =
@@ -796,6 +821,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     _ShipmentStatusButtons(
                       currentStatus: req.status,
                       requestId: req.id,
+                      isBusinessAccount:
+                          ref.watch(authProvider).user?.isCompany ?? false,
                       onStatusUpdated: () {
                         ref
                             .read(shipmentProvider.notifier)
@@ -828,7 +855,10 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
   bool _canUpdateStatus(RequestStatus status) {
     return status == RequestStatus.accepted ||
         status.apiValue == 'intransit' ||
-        status.apiValue == 'delivering';
+        status.apiValue == 'delivering' ||
+        status.apiValue == 'package_received' ||
+        status.apiValue == 'delivery_started' ||
+        status.apiValue == 'arrived_at_hub';
   }
 
   Future<void> _showReviewSheet(RequestModel req) async {
@@ -1106,10 +1136,15 @@ class _ShipmentStatusButtons extends StatefulWidget {
     required this.currentStatus,
     required this.requestId,
     required this.onStatusUpdated,
+    this.isBusinessAccount = false,
   });
   final RequestStatus currentStatus;
   final String requestId;
   final VoidCallback onStatusUpdated;
+  // Business accounts get the fuller granular delivery sequence (matches
+  // BAGO_WEBAPP's Deliveries.jsx BUSINESS_STATUS_SEQUENCE) — package_received
+  // and delivery_started before intransit, arrived_at_hub before delivering.
+  final bool isBusinessAccount;
 
   @override
   State<_ShipmentStatusButtons> createState() => _ShipmentStatusButtonsState();
@@ -1135,9 +1170,16 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
       return 'inspection';
     }
     if (current == 'approved_for_trip' || current == 'inspection_completed') {
-      return 'intransit';
+      return widget.isBusinessAccount ? 'package_received' : 'intransit';
     }
-    if (current == 'intransit') return 'delivering';
+    if (widget.isBusinessAccount) {
+      if (current == 'package_received') return 'delivery_started';
+      if (current == 'delivery_started') return 'intransit';
+      if (current == 'intransit') return 'arrived_at_hub';
+      if (current == 'arrived_at_hub') return 'delivering';
+    } else {
+      if (current == 'intransit') return 'delivering';
+    }
     if (current == 'delivering') return 'delivered';
     return '';
   }
@@ -1146,6 +1188,9 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
     return switch (_nextStatus) {
       'intransit' => 'Mark as In Transit',
       'inspection' => 'Inspect Package',
+      'package_received' => 'Mark Package Received',
+      'delivery_started' => 'Start Delivery',
+      'arrived_at_hub' => 'Mark Arrived at Hub',
       'delivering' => 'Mark as Delivering',
       'delivered' => 'Mark as Delivered',
       _ => '',
@@ -1156,6 +1201,9 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
     return switch (_nextStatus) {
       'intransit' => Icons.flight_takeoff_rounded,
       'inspection' => Icons.fact_check_outlined,
+      'package_received' => Icons.inventory_2_outlined,
+      'delivery_started' => Icons.play_circle_outline_rounded,
+      'arrived_at_hub' => Icons.warehouse_outlined,
       'delivering' => Icons.local_shipping_rounded,
       'delivered' => Icons.check_circle_outline_rounded,
       _ => Icons.update_rounded,
@@ -1372,7 +1420,9 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
       );
     }
 
-    final steps = ['accepted', 'intransit', 'delivering', 'delivered'];
+    final steps = widget.isBusinessAccount
+        ? ['accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'delivered']
+        : ['accepted', 'intransit', 'delivering', 'delivered'];
     final currentIdx = steps.indexOf(widget.currentStatus.apiValue);
 
     return Column(
@@ -1382,7 +1432,10 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
             final done = i <= currentIdx;
             final label = switch (steps[i]) {
               'accepted' => 'Accepted',
+              'package_received' => 'Received',
+              'delivery_started' => 'Started',
               'intransit' => 'In Transit',
+              'arrived_at_hub' => 'At Hub',
               'delivering' => 'Delivering',
               'delivered' => 'Delivered',
               _ => steps[i],
@@ -2185,6 +2238,287 @@ class _PinBox extends StatelessWidget {
           ),
           filled: true,
           fillColor: AppColors.gray50,
+        ),
+      ),
+    );
+  }
+}
+
+const _kExternalCarrierOptions = [
+  ('dhl', 'DHL'),
+  ('fedex', 'FedEx'),
+  ('ups', 'UPS'),
+  ('gig', 'GIG Logistics'),
+  ('other', 'Other'),
+];
+
+/// Shows the shipment's secondary/external carrier tracking reference
+/// (never replaces the Bago tracking number, which is displayed separately)
+/// and, for the owning business, a way to add/edit/remove it.
+class _ExternalTrackingCard extends StatelessWidget {
+  const _ExternalTrackingCard({
+    required this.requestId,
+    required this.canManage,
+    required this.onUpdated,
+    this.carrier,
+    this.carrierName,
+    this.trackingNumber,
+    this.trackingUrl,
+  });
+
+  final String requestId;
+  final String? carrier;
+  final String? carrierName;
+  final String? trackingNumber;
+  final String? trackingUrl;
+  final bool canManage;
+  final VoidCallback onUpdated;
+
+  bool get _hasTracking => trackingNumber != null && trackingNumber!.isNotEmpty;
+
+  Future<void> _manage(BuildContext context) async {
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ExternalTrackingSheet(
+        requestId: requestId,
+        initialCarrier: carrier,
+        initialTrackingNumber: trackingNumber,
+      ),
+    );
+    if (changed == true) onUpdated();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoCard(
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InfoLabel('External Carrier Tracking'),
+                const SizedBox(height: 8),
+                if (_hasTracking)
+                  GestureDetector(
+                    onTap: trackingUrl != null
+                        ? () => launchUrl(Uri.parse(trackingUrl!),
+                            mode: LaunchMode.externalApplication)
+                        : null,
+                    child: Text(
+                      '${carrierName ?? carrier}: $trackingNumber',
+                      style: AppTextStyles.labelMd.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: trackingUrl != null
+                            ? AppColors.primary
+                            : AppColors.gray900,
+                        decoration: trackingUrl != null
+                            ? TextDecoration.underline
+                            : null,
+                      ),
+                    ),
+                  )
+                else
+                  Text('Not set',
+                      style: AppTextStyles.muted(AppTextStyles.bodySm)),
+              ],
+            ),
+          ),
+          if (canManage)
+            TextButton(
+              onPressed: () => _manage(context),
+              child: Text(_hasTracking ? 'Edit' : 'Add'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExternalTrackingSheet extends StatefulWidget {
+  const _ExternalTrackingSheet({
+    required this.requestId,
+    this.initialCarrier,
+    this.initialTrackingNumber,
+  });
+
+  final String requestId;
+  final String? initialCarrier;
+  final String? initialTrackingNumber;
+
+  @override
+  State<_ExternalTrackingSheet> createState() =>
+      _ExternalTrackingSheetState();
+}
+
+class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
+  late String? _carrier = widget.initialCarrier;
+  late final _customNameCtrl = TextEditingController();
+  late final _trackingCtrl =
+      TextEditingController(text: widget.initialTrackingNumber ?? '');
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _customNameCtrl.dispose();
+    _trackingCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_carrier == 'other' && _customNameCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Enter the carrier/logistics company name.');
+      return;
+    }
+    if (_carrier != null && _trackingCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Enter the tracking number.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ShipmentService.instance.updateExternalTracking(
+        widget.requestId,
+        carrier: _carrier,
+        carrierCustomName:
+            _carrier == 'other' ? _customNameCtrl.text.trim() : null,
+        trackingNumber: _carrier != null ? _trackingCtrl.text.trim() : null,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _remove() async {
+    setState(() => _saving = true);
+    try {
+      await ShipmentService.instance
+          .updateExternalTracking(widget.requestId, carrier: null);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('External Carrier Tracking',
+                style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
+            _InfoLabel('Carrier'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('None'),
+                  selected: _carrier == null,
+                  onSelected: (_) => setState(() => _carrier = null),
+                ),
+                for (final option in _kExternalCarrierOptions)
+                  ChoiceChip(
+                    label: Text(option.$2),
+                    selected: _carrier == option.$1,
+                    onSelected: (_) => setState(() => _carrier = option.$1),
+                  ),
+              ],
+            ),
+            if (_carrier == 'other') ...[
+              const SizedBox(height: 14),
+              TextField(
+                controller: _customNameCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Carrier / logistics company name',
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ],
+            if (_carrier != null) ...[
+              const SizedBox(height: 14),
+              TextField(
+                controller: _trackingCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Tracking number',
+                  filled: true,
+                  fillColor: AppColors.gray50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(_error!,
+                  style: AppTextStyles.bodySm
+                      .copyWith(color: AppColors.error, fontWeight: FontWeight.w600)),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                if (widget.initialTrackingNumber != null &&
+                    widget.initialTrackingNumber!.isNotEmpty)
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _saving ? null : _remove,
+                      child: const Text('Remove'),
+                    ),
+                  ),
+                if (widget.initialTrackingNumber != null &&
+                    widget.initialTrackingNumber!.isNotEmpty)
+                  const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _saving ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                    ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.white),
+                          )
+                        : const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

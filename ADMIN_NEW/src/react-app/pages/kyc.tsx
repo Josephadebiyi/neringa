@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { User, Eye, Calendar, XCircle, Clock, ShieldCheck, FileText, Globe, Hash, CheckCircle2, ExternalLink, RefreshCw, Link } from "lucide-react";
 import { getAllKyc, verifyKyc, syncPremblyKycStatuses, syncPremblyKycUser, syncPremblyKycByReference } from "../services/api";
+import { maskDateOfBirth } from "../utils/maskedDate";
 
 interface KycVerifiedData {
   fullName?: string;
@@ -289,7 +290,7 @@ export default function KYCVerificationManager() {
                   )}
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    <span>DOB: {formatDate(item.user.verifiedDateOfBirth || item.user.kycVerifiedData?.dateOfBirth || item.user.dateOfBirth)}</span>
+                    <span>DOB: {maskDateOfBirth(item.user.verifiedDateOfBirth || item.user.kycVerifiedData?.dateOfBirth || item.user.dateOfBirth)}</span>
                   </div>
                 </div>
 
@@ -372,7 +373,7 @@ export default function KYCVerificationManager() {
                   </div>
                   <div className="col-span-2">
                     <span className="text-gray-500">Date of Birth (profile):</span>
-                    <span className="ml-2 text-gray-900">{formatDate(previewKYC.user.dateOfBirth)}</span>
+                    <span className="ml-2 text-gray-900">{maskDateOfBirth(previewKYC.user.dateOfBirth)}</span>
                   </div>
                 </div>
               </div>

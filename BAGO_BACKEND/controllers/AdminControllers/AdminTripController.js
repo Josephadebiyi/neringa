@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import cloudinary from 'cloudinary';
 import { findProfileById } from '../../lib/postgres/profiles.js';
-import { createTripRecord, getTripById } from '../../lib/postgres/trips.js';
+import { createTripRecord } from '../../lib/postgres/trips.js';
 import { validateTripInput } from '../../lib/trips/validateTripInput.js';
 
 async function uploadTravelDocument(base64DataUri, userId) {
@@ -98,7 +98,9 @@ export const createTripForBusiness = async (req, res, next) => {
         status: 'active',
         batchId,
       });
-      createdTrips.push(await getTripById(trip.id));
+      // createTripRecord already returns the fully hydrated trip — no need
+      // to re-fetch it, which would double the round trips for a bulk post.
+      createdTrips.push(trip);
     }
 
     res.status(201).json({

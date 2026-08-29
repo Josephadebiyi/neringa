@@ -13,6 +13,7 @@ import {
     CheckCircle,
     FileText,
     ShieldCheck,
+    Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
@@ -25,13 +26,37 @@ const GENERAL_ITEMS = [
     { id: 'deliveries', label: 'My Deliveries', icon: CheckCircle },
 ];
 
-function getAccountItems(isBusinessAccount) {
+// Nav items this file doesn't gate (trips/shipments/overview/etc.) stay
+// visible to every staff sub-account regardless of permissions — only the
+// 4 named permission categories from the staff feature filter anything.
+const STAFF_PERMISSION_BY_NAV_ID = {
+    deliveries: 'deliveries.manage',
+    chats: 'chats.manage',
+    earnings: 'accounts.view',
+    financial: 'accounts.view',
+};
+
+function filterByStaffPermission(items, user) {
+    if (!user?.isStaffSession) return items;
+    const permissions = user.staffPermissions || [];
+    return items.filter((item) => {
+        const required = STAFF_PERMISSION_BY_NAV_ID[item.id];
+        return !required || permissions.includes(required);
+    });
+}
+
+function getAccountItems(isBusinessAccount, user) {
     const items = [
         { id: 'earnings', label: 'Wallet', icon: Wallet },
     ];
     if (isBusinessAccount) {
         items.push({ id: 'financial', label: 'Financial Reports', icon: FileText });
         items.push({ id: 'business-verification', label: 'Business Verification', icon: ShieldCheck });
+        // Only the real business owner manages staff — a staff sub-account
+        // session never sees this, matching the backend's owner-only gate.
+        if (!user?.isStaffSession) {
+            items.push({ id: 'staff', label: 'Staff Accounts', icon: Users });
+        }
     }
     items.push(
         { id: 'referral', label: 'Referrals', icon: Gift },
@@ -127,13 +152,13 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
                 <div>
                     <SectionLabel label="GENERAL" />
                     <div className="space-y-1">
-                        {GENERAL_ITEMS.map(item => <NavItem key={item.id} item={item} />)}
+                        {filterByStaffPermission(GENERAL_ITEMS, user).map(item => <NavItem key={item.id} item={item} />)}
                     </div>
                 </div>
                 <div>
                     <SectionLabel label="PREFERENCES" />
                     <div className="space-y-1">
-                        {getAccountItems(isBusinessAccount).map(item => <NavItem key={item.id} item={item} />)}
+                        {filterByStaffPermission(getAccountItems(isBusinessAccount, user), user).map(item => <NavItem key={item.id} item={item} />)}
                     </div>
                 </div>
             </div>

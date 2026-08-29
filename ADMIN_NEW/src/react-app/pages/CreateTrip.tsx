@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, Loader2, Plane, Car, Bus, Train, Ship, Search, CheckCircle2, X } from "lucide-react";
 import { searchBusinesses, createTripForBusiness } from "../services/api";
 import TripDateSelector from "../components/TripDateSelector";
+import CityAutocomplete from "../components/CityAutocomplete";
 
 const TRAVEL_MEANS = [
   { id: "airplane", label: "Airplane", icon: Plane },
@@ -202,22 +203,21 @@ export default function CreateTripPage() {
         <div className="border-t border-gray-100 pt-6">
           <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Route</h2>
           <div className="grid md:grid-cols-2 gap-4">
-            <label>
-              <span className="block text-sm font-medium text-gray-700 mb-1">Origin city <span className="text-red-500">*</span></span>
-              <input value={originCity} onChange={(e) => setOriginCity(e.target.value)} required className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </label>
-            <label>
-              <span className="block text-sm font-medium text-gray-700 mb-1">Origin country</span>
-              <input value={originCountry} onChange={(e) => setOriginCountry(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </label>
-            <label>
-              <span className="block text-sm font-medium text-gray-700 mb-1">Destination city <span className="text-red-500">*</span></span>
-              <input value={destinationCity} onChange={(e) => setDestinationCity(e.target.value)} required className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </label>
-            <label>
-              <span className="block text-sm font-medium text-gray-700 mb-1">Destination country</span>
-              <input value={destinationCountry} onChange={(e) => setDestinationCountry(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </label>
+            <CityAutocomplete
+              label="Origin city"
+              city={originCity}
+              onSelect={(loc) => { setOriginCity(loc.city); setOriginCountry(loc.country); }}
+            />
+            <CityAutocomplete
+              label="Destination city"
+              city={destinationCity}
+              onSelect={(loc) => { setDestinationCity(loc.city); setDestinationCountry(loc.country); }}
+            />
+            <div className="text-xs text-gray-500 md:col-span-2 -mt-2">
+              {originCountry && <span>Origin country: <strong>{originCountry}</strong></span>}
+              {originCountry && destinationCountry && <span className="mx-2">·</span>}
+              {destinationCountry && <span>Destination country: <strong>{destinationCountry}</strong></span>}
+            </div>
             <label>
               <span className="block text-sm font-medium text-gray-700 mb-1">Collection point city (optional)</span>
               <input value={collectionCity} onChange={(e) => setCollectionCity(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" />

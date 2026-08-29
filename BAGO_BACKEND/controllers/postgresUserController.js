@@ -132,7 +132,7 @@ async function updateLastLoginIp(userId, ip) {
   ).catch(() => {});
 }
 
-async function buildUserResponse(user) {
+export async function buildUserResponse(user) {
   let wallet = null;
   let payoutBeneficiary = null;
   if (user?.id) {
@@ -1350,6 +1350,8 @@ export async function getWallet(req, res) {
       escrowBalance: wallet.escrowBalance,
       escrow_balance: wallet.escrow_balance ?? wallet.escrowBalance,
       currency: wallet.currency,
+      fastPayoutEnabled: wallet.fastPayoutEnabled ?? false,
+      fast_payout_enabled: wallet.fast_payout_enabled ?? false,
       rawBalance: wallet.balance,
       raw_balance: wallet.balance,
       rawWalletBalance: wallet.walletBalance ?? wallet.balance,
@@ -1398,6 +1400,8 @@ export async function getWallet(req, res) {
         escrowBalance: wallet.escrowBalance,
         escrow_balance: wallet.escrow_balance ?? wallet.escrowBalance,
         currency: wallet.currency,
+        fastPayoutEnabled: wallet.fastPayoutEnabled ?? false,
+        fast_payout_enabled: wallet.fast_payout_enabled ?? false,
         rawBalance: wallet.balance,
         raw_balance: wallet.balance,
         rawWalletBalance: wallet.walletBalance ?? wallet.balance,

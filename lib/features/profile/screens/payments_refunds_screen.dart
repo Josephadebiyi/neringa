@@ -26,6 +26,7 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
   double _available = 0;
   double _escrow = 0;
   String _currency = 'USD';
+  bool _fastPayoutEnabled = false;
   bool _loading = true;
   bool _generating = false;
 
@@ -45,6 +46,7 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
           _available = (data?['balance'] as num?)?.toDouble() ?? 0;
           _escrow = (data?['escrowBalance'] as num?)?.toDouble() ?? 0;
           _currency = data?['currency']?.toString() ?? 'USD';
+          _fastPayoutEnabled = data?['fastPayoutEnabled'] == true;
           _transactions = list?.cast<Map<String, dynamic>>() ?? [];
           _loading = false;
         });
@@ -272,6 +274,29 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
                       ],
                     ),
                   ),
+                  if (_fastPayoutEnabled) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.bolt_rounded, color: Color(0xFFB45309), size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Fast Payout enabled — eligible earnings are released early, ahead of standard delivery-completion payout.',
+                              style: AppTextStyles.bodySm.copyWith(color: const Color(0xFF92400E), fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   // Escrow protection info
                   Container(

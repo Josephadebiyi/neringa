@@ -352,6 +352,26 @@ class ShipmentService {
     }
   }
 
+  /// Attach, edit, or remove a secondary third-party carrier tracking
+  /// reference on a shipment — never replaces the Bago tracking number.
+  /// Pass carrier: null to remove.
+  Future<void> updateExternalTracking(
+    String requestId, {
+    String? carrier,
+    String? carrierCustomName,
+    String? trackingNumber,
+  }) async {
+    try {
+      await _api.put('/api/bago/request/$requestId/external-tracking', data: {
+        'carrier': carrier,
+        if (carrierCustomName != null) 'carrierCustomName': carrierCustomName,
+        'trackingNumber': trackingNumber,
+      });
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> submitPackageInspection(
     String requestId, {
     List<String>? senderPhotos,

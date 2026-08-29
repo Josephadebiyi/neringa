@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Users, MapPin, Calendar, Search } from "lucide-react";
 import { getAnalytics } from "../services/api";
+import { maskDateOfBirth } from "../utils/maskedDate";
 
 // Define the User interface based on the provided JSON
 interface User {
@@ -146,7 +147,7 @@ export default function Analytics() {
                   <td className="py-4 px-6">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <Calendar className="w-5 h-5 text-blue-500" />
-                      <span>{new Date(user.dateOfBirth).toLocaleDateString()}</span>
+                      <span>{maskDateOfBirth(user.dateOfBirth)}</span>
                     </div>
                   </td>
                   <td className="py-4 px-6">

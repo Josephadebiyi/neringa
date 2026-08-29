@@ -588,6 +588,8 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
     'coalesce(t.travel_document_verified, false) = true',
     "date(t.departure_date) >= current_date",
     "greatest(0, coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) - coalesce(trip_stats.sold_kg, 0) - coalesce(trip_stats.reserved_kg, 0)) > 0",
+    // Demo/showcase accounts must never be bookable by a real sender.
+    "coalesce(p.is_demo_account, false) = false",
   ];
   const params = [];
   let index = 1;

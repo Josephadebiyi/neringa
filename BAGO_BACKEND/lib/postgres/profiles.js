@@ -867,7 +867,8 @@ export async function getWalletByUserId(userId) {
         w.created_at,
         w.updated_at,
         p.preferred_currency,
-        p.earning_currency
+        p.earning_currency,
+        p.fast_payout_enabled
       from public.wallet_accounts w
       left join public.profiles p on p.id = w.user_id
       where w.user_id = $1
@@ -1061,6 +1062,8 @@ export async function getWalletByUserId(userId) {
     currency: walletCurrency,
     walletCurrency,
     wallet_currency: walletCurrency,
+    fastPayoutEnabled: Boolean(wallet.fast_payout_enabled),
+    fast_payout_enabled: Boolean(wallet.fast_payout_enabled),
     balance,
     walletBalance: balance,
     wallet_balance: balance,

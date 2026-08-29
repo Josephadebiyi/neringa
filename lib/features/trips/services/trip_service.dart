@@ -149,6 +149,13 @@ class TripService {
       final res = await _api.post(
         ApiConstants.createTrip,
         data: body,
+        // The default 15s receiveTimeout is too tight for this endpoint: the
+        // server uploads the travel document to Cloudinary and writes several
+        // DB rows before it can respond at all, so nothing streams back until
+        // the whole operation finishes. A slow upload alone can exceed 15s,
+        // which previously showed a false "failed to post" error even though
+        // the trip was created successfully server-side.
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
       );
       final data = res.data as Map<String, dynamic>;
       return TripModel.fromJson(ResponseParser.parseModel(data, ['trip']));

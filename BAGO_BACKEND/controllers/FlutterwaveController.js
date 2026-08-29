@@ -642,7 +642,7 @@ export const withdrawFundsFlutterwave = async (req, res) => {
 
     const profile = await queryOne(
       `SELECT p.kyc_status, p.email, p.first_name, p.last_name, p.account_type,
-              p.signup_method, p.business_status, p.business_grace_period_started_at,
+              p.signup_method, p.business_status, p.business_grace_period_started_at, p.is_demo_account,
               wa.id as wallet_id, wa.available_balance, wa.currency
        FROM public.profiles p
        JOIN public.wallet_accounts wa on wa.user_id = p.id
@@ -651,6 +651,9 @@ export const withdrawFundsFlutterwave = async (req, res) => {
     );
     if (!profile) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (profile.is_demo_account) {
+      return res.status(403).json({ success: false, message: 'Demo accounts cannot withdraw funds.' });
     }
     const walletCurrency = CurrencyService.normalizeCurrency(profile?.currency || currency || 'USD');
     const requestedCurrency = currency ? CurrencyService.normalizeCurrency(currency) : walletCurrency;

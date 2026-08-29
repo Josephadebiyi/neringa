@@ -318,7 +318,15 @@ export default function PostTrip() {
                 setError(res.data?.message || 'Failed to post trip.');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to post trip. Please try again.');
+            // A client-side timeout doesn't mean the post failed — the backend
+            // keeps working after the browser gives up waiting, and the trip
+            // often ends up created anyway. Don't claim it "failed" (which
+            // invites an immediate, duplicate-creating resubmit).
+            if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+                setError('This is taking longer than usual. Check My Trips before posting again — it may have already gone through.');
+            } else {
+                setError(err.response?.data?.message || 'Failed to post trip. Please try again.');
+            }
         } finally {
             setLoading(false);
         }

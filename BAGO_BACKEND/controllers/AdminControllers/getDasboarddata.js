@@ -65,7 +65,11 @@ export const dashboard = async (req, res, next) => {
         ) AS total_income_eur
         FROM public.shipment_requests sr
         LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
+        LEFT JOIN public.profiles sender ON sender.id = sr.sender_id
+        LEFT JOIN public.profiles traveler ON traveler.id = sr.traveler_id
         WHERE sr.status IN ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed')
+          AND coalesce(sender.is_demo_account, false) = false
+          AND coalesce(traveler.is_demo_account, false) = false
       `, [], { total_income_eur: 0 }),
       // Real platform commission (shipment_ledgers.bago_commission_amount), converted to
       // EUR the same way — replaces the previous hardcoded totalIncome * 0.1 estimate.
@@ -85,6 +89,10 @@ export const dashboard = async (req, res, next) => {
         ) AS total_commission_eur
         FROM public.shipment_ledgers sl
         LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
+        LEFT JOIN public.profiles sender ON sender.id = sl.sender_id
+        LEFT JOIN public.profiles traveler ON traveler.id = sl.traveler_id
+        WHERE coalesce(sender.is_demo_account, false) = false
+          AND coalesce(traveler.is_demo_account, false) = false
       `, [], { total_commission_eur: 0 }),
       safeQuery(`
         select status as name, count(*)::int as count

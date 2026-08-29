@@ -1,4 +1,12 @@
 import express from 'express';
+import { requireBusinessPermission } from '../middleware/businessAuthorization.js';
+import {
+  listBusinessStaff,
+  createBusinessStaff,
+  updateBusinessStaff,
+  deleteBusinessStaff,
+  businessStaffLogin,
+} from '../controllers/BusinessStaffController.js';
 import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, sendToEscrow, releaseFromEscrow, addToEscrow, handleCancelledRequestEscrow, addFunds, uploadOrUpdateImage, uploadBusinessDocument, saveBusinessPayoutDraft, changePassword, updateAvatar, getUserStats, deleteAccount } from '../controllers/userController.js';
 import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, exportWalletTransactions, downloadEarningsSummaryPDF, getReferral, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs, detectLocation } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
@@ -223,8 +231,15 @@ userRouter.get("/incoming-requests", isAuthenticated, getIncomingRequests)
 // (PII + wallet balances + handover PINs) and resolve/close disputes filed
 // against them. No client app calls these user-router paths — removed.
 userRouter.get('/completed', isAuthenticated, requireKycVerification, getCompletedRequests);
-userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, requireKycVerification, updateRequestStatus)
-userRouter.put("/request/:requestId/external-tracking", isAuthenticated, requireKycVerification, updateExternalTracking)
+userRouter.put("/updateRequestStatus/:requestId", isAuthenticated, requireKycVerification, requireBusinessPermission('deliveries.manage'), updateRequestStatus)
+userRouter.put("/request/:requestId/external-tracking", isAuthenticated, requireKycVerification, requireBusinessPermission('deliveries.manage'), updateExternalTracking)
+
+// Business staff sub-accounts (owner-only management; login is public)
+userRouter.post('/business/staff/login', businessStaffLogin);
+userRouter.get('/business/staff', isAuthenticated, listBusinessStaff);
+userRouter.post('/business/staff', isAuthenticated, createBusinessStaff);
+userRouter.put('/business/staff/:id', isAuthenticated, updateBusinessStaff);
+userRouter.delete('/business/staff/:id', isAuthenticated, deleteBusinessStaff);
 userRouter.put('/request/:requestId/image', isAuthenticated, requireKycVerification, uploadRequestImage);
 userRouter.put('/request/:requestId/confirm-received', isAuthenticated, requireKycVerification, confirmReceivedBySender);
 userRouter.put('/request/:requestId/traveler-proof', isAuthenticated, requireKycVerification, uploadTravelerProof);
@@ -236,7 +251,7 @@ userRouter.post('/request/:requestId/confirm-handover', isAuthenticated, require
 userRouter.delete('/request/:requestId', isAuthenticated, deleteRequestFromHistory);
 
 // 💰 Wallet & Payments
-userRouter.get('/getWallet', isAuthenticated, getWallet);
+userRouter.get('/getWallet', isAuthenticated, requireBusinessPermission('accounts.view'), getWallet);
 userRouter.get('/wallet/transactions/export', isAuthenticated, exportWalletTransactions);
 userRouter.get('/wallet/report/pdf', isAuthenticated, downloadEarningsSummaryPDF);
 userRouter.get('/referral', isAuthenticated, getReferral);
@@ -249,13 +264,13 @@ userRouter.post("/remove-cancelled-escrow", isAuthenticated, requireKycVerificat
 
 
 
-userRouter.get('/conversations', isAuthenticated, getConversations);
-userRouter.get('/conversations/unread', isAuthenticated, getUnreadCount);
-userRouter.post('/conversations/resolve', isAuthenticated, requireKycVerification, resolveConversation);
-userRouter.post('/conversations/mark-read', isAuthenticated, markMessagesRead);
-userRouter.get('/conversations/:conversationId/messages', isAuthenticated, getMessages);
-userRouter.post('/conversations/:conversationId/send', isAuthenticated, sendMessage);
-userRouter.delete('/conversations/:conversationId', isAuthenticated, requireKycVerification, deleteConversation);
+userRouter.get('/conversations', isAuthenticated, requireBusinessPermission('chats.manage'), getConversations);
+userRouter.get('/conversations/unread', isAuthenticated, requireBusinessPermission('chats.manage'), getUnreadCount);
+userRouter.post('/conversations/resolve', isAuthenticated, requireKycVerification, requireBusinessPermission('chats.manage'), resolveConversation);
+userRouter.post('/conversations/mark-read', isAuthenticated, requireBusinessPermission('chats.manage'), markMessagesRead);
+userRouter.get('/conversations/:conversationId/messages', isAuthenticated, requireBusinessPermission('chats.manage'), getMessages);
+userRouter.post('/conversations/:conversationId/send', isAuthenticated, requireBusinessPermission('chats.manage'), sendMessage);
+userRouter.delete('/conversations/:conversationId', isAuthenticated, requireKycVerification, requireBusinessPermission('chats.manage'), deleteConversation);
 userRouter.get("/getNotifications", isAuthenticated, getNotifications)
 userRouter.put("/markNotificationAsRead/:notificationId", isAuthenticated, markNotificationAsRead)
 userRouter.get("/GetDetails/:requestId", isAuthenticated, requireKycVerification, GetDetials)

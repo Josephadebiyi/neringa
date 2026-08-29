@@ -10,7 +10,17 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(numericValue) ? numericValue : fallback;
 }
 
+// This schema check (and the two below it) is idempotent DDL that only ever
+// needs to succeed once per process lifetime — but every trip read/write call
+// was re-running it on every single call, including the expensive setval
+// subquery that scans the whole trips table. For a business posting many
+// dates in one request, that redundant work was the dominant cost (dozens of
+// round trips per date), slow enough to blow past client-side HTTP timeouts
+// even though the trip was still created successfully server-side. Memoize
+// so it actually runs once, not once per row.
+let tripReferenceColumnEnsured = false;
 async function ensureTripReferenceColumn(executor = { query }) {
+  if (tripReferenceColumnEnsured) return;
   await executor.query(`
     alter table public.trips
       add column if not exists trip_number text
@@ -42,12 +52,15 @@ async function ensureTripReferenceColumn(executor = { query }) {
       on public.trips (trip_number)
       where trip_number is not null
   `);
+  tripReferenceColumnEnsured = true;
 }
 
 // batch_id groups trips created together from one multi-date post (or a
 // single date, which is just a batch of one) — lets admin and the traveler's
 // own dashboard show "1 posting, N dates" instead of N separate trip rows.
+let tripBatchColumnEnsured = false;
 export async function ensureTripBatchColumn(executor = { query }) {
+  if (tripBatchColumnEnsured) return;
   await executor.query(`
     alter table public.trips
       add column if not exists batch_id uuid
@@ -57,6 +70,7 @@ export async function ensureTripBatchColumn(executor = { query }) {
       on public.trips (batch_id)
       where batch_id is not null
   `);
+  tripBatchColumnEnsured = true;
 }
 
 async function nextTripNumber() {

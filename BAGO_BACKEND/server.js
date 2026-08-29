@@ -986,6 +986,7 @@ import { adminAuthenticated } from './Auth/AdminAuthentication.js';
 import { requireKycVerification } from './middleware/kycMiddleware.js';
 import { requireVerifiedContact } from './middleware/securityGuards.js';
 import { requireWithdrawalOtp } from './controllers/WithdrawalOtpController.js';
+import { requireBusinessPermission } from './middleware/businessAuthorization.js';
 
 
 // ✅ IP Geolocation Service
@@ -1043,7 +1044,7 @@ app.get('/api/payouts/flutterwave/banks', isAuthenticated, getFlutterwaveBanks);
 app.get('/api/payouts/flutterwave/resolve', isAuthenticated, resolveFlutterwaveAccount);
 app.post('/api/payouts/flutterwave/connect', isAuthenticated, requireKycVerification, connectFlutterwaveBeneficiary);
 app.post('/api/payouts/flutterwave/verify-bank-otp', isAuthenticated, verifyFlutterwaveBankOtp);
-app.post('/api/payouts/flutterwave/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireWithdrawalOtp, withdrawFundsFlutterwave);
+app.post('/api/payouts/flutterwave/withdraw', isAuthenticated, requireKycVerification, requireVerifiedContact, requireBusinessPermission('accounts.withdraw'), requireWithdrawalOtp, withdrawFundsFlutterwave);
 
 // Stripe checkout/Connect is intentionally disabled while Bago runs Flutterwave-only.
 app.get('/api/payouts/status', isAuthenticated, disabledPaymentProvider('Stripe'));
@@ -2020,7 +2021,8 @@ app.post("/api/trips/search-compatible", async (req, res) => {
 
     // Get trips from Postgres with optional route filters
     const params = [];
-    let where = `WHERE t.status IN ('active','verified')`;
+    // Demo/showcase accounts must never be bookable by a real sender.
+    let where = `WHERE t.status IN ('active','verified') AND coalesce(p.is_demo_account, false) = false`;
     if (fromCountry) { params.push(`%${fromCountry}%`); where += ` AND t.from_country ILIKE $${params.length}`; }
     if (toCountry)   { params.push(`%${toCountry}%`);   where += ` AND t.to_country ILIKE $${params.length}`; }
     if (fromCity)    { params.push(`%${fromCity}%`);    where += ` AND t.from_location ILIKE $${params.length}`; }

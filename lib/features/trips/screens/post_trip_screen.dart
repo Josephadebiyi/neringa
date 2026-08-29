@@ -543,8 +543,25 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+        // A client-side timeout doesn't mean the post failed — the backend
+        // keeps working after the app gives up waiting, and the trip often
+        // ends up created anyway. Don't tell the user it "failed" (which
+        // invites an immediate, duplicate-creating resubmit); tell them what
+        // actually happened and let them check before trying again.
+        final message = e.toString();
+        final isTimeout = message.toLowerCase().contains('timed out');
+        if (isTimeout) {
+          await ref.read(tripProvider.notifier).loadMyTrips();
+        }
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            message: isTimeout
+                ? 'This is taking longer than usual. Check My Trips before posting again — it may have already gone through.'
+                : message,
+            type: SnackBarType.error,
+          );
+        }
       }
     }
   }

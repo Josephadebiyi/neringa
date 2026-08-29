@@ -82,6 +82,23 @@ export default function Login() {
                 setError(response.data.message || 'Login failed');
             }
         } catch (err) {
+            // Staff sub-accounts live in a separate table from regular
+            // profiles — if the main sign-in didn't recognize this email,
+            // transparently try it as a business staff login before
+            // surfacing an error, so staff use the same login screen.
+            if (err.response?.status === 400) {
+                try {
+                    const staffResponse = await api.post('/api/bago/business/staff/login', { email, password });
+                    if (staffResponse.data.success && staffResponse.data.user) {
+                        setAuthSession(staffResponse.data);
+                        login(staffResponse.data.user);
+                        navigate(redirectPath);
+                        return;
+                    }
+                } catch (_staffErr) {
+                    // Fall through to the original error below — neither login succeeded.
+                }
+            }
             const serverMsg = err.response?.data?.message;
             if (serverMsg) {
                 setError(serverMsg);

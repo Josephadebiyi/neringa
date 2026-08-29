@@ -13,6 +13,7 @@ import Referral from '../components/dashboard/Referral';
 import Settings from '../components/dashboard/Settings';
 import FinancialReports from '../components/dashboard/FinancialReports';
 import BusinessVerification from '../components/dashboard/BusinessVerification';
+import StaffAccounts from '../components/dashboard/StaffAccounts';
 import {
     LayoutDashboard,
     Menu,
@@ -36,6 +37,7 @@ const TAB_LABELS = {
     referral: 'Referrals',
     settings: 'Settings',
     insurance: 'Insurance',
+    staff: 'Staff Accounts',
 };
 
 export default function Dashboard() {
@@ -219,6 +221,8 @@ export default function Dashboard() {
                     return <Referral user={user} />;
                 case 'business-verification':
                     return <BusinessVerification user={user} checkAuthStatus={checkAuthStatus} />;
+                case 'staff':
+                    return <StaffAccounts user={user} />;
                 case 'settings':
                     return <Settings user={user} checkAuthStatus={checkAuthStatus} />;
                 case 'insurance':

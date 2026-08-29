@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 import { findProfileById } from '../lib/postgres/profiles.js';
+import { findStaffById } from '../lib/postgres/businessStaff.js';
 
 export const isAuthenticated = async (req, res, next) => {
   try {
@@ -31,6 +32,19 @@ export const isAuthenticated = async (req, res, next) => {
 
     if (user.is_active === false) {
       return res.status(401).json({ success: false, message: 'User not found. Invalid token.' });
+    }
+
+    // A staff sub-account's token carries the owning business's own profile
+    // id (so every existing req.user.id-scoped endpoint keeps working
+    // unmodified) plus actingAsStaffId. Never trust permissions from the
+    // JWT itself — always re-fetch the live staff row so a revoked/edited
+    // permission set takes effect immediately, same as admin sessions.
+    if (decoded.actingAsStaffId) {
+      const staff = await findStaffById(decoded.actingAsStaffId);
+      if (!staff || !staff.isActive || staff.businessProfileId !== user.id) {
+        return res.status(401).json({ success: false, message: 'Staff session is no longer valid.', code: 'STAFF_SESSION_INVALID' });
+      }
+      req.actingStaff = staff;
     }
 
     req.user = user;
