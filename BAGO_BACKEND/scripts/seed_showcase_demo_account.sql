@@ -1,6 +1,13 @@
--- Seeds a permanent demo/showcase business account (support@etktglobal.com)
--- with realistic-looking trips, wallet balance, transaction history, and a
--- chat thread, so new signups can be shown a populated app.
+-- Seeds a permanent demo/showcase business account for recording walkthrough
+-- videos and showing new signups how the app works — realistic trips,
+-- wallet balance, transaction history, and a chat thread.
+--
+-- Uses an email on Bago's own domain (not a customer's) so it can never
+-- collide with a real signup. Unlike the earlier seed_demo_account.sql
+-- (which incorrectly targeted support@etktglobal.com — a real customer
+-- account — and silently flagged it as demo without ever setting its
+-- password), this script REFUSES to touch any account that isn't already
+-- flagged is_demo_account, so it can never hijack a real user again.
 --
 -- SAFE BY DESIGN: every profile this script creates is flagged
 -- is_demo_account = true. The backend excludes is_demo_account rows from
@@ -11,17 +18,14 @@
 --
 -- This is a standalone script, NOT a migration — it is not auto-applied by
 -- the server's migration runner. Run it once manually against your database:
---   psql "$DATABASE_URL" -f scripts/seed_demo_account.sql
+--   psql "$DATABASE_URL" -f scripts/seed_showcase_demo_account.sql
 --
--- Demo login: support@etktglobal.com / Demo@Bago2026
--- (change the password below before running if you want a different one —
--- it's hashed in-database via pgcrypto's bcrypt-compatible crypt(), no
--- external tooling needed.)
+-- Demo login: demo.business@sendwithbago.com / BagoDemo2026!
 --
--- Re-running this script is safe for the business/sender profiles (upserted
--- by email) but will insert a fresh batch of trips/shipments/wallet
--- transactions/messages each time — don't run it more than once unless you
--- want to reset/add to the demo data.
+-- Re-running is safe for the business/sender profiles (upserted by email,
+-- password always reset to the value above) but inserts a fresh batch of
+-- trips/shipments/wallet transactions/messages each time — don't run it
+-- more than once unless you want to add to the demo data.
 
 BEGIN;
 
@@ -30,9 +34,10 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DO $$
 DECLARE
   v_business_id     uuid;
+  v_existing_demo   boolean;
   v_sender1_id      uuid;
   v_sender2_id      uuid;
-  v_password_hash   text := crypt('Demo@Bago2026', gen_salt('bf'));
+  v_password_hash   text := crypt('BagoDemo2026!', gen_salt('bf'));
 
   v_trip1_id        uuid := gen_random_uuid();
   v_trip2_id        uuid := gen_random_uuid();
@@ -54,10 +59,13 @@ DECLARE
   v_conv_id         uuid := gen_random_uuid();
 BEGIN
   -- ── Demo business account ────────────────────────────────────────────
-  -- Looked up by email rather than relying on ON CONFLICT, since this repo
-  -- has no CREATE TABLE for `profiles` to confirm a unique constraint on
-  -- email exists (the table predates this codebase's migration history).
-  SELECT id INTO v_business_id FROM public.profiles WHERE email = 'support@etktglobal.com';
+  SELECT id, is_demo_account INTO v_business_id, v_existing_demo
+    FROM public.profiles WHERE email = 'demo.business@sendwithbago.com';
+
+  IF v_business_id IS NOT NULL AND v_existing_demo IS NOT TRUE THEN
+    RAISE EXCEPTION 'demo.business@sendwithbago.com already exists and is NOT flagged as a demo account — refusing to overwrite it. Pick a different demo email.';
+  END IF;
+
   IF v_business_id IS NULL THEN
     INSERT INTO public.profiles (
       email, first_name, last_name, phone, password_hash, country, date_of_birth,
@@ -68,49 +76,56 @@ BEGIN
       business_status, must_change_password, business_grace_period_started_at,
       kyc_status, kyc_provider, is_demo_account
     ) VALUES (
-      'support@etktglobal.com', 'ETKT', 'Global', '+10000000000', v_password_hash, 'US', '1990-01-01',
+      'demo.business@sendwithbago.com', 'Bago', 'Demo', '+10000000000', v_password_hash, 'US', '1990-01-01',
       'flutterwave', 'USD', 'USD', 'demo', 'demo',
       true, null, 'verified',
-      'company', 'ETKT Global Logistics Ltd', 'ETKT Global', 'DEMO-0001',
+      'company', 'Bago Demo Logistics Ltd', 'Bago Demo', 'DEMO-0001',
       'Logistics', '1 Demo Street, New York, USA', 'DEMO-TAX-0001', 'Operations Manager',
       'verified', false, now(),
       'approved', 'manual', true
     )
     RETURNING id INTO v_business_id;
   ELSE
-    UPDATE public.profiles SET is_demo_account = true WHERE id = v_business_id;
+    -- Already our own demo account from a prior run — reset its password
+    -- and identity fields so login always works, no matter how many times
+    -- this script has been run before.
+    UPDATE public.profiles SET
+      password_hash = v_password_hash, is_demo_account = true, must_change_password = false,
+      company_name = 'Bago Demo Logistics Ltd', trading_name = 'Bago Demo',
+      account_type = 'company', business_status = 'verified', kyc_status = 'approved'
+    WHERE id = v_business_id;
   END IF;
 
   -- ── Two demo sender counterparties (also flagged demo, so their own
   --    activity never pollutes real search/analytics either) ────────────
-  SELECT id INTO v_sender1_id FROM public.profiles WHERE email = 'demo.sender1@etktglobal.com';
+  SELECT id INTO v_sender1_id FROM public.profiles WHERE email = 'demo.sender1@sendwithbago.com';
   IF v_sender1_id IS NULL THEN
     INSERT INTO public.profiles (
       email, first_name, last_name, phone, password_hash, country, date_of_birth,
       payment_gateway, preferred_currency, earning_currency, signup_method, signup_source,
       email_verified, status, account_type, kyc_status, is_demo_account
     ) VALUES (
-      'demo.sender1@etktglobal.com', 'Ava', 'Sender', '+10000000001', v_password_hash, 'US', '1992-05-10',
+      'demo.sender1@sendwithbago.com', 'Ava', 'Sender', '+10000000001', v_password_hash, 'US', '1992-05-10',
       'flutterwave', 'USD', 'USD', 'demo', 'demo', true, 'verified', 'individual', 'approved', true
     )
     RETURNING id INTO v_sender1_id;
   ELSE
-    UPDATE public.profiles SET is_demo_account = true WHERE id = v_sender1_id;
+    UPDATE public.profiles SET is_demo_account = true, password_hash = v_password_hash WHERE id = v_sender1_id;
   END IF;
 
-  SELECT id INTO v_sender2_id FROM public.profiles WHERE email = 'demo.sender2@etktglobal.com';
+  SELECT id INTO v_sender2_id FROM public.profiles WHERE email = 'demo.sender2@sendwithbago.com';
   IF v_sender2_id IS NULL THEN
     INSERT INTO public.profiles (
       email, first_name, last_name, phone, password_hash, country, date_of_birth,
       payment_gateway, preferred_currency, earning_currency, signup_method, signup_source,
       email_verified, status, account_type, kyc_status, is_demo_account
     ) VALUES (
-      'demo.sender2@etktglobal.com', 'Noah', 'Sender', '+10000000002', v_password_hash, 'US', '1988-11-20',
+      'demo.sender2@sendwithbago.com', 'Noah', 'Sender', '+10000000002', v_password_hash, 'US', '1988-11-20',
       'flutterwave', 'USD', 'USD', 'demo', 'demo', true, 'verified', 'individual', 'approved', true
     )
     RETURNING id INTO v_sender2_id;
   ELSE
-    UPDATE public.profiles SET is_demo_account = true WHERE id = v_sender2_id;
+    UPDATE public.profiles SET is_demo_account = true, password_hash = v_password_hash WHERE id = v_sender2_id;
   END IF;
 
   -- ── Wallet: realistic available + escrow balance ─────────────────────
@@ -144,11 +159,11 @@ BEGIN
     receiver_name, receiver_email, receiver_phone, description, category, pickup_address, delivery_address
   ) VALUES
     (v_pkg1_id, v_sender1_id, 'United States', 'New York', 'United Kingdom', 'London', 12, 300,
-     'Emily Receiver', 'demo.receiver1@etktglobal.com', '+10000000011', 'Box of clothing samples', 'clothing', '10 Demo Ave, New York', '20 Demo Rd, London'),
+     'Emily Receiver', 'demo.receiver1@sendwithbago.com', '+10000000011', 'Box of clothing samples', 'clothing', '10 Demo Ave, New York', '20 Demo Rd, London'),
     (v_pkg2_id, v_sender2_id, 'Nigeria', 'Lagos', 'Ghana', 'Accra', 8, 150,
-     'Kwame Receiver', 'demo.receiver2@etktglobal.com', '+10000000012', 'Electronics accessories', 'electronics', '5 Demo Close, Lagos', '9 Demo Way, Accra'),
+     'Kwame Receiver', 'demo.receiver2@sendwithbago.com', '+10000000012', 'Electronics accessories', 'electronics', '5 Demo Close, Lagos', '9 Demo Way, Accra'),
     (v_pkg3_id, v_sender1_id, 'United Arab Emirates', 'Dubai', 'Kenya', 'Nairobi', 20, 500,
-     'Amina Receiver', 'demo.receiver3@etktglobal.com', '+10000000013', 'Cosmetics and skincare bundle', 'cosmetics', '2 Demo Blvd, Dubai', '14 Demo St, Nairobi')
+     'Amina Receiver', 'demo.receiver3@sendwithbago.com', '+10000000013', 'Cosmetics and skincare bundle', 'cosmetics', '2 Demo Blvd, Dubai', '14 Demo St, Nairobi')
   ON CONFLICT (id) DO NOTHING;
 
   -- ── Three demo shipment requests: two completed, one in transit ──────
