@@ -21,6 +21,15 @@ import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
 import '../services/shipment_service.dart';
 
+/// A business account (not a staff sub-account without the permission) can
+/// manage delivery status/tracking. The backend enforces this too via
+/// requireBusinessPermission('deliveries.manage') — this only controls the
+/// mobile UI.
+bool _canManageDeliveriesAsBusiness(WidgetRef ref) {
+  final user = ref.watch(authProvider).user;
+  return (user?.isCompany ?? false) && (user?.canManageDeliveries ?? false);
+}
+
 class ShipmentRequestScreen extends ConsumerStatefulWidget {
   const ShipmentRequestScreen({
     super.key,
@@ -530,16 +539,14 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
 
           if ((req.externalTrackingNumber != null &&
                   req.externalTrackingNumber!.isNotEmpty) ||
-              (isTraveler &&
-                  (ref.watch(authProvider).user?.isCompany ?? false))) ...[
+              (isTraveler && _canManageDeliveriesAsBusiness(ref))) ...[
             _ExternalTrackingCard(
               requestId: req.id,
               carrier: req.externalCarrier,
               carrierName: req.externalCarrierName,
               trackingNumber: req.externalTrackingNumber,
               trackingUrl: req.externalTrackingUrl,
-              canManage: isTraveler &&
-                  (ref.watch(authProvider).user?.isCompany ?? false),
+              canManage: isTraveler && _canManageDeliveriesAsBusiness(ref),
               onUpdated: () {
                 setState(() {
                   _requestFuture = ShipmentService.instance
@@ -821,8 +828,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     _ShipmentStatusButtons(
                       currentStatus: req.status,
                       requestId: req.id,
-                      isBusinessAccount:
-                          ref.watch(authProvider).user?.isCompany ?? false,
+                      isBusinessAccount: _canManageDeliveriesAsBusiness(ref),
                       onStatusUpdated: () {
                         ref
                             .read(shipmentProvider.notifier)

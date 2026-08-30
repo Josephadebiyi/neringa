@@ -468,8 +468,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             payoutMethodStatus == 'connected' ||
             payoutMethodStatus == 'active');
     final hasPayoutMethod = hasBankLinked || hasActiveFlutterwave;
-    final canWithdraw =
-        hasPayoutMethod && !_submitting && _balance >= minimumAmount;
+    final canWithdraw = hasPayoutMethod &&
+        !_submitting &&
+        _balance >= minimumAmount &&
+        (user?.canWithdrawFunds ?? true);
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -635,6 +637,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                               fontWeight: FontWeight.w800)),
                 ),
               ),
+              if (!(user?.canWithdrawFunds ?? true)) ...[
+                const SizedBox(height: 10),
+                Text(
+                  "Your account doesn't have permission to withdraw funds. Ask the business owner to enable it.",
+                  textAlign: TextAlign.center,
+                  style:
+                      AppTextStyles.bodySm.copyWith(color: AppColors.gray500),
+                ),
+              ],
             ],
           ),
         ),

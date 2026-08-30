@@ -10,6 +10,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/model_enums.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/auth_required_modal.dart';
+import '../auth/models/user_model.dart';
 import '../auth/providers/auth_provider.dart';
 import '../messages/providers/message_provider.dart';
 import '../shipments/models/request_model.dart';
@@ -71,6 +72,25 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     _pollTimer?.cancel();
     _messagePollTimer?.cancel();
     super.dispose();
+  }
+
+  /// null when the tab is allowed; otherwise the message to show a business
+  /// staff sub-account that lacks the permission this tab requires. Only
+  /// staff sessions are restricted — the business owner always has full
+  /// access, matching the backend's requireBusinessPermission middleware.
+  String? _deniedTabMessage(UserModel? user, _TabItem tab) {
+    if (user == null || !user.isStaffSession) return null;
+    if (tab.path.isEmpty || tab.path == '/activity') {
+      return user.canManageDeliveries
+          ? null
+          : "You don't have permission to manage deliveries.";
+    }
+    if (tab.path == '/messages') {
+      return user.canManageChats
+          ? null
+          : "You don't have permission to manage chats.";
+    }
+    return null;
   }
 
   int _currentIndex(BuildContext context, List<_TabItem> tabs) {
@@ -431,6 +451,14 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             onTap: (i) {
               final tab = tabs[i];
               final isLoggedIn = ref.read(authProvider).isLoggedIn;
+              final deniedMessage =
+                  _deniedTabMessage(ref.read(authProvider).user, tab);
+              if (deniedMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(deniedMessage)),
+                );
+                return;
+              }
               // Publish tab — action, not destination
               if (tab.path.isEmpty) {
                 if (!isLoggedIn) {

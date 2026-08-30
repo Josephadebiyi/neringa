@@ -63,28 +63,49 @@ class AuthService {
         ApiConstants.login,
         data: {'email': email.trim(), 'password': password},
       );
-      final data = res.data as Map<String, dynamic>;
-      final user = await _applyStoredRole(
-        UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
-      );
-      final token = data['token']?.toString() ?? '';
-      final refreshTok = data['refreshToken']?.toString();
-
-      await _storage.saveTokens(
-        accessToken: token,
-        refreshToken: refreshTok,
-      );
-      await _storage.saveRole(user.role);
-      await _storage.saveUser(user.toJsonString());
-      await _storage.saveBackendUrl(ApiConstants.baseUrl);
-      return (user: user, token: token);
+      return await _applyLoginResponse(res.data as Map<String, dynamic>);
     } on DioException catch (e) {
+      // The owner-account email lookup returns 400 for "no such profile" —
+      // a business staff sub-account's email only exists in a separate
+      // table, so it always fails this way. Retry against the dedicated
+      // staff login endpoint before giving up (mirrors BAGO_WEBAPP's
+      // Login.jsx fallback).
+      if (e.response?.statusCode == 400) {
+        try {
+          final staffRes = await _api.post(
+            ApiConstants.businessStaffLogin,
+            data: {'email': email.trim(), 'password': password},
+          );
+          return await _applyLoginResponse(
+              staffRes.data as Map<String, dynamic>);
+        } on DioException catch (staffError) {
+          throw ApiService.parseError(staffError);
+        }
+      }
       throw ApiService.parseError(e);
     } on PlatformException catch (e) {
       debugPrint('Login: platform/keychain error (non-fatal): $e');
       throw Exception(
           'A system error occurred. Please restart the app and try again.');
     }
+  }
+
+  Future<({UserModel user, String token})> _applyLoginResponse(
+      Map<String, dynamic> data) async {
+    final user = await _applyStoredRole(
+      UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+    );
+    final token = data['token']?.toString() ?? '';
+    final refreshTok = data['refreshToken']?.toString();
+
+    await _storage.saveTokens(
+      accessToken: token,
+      refreshToken: refreshTok,
+    );
+    await _storage.saveRole(user.role);
+    await _storage.saveUser(user.toJsonString());
+    await _storage.saveBackendUrl(ApiConstants.baseUrl);
+    return (user: user, token: token);
   }
 
   /// Step 1 of registration: returns signupToken for OTP verification

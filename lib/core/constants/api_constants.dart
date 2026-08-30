@@ -29,6 +29,7 @@ class ApiConstants {
   // Auth
   // ---------------------------------------------------------------------------
   static const String login = '/api/bago/signin';
+  static const String businessStaffLogin = '/api/bago/business/staff/login';
   static const String register = '/api/bago/signup';
   static const String checkEmail = '/api/bago/signup/check-email';
   static const String verifyOtp = '/api/bago/verify-signup-otp';

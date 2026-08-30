@@ -208,6 +208,7 @@ class _AuthInterceptor extends Interceptor {
     // Skip refresh for auth routes to avoid loops
     final path = err.requestOptions.path;
     if (path.contains('signin') ||
+        path.contains('business/staff/login') ||
         path.contains('signup') ||
         path.contains('google-auth') ||
         path.contains('refresh-token') ||

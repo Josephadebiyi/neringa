@@ -47,6 +47,13 @@ class UserModel {
   final bool earningCurrencyLocked;
   final String accountType; // 'individual' | 'company'
   final String? companyName;
+  // Set when this session is a business staff sub-account rather than the
+  // business owner itself — staffPermissions gates what the sub-account can
+  // do in the UI (the backend enforces the same permissions server-side).
+  final bool isStaffSession;
+  final List<String> staffPermissions;
+  final String? staffId;
+  final String? staffFullName;
 
   const UserModel({
     required this.id,
@@ -90,9 +97,23 @@ class UserModel {
     this.earningCurrencyLocked = false,
     this.accountType = 'individual',
     this.companyName,
+    this.isStaffSession = false,
+    this.staffPermissions = const [],
+    this.staffId,
+    this.staffFullName,
   });
 
   bool get isCompany => accountType == 'company';
+
+  /// Owner sessions (and non-company accounts) have full access; a staff
+  /// session is limited to its granted permissions.
+  bool hasPermission(String permission) =>
+      !isStaffSession || staffPermissions.contains(permission);
+
+  bool get canManageDeliveries => hasPermission('deliveries.manage');
+  bool get canViewAccounts => hasPermission('accounts.view');
+  bool get canWithdrawFunds => hasPermission('accounts.withdraw');
+  bool get canManageChats => hasPermission('chats.manage');
 
   String get firstName {
     final parts = fullName
@@ -113,12 +134,18 @@ class UserModel {
     return parts.sublist(1).join(' ');
   }
 
-  /// Display name: company name for companies, first name for individuals
-  String get displayName => isCompany
-      ? (companyName?.isNotEmpty == true ? companyName! : fullName)
-      : fullName.split(' ').first.isNotEmpty
-          ? fullName.split(' ').first
-          : fullName;
+  /// Display name: staff member's own name when acting as staff, company
+  /// name for companies, first name for individuals.
+  String get displayName {
+    if (isStaffSession && staffFullName?.isNotEmpty == true) {
+      return staffFullName!;
+    }
+    return isCompany
+        ? (companyName?.isNotEmpty == true ? companyName! : fullName)
+        : fullName.split(' ').first.isNotEmpty
+            ? fullName.split(' ').first
+            : fullName;
+  }
 
   bool get isCarrier => _normalizeRole(role) == 'carrier';
   bool get isSender => _normalizeRole(role) == 'sender';
@@ -191,6 +218,10 @@ class UserModel {
     bool? earningCurrencyLocked,
     String? accountType,
     String? companyName,
+    bool? isStaffSession,
+    List<String>? staffPermissions,
+    String? staffId,
+    String? staffFullName,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -237,6 +268,10 @@ class UserModel {
           earningCurrencyLocked ?? this.earningCurrencyLocked,
       accountType: accountType ?? this.accountType,
       companyName: companyName ?? this.companyName,
+      isStaffSession: isStaffSession ?? this.isStaffSession,
+      staffPermissions: staffPermissions ?? this.staffPermissions,
+      staffId: staffId ?? this.staffId,
+      staffFullName: staffFullName ?? this.staffFullName,
     );
   }
 
@@ -337,7 +372,21 @@ class UserModel {
             'individual',
         companyName:
             json['companyName']?.toString() ?? json['company_name']?.toString(),
+        isStaffSession:
+            json['isStaffSession'] == true || json['is_staff_session'] == true,
+        staffPermissions: _stringList(
+            json['staffPermissions'] ?? json['staff_permissions']),
+        staffId: json['staffId']?.toString() ?? json['staff_id']?.toString(),
+        staffFullName: json['staffFullName']?.toString() ??
+            json['staff_full_name']?.toString(),
       );
+
+  static List<String> _stringList(dynamic value) {
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return const [];
+  }
 
   static Map<String, dynamic>? _optionalMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
@@ -384,6 +433,10 @@ class UserModel {
         'earning_currency_locked': earningCurrencyLocked,
         'accountType': accountType,
         'companyName': companyName,
+        'is_staff_session': isStaffSession,
+        'staff_permissions': staffPermissions,
+        'staff_id': staffId,
+        'staff_full_name': staffFullName,
       };
 
   String toJsonString() => jsonEncode(toJson());
