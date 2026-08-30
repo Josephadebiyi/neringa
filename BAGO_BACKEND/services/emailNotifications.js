@@ -980,6 +980,7 @@ export async function sendKycApprovedEmail(userEmail, userName) {
 }
 
 const BAGO_YOUTUBE_URL = 'https://www.youtube.com/@sendwithbago';
+const BAGO_DEMO_VIDEOS_URL = 'https://loom.com/share/folder/e11da38b635e4f5abf9bac50b61bf364';
 
 // Sent when an admin creates a business account on the business's behalf
 // (admin-assisted onboarding) — includes the generated temp password since
@@ -1062,8 +1063,15 @@ export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, 
           after that, the account is restricted until verification is complete and approved.
         </p>
       </div>
+      <div style="background:#eef2ff; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5845D8;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Demo videos: how to use Bago</p>
+        <p style="margin:0; font-size:14px; color:#374151;">
+          New to Bago? Watch our short walkthrough videos to see how everything works:
+          <a href="${BAGO_DEMO_VIDEOS_URL}" style="color:#5845D8; font-weight:600;">${BAGO_DEMO_VIDEOS_URL}</a>
+        </p>
+      </div>
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
-        New to Bago? Watch our tutorial videos to see how everything works:
+        You can also browse our full tutorial channel:
         <a href="${BAGO_YOUTUBE_URL}" style="color:#5845D8; font-weight:600;">${BAGO_YOUTUBE_URL}</a>
       </p>
       <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
@@ -1104,6 +1112,13 @@ export async function sendBusinessWelcomeEmail(userEmail, userName, businessName
           <li>Download financial reports from your dashboard</li>
           <li>Receive earnings into your Bago wallet</li>
         </ul>
+      </div>
+      <div style="background:#eef2ff; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5845D8;">
+        <p style="margin:0 0 8px; font-size:14px; color:#111827; font-weight:600;">Demo videos: how to use Bago</p>
+        <p style="margin:0; font-size:14px; color:#374151;">
+          New to Bago? Watch our short walkthrough videos to see how everything works:
+          <a href="${BAGO_DEMO_VIDEOS_URL}" style="color:#5845D8; font-weight:600;">${BAGO_DEMO_VIDEOS_URL}</a>
+        </p>
       </div>
       <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         Sign in on the Bago app or website with <strong>${userEmail}</strong> and the password you created during registration.
