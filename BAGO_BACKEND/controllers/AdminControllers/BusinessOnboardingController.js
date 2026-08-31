@@ -157,6 +157,25 @@ export const approveBusinessAccount = async (req, res, next) => {
 
     const kycStatus = String(profile.kycStatus || '').trim().toLowerCase();
     const kycApproved = ['approved', 'verified', 'completed'].includes(kycStatus);
+    const requiredDetails = [
+      ['registered company name', profile.companyName],
+      ['trading name', profile.tradingName],
+      ['registration number', profile.businessRegistrationNumber],
+      ['business address', profile.businessAddress],
+      ['representative first name', profile.firstName],
+      ['representative last name', profile.lastName],
+      ['representative date of birth', profile.dateOfBirth],
+      ['representative role', profile.representativeRole],
+    ];
+    const missingDetails = requiredDetails.filter(([, value]) => !String(value || '').trim()).map(([label]) => label);
+    if (missingDetails.length) {
+      return res.status(400).json({
+        success: false,
+        code: 'BUSINESS_DETAILS_INCOMPLETE',
+        message: `Complete the following business details before approval: ${missingDetails.join(', ')}.`,
+        missingDetails,
+      });
+    }
     if (!kycApproved || profile.businessDocumentStatus !== 'approved') {
       return res.status(400).json({
         success: false,

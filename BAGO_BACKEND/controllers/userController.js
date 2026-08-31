@@ -303,11 +303,36 @@ export const edit = async (req, res, next) => {
       }
     }
 
-    const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'preferredLanguage', 'country', 'bio', 'representativeRole'];
+    const businessFields = ['companyName', 'tradingName', 'businessRegistrationNumber', 'businessType', 'businessAddress', 'businessTaxId', 'representativeRole'];
+    const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'preferredLanguage', 'country', 'bio', ...businessFields];
     const updateKeys = Object.keys(updates).filter(k => allowed.includes(k));
 
     if (updateKeys.length === 0) {
       return res.status(400).json({ message: 'No valid update fields provided' });
+    }
+
+    const requestedBusinessFields = updateKeys.filter((key) => businessFields.includes(key));
+    if (requestedBusinessFields.length > 0) {
+      const profile = await queryOne(
+        `SELECT account_type, business_document_status, business_status FROM public.profiles WHERE id = $1`,
+        [userId],
+      );
+      if (profile?.account_type !== 'company') {
+        return res.status(403).json({ success: false, message: 'Business details can only be changed on a business account.' });
+      }
+      if (profile.business_document_status === 'approved' || profile.business_status === 'verified') {
+        return res.status(403).json({
+          success: false,
+          code: 'BUSINESS_DETAILS_LOCKED',
+          message: 'Registered business details are locked after verification. Contact support to request a correction.',
+        });
+      }
+      for (const key of requestedBusinessFields) {
+        updates[key] = String(updates[key] || '').trim();
+        if (updates[key].length > 300) {
+          return res.status(400).json({ success: false, message: 'Business detail fields must be 300 characters or fewer.' });
+        }
+      }
     }
 
     if (updateKeys.includes('bio')) {
@@ -366,6 +391,12 @@ export const edit = async (req, res, next) => {
         country: 'country',
         bio: 'bio',
         representativeRole: 'representative_role',
+        companyName: 'company_name',
+        tradingName: 'trading_name',
+        businessRegistrationNumber: 'business_registration_number',
+        businessType: 'business_type',
+        businessAddress: 'business_address',
+        businessTaxId: 'business_tax_id',
       };
       const col = colMap[key];
       if (!col) continue;

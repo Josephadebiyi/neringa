@@ -367,15 +367,35 @@ export async function signUp(req, res) {
       lastName = parts.length > 1 ? parts.slice(1).join(' ') : 'User';
     }
 
-    if (!firstName) firstName = 'Bago';
-    if (!lastName) lastName = 'User';
-    if (!dateOfBirth) dateOfBirth = '2000-01-01';
-
     if (!email || !phone || !password || !confirmPassword || !country) {
       return res.status(400).json({ message: 'Please fill in all required fields: email, phone, country, and password' });
     }
-    if (accountType === 'company' && (!companyName?.trim() || !tradingName?.trim() || !businessRegistrationNumber?.trim())) {
-      return res.status(400).json({ message: 'Company name, trading name, and registration number are required.' });
+    if (accountType === 'company') {
+      const requiredBusinessFields = {
+        'company name': companyName,
+        'trading name': tradingName,
+        'registration number': businessRegistrationNumber,
+        'business address': businessAddress,
+        'representative first name': firstName,
+        'representative last name': lastName,
+        'representative role': representativeRole,
+        'representative date of birth': dateOfBirth,
+      };
+      const missing = Object.entries(requiredBusinessFields)
+        .filter(([, value]) => !String(value || '').trim())
+        .map(([label]) => label);
+      if (missing.length) {
+        return res.status(400).json({ message: `Please complete all required business details: ${missing.join(', ')}.` });
+      }
+    }
+
+    // Legacy individual clients may omit identity fields and complete them
+    // later. Companies must never receive placeholder representative data,
+    // because it could be mistaken for information the business submitted.
+    if (accountType !== 'company') {
+      if (!firstName) firstName = 'Bago';
+      if (!lastName) lastName = 'User';
+      if (!dateOfBirth) dateOfBirth = '2000-01-01';
     }
 
     if (password !== confirmPassword) {

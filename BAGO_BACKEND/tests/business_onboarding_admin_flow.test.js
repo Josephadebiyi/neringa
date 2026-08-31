@@ -148,7 +148,9 @@ describe('admin approval gate (approveBusinessAccount)', () => {
   it('approves and lifts restrictions once both representative KYC and the business document are approved', async () => {
     mocks.findProfileById.mockResolvedValue({
       id: 'biz-1', accountType: 'company', kycStatus: 'approved', businessDocumentStatus: 'approved',
-      firstName: 'Ada', lastName: 'Cole', tradingName: 'Acme Express', email: 'ops@acme.test',
+      firstName: 'Ada', lastName: 'Cole', dateOfBirth: '1990-04-12', representativeRole: 'Director',
+      companyName: 'Acme Express Limited', tradingName: 'Acme Express',
+      businessRegistrationNumber: 'RC-12345', businessAddress: '1 Market Street', email: 'ops@acme.test',
     });
     const req = { params: { userId: 'biz-1' } };
     const res = mockRes();
@@ -160,6 +162,25 @@ describe('admin approval gate (approveBusinessAccount)', () => {
     );
     expect(res._code).toBe(200);
     expect(mocks.sendBusinessWelcomeEmail).toHaveBeenCalledWith('ops@acme.test', 'Ada Cole', 'Acme Express');
+  });
+
+  it('refuses approval and identifies missing submitted business details', async () => {
+    mocks.findProfileById.mockResolvedValue({
+      id: 'biz-1', accountType: 'company', kycStatus: 'approved', businessDocumentStatus: 'approved',
+      firstName: 'Ada', lastName: 'Cole', dateOfBirth: '1990-04-12', representativeRole: '',
+      companyName: 'Acme Express Limited', tradingName: 'Acme Express',
+      businessRegistrationNumber: '', businessAddress: '',
+    });
+    const req = { params: { userId: 'biz-1' } };
+    const res = mockRes();
+    await approveBusinessAccount(req, res, vi.fn());
+
+    expect(res._code).toBe(400);
+    expect(res._body.code).toBe('BUSINESS_DETAILS_INCOMPLETE');
+    expect(res._body.missingDetails).toEqual([
+      'registration number', 'business address', 'representative role',
+    ]);
+    expect(mocks.query).not.toHaveBeenCalled();
   });
 
   it('rejects approval for a non-business (individual) account', async () => {

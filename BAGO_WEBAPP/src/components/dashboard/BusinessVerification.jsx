@@ -62,6 +62,11 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
         lastName: user?.lastName || '',
         dateOfBirth: user?.dateOfBirth ? String(user.dateOfBirth).slice(0, 10) : '',
         representativeRole: user?.representativeRole || '',
+        companyName: user?.companyName || '',
+        tradingName: user?.tradingName || '',
+        businessRegistrationNumber: user?.businessRegistrationNumber || '',
+        businessAddress: user?.businessAddress || '',
+        businessTaxId: user?.businessTaxId || '',
     });
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
@@ -83,9 +88,22 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
         setSaveSuccess('');
         setSaving(true);
         try {
-            const payload = kycApproved
-                ? { representativeRole: form.representativeRole }
-                : form;
+            const businessDetailsLocked = user?.businessDocumentStatus === 'approved' || user?.businessStatus === 'verified';
+            const payload = {
+                ...(kycApproved ? { representativeRole: form.representativeRole } : {
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    dateOfBirth: form.dateOfBirth,
+                    representativeRole: form.representativeRole,
+                }),
+                ...(!businessDetailsLocked ? {
+                    companyName: form.companyName,
+                    tradingName: form.tradingName,
+                    businessRegistrationNumber: form.businessRegistrationNumber,
+                    businessAddress: form.businessAddress,
+                    businessTaxId: form.businessTaxId,
+                } : {}),
+            };
             await api.put('/api/bago/edit', payload);
             setSaveSuccess('Representative details saved.');
             await checkAuthStatus?.();
@@ -146,9 +164,31 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
             )}
 
             <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6 md:p-8">
+                <form onSubmit={saveRepresentative}>
+                <h2 className="text-lg font-black text-[#012126] mb-1">Registered business details</h2>
+                <p className="text-sm text-gray-500 mb-6">These must match the CAC or registration certificate. They lock once the document is approved.</p>
+                <div className="grid md:grid-cols-2 gap-5 mb-8">
+                    {[
+                        ['companyName', 'Registered company name'],
+                        ['tradingName', 'Trading name'],
+                        ['businessRegistrationNumber', 'Registration number'],
+                        ['businessTaxId', 'Tax ID (optional)'],
+                    ].map(([key, label]) => (
+                        <label key={key}>
+                            <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">{label}</span>
+                            <input value={form[key]} onChange={change(key)} required={key !== 'businessTaxId'} disabled={user?.businessDocumentStatus === 'approved' || user?.businessStatus === 'verified'}
+                                className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] outline-none text-sm font-bold disabled:text-gray-400" />
+                        </label>
+                    ))}
+                    <label className="md:col-span-2">
+                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">Registered business address</span>
+                        <textarea value={form.businessAddress} onChange={change('businessAddress')} required disabled={user?.businessDocumentStatus === 'approved' || user?.businessStatus === 'verified'} rows={3}
+                            className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] outline-none text-sm font-bold disabled:text-gray-400" />
+                    </label>
+                </div>
                 <h2 className="text-lg font-black text-[#012126] mb-1">Representative details</h2>
                 <p className="text-sm text-gray-500 mb-6">The person authorised to act on behalf of the business.</p>
-                <form onSubmit={saveRepresentative} className="grid md:grid-cols-2 gap-5">
+                <div className="grid md:grid-cols-2 gap-5">
                     <label>
                         <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5 flex items-center gap-1">
                             First name
@@ -181,8 +221,8 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                     </label>
                     <label>
                         <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">Role in the business</span>
-                        <input value={form.representativeRole} onChange={change('representativeRole')}
-                            className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-sm font-bold" />
+                        <input value={form.representativeRole} onChange={change('representativeRole')} required disabled={user?.businessDocumentStatus === 'approved' || user?.businessStatus === 'verified'}
+                            className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-sm font-bold disabled:text-gray-400" />
                     </label>
 
                     {saveError && <p className="md:col-span-2 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-xs font-bold text-red-600">{saveError}</p>}
@@ -191,9 +231,10 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                     <div className="md:col-span-2">
                         <button type="submit" disabled={saving}
                             className="px-6 py-3 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-xl font-bold text-sm disabled:opacity-60">
-                            {saving ? 'Saving…' : 'Save representative details'}
+                            {saving ? 'Saving…' : 'Save business details'}
                         </button>
                     </div>
+                </div>
                 </form>
             </div>
 
