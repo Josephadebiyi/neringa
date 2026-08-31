@@ -29,8 +29,31 @@ export function mimeTypeFromDataUri(dataUri) {
 const AUTHENTICATED_URL_PATTERN =
   /\/([a-z]+)\/authenticated\/(s--[^/]+--\/)?(?:v\d+\/)?(.+)\.([a-zA-Z0-9]+)(?:\?.*)?$/;
 
+const CLOUDINARY_DELIVERY_URL_PATTERN =
+  /\/([a-z]+)\/(upload|authenticated)\/(?:s--[^/]+--\/)?(?:v\d+\/)?(.+)\.([a-zA-Z0-9]+)(?:\?.*)?$/;
+
 export function getViewableDocumentUrl(storedUrl) {
   if (!storedUrl) return null;
+  const deliveryMatch = storedUrl.match(CLOUDINARY_DELIVERY_URL_PATTERN);
+
+  // Cloudinary commonly refuses direct delivery of PDFs that were uploaded
+  // as `image` (the historical behaviour in Bago).  A signed download URL is
+  // the supported escape hatch and also repairs already-stored legacy CAC and
+  // trip-proof URLs without requiring every user to upload the file again.
+  if (deliveryMatch && deliveryMatch[1] === 'image' && deliveryMatch[4].toLowerCase() === 'pdf') {
+    const [, resourceType, type, publicId, format] = deliveryMatch;
+    try {
+      return cloudinary.v2.utils.private_download_url(publicId, format, {
+        resource_type: resourceType,
+        type,
+        attachment: false,
+      });
+    } catch (error) {
+      console.error('Could not create document download URL:', error.message);
+      return storedUrl;
+    }
+  }
+
   const match = storedUrl.match(AUTHENTICATED_URL_PATTERN);
   if (!match) return storedUrl; // not an authenticated-type asset (e.g. legacy public upload) — use as-is
   const [, resourceType, existingSignature, publicId, format] = match;

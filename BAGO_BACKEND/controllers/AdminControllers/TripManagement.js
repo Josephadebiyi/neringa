@@ -2,6 +2,7 @@ import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 import { sendTripApprovedEmail, sendTripDeclinedEmail } from '../../services/emailNotifications.js';
 import { updateTripRecord, ensureTripBatchColumn } from '../../lib/postgres/trips.js';
+import { getViewableDocumentUrl } from '../../lib/cloudinaryDocuments.js';
 
 function normalizeTrip(row) {
   return {
@@ -37,7 +38,7 @@ function normalizeTrip(row) {
     pricePerKg: Number(row.price_per_kg || 0),
     currency: row.currency,
     landmark: row.landmark,
-    travelDocument: row.travel_document_url,
+    travelDocument: getViewableDocumentUrl(row.travel_document_url),
     travelDocumentVerified: row.travel_document_verified,
     collectionCity: row.collection_city,
     collectionCountry: row.collection_country,
