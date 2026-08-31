@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import cloudinary from 'cloudinary';
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { createProfileWithWallet, findProfileById } from '../../lib/postgres/profiles.js';
-import { getViewableDocumentUrl } from '../../lib/cloudinaryDocuments.js';
+import { getViewableDocumentUrl, resourceTypeForMimetype } from '../../lib/cloudinaryDocuments.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
 import { sendAdminCreatedBusinessAccountEmail, sendBusinessWelcomeEmail, sendKycVerificationLinkEmail, sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 import { createPremblySessionForUser } from '../PremblyController.js';
@@ -101,7 +101,7 @@ export const adminUploadBusinessDocument = async (req, res) => {
     const result = await cloudinary.v2.uploader.upload(dataUri, {
       folder: 'bago/business_documents',
       public_id: `registration_${userId}_${Date.now()}`,
-      resource_type: 'auto',
+      resource_type: resourceTypeForMimetype(file.mimetype),
       type: 'authenticated',
     });
 

@@ -1,5 +1,14 @@
 import cloudinary from 'cloudinary';
 
+// Cloudinary blocks delivery of PDFs uploaded as resource_type 'image' (what
+// `resource_type: 'auto'` resolves a PDF to) by default on most accounts,
+// as a security measure — even with a correctly signed URL, it 401s. `raw`
+// delivery isn't subject to that restriction. CAC/registration certificates
+// are overwhelmingly PDFs, so this matters in practice.
+export function resourceTypeForMimetype(mimetype) {
+  return String(mimetype || '').toLowerCase() === 'application/pdf' ? 'raw' : 'auto';
+}
+
 // Business CAC/registration documents are uploaded with `type: 'authenticated'`
 // (see controllers/userController.js's uploadBusinessDocument and
 // controllers/AdminControllers/BusinessOnboardingController.js's

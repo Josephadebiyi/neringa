@@ -5,6 +5,7 @@ import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
 import { syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { updatePreferredCurrency, findProfileById, getWalletByUserId } from '../lib/postgres/profiles.js';
 import { FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES } from '../constants/countries.js';
+import { resourceTypeForMimetype } from '../lib/cloudinaryDocuments.js';
 
 let resend = null;
 if (process.env.RESEND_API_KEY) {
@@ -152,7 +153,7 @@ export const uploadBusinessDocument = async (req, res) => {
     const result = await cloudinary.v2.uploader.upload(dataUri, {
       folder: 'bago/business_documents',
       public_id: `registration_${userId}_${Date.now()}`,
-      resource_type: 'auto',
+      resource_type: resourceTypeForMimetype(mime),
       type: 'authenticated',
     });
     await pgQuery(
