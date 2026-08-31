@@ -3,21 +3,20 @@ import cloudinary from 'cloudinary';
 import { findProfileById } from '../../lib/postgres/profiles.js';
 import { createTripRecord } from '../../lib/postgres/trips.js';
 import { validateTripInput } from '../../lib/trips/validateTripInput.js';
+import { resourceTypeForMimetype, mimeTypeFromDataUri } from '../../lib/cloudinaryDocuments.js';
 
+// See controllers/AddaTripController.js's uploadTravelDocument for why this
+// picks resource_type from the actual mimetype instead of hardcoding
+// 'image'/'jpg' — PDFs (boarding passes/bookings) need 'raw'.
 async function uploadTravelDocument(base64DataUri, userId) {
   if (!base64DataUri || !base64DataUri.startsWith('data:')) return base64DataUri;
-  try {
-    const result = await cloudinary.v2.uploader.upload(base64DataUri, {
-      folder: 'bago/travel_documents',
-      public_id: `trip_proof_${userId}_${Date.now()}`,
-      resource_type: 'image',
-      format: 'jpg',
-    });
-    return result.secure_url;
-  } catch (err) {
-    console.error('Cloudinary travel document upload failed:', err.message);
-    return base64DataUri;
-  }
+  const mime = mimeTypeFromDataUri(base64DataUri);
+  const result = await cloudinary.v2.uploader.upload(base64DataUri, {
+    folder: 'bago/travel_documents',
+    public_id: `trip_proof_${userId}_${Date.now()}`,
+    resource_type: resourceTypeForMimetype(mime),
+  });
+  return result.secure_url;
 }
 
 // Admin creates one or more trips (bulk dates supported, same as a business's

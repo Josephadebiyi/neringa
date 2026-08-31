@@ -16,23 +16,22 @@ import {
 import { getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { sendNewTripAdminNotification } from '../services/emailNotifications.js';
 import { validateTripInput, isSameRoute } from '../lib/trips/validateTripInput.js';
+import { resourceTypeForMimetype, mimeTypeFromDataUri } from '../lib/cloudinaryDocuments.js';
 
-// Upload base64 travel document to Cloudinary and return the secure URL
+// Upload base64 travel document to Cloudinary and return the secure URL.
+// The mobile app explicitly offers "Choose PDF" (boarding pass/booking) as
+// well as photos — forcing resource_type 'image' + format 'jpg' regardless
+// of what was actually uploaded either mangled PDFs into a single-page JPG
+// or tripped Cloudinary's PDF-as-image delivery block. 'raw' avoids both.
 async function uploadTravelDocument(base64DataUri, userId) {
   if (!base64DataUri || !base64DataUri.startsWith('data:')) return base64DataUri;
-  try {
-    const result = await cloudinary.v2.uploader.upload(base64DataUri, {
-      folder: 'bago/travel_documents',
-      public_id: `trip_proof_${userId}_${Date.now()}`,
-      resource_type: 'image',
-      format: 'jpg',
-    });
-    return result.secure_url;
-  } catch (err) {
-    console.error('Cloudinary travel document upload failed:', err.message);
-    // Fall back to storing the base64 if Cloudinary fails
-    return base64DataUri;
-  }
+  const mime = mimeTypeFromDataUri(base64DataUri);
+  const result = await cloudinary.v2.uploader.upload(base64DataUri, {
+    folder: 'bago/travel_documents',
+    public_id: `trip_proof_${userId}_${Date.now()}`,
+    resource_type: resourceTypeForMimetype(mime),
+  });
+  return result.secure_url;
 }
 
 const tripHasPassed = (trip) => {

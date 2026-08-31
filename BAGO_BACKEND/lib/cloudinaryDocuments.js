@@ -9,6 +9,14 @@ export function resourceTypeForMimetype(mimetype) {
   return String(mimetype || '').toLowerCase() === 'application/pdf' ? 'raw' : 'auto';
 }
 
+// Pulls the mimetype out of a `data:<mimetype>;base64,<data>` URI, e.g. as
+// used for travel-document/trip-proof uploads which arrive as base64 rather
+// than a multer file with a mimetype field already attached.
+export function mimeTypeFromDataUri(dataUri) {
+  const match = /^data:([^;,]+)[;,]/.exec(String(dataUri || ''));
+  return match ? match[1] : '';
+}
+
 // Business CAC/registration documents are uploaded with `type: 'authenticated'`
 // (see controllers/userController.js's uploadBusinessDocument and
 // controllers/AdminControllers/BusinessOnboardingController.js's

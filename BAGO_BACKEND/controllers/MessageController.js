@@ -12,6 +12,7 @@ import jwt from 'jsonwebtoken';
 import cloudinary from 'cloudinary';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import { resolveSupportAdminId } from '../services/supportAutomationService.js';
+import { resourceTypeForMimetype } from '../lib/cloudinaryDocuments.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 
 cloudinary.v2.config({
@@ -90,7 +91,7 @@ async function uploadMessageAttachment(file, userId) {
     {
       folder: 'bago/chat_attachments',
       public_id: `chat_${userId}_${Date.now()}`,
-      resource_type: 'auto',
+      resource_type: resourceTypeForMimetype(mime),
     },
   );
 
