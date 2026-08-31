@@ -35,6 +35,7 @@ import { getActiveBeneficiary } from '../lib/postgres/flutterwavePayments.js';
 import { getPaymentGateway, getCurrencyByCountry, FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES } from '../constants/countries.js';
 import { getCountryNameForCode, getClientIpFromRequest, getLocationDataFromRequest } from '../services/geoLocation.js';
 import { getFlutterwavePaymentCurrencyForCountry } from '../services/currencyConverter.js';
+import { getViewableDocumentUrl } from '../lib/cloudinaryDocuments.js';
 import { sendWelcomeEmail, generateOtpEmailHtml } from '../services/emailNotifications.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
@@ -163,7 +164,7 @@ export async function buildUserResponse(user) {
     businessAddress: user.businessAddress || null,
     businessTaxId: user.businessTaxId || null,
     representativeRole: user.representativeRole || null,
-    businessDocumentUrl: user.businessDocumentUrl || null,
+    businessDocumentUrl: getViewableDocumentUrl(user.businessDocumentUrl),
     businessDocumentStatus: user.businessDocumentStatus || 'not_uploaded',
     businessDocumentRejectionReason: user.businessDocumentRejectionReason || null,
     businessStatus: user.businessStatus || null,

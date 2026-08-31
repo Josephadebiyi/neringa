@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import cloudinary from 'cloudinary';
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { createProfileWithWallet, findProfileById } from '../../lib/postgres/profiles.js';
+import { getViewableDocumentUrl } from '../../lib/cloudinaryDocuments.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
 import { sendAdminCreatedBusinessAccountEmail, sendBusinessWelcomeEmail, sendKycVerificationLinkEmail, sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 import { createPremblySessionForUser } from '../PremblyController.js';
@@ -111,7 +112,7 @@ export const adminUploadBusinessDocument = async (req, res) => {
       [userId, result.secure_url],
     );
 
-    return res.status(200).json({ success: true, message: 'Business registration certificate uploaded.', documentStatus: 'pending_review', documentUrl: result.secure_url });
+    return res.status(200).json({ success: true, message: 'Business registration certificate uploaded.', documentStatus: 'pending_review', documentUrl: getViewableDocumentUrl(result.secure_url) });
   } catch (error) {
     console.error('Admin business document upload error:', error);
     return res.status(500).json({ success: false, message: 'Could not upload the business certificate. Please try again.' });

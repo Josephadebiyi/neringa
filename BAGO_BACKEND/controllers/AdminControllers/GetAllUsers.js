@@ -2,6 +2,7 @@ import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 import { getBusinessFeatureSummary } from '../../lib/postgres/businessFeatures.js';
+import { getViewableDocumentUrl } from '../../lib/cloudinaryDocuments.js';
 
 const BUSINESS_DOCUMENT_STATUSES = new Set(['approved', 'rejected']);
 function normalizeUser(row) {
@@ -20,7 +21,7 @@ function normalizeUser(row) {
     businessAddress: row.business_address || null,
     businessTaxId: row.business_tax_id || null,
     representativeRole: row.representative_role || null,
-    businessDocumentUrl: row.business_document_url || null,
+    businessDocumentUrl: getViewableDocumentUrl(row.business_document_url),
     businessDocumentStatus: row.business_document_status || 'not_uploaded',
     businessDocumentRejectionReason: row.business_document_rejection_reason || null,
     businessStatus: row.business_status || null,
