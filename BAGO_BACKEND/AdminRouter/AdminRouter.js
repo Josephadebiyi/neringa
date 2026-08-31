@@ -3,7 +3,7 @@ import { AdminLogin, AdminSignup } from '../controllers/AdminControllers/Adminlo
 import { adminAuthenticated, CheckAdmin } from '../Auth/AdminAuthentication.js';
 import { auditAdminAction, requireAdminPermission } from '../middleware/adminAuthorization.js';
 import { banUser, GetAllUsers, deleteUser, updateUser, getUserDetail, reviewBusinessDocument } from '../controllers/AdminControllers/GetAllUsers.js';
-import { createBusinessAccount, adminUploadBusinessDocument, adminGenerateKycLink, approveBusinessAccount } from '../controllers/AdminControllers/BusinessOnboardingController.js';
+import { createBusinessAccount, adminUploadBusinessDocument, adminGenerateKycLink, approveBusinessAccount, restrictBusinessAccount } from '../controllers/AdminControllers/BusinessOnboardingController.js';
 import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controllers/postgresUserController.js';
 import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord, getOrderConversation, adminCancelRequest, updateExternalTracking } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
@@ -177,6 +177,7 @@ AdminRouter.post("/businesses", adminAuthenticated, can('users.manage'), audit('
 AdminRouter.post("/businesses/:userId/document", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), upload.single('document'), audit('admin.business.upload_document', 'profile', 'userId'), adminUploadBusinessDocument);
 AdminRouter.post("/businesses/:userId/kyc-link", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.business.kyc_link', 'profile', 'userId'), adminGenerateKycLink);
 AdminRouter.post("/businesses/:userId/approve", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.business.approve', 'profile', 'userId'), approveBusinessAccount);
+AdminRouter.put("/businesses/:userId/restrict", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.business.restrict', 'profile', 'userId'), restrictBusinessAccount);
 AdminRouter.post("/users/:userId/earning-currency", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.earning_currency.set', 'profile', 'userId'), adminSetEarningCurrency);
 AdminRouter.post("/users/:userId/recalculate-balance", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.balance.recalculate', 'wallet_account', 'userId'), recalculateWalletBalance);
 AdminRouter.post("/users/:userId/correct-wallet", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('userId'), audit('admin.user.wallet.correction', 'wallet_account', 'userId'), adminCorrectWalletBalance);

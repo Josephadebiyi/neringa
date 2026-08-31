@@ -4,7 +4,7 @@ import cloudinary from 'cloudinary';
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { createProfileWithWallet, findProfileById } from '../../lib/postgres/profiles.js';
 import { getCurrencyByCountry, getPaymentGateway } from '../../constants/countries.js';
-import { sendAdminCreatedBusinessAccountEmail, sendBusinessWelcomeEmail, sendKycVerificationLinkEmail } from '../../services/emailNotifications.js';
+import { sendAdminCreatedBusinessAccountEmail, sendBusinessWelcomeEmail, sendKycVerificationLinkEmail, sendAccountBannedEmail, sendAccountUnblockedEmail } from '../../services/emailNotifications.js';
 import { createPremblySessionForUser } from '../PremblyController.js';
 
 // Admin-assisted business onboarding: lets an admin create a fully-fledged
@@ -174,6 +174,51 @@ export const approveBusinessAccount = async (req, res, next) => {
       .catch((err) => console.error('Business approval welcome email failed:', err.message));
 
     return res.status(200).json({ success: true, message: 'Business account approved.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin-triggered restriction, independent of the automatic 14-day
+// grace-period cron (cron/businessGracePeriodCron.js) which writes the same
+// business_status column — an admin can restrict a business immediately for
+// any reason, or lift a restriction (including one the cron applied) without
+// waiting for the business to redo verification.
+export const restrictBusinessAccount = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { restricted, reason } = req.body;
+    const profile = await findProfileById(userId);
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (profile.accountType !== 'company') {
+      return res.status(400).json({ success: false, message: 'This user is not a business account' });
+    }
+
+    const nextStatus = restricted ? 'restricted' : 'verified';
+    await query(
+      `UPDATE public.profiles
+       SET business_status = $2,
+           business_restricted_notified_at = CASE WHEN $2 = 'restricted' THEN NOW() ELSE business_restricted_notified_at END,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [userId, nextStatus],
+    );
+
+    const representativeName = [profile.firstName, profile.lastName].filter(Boolean).join(' ') || profile.email;
+    if (restricted) {
+      sendAccountBannedEmail(profile.email, representativeName, reason || 'Account under review by the Bago team')
+        .catch((err) => console.error('Business restricted email failed:', err.message));
+    } else {
+      sendAccountUnblockedEmail(profile.email, representativeName)
+        .catch((err) => console.error('Business unrestricted email failed:', err.message));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: restricted ? 'Business account restricted.' : 'Business account restriction lifted.',
+    });
   } catch (error) {
     next(error);
   }

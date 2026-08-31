@@ -172,6 +172,13 @@ export async function approveBusinessAccount(userId: string) {
   return apiCall(`${ADMIN_API}/businesses/${userId}/approve`, { method: 'POST' });
 }
 
+export async function restrictBusinessAccount(userId: string, restricted: boolean, reason?: string) {
+  return apiCall(`${ADMIN_API}/businesses/${userId}/restrict`, {
+    method: 'PUT',
+    body: JSON.stringify({ restricted, reason }),
+  });
+}
+
 export async function getUsers(page = 1, limit = 20, banned = false, search = '') {
   const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
   return apiCall(`${ADMIN_API}/GetAllUsers?page=${page}&limit=${limit}&banned=${banned}${searchParam}`);

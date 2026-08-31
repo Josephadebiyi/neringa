@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, Search, ShieldCheck, Wallet, FileText, Check, X, Loader2, Pencil, Plus, Upload, KeyRound, Copy, Zap } from "lucide-react";
-import { getBusinesses, reviewBusinessDocument, updateUser, adminUploadBusinessDocument, adminGenerateKycLink, approveBusinessAccount } from "../services/api";
+import { Building2, Search, ShieldCheck, ShieldOff, Wallet, FileText, Check, X, Loader2, Pencil, Plus, Upload, KeyRound, Copy, Zap, Ban, RotateCcw, Trash2 } from "lucide-react";
+import { getBusinesses, reviewBusinessDocument, updateUser, adminUploadBusinessDocument, adminGenerateKycLink, approveBusinessAccount, restrictBusinessAccount, banUser, deleteUser } from "../services/api";
 
 type Business = {
   id: string; tradingName?: string; companyName?: string; businessRegistrationNumber?: string;
@@ -11,7 +11,7 @@ type Business = {
   businessDocumentUrl?: string; businessDocumentStatus?: string;
   businessAddress?: string; businessTaxId?: string;
   mustChangePassword?: boolean; businessGracePeriodStartedAt?: string;
-  fastPayoutEnabled?: boolean;
+  fastPayoutEnabled?: boolean; banned?: boolean;
 };
 
 const GRACE_PERIOD_DAYS = 14;
@@ -82,6 +82,8 @@ export default function BusinessesPage() {
   const [kycLinkError, setKycLinkError] = useState("");
   const [kycLinkEmailed, setKycLinkEmailed] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [restrictingId, setRestrictingId] = useState<string | null>(null);
+  const [banningId, setBanningId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -153,10 +155,61 @@ export default function BusinessesPage() {
     try {
       const res = await approveBusinessAccount(b.id);
       if (!res?.success) throw new Error(res?.message || 'Could not approve this account.');
+      load();
     } catch (e: any) {
       setActionError(e?.message || 'Could not approve this account.');
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleRestrictToggle = async (b: Business) => {
+    const restricting = b.businessStatus !== 'restricted';
+    const reason = restricting ? window.prompt(`Reason for restricting ${b.tradingName || b.companyName}? (sent to the business)`) : undefined;
+    if (restricting && reason === null) return; // cancelled
+    if (!confirm(restricting
+      ? `Restrict ${b.tradingName || b.companyName}? They will lose access to trips, bookings, and withdrawals until unrestricted.`
+      : `Lift the restriction on ${b.tradingName || b.companyName}?`)) return;
+    setRestrictingId(b.id);
+    setActionError("");
+    try {
+      const res = await restrictBusinessAccount(b.id, restricting, reason || undefined);
+      if (!res?.success) throw new Error(res?.message || 'Could not update restriction status.');
+      load();
+    } catch (e: any) {
+      setActionError(e?.message || 'Could not update restriction status.');
+    } finally {
+      setRestrictingId(null);
+    }
+  };
+
+  const handleBanToggle = async (b: Business) => {
+    const banning = !b.banned;
+    if (!confirm(banning
+      ? `Ban ${b.tradingName || b.companyName}? They will be unable to sign in at all.`
+      : `Unban ${b.tradingName || b.companyName}?`)) return;
+    setBanningId(b.id);
+    setActionError("");
+    try {
+      const res = await banUser(b.id, banning);
+      if (!res?.success) throw new Error(res?.message || 'Could not update ban status.');
+      load();
+    } catch (e: any) {
+      setActionError(e?.message || 'Could not update ban status.');
+    } finally {
+      setBanningId(null);
+    }
+  };
+
+  const handleDeleteBusiness = async (b: Business) => {
+    if (!confirm(`Are you absolutely sure you want to delete ${b.tradingName || b.companyName}'s account? This cannot be undone.`)) return;
+    setActionError("");
+    try {
+      const res = await deleteUser(b.id);
+      if (!res?.success) throw new Error(res?.message || 'Could not delete this account.');
+      load();
+    } catch (e: any) {
+      setActionError(e?.message || 'Could not delete this account.');
     }
   };
 
@@ -270,6 +323,28 @@ export default function BusinessesPage() {
               className="flex items-center gap-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1.5 text-xs font-bold disabled:opacity-50"
             >
               {approvingId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />} Approve Account
+            </button>
+            <button
+              onClick={() => handleRestrictToggle(b)}
+              disabled={restrictingId === b.id}
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:opacity-50 ${b.businessStatus === 'restricted' ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700' : 'bg-amber-50 hover:bg-amber-100 text-amber-700'}`}
+            >
+              {restrictingId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : b.businessStatus === 'restricted' ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldOff className="h-3.5 w-3.5" />}
+              {b.businessStatus === 'restricted' ? 'Unrestrict' : 'Restrict'}
+            </button>
+            <button
+              onClick={() => handleBanToggle(b)}
+              disabled={banningId === b.id}
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:opacity-50 ${b.banned ? 'bg-green-50 hover:bg-green-100 text-green-600' : 'bg-orange-50 hover:bg-orange-100 text-orange-600'}`}
+            >
+              {banningId === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : b.banned ? <RotateCcw className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+              {b.banned ? 'Unban' : 'Ban'}
+            </button>
+            <button
+              onClick={() => handleDeleteBusiness(b)}
+              className="flex items-center gap-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 px-2.5 py-1.5 text-xs font-bold"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
             </button>
           </div>
         </td>
