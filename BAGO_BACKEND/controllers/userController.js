@@ -303,7 +303,7 @@ export const edit = async (req, res, next) => {
       }
     }
 
-    const businessFields = ['companyName', 'tradingName', 'businessRegistrationNumber', 'businessType', 'businessAddress', 'businessTaxId', 'representativeRole'];
+    const businessFields = ['companyName', 'tradingName', 'businessRegistrationNumber', 'businessAddress', 'businessTaxId', 'representativeRole'];
     const allowed = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'bankDetails', 'preferredCurrency', 'preferredLanguage', 'country', 'bio', ...businessFields];
     const updateKeys = Object.keys(updates).filter(k => allowed.includes(k));
 
@@ -394,7 +394,6 @@ export const edit = async (req, res, next) => {
         companyName: 'company_name',
         tradingName: 'trading_name',
         businessRegistrationNumber: 'business_registration_number',
-        businessType: 'business_type',
         businessAddress: 'business_address',
         businessTaxId: 'business_tax_id',
       };

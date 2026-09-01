@@ -353,7 +353,7 @@ async function resolveGoogleProfile({ idToken, accessToken, googleAudiences }) {
 export async function signUp(req, res) {
   try {
     let { firstName, lastName, fullName, email, phone, password, confirmPassword, referralCode, promoCode, dateOfBirth, country,
-      accountType, companyName, tradingName, businessRegistrationNumber, businessType, businessAddress, businessTaxId, representativeRole, operationalCurrency } = req.body;
+      accountType, companyName, tradingName, businessRegistrationNumber, businessAddress, businessTaxId, representativeRole, operationalCurrency } = req.body;
 
     accountType = accountType === 'company' ? 'company' : 'individual';
     operationalCurrency = String(operationalCurrency || '').trim().toUpperCase();
@@ -454,7 +454,9 @@ export async function signUp(req, res) {
         companyName: companyName?.trim() || null,
         tradingName: tradingName?.trim() || companyName?.trim() || null,
         businessRegistrationNumber: businessRegistrationNumber?.trim() || null,
-        businessType: businessType?.trim() || null,
+        // All Bago company accounts are logistics businesses. Do not accept a
+        // client-controlled business classification.
+        businessType: null,
         businessAddress: businessAddress?.trim() || null,
         businessTaxId: businessTaxId?.trim() || null,
         representativeRole: representativeRole?.trim() || null,
@@ -565,7 +567,7 @@ export async function verifySignupOtp(req, res) {
       companyName: decoded.companyName,
       tradingName: decoded.tradingName,
       businessRegistrationNumber: decoded.businessRegistrationNumber,
-      businessType: decoded.businessType,
+      businessType: null,
       businessAddress: decoded.businessAddress,
       businessTaxId: decoded.businessTaxId,
       representativeRole: decoded.representativeRole,

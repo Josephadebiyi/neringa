@@ -5,7 +5,7 @@ import { getBusinesses, reviewBusinessDocument, updateUser, adminUploadBusinessD
 
 type Business = {
   id: string; tradingName?: string; companyName?: string; businessRegistrationNumber?: string;
-  businessType?: string; businessStatus?: string; representativeRole?: string; firstName?: string;
+  businessStatus?: string; representativeRole?: string; firstName?: string;
   lastName?: string; email?: string; country?: string; image?: string; kycStatus?: string;
   walletBalance?: number; walletCurrency?: string; createdAt?: string;
   businessDocumentUrl?: string; businessDocumentStatus?: string;
@@ -614,7 +614,6 @@ export default function BusinessesPage() {
                     ["Registered company name", viewingBusiness.companyName],
                     ["Trading name", viewingBusiness.tradingName],
                     ["Registration number", viewingBusiness.businessRegistrationNumber],
-                    ["Business type", viewingBusiness.businessType],
                     ["Tax ID", viewingBusiness.businessTaxId],
                     ["Country", viewingBusiness.country],
                     ["Representative", [viewingBusiness.firstName, viewingBusiness.lastName].filter(Boolean).join(" ")],

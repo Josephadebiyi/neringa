@@ -53,6 +53,24 @@ if (process.env.ADMIN_SECRET_KEY === process.env.JWT_SECRET) {
 }
 
 const app = express();
+
+// Never send database, provider, filesystem, or stack details to a browser.
+// Many older controllers still pass `error.message` in their 5xx payloads;
+// this final response boundary makes those failures consistently safe while
+// preserving deliberate validation messages for 4xx responses.
+app.use((_req, res, next) => {
+  const sendJson = res.json.bind(res);
+  res.json = (payload) => {
+    if (res.statusCode >= 500) {
+      return sendJson({
+        success: false,
+        message: 'Something went wrong. Please try again.',
+      });
+    }
+    return sendJson(payload);
+  };
+  next();
+});
 const httpServer = createServer(app);
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
