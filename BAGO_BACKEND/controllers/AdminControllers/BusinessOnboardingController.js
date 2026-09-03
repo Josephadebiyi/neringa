@@ -127,7 +127,11 @@ export const adminGenerateKycLink = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const result = await createPremblySessionForUser(userId, { country: profile.country || '' });
+    const result = await createPremblySessionForUser(userId, {
+      country: profile.country || '',
+      phone: profile.phone || '',
+      req,
+    });
 
     let emailed = false;
     if (result.verificationUrl && profile.email) {

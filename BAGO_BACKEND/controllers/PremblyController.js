@@ -546,11 +546,21 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
 // Throws an Error with a `.statusCode` on any failure — callers translate that
 // into an HTTP response.
 export async function createPremblySessionForUser(userId, { country = '', phone = '', req = {} } = {}) {
-  if (!isPremblyConfigured()) {
-    const err = new Error('Identity verification is not available right now. Please try again later.');
+  // Session creation uses the checker-widget credentials, not the Identitypass
+  // API key. Read these at call time as well: with ESM, this module can be
+  // evaluated before server.js calls dotenv.config(), leaving module-level
+  // snapshots empty in local/self-hosted deployments.
+  const widgetId = process.env.PREMBLY_WIDGET_ID || process.env.PREMBLY_CONFIG_ID || PREMBLY_WIDGET_ID || PREMBLY_CONFIG_ID;
+  const widgetKey = process.env.PREMBLY_WIDGET_KEY || PREMBLY_WIDGET_KEY;
+  if (!widgetId || !widgetKey) {
+    const err = new Error('Identity verification widget is not configured. Please contact support.');
     err.statusCode = 503;
     throw err;
   }
+
+  const callbackUrl = `${process.env.BACKEND_URL || process.env.SERVER_URL || 'https://neringa.onrender.com'}/api/bago/kyc/prembly/complete`;
+  const sessionEndpoint = process.env.PREMBLY_SDK_SESSION_URL || PREMBLY_SDK_SESSION_URL;
+  const sdkLiveUrl = process.env.PREMBLY_SDK_LIVE_URL || PREMBLY_SDK_LIVE_URL;
 
   const userRow = await queryOne(
     `SELECT email, first_name, last_name, date_of_birth FROM public.profiles WHERE id = $1`,
@@ -572,24 +582,16 @@ export async function createPremblySessionForUser(userId, { country = '', phone 
       activeSession: true,
       verificationUrl: activeSession.verificationUrl,
       verificationRef: activeSession.sessionId || activeSession.premblyRef || activeSession.verificationRef || activeSession.userRef,
-      callbackUrl: PREMBLY_CALLBACK_URL,
+      callbackUrl,
       message: 'A verification session is already active. Please finish that session or wait before starting another.',
     };
   }
 
-  const widgetId = PREMBLY_WIDGET_ID || PREMBLY_CONFIG_ID;
-  if (!widgetId || !PREMBLY_WIDGET_KEY) {
-    const err = new Error('Identity verification widget is not configured. Please contact support.');
-    err.statusCode = 503;
-    throw err;
-  }
-
   // Create the same SDK session Prembly's inline widget creates, then return
   // the hosted SDK URL for web iframe usage.
-  const sessionEndpoint = PREMBLY_SDK_SESSION_URL;
   const sessionBody = {
     widget_id:    widgetId,
-    widget_key:   PREMBLY_WIDGET_KEY,
+    widget_key:   widgetKey,
     first_name:   userRow.first_name || undefined,
     last_name:    userRow.last_name  || undefined,
     email:        userRow.email      || undefined,
@@ -599,7 +601,7 @@ export async function createPremblySessionForUser(userId, { country = '', phone 
       userId,
       country: normalizedCountry,
       ...clientFootprint,
-      callback_url: PREMBLY_CALLBACK_URL,
+      callback_url: callbackUrl,
     },
   };
   console.info('Prembly SDK session request →', sessionEndpoint, JSON.stringify({ ...sessionBody, widget_key: '***' }));
@@ -625,7 +627,7 @@ export async function createPremblySessionForUser(userId, { country = '', phone 
     premblyRes.data?.data?.sessionId ||
     premblyRes.data?.sessionId;
   const hostedSdkUrl = sessionId
-    ? `${PREMBLY_SDK_LIVE_URL.replace(/\/$/, '')}/?session=${encodeURIComponent(sessionId)}`
+    ? `${sdkLiveUrl.replace(/\/$/, '')}/?session=${encodeURIComponent(sessionId)}`
     : '';
   const verificationUrl =
     hostedSdkUrl ||
@@ -701,7 +703,7 @@ export async function createPremblySessionForUser(userId, { country = '', phone 
     activeSession: false,
     verificationUrl,
     verificationRef: premblyRef,
-    callbackUrl: PREMBLY_CALLBACK_URL,
+    callbackUrl,
   };
 }
 
