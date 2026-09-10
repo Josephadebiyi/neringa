@@ -735,13 +735,20 @@ export const getUserStats = async (req, res) => {
 export const deleteAccount = async (req, res, next) => {
   try {
     const userId = req.user.id;
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
 
-    // Soft-delete: deactivate the account rather than erasing data. The user
-    // is signed out and can no longer log back in, but all records (trips,
-    // shipments, wallet, KYC, etc.) are retained.
+    // Soft-delete: deactivate the account rather than erasing data. All records
+    // (trips, shipments, wallet, KYC, etc.) are retained. `deactivated_by =
+    // 'user'` marks this as a self-deletion — the account can be reactivated by
+    // simply signing in again (see signIn), unlike an admin-disabled account.
     await pgQuery(
-      `UPDATE public.profiles SET is_active = false, deactivated_at = now() WHERE id = $1`,
-      [userId]
+      `UPDATE public.profiles
+       SET is_active = false,
+           deactivated_at = now(),
+           deactivated_by = 'user',
+           deactivation_reason = $2
+       WHERE id = $1`,
+      [userId, reason]
     );
 
     console.log(`🗑️ Account deactivated for user ${userId}`);

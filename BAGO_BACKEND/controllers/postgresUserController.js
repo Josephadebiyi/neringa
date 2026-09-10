@@ -133,6 +133,55 @@ async function updateLastLoginIp(userId, ip) {
   ).catch(() => {});
 }
 
+// Bring a self-deleted account back to life. Data was never erased, but the
+// user must re-confirm fresh identity details before transacting again, so any
+// prior KYC approval is reset and the verified-identity fields are cleared.
+export async function reactivateProfile(userId) {
+  await query(
+    `UPDATE public.profiles
+       SET is_active = true,
+           reactivated_at = now(),
+           deactivated_at = NULL,
+           deactivated_by = NULL,
+           deactivation_reason = NULL,
+           needs_fresh_details = true,
+           identity_fields_locked = false,
+           kyc_status = CASE WHEN kyc_status IN ('approved','verified','completed')
+                             THEN 'not_started' ELSE kyc_status END,
+           verified_full_legal_name = NULL,
+           verified_first_name = NULL,
+           verified_middle_name = NULL,
+           verified_last_name = NULL,
+           verified_date_of_birth = NULL,
+           phone_verified = false,
+           updated_at = now()
+     WHERE id = $1`,
+    [userId],
+  );
+}
+
+// Mirror reactivateProfile()'s DB changes onto an already-loaded user object so
+// the token and buildUserResponse() in the same request reflect the reset
+// (otherwise the client briefly sees the pre-deletion kyc/phone state).
+export function applyReactivationToUser(user) {
+  if (!user) return user;
+  user.is_active = true;
+  user.isActive = true;
+  user.needsFreshDetails = true;
+  user.needs_fresh_details = true;
+  user.identityFieldsLocked = false;
+  user.identity_fields_locked = false;
+  user.phoneVerified = false;
+  user.phone_verified = false;
+  if (['approved', 'verified', 'completed'].includes(user.kycStatus)) {
+    user.kycStatus = 'not_started';
+  }
+  if (['approved', 'verified', 'completed'].includes(user.kyc_status)) {
+    user.kyc_status = 'not_started';
+  }
+  return user;
+}
+
 export async function buildUserResponse(user) {
   let wallet = null;
   let payoutBeneficiary = null;
@@ -177,6 +226,7 @@ export async function buildUserResponse(user) {
     image: user.image,
     kycStatus: user.kycStatus,
     isKycCompleted: user.kycStatus === 'approved',
+    needsFreshDetails: user.needsFreshDetails === true || user.needs_fresh_details === true,
     paymentGateway: user.paymentGateway,
     preferredCurrency: user.preferredCurrency || displayCurrency || walletCurrency || 'USD',
     earningCurrency: user.earningCurrency || user.preferredCurrency || user.walletCurrency || null,
@@ -749,12 +799,22 @@ export async function signIn(req, res) {
     }
 
     const user = await findProfileByEmail(email.toLowerCase());
-    if (!user || !user.password_hash || user.is_active === false) {
+    if (!user || !user.password_hash) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
     if (user.banned) {
       return res.status(403).json({ message: 'Account has been suspended. If you believe this is a mistake, please contact support@sendwithbago.com.' });
+    }
+
+    // A deactivated account: an admin-disabled one stays locked; a self-deleted
+    // one is allowed through here and reactivated once the password checks out
+    // (handled after bcrypt.compare below).
+    if (user.is_active === false && user.deactivated_by !== 'user') {
+      return res.status(403).json({
+        message: 'This account has been disabled. Please contact support@sendwithbago.com.',
+        code: 'ACCOUNT_DISABLED',
+      });
     }
 
     // Block banned IPs at login too
@@ -809,6 +869,15 @@ export async function signIn(req, res) {
       );
     }
 
+    // Self-deleted account, correct password → bring it back, but force the
+    // user to re-confirm their identity details before they can transact again.
+    let reactivated = false;
+    if (user.is_active === false && user.deactivated_by === 'user') {
+      await reactivateProfile(user.id);
+      reactivated = true;
+      applyReactivationToUser(user);
+    }
+
     const { accessToken, refreshToken } = signUserToken(user);
     await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
     updateLastLoginIp(user.id, loginIp).catch(() => {});
@@ -830,7 +899,8 @@ export async function signIn(req, res) {
 
     res.status(200).json({
       success: true,
-      message: 'Sign-in successful',
+      message: reactivated ? 'Welcome back — your account has been reactivated.' : 'Sign-in successful',
+      reactivated,
       token: accessToken,
       refreshToken,
       user: await buildUserResponse(user),
@@ -968,8 +1038,20 @@ export async function googleAuth(req, res) {
     if (user.banned) {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
     }
+    // Deactivated: admin-disabled stays locked; a self-deletion is reactivated
+    // (Google already proved the user owns the address), forcing fresh details.
+    let googleReactivated = false;
     if (user.is_active === false) {
-      return res.status(403).json({ success: false, message: 'Invalid email or password' });
+      if (user.deactivated_by !== 'user') {
+        return res.status(403).json({
+          success: false,
+          message: 'This account has been disabled. Please contact support@sendwithbago.com.',
+          code: 'ACCOUNT_DISABLED',
+        });
+      }
+      await reactivateProfile(user.id);
+      googleReactivated = true;
+      applyReactivationToUser(user);
     }
 
     await storeDeviceFingerprint(user.id, googleFp);
@@ -1019,8 +1101,11 @@ export async function googleAuth(req, res) {
 
     res.status(200).json({
       success: true,
-      message: isNewUser ? 'Google signup successful' : 'Google sign-in successful',
+      message: googleReactivated
+        ? 'Welcome back — your account has been reactivated.'
+        : isNewUser ? 'Google signup successful' : 'Google sign-in successful',
       isNewUser,
+      reactivated: googleReactivated,
       token: userAccessToken,
       refreshToken: userRefreshToken,
       user: await buildUserResponse(user),
@@ -1126,8 +1211,18 @@ export async function appleAuth(req, res) {
     if (user.banned) {
       return res.status(403).json({ success: false, message: 'Account has been suspended' });
     }
+    let appleReactivated = false;
     if (user.is_active === false) {
-      return res.status(403).json({ success: false, message: 'Invalid email or password' });
+      if (user.deactivated_by !== 'user') {
+        return res.status(403).json({
+          success: false,
+          message: 'This account has been disabled. Please contact support@sendwithbago.com.',
+          code: 'ACCOUNT_DISABLED',
+        });
+      }
+      await reactivateProfile(user.id);
+      appleReactivated = true;
+      applyReactivationToUser(user);
     }
 
     await storeDeviceFingerprint(user.id, appleFp);
@@ -1155,8 +1250,11 @@ export async function appleAuth(req, res) {
 
     res.status(200).json({
       success: true,
-      message: isNewUser ? 'Apple signup successful' : 'Apple sign-in successful',
+      message: appleReactivated
+        ? 'Welcome back — your account has been reactivated.'
+        : isNewUser ? 'Apple signup successful' : 'Apple sign-in successful',
       isNewUser,
+      reactivated: appleReactivated,
       token: accessToken,
       refreshToken,
       user: await buildUserResponse(user),

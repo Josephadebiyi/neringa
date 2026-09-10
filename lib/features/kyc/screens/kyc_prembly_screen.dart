@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_colors.dart';
@@ -54,13 +56,25 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _start() async {
     try {
-      // Best-effort native prompts only. The Prembly capture runs in a WebView,
-      // and on some iOS builds permission_handler can report permanentlyDenied
-      // even when Settings shows Camera enabled. Do not block here; the WebView
-      // permission delegate below is the source of truth for the widget.
-      unawaited(Permission.camera.request());
-      unawaited(Permission.microphone.request());
+      // Prembly's capture UI calls getUserMedia() the moment it mounts. On both
+      // platforms the WebView's permission delegate can only *grant* camera/mic
+      // if the app already holds the OS-level permission — so this has to finish
+      // BEFORE the session is created and the widget loads, not race it.
+      // Previously these were fire-and-forget (unawaited), so the widget often
+      // opened while permission was still "notDetermined" and Prembly showed a
+      // hard "camera blocked" state that never recovered.
+      final cameraStatus = await Permission.camera.request();
+      await Permission.microphone.request();
       if (!mounted) return;
+      if (!cameraStatus.isGranted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = cameraStatus.isPermanentlyDenied
+              ? 'Camera access is blocked. Open Settings, enable Camera for Bago, then try again.'
+              : 'Camera access is required to verify your identity. Please allow it and try again.';
+        });
+        return;
+      }
 
       try {
         final existing = await ApiService.instance.post(
@@ -310,9 +324,23 @@ class _PremblyHostedPageState extends State<_PremblyHostedPage> {
   @override
   void initState() {
     super.initState();
-    // Grant camera + microphone to the Prembly web widget on Android.
-    // onPermissionRequest must be passed in the constructor (not chainable).
-    _controller = WebViewController(
+    // Build with platform-specific params so the camera preview actually
+    // renders inside the widget:
+    //  • iOS/WKWebView — allow inline playback and require no user gesture,
+    //    otherwise the <video autoplay> that shows the live camera stays black
+    //    even after getUserMedia is granted.
+    //  • onPermissionRequest must be passed at construction (not chainable) and
+    //    grants the web-layer camera/mic prompt.
+    final PlatformWebViewControllerCreationParams params =
+        WebViewPlatform.instance is WebKitWebViewPlatform
+            ? WebKitWebViewControllerCreationParams(
+                allowsInlineMediaPlayback: true,
+                mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+              )
+            : const PlatformWebViewControllerCreationParams();
+
+    _controller = WebViewController.fromPlatformCreationParams(
+      params,
       onPermissionRequest: (request) => request.grant(),
     )
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -335,6 +363,17 @@ class _PremblyHostedPageState extends State<_PremblyHostedPage> {
         ),
       )
       ..loadRequest(Uri.parse(widget.verificationUrl));
+
+    // Android: the camera preview <video> also needs the user-gesture
+    // requirement lifted, and the web permission callback wired through the
+    // platform controller.
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      platform.setMediaPlaybackRequiresUserGesture(false);
+      platform.setOnPlatformPermissionRequest(
+        (request) => request.grant(),
+      );
+    }
   }
 
   void _complete(Map<String, dynamic> response) {

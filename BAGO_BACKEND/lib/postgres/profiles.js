@@ -117,7 +117,17 @@ async function ensureEarningCurrencyColumns() {
       ADD COLUMN IF NOT EXISTS representative_role TEXT,
       ADD COLUMN IF NOT EXISTS business_document_url TEXT,
       ADD COLUMN IF NOT EXISTS business_document_status TEXT NOT NULL DEFAULT 'not_uploaded',
-      ADD COLUMN IF NOT EXISTS business_status TEXT NOT NULL DEFAULT 'not_started'
+      ADD COLUMN IF NOT EXISTS business_status TEXT NOT NULL DEFAULT 'not_started',
+      -- Account deactivation provenance. 'user' = the person deleted their own
+      -- account from the app; 'admin' = staff disabled it; 'system' = automated.
+      -- Lets admins tell a self-deletion apart from a ban, and lets sign-in
+      -- reactivate a self-deleted account (but never an admin-disabled one).
+      ADD COLUMN IF NOT EXISTS deactivated_by TEXT,
+      ADD COLUMN IF NOT EXISTS deactivation_reason TEXT,
+      ADD COLUMN IF NOT EXISTS reactivated_at TIMESTAMPTZ,
+      -- Set when a self-deleted account is reactivated: the app then routes the
+      -- user back through the identity/KYC flow to re-confirm fresh details.
+      ADD COLUMN IF NOT EXISTS needs_fresh_details BOOLEAN NOT NULL DEFAULT FALSE
   `);
   // Currency changes also update unpaid package drafts. Older production
   // databases predate this column, so ensure it before any currency update
@@ -185,6 +195,12 @@ function normalizeProfileRow(row) {
     businessGraceReminderSentAt: row.business_grace_reminder_sent_at || null,
     businessRestrictedNotifiedAt: row.business_restricted_notified_at || null,
     accountStatus: row.account_status || 'active',
+    isActive: row.is_active !== false,
+    deactivatedAt: row.deactivated_at || null,
+    deactivatedBy: row.deactivated_by || null,
+    deactivationReason: row.deactivation_reason || null,
+    reactivatedAt: row.reactivated_at || null,
+    needsFreshDetails: row.needs_fresh_details === true,
     googleSub: row.google_sub || null,
     deviceFingerprint: row.device_fingerprint || null,
     isFlagged: row.is_flagged ?? false,
@@ -271,6 +287,10 @@ const baseSelect = `
     p.banned,
     p.is_active,
     p.deactivated_at,
+    p.deactivated_by,
+    p.deactivation_reason,
+    p.reactivated_at,
+    p.needs_fresh_details,
     p.email_verified,
     COALESCE(p.phone_verified, false) AS phone_verified,
     p.push_tokens,

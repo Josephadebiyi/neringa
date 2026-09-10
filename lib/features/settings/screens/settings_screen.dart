@@ -203,6 +203,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(l10n.deleteAccountTitle),
+            content: Text(l10n.deleteAccountMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l10n.cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l10n.delete),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    try {
+      await ref.read(authProvider.notifier).deleteAccount();
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(context, message: e.toString(), type: SnackBarType.error);
+      return;
+    }
+    if (!mounted) return;
+    context.go('/auth/signin');
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -417,7 +449,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 16),
           Center(
             child: TextButton(
-              onPressed: () {},
+              onPressed: _confirmDeleteAccount,
               child: Text(
                 l10n.deleteAccount,
                 style: AppTextStyles.labelMd.copyWith(

@@ -74,6 +74,11 @@ dependencies:
     path: packages/dojah_kyc_sdk_flutter
 
   webview_flutter: ^4.13.0
+  # Platform implementations — imported directly in kyc_prembly_screen.dart so
+  # the Prembly capture WebView can enable inline autoplay of the camera
+  # preview (iOS) and drop the media user-gesture requirement (Android).
+  webview_flutter_android: ^4.10.15
+  webview_flutter_wkwebview: ^3.25.1
 
   # ASWebAuthenticationSession (iOS) / Chrome Custom Tabs (Android) — required
   # for Flutterwave checkout so Apple Pay actually works. Apple Pay does not

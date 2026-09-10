@@ -18,6 +18,10 @@ class UserModel {
   final bool phoneVerified;
   // KYC statuses: not_started | pending | approved | rejected | expired | manual_review
   final String? kycStatus;
+  /// Set by the backend after a self-deleted account is reactivated on
+  /// sign-in. The app routes the user back through the identity/KYC flow
+  /// until they re-confirm their details.
+  final bool needsFreshDetails;
   final double walletBalance;
   final double escrowBalance;
   final double? walletDisplayBalance;
@@ -68,6 +72,7 @@ class UserModel {
     this.emailVerified = false,
     this.phoneVerified = false,
     this.kycStatus,
+    this.needsFreshDetails = false,
     this.walletBalance = 0.0,
     this.escrowBalance = 0.0,
     this.walletDisplayBalance,
@@ -189,6 +194,7 @@ class UserModel {
     bool? emailVerified,
     bool? phoneVerified,
     String? kycStatus,
+    bool? needsFreshDetails,
     double? walletBalance,
     double? escrowBalance,
     double? walletDisplayBalance,
@@ -236,6 +242,7 @@ class UserModel {
       emailVerified: emailVerified ?? this.emailVerified,
       phoneVerified: phoneVerified ?? this.phoneVerified,
       kycStatus: kycStatus ?? this.kycStatus,
+      needsFreshDetails: needsFreshDetails ?? this.needsFreshDetails,
       walletBalance: walletBalance ?? this.walletBalance,
       escrowBalance: escrowBalance ?? this.escrowBalance,
       walletDisplayBalance: walletDisplayBalance ?? this.walletDisplayBalance,
@@ -295,6 +302,8 @@ class UserModel {
             json['phoneVerified'] == true || json['phone_verified'] == true,
         kycStatus:
             json['kyc_status']?.toString() ?? json['kycStatus']?.toString(),
+        needsFreshDetails: json['needs_fresh_details'] == true ||
+            json['needsFreshDetails'] == true,
         walletBalance: JsonParser.parseDoubleFirst(
             json, ['wallet_balance', 'walletBalance']),
         escrowBalance: JsonParser.parseDoubleFirst(
@@ -407,6 +416,7 @@ class UserModel {
         'emailVerified': emailVerified,
         'phoneVerified': phoneVerified,
         'kyc_status': kycStatus,
+        'needs_fresh_details': needsFreshDetails,
         'wallet_balance': walletBalance,
         'escrow_balance': escrowBalance,
         'wallet_display_balance': walletDisplayBalance,

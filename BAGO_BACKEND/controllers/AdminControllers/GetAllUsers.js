@@ -49,6 +49,15 @@ function normalizeUser(row) {
     updatedAt: row.updated_at,
     isActive: row.is_active !== false,
     deactivatedAt: row.deactivated_at || null,
+    deactivatedBy: row.deactivated_by || null,
+    deactivationReason: row.deactivation_reason || null,
+    reactivatedAt: row.reactivated_at || null,
+    needsFreshDetails: row.needs_fresh_details === true,
+    // Convenience label for admin lists: distinguishes a user self-deletion
+    // from an admin action and from a normal active account.
+    accountState: row.is_active === false
+      ? (row.deactivated_by === 'user' ? 'deleted_by_user' : row.deactivated_by === 'admin' ? 'disabled_by_admin' : 'deactivated')
+      : (row.reactivated_at ? 'reactivated' : 'active'),
     kycFailureReason: row.kyc_failure_reason || null,
     balance: Number(row.available_balance || 0),
     walletBalance: Number(row.available_balance || 0),
@@ -73,6 +82,8 @@ export const GetAllUsers = async (req, res, next) => {
     const kycStatus = req.query.kycStatus;
     const signupMethod = req.query.signupMethod;
     const accountType = req.query.accountType;
+    // accountState: active | reactivated | deleted_by_user | disabled_by_admin | deactivated | inactive
+    const accountState = (req.query.accountState || '').trim();
     const search = (req.query.search || '').trim();
 
     const conditions = [];
@@ -94,6 +105,17 @@ export const GetAllUsers = async (req, res, next) => {
     if (accountType) {
       conditions.push(`p.account_type = $${index++}`);
       params.push(accountType);
+    }
+    if (accountState === 'deleted_by_user') {
+      conditions.push(`(p.is_active = false and p.deactivated_by = 'user')`);
+    } else if (accountState === 'disabled_by_admin') {
+      conditions.push(`(p.is_active = false and p.deactivated_by = 'admin')`);
+    } else if (accountState === 'deactivated' || accountState === 'inactive') {
+      conditions.push(`p.is_active = false`);
+    } else if (accountState === 'reactivated') {
+      conditions.push(`(p.is_active <> false and p.reactivated_at is not null)`);
+    } else if (accountState === 'active') {
+      conditions.push(`p.is_active <> false`);
     }
     if (search) {
       conditions.push(`(
@@ -137,6 +159,10 @@ export const GetAllUsers = async (req, res, next) => {
           p.banned,
           p.is_active,
           p.deactivated_at,
+          p.deactivated_by,
+          p.deactivation_reason,
+          p.reactivated_at,
+          p.needs_fresh_details,
           p.kyc_status,
           p.kyc_provider,
           p.kyc_failure_reason,
@@ -225,10 +251,18 @@ export const deleteUser = async (req, res, next) => {
   try {
     // Soft-delete: deactivate rather than erase. All related data (trips,
     // shipments, wallet, KYC, etc.) is retained; the user just can no longer
-    // log in and appears deleted to them.
+    // log in and appears deleted to them. `deactivated_by = 'admin'` keeps this
+    // distinct from a self-deletion — an admin-disabled account is NOT
+    // reactivated by simply signing in again.
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
     const user = await queryOne(
-      `update public.profiles set is_active = false, deactivated_at = now() where id = $1 returning id`,
-      [userId],
+      `update public.profiles
+         set is_active = false,
+             deactivated_at = now(),
+             deactivated_by = 'admin',
+             deactivation_reason = $2
+       where id = $1 returning id`,
+      [userId, reason],
     );
     if (!user) {
       return res.status(404).json({ message: 'User not found', error: true, success: false });
@@ -250,6 +284,7 @@ export const getUserDetail = async (req, res, next) => {
           p.representative_role, p.business_document_url, p.business_document_status, p.business_status,
           p.fast_payout_enabled,
           p.email, p.phone, p.date_of_birth, p.country, p.banned, p.is_active, p.deactivated_at,
+          p.deactivated_by, p.deactivation_reason, p.reactivated_at, p.needs_fresh_details,
           p.kyc_status, p.kyc_provider, p.kyc_failure_reason, p.email_verified, p.identity_fields_locked,
           p.verified_full_legal_name, p.verified_date_of_birth, p.phone_verified, p.signup_method,
           p.signup_source, p.status, p.image_url, p.created_at, p.updated_at,

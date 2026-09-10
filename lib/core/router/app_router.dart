@@ -139,6 +139,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc != '/auth/signin') {
         return '/home';
       }
+
+      // A reactivated (previously self-deleted) account must re-confirm its
+      // identity details before doing anything else. Send it straight to the
+      // KYC flow; let it still reach legal pages, help and logout.
+      if (isLoggedIn &&
+          auth.user?.needsFreshDetails == true &&
+          !loc.startsWith('/kyc') &&
+          !loc.startsWith('/legal') &&
+          !loc.startsWith('/help') &&
+          !isAuthRoute) {
+        return '/kyc?from=onboarding';
+      }
       return null;
     },
     routes: [

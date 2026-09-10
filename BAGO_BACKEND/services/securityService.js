@@ -29,9 +29,12 @@ export function validateLegalName(rawName = '') {
   if (!ONLY_LETTERS_RE.test(name)) return { valid: false, reason: 'Name contains invalid characters' };
 
   const parts = name.split(' ').filter(Boolean);
-  if (parts.length < 2) return { valid: false, reason: 'Please enter both first name and last name' };
+  // Mononyms are legal in many countries (Indonesia, parts of India, etc.) and
+  // Google/Apple sign-in often collapses a full name into a single field, so a
+  // single token is allowed as long as it is a plausible name on its own.
+  if (parts.length < 1) return { valid: false, reason: 'Name is required' };
   if (parts.some((p) => p.length < 2)) return { valid: false, reason: 'Each name part must be at least 2 characters' };
-  if (name.length < 5) return { valid: false, reason: 'Name is too short' };
+  if (name.replace(/\s/g, '').length < 2) return { valid: false, reason: 'Name is too short' };
 
   const lower = name.toLowerCase();
   if (FAKE_NAMES.has(lower) || parts.some((p) => FAKE_NAMES.has(p.toLowerCase()))) {
@@ -163,9 +166,10 @@ export async function calculateRiskScore({
       [deviceFp, userId || '00000000-0000-0000-0000-000000000000'],
     ).catch(() => null);
     const cnt = parseInt(row?.cnt || 0);
-    // Reduced: shared devices are common (family/office). Only flag high count.
-    if (cnt >= 3) { score += 35; signals.push(`device_used_by_${cnt}_accounts`); }
-    else if (cnt >= 1) { score += 10; signals.push('device_shared'); }
+    // Shared devices are common (family, office, one test handset). Only a
+    // genuine cluster is a signal; a single co-user is not scored at all.
+    if (cnt >= 4) { score += 30; signals.push(`device_used_by_${cnt}_accounts`); }
+    else if (cnt >= 2) { score += 10; signals.push(`device_used_by_${cnt}_accounts`); }
   }
 
   // Google OAuth sub already on another account
@@ -174,7 +178,7 @@ export async function calculateRiskScore({
       `SELECT id FROM public.profiles WHERE google_sub = $1 AND id != $2 LIMIT 1`,
       [googleSub, userId || '00000000-0000-0000-0000-000000000000'],
     ).catch(() => null);
-    if (row) { score += 40; signals.push('google_sub_duplicate'); }
+    if (row) { score += 30; signals.push('google_sub_duplicate'); }
   }
 
   // Phone already on another account
@@ -183,7 +187,7 @@ export async function calculateRiskScore({
       `SELECT id FROM public.profiles WHERE phone = $1 AND id != $2 LIMIT 1`,
       [phone, userId || '00000000-0000-0000-0000-000000000000'],
     ).catch(() => null);
-    if (row) { score += 40; signals.push('phone_duplicate'); }
+    if (row) { score += 30; signals.push('phone_duplicate'); }
   }
 
   // IP created 5+ accounts in the past 24 hours (raised from 3 — hotspots/offices are common)
@@ -247,10 +251,17 @@ export async function checkSignupRateLimit(ip) {
   return { limited: count > 3, count };
 }
 
+// Per-user and per-device daily caps on KYC starts. Both are env-tunable —
+// the per-device cap especially, because a shared build/handset (QA, an
+// internet cafe, one family device) legitimately drives several verifications
+// through the same fingerprint and the old value of 3 locked everyone out.
+const USER_KYC_DAILY_LIMIT = Number(process.env.KYC_USER_DAILY_LIMIT || 12);
+const DEVICE_KYC_DAILY_LIMIT = Number(process.env.KYC_DEVICE_DAILY_LIMIT || 12);
+
 export async function checkKycRateLimit({ userId, deviceFp }) {
   if (!userId) return { limited: false };
 
-  // Per-user: max 10 KYC attempts per day
+  // Per-user daily cap
   const userRow = await queryOne(
     `SELECT kyc_attempt_count, last_kyc_attempt_at FROM public.profiles WHERE id = $1`,
     [userId],
@@ -258,12 +269,12 @@ export async function checkKycRateLimit({ userId, deviceFp }) {
 
   if (userRow?.last_kyc_attempt_at) {
     const hoursSince = (Date.now() - new Date(userRow.last_kyc_attempt_at).getTime()) / 3600000;
-    if (hoursSince < 24 && (userRow.kyc_attempt_count || 0) >= 10) {
+    if (hoursSince < 24 && (userRow.kyc_attempt_count || 0) >= USER_KYC_DAILY_LIMIT) {
       return { limited: true, reason: 'user_kyc_limit', count: userRow.kyc_attempt_count };
     }
   }
 
-  // Per-device: max 3 KYC attempts per day
+  // Per-device daily cap
   if (deviceFp) {
     const deviceRow = await queryOne(
       `SELECT COUNT(*) AS cnt FROM public.security_events
@@ -273,7 +284,7 @@ export async function checkKycRateLimit({ userId, deviceFp }) {
       [deviceFp],
     ).catch(() => null);
     const cnt = parseInt(deviceRow?.cnt || 0);
-    if (cnt >= 3) {
+    if (cnt >= DEVICE_KYC_DAILY_LIMIT) {
       return { limited: true, reason: 'device_kyc_limit', count: cnt };
     }
   }
@@ -468,8 +479,12 @@ export async function runPreKycChecks(user, req) {
     [score, JSON.stringify({ score, signals, updatedAt: new Date().toISOString() }), user.id],
   ).catch(() => {});
 
-  // Score ≥ 90: strong indicators (Google sub duplicate, phone duplicate, many device accounts)
-  if (score >= 90 && !releasedAutoReview) {
+  // Hard block only on an unambiguous cluster of strong signals. Env-tunable so
+  // the threshold can be dialled without a deploy.
+  const RISK_BLOCK_THRESHOLD = Number(process.env.KYC_RISK_BLOCK_THRESHOLD || 110);
+  const RISK_REVIEW_THRESHOLD = Number(process.env.KYC_RISK_REVIEW_THRESHOLD || 85);
+
+  if (score >= RISK_BLOCK_THRESHOLD && !releasedAutoReview) {
     await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'cooldown', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_high', ip, deviceFp, userAgent, metadata: { retryAfterMinutes: REVIEW_COOLDOWN_MINUTES } });
     await query(
       `UPDATE public.profiles SET account_status = 'pending_security_review',
@@ -496,8 +511,8 @@ export async function runPreKycChecks(user, req) {
     };
   }
 
-  // Score 65–89: elevated but not conclusive — flag for admin review, allow KYC to proceed
-  if (score >= 65) {
+  // Elevated but not conclusive — flag for admin review, still allow KYC to proceed
+  if (score >= RISK_REVIEW_THRESHOLD) {
     await logSecurityEvent({ userId: user.id, eventType: 'kyc_start', action: 'review', riskScore: score, riskSignals: signals, reasonCode: 'risk_score_medium', ip, deviceFp, userAgent });
     await query(
       `UPDATE public.profiles

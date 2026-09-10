@@ -1106,6 +1106,9 @@ export const updateLegalName = async (req, res) => {
            country = COALESCE($5, country),
            preferred_currency = COALESCE($6, preferred_currency),
            payment_gateway = COALESCE($7, payment_gateway),
+           -- Re-confirming legal details satisfies the post-reactivation
+           -- "fresh details" requirement.
+           needs_fresh_details = false,
            updated_at  = NOW()
        WHERE id = $1`,
       [userId, firstName.trim(), lastName.trim(), dobValue, normalizedCountry, walletCurrency, paymentGateway],
