@@ -14,6 +14,7 @@ import Settings from '../components/dashboard/Settings';
 import FinancialReports from '../components/dashboard/FinancialReports';
 import BusinessVerification from '../components/dashboard/BusinessVerification';
 import StaffAccounts from '../components/dashboard/StaffAccounts';
+import BusinessServices from '../components/dashboard/BusinessServices';
 import {
     LayoutDashboard,
     Menu,
@@ -29,6 +30,7 @@ import { getUserPayoutCurrency } from '../utils/userCurrency';
 const TAB_LABELS = {
     overview: 'Overview',
     trips: 'My Trips',
+    services: 'Business Services',
     shipments: 'My Shipments',
     deliveries: 'My Deliveries',
     chats: 'Messages',
@@ -72,7 +74,7 @@ export default function Dashboard() {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
-        const allowed = ['overview', 'trips', 'shipments', 'deliveries', 'messages', 'chats', 'earnings', 'financial', 'referral', 'settings', 'insurance'];
+        const allowed = ['overview', 'trips', 'services', 'shipments', 'deliveries', 'messages', 'chats', 'earnings', 'financial', 'referral', 'settings', 'insurance'];
         if (tab && allowed.includes(tab)) {
             setActiveTab(tab === 'messages' ? 'chats' : tab);
         }
@@ -182,6 +184,10 @@ export default function Dashboard() {
                     );
                 case 'trips':
                     return <Trips user={user} />;
+                case 'services':
+                    return isBusinessAccount
+                        ? <BusinessServices user={user} />
+                        : <Overview user={user} kycStatus={effectiveKycStatus} handleStartKyc={handleStartKyc} fetchKycStatus={fetchKycStatus} userStats={userStats} />;
                 case 'shipments':
                     return (
                         <Shipments

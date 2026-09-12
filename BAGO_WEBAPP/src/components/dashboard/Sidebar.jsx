@@ -14,6 +14,7 @@ import {
     FileText,
     ShieldCheck,
     Users,
+    Store,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
@@ -50,6 +51,7 @@ function getAccountItems(isBusinessAccount, user) {
         { id: 'earnings', label: 'Wallet', icon: Wallet },
     ];
     if (isBusinessAccount) {
+        items.push({ id: 'services', label: 'Business Services', icon: Store });
         items.push({ id: 'financial', label: 'Financial Reports', icon: FileText });
         items.push({ id: 'business-verification', label: 'Business Verification', icon: ShieldCheck });
         // Only the real business owner manages staff — a staff sub-account

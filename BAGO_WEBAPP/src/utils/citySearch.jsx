@@ -225,6 +225,10 @@ const getTripSide = (trip, side) => {
 };
 
 export const locationMatches = (trip, selected, side) => {
+    // A business's named per-kg service isn't tied to any one route, so it
+    // should surface for every search — same rule the backend's SQL search
+    // applies for the mobile app (see searchTravelerTrips in shipping.js).
+    if (trip.isBusinessService) return { matches: true, score: 0 };
     if (!selected) return { matches: true, score: 0 };
     const tripSide = getTripSide(trip, side);
     const selectedCity = normalizeText(selected.city || '');

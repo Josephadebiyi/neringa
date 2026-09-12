@@ -59,6 +59,7 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/trips/models/trip_model.dart';
 import '../../features/activity/screens/activity_screen.dart';
 import '../../features/trips/screens/post_trip_screen.dart';
+import '../../features/trips/screens/business_services_screen.dart';
 import '../../features/trips/screens/trip_details_screen.dart';
 import '../../features/trips/screens/trips_screen.dart';
 
@@ -331,6 +332,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               state.extra is TripModel ? state.extra as TripModel : null;
           return PostTripScreen(tripId: id, initialTrip: trip);
         },
+      ),
+      GoRoute(
+        path: '/business-services',
+        builder: (_, __) => const BusinessServicesScreen(),
       ),
       GoRoute(
         path: '/trip-details/:id',

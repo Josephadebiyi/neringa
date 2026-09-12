@@ -131,6 +131,8 @@ function normalizeTrip(row) {
     tripNumber: row.trip_number,
     trip_number: row.trip_number,
     userId: row.user_id,
+    isBusinessService: row.is_business_service === true,
+    serviceName: row.service_name || null,
     fromLocation: row.from_location,
     fromCountry: row.from_country,
     toLocation: row.to_location,
@@ -615,7 +617,9 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
       params.push(`%${term}%`);
       index += 1;
     }
-    conditions.push(`(${termClauses.join(' or ')})`);
+    // A business's named per-kg service isn't tied to any one route, so it
+    // should surface for every search regardless of the from/to terms above.
+    conditions.push(`(t.is_business_service = true or (${termClauses.join(' or ')}))`);
   };
 
   if (currentUserId) {
@@ -651,6 +655,8 @@ export async function searchTravelerTrips({ currentUserId, fromLocation, toLocat
         t.id,
         t.trip_number,
         t.user_id,
+        t.is_business_service,
+        t.service_name,
         t.from_location,
         t.from_country,
         t.to_location,

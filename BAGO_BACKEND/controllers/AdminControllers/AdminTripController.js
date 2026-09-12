@@ -115,3 +115,81 @@ export const createTripForBusiness = async (req, res, next) => {
     next(error);
   }
 };
+
+const SENTINEL_DEPARTURE_DATE = '2099-12-31T00:00:00.000Z';
+const UNLIMITED_KG = 999999999;
+const MAX_SERVICE_NAME_LENGTH = 40;
+
+// Admin creates a named per-kg service (e.g. "Express") on behalf of a
+// business — same idea as createTripForBusiness above, but for the
+// route-agnostic, unlimited-capacity service kind. Goes live immediately,
+// same as an admin-created trip: the admin is the approval step.
+export const createBusinessServiceForBusiness = async (req, res, next) => {
+  const { businessUserId, name, pricePerKg } = req.body;
+
+  try {
+    if (!businessUserId) {
+      return res.status(400).json({ message: 'businessUserId is required', success: false });
+    }
+
+    const business = await findProfileById(businessUserId);
+    if (!business) {
+      return res.status(404).json({ message: 'Business account not found', success: false });
+    }
+    if (business.accountType !== 'company') {
+      return res.status(400).json({ message: 'The selected account is not a business account', success: false });
+    }
+    if (!business.preferredCurrency) {
+      return res.status(400).json({
+        message: 'This business has not set a wallet receiving currency yet — set it on their account before adding a service on their behalf.',
+        errorType: 'WALLET_CURRENCY_REQUIRED',
+        success: false,
+      });
+    }
+
+    const trimmedName = (name || '').toString().trim();
+    if (!trimmedName) {
+      return res.status(400).json({ message: 'Service name is required (e.g. "Express", "Standard").', success: false });
+    }
+    if (trimmedName.length > MAX_SERVICE_NAME_LENGTH) {
+      return res.status(400).json({ message: `Service name must be ${MAX_SERVICE_NAME_LENGTH} characters or fewer.`, success: false });
+    }
+    const price = parseFloat(pricePerKg);
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({ message: 'Price per kg must be a positive number.', success: false });
+    }
+
+    // Same rule as createTripForBusiness: always the business's own payout
+    // currency, never client-supplied.
+    const currency = business.preferredCurrency;
+
+    const service = await createTripRecord({
+      userId: businessUserId,
+      fromLocation: 'Worldwide',
+      fromCountry: '',
+      toLocation: 'Worldwide',
+      toCountry: '',
+      departureDate: SENTINEL_DEPARTURE_DATE,
+      arrivalDate: SENTINEL_DEPARTURE_DATE,
+      availableKg: UNLIMITED_KG,
+      travelMeans: 'business_service',
+      pricePerKg: price,
+      currency,
+      landmark: '',
+      travelDocument: null,
+      proofExempt: true,
+      travelDocumentVerified: true,
+      isBusinessService: true,
+      serviceName: trimmedName,
+      status: 'active',
+    });
+
+    res.status(201).json({
+      message: `Service created and is live on ${business.tradingName || business.companyName || 'the business'}'s account.`,
+      service,
+      success: true,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

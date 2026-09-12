@@ -37,6 +37,10 @@ class TripModel {
   final double payoutAmount;
   final String payoutStatus;
   final int completedTripCount;
+  /// A business's standing named per-kg service (e.g. "Express") rather than
+  /// a real traveler trip — not tied to a route/date, capacity is unbounded.
+  final bool isBusinessService;
+  final String? serviceName;
 
   const TripModel({
     required this.id,
@@ -73,6 +77,8 @@ class TripModel {
     this.payoutAmount = 0,
     this.payoutStatus = 'pending',
     this.completedTripCount = 0,
+    this.isBusinessService = false,
+    this.serviceName,
   });
 
   bool get isActive =>
@@ -159,6 +165,8 @@ class TripModel {
     double? payoutAmount,
     String? payoutStatus,
     int? completedTripCount,
+    bool? isBusinessService,
+    String? serviceName,
   }) {
     return TripModel(
       id: id ?? this.id,
@@ -195,6 +203,8 @@ class TripModel {
       payoutAmount: payoutAmount ?? this.payoutAmount,
       payoutStatus: payoutStatus ?? this.payoutStatus,
       completedTripCount: completedTripCount ?? this.completedTripCount,
+      isBusinessService: isBusinessService ?? this.isBusinessService,
+      serviceName: serviceName ?? this.serviceName,
     );
   }
 
@@ -285,6 +295,10 @@ class TripModel {
         'completedTripCount',
         altKey: 'completed_trip_count',
       ),
+      isBusinessService: json['isBusinessService'] == true ||
+          json['is_business_service'] == true,
+      serviceName: json['serviceName']?.toString() ??
+          json['service_name']?.toString(),
     );
   }
 
@@ -292,6 +306,8 @@ class TripModel {
         'id': id,
         'tripNumber': tripNumber,
         'userId': userId,
+        'isBusinessService': isBusinessService,
+        'serviceName': serviceName,
         'fromCountry': fromCountry,
         'fromLocation': fromLocation,
         'toCountry': toCountry,

@@ -31,7 +31,7 @@ import {
 
 const FALLBACK_PRICING_SETTINGS = {
     platformCommissionPercent: 15,
-    processingFeePercent: 5,
+    processingFeePercent: 0,
     fxBufferPercent: 0,
     exchangeRates: {
         USD: 1,
@@ -58,7 +58,7 @@ const senderPriceMultiplier = (settings) => {
     const platform = 1 + numberOr(settings?.platformCommissionPercent, 15) / 100;
     const variable =
         1 +
-        numberOr(settings?.processingFeePercent, 5) / 100 +
+        numberOr(settings?.processingFeePercent, 0) / 100 +
         numberOr(settings?.fxBufferPercent, 0) / 100;
     return platform * variable;
 };
@@ -150,7 +150,7 @@ const TripCard = ({ trip, weight, pricingSettings, authoritativeRate }) => {
     const { isAuthenticated, user } = useAuth();
     const { t, currency } = useLanguage();
     const rate = authoritativeRate || formatTripRate(trip, currency, pricingSettings);
-    const travelDate = formatTravelDate(trip.departureDate, true);
+    const travelDate = trip.isBusinessService ? null : formatTravelDate(trip.departureDate, true);
     const isVerified = trip.isVerified === true ||
         trip.kycStatus === 'approved' ||
         trip.isKycCompleted === true ||
@@ -199,7 +199,9 @@ const TripCard = ({ trip, weight, pricingSettings, authoritativeRate }) => {
                         </div>
                         <div>
                             <p className="text-white font-black text-[11px] tracking-tight leading-none">
-                                {trip.firstName || t('traveler')}
+                                {trip.isBusinessService
+                                    ? `${trip.serviceName || 'Service'} · ${trip.firstName || t('traveler')}`
+                                    : (trip.firstName || t('traveler'))}
                             </p>
                             <div className="flex items-center gap-1.5 mt-1">
                                 <Star size={8} fill="currentColor" className="text-amber-400" />
@@ -216,50 +218,62 @@ const TripCard = ({ trip, weight, pricingSettings, authoritativeRate }) => {
                         <div className="flex items-center gap-1 bg-white/[0.07] border border-white/10 rounded-full px-2.5 py-1">
                             <Plane size={9} className="text-white/50" />
                             <span className="text-[7px] text-white/50 font-black uppercase tracking-widest">
-                                {trip.transportMode}
+                                {trip.isBusinessService ? 'Service' : trip.transportMode}
                             </span>
                         </div>
                     )}
                 </div>
 
-                {/* Route: CODE ────✈──── CODE */}
-                <div className="flex items-center justify-between relative z-10">
-                    <div>
-                        <p className="text-white text-[28px] font-black tracking-tighter leading-none">
-                            {(trip.origin || trip.originCity || 'ORG').split(',')[0].slice(0, 3).toUpperCase()}
-                        </p>
-                        <p className="text-white/35 text-[8px] font-bold mt-1 uppercase truncate max-w-[75px]">
-                            {(trip.origin || trip.originCity || '').split(',')[0]}
-                        </p>
-                        {travelDate && (
-                            <p className="text-[#9B8EF5] text-[8px] font-black mt-1.5">
-                                {travelDate}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="flex flex-1 items-center mx-3 gap-1.5">
-                        <div className="flex-1 border-t border-dashed border-white/10" />
+                {trip.isBusinessService ? (
+                    /* Route-agnostic business service — no fixed origin/destination */
+                    <div className="flex items-center gap-2 relative z-10">
                         <div className="w-7 h-7 bg-[#5845D8] rounded-full flex items-center justify-center shadow-lg shadow-[#5845D8]/40 flex-shrink-0">
-                            <Plane size={12} className="text-white" />
+                            <Package size={12} className="text-white" />
                         </div>
-                        <div className="flex-1 border-t border-dashed border-white/10" />
+                        <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">
+                            Ships to any destination
+                        </p>
                     </div>
-
-                    <div className="text-right">
-                        <p className="text-white text-[28px] font-black tracking-tighter leading-none">
-                            {(trip.destination || trip.destinationCity || 'DST').split(',')[0].slice(0, 3).toUpperCase()}
-                        </p>
-                        <p className="text-white/35 text-[8px] font-bold mt-1 uppercase truncate max-w-[75px] text-right">
-                            {(trip.destination || trip.destinationCity || '').split(',')[0]}
-                        </p>
-                        {trip.landmark && (
-                            <p className="text-[#9B8EF5] text-[8px] font-black mt-1.5 text-right truncate max-w-[75px]">
-                                📍 {trip.landmark}
+                ) : (
+                    /* Route: CODE ────✈──── CODE */
+                    <div className="flex items-center justify-between relative z-10">
+                        <div>
+                            <p className="text-white text-[28px] font-black tracking-tighter leading-none">
+                                {(trip.origin || trip.originCity || 'ORG').split(',')[0].slice(0, 3).toUpperCase()}
                             </p>
-                        )}
+                            <p className="text-white/35 text-[8px] font-bold mt-1 uppercase truncate max-w-[75px]">
+                                {(trip.origin || trip.originCity || '').split(',')[0]}
+                            </p>
+                            {travelDate && (
+                                <p className="text-[#9B8EF5] text-[8px] font-black mt-1.5">
+                                    {travelDate}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex flex-1 items-center mx-3 gap-1.5">
+                            <div className="flex-1 border-t border-dashed border-white/10" />
+                            <div className="w-7 h-7 bg-[#5845D8] rounded-full flex items-center justify-center shadow-lg shadow-[#5845D8]/40 flex-shrink-0">
+                                <Plane size={12} className="text-white" />
+                            </div>
+                            <div className="flex-1 border-t border-dashed border-white/10" />
+                        </div>
+
+                        <div className="text-right">
+                            <p className="text-white text-[28px] font-black tracking-tighter leading-none">
+                                {(trip.destination || trip.destinationCity || 'DST').split(',')[0].slice(0, 3).toUpperCase()}
+                            </p>
+                            <p className="text-white/35 text-[8px] font-bold mt-1 uppercase truncate max-w-[75px] text-right">
+                                {(trip.destination || trip.destinationCity || '').split(',')[0]}
+                            </p>
+                            {trip.landmark && (
+                                <p className="text-[#9B8EF5] text-[8px] font-black mt-1.5 text-right truncate max-w-[75px]">
+                                    📍 {trip.landmark}
+                                </p>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Boarding-pass tear line */}
@@ -274,7 +288,9 @@ const TripCard = ({ trip, weight, pricingSettings, authoritativeRate }) => {
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('spaceAvailable') || 'Space Available'}</p>
-                        <p className="text-[#012126] font-black text-sm">{trip.availableWeight || '5'} KG</p>
+                        <p className="text-[#012126] font-black text-sm">
+                            {trip.isBusinessService ? 'Unlimited' : `${trip.availableWeight || '5'} KG`}
+                        </p>
                         {travelDate && (
                             <p className="mt-1 flex items-center gap-1 text-[9px] font-black text-[#6B7280]">
                                 <Calendar size={10} className="text-[#5845D8]" />

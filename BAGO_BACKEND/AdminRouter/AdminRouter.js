@@ -61,7 +61,7 @@ import {
   updateTripPriceBatch,
   deleteTripBatch
 } from '../controllers/AdminControllers/TripManagement.js';
-import { createTripForBusiness } from '../controllers/AdminControllers/AdminTripController.js';
+import { createTripForBusiness, createBusinessServiceForBusiness } from '../controllers/AdminControllers/AdminTripController.js';
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
 import { getAdminProfile, updateAdminProfile } from '../controllers/AdminControllers/AdminProfileController.js';
 import { upload } from '../utils/multer.js';
@@ -226,6 +226,7 @@ AdminRouter.put("/promo-codes/:id/toggle", adminAuthenticated, can('promos.manag
 
 // Trip Management (Real trips from DB)
 AdminRouter.post("/admin-trips", adminAuthenticated, can('trips.manage'), audit('admin.trip.create', 'trip'), createTripForBusiness);
+AdminRouter.post("/admin-business-services", adminAuthenticated, can('trips.manage'), audit('admin.business_service.create', 'trip'), createBusinessServiceForBusiness);
 AdminRouter.get("/admin-trips", adminAuthenticated, getAllTrips);
 AdminRouter.get("/admin-trips/:id", adminAuthenticated, validateUuidParam('id'), getTripById);
 AdminRouter.put("/admin-trips/:id/status", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.status.update', 'trip'), updateTripStatus);

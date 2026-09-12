@@ -75,7 +75,9 @@ describe('createTripRecord', () => {
     expect(params[17]).toBe(null);                // travel_document_uploaded_at (no document uploaded)
     expect(params[18]).toBe(false);                // travel_document_verified = proofExempt
     expect(params[19]).toBe('pending_admin_review'); // status — always review, even for proofExempt accounts
-    expect(params).toHaveLength(20);
+    expect(params[20]).toBe(false);                // is_business_service — defaults false for a regular trip
+    expect(params[21]).toBe(null);                 // service_name — only set for business services
+    expect(params).toHaveLength(22);
 
     // total_kg and available_kg columns must reuse the *same* placeholder
     // ($12 for both), not two different (and therefore possibly wrong) ones.

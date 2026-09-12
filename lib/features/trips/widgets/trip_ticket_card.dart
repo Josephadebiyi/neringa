@@ -72,14 +72,16 @@ class TripTicketCard extends ConsumerWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            ownerView && tripNumber.isNotEmpty
-                                ? 'Trip #$tripNumber · ${isHistory ? 'History' : formatTripStatusLabel(trip.status)}'
-                                : ownerView
-                                    ? formatTripStatusLabel(trip.status)
-                                    : NameFormatter.firstNameOnly(
-                                        trip.carrierName,
-                                        fallback: 'Traveler',
-                                      ),
+                            trip.isBusinessService && !ownerView
+                                ? '${trip.serviceName ?? 'Service'} · ${NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Business')}'
+                                : ownerView && tripNumber.isNotEmpty
+                                    ? 'Trip #$tripNumber · ${isHistory ? 'History' : formatTripStatusLabel(trip.status)}'
+                                    : ownerView
+                                        ? formatTripStatusLabel(trip.status)
+                                        : NameFormatter.firstNameOnly(
+                                            trip.carrierName,
+                                            fallback: 'Traveler',
+                                          ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.labelMd.copyWith(
@@ -101,45 +103,61 @@ class TripTicketCard extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 18),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _AirportBlock(
-                            code: fromCode,
-                            city: from,
-                            alignEnd: false,
+                    if (trip.isBusinessService)
+                      Row(
+                        children: [
+                          Icon(Icons.public_rounded,
+                              size: 18, color: AppColors.gray400),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Ships to any destination',
+                            style: AppTextStyles.bodySm.copyWith(
+                              color: AppColors.gray500,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                        SizedBox(
-                          width: 110,
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 12),
-                              _RouteLine(
-                                  icon: _travelMeansIcon(trip.travelMeans)),
-                              const SizedBox(height: 8),
-                              Text(
-                                date,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.caption.copyWith(
-                                  color: AppColors.gray400,
-                                  fontWeight: FontWeight.w700,
+                        ],
+                      )
+                    else
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _AirportBlock(
+                              code: fromCode,
+                              city: from,
+                              alignEnd: false,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 110,
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 12),
+                                _RouteLine(
+                                    icon: _travelMeansIcon(trip.travelMeans)),
+                                const SizedBox(height: 8),
+                                Text(
+                                  date,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: AppColors.gray400,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: _AirportBlock(
-                            code: toCode,
-                            city: to,
-                            alignEnd: true,
+                          Expanded(
+                            child: _AirportBlock(
+                              code: toCode,
+                              city: to,
+                              alignEnd: true,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -156,12 +174,18 @@ class TripTicketCard extends ConsumerWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          _MiniPill(
-                            icon: Icons.luggage_rounded,
-                            label:
-                                '${trip.availableKg.toStringAsFixed(0)} kg free',
-                          ),
-                          if (ownerView)
+                          if (trip.isBusinessService)
+                            const _MiniPill(
+                              icon: Icons.all_inclusive_rounded,
+                              label: 'Unlimited capacity',
+                            )
+                          else
+                            _MiniPill(
+                              icon: Icons.luggage_rounded,
+                              label:
+                                  '${trip.availableKg.toStringAsFixed(0)} kg free',
+                            ),
+                          if (ownerView && !trip.isBusinessService)
                             _MiniPill(
                               icon: Icons.inventory_2_outlined,
                               label: '${bookedKg.toStringAsFixed(0)} kg booked',
@@ -271,6 +295,8 @@ class TripTicketCard extends ConsumerWidget {
         return Icons.directions_boat_rounded;
       case 'car':
         return Icons.directions_car_rounded;
+      case 'business_service':
+        return Icons.storefront_rounded;
       default:
         return Icons.flight_rounded;
     }

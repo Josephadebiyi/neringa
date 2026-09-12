@@ -39,6 +39,66 @@ class TripService {
     }
   }
 
+  // ── Business named per-kg services (e.g. "Express") ──────────────────────
+
+  Future<List<TripModel>> getMyBusinessServices() async {
+    try {
+      final res = await _api.get(ApiConstants.businessServices);
+      return ResponseParser.parseList(res.data, ['services'])
+          .map(TripModel.fromJson)
+          .toList();
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<TripModel> createBusinessService({
+    required String name,
+    required double pricePerKg,
+    required String currency,
+  }) async {
+    try {
+      final res = await _api.post(
+        ApiConstants.businessServices,
+        data: {'name': name, 'pricePerKg': pricePerKg, 'currency': currency},
+      );
+      return TripModel.fromJson(
+        (res.data as Map<String, dynamic>)['service'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<TripModel> updateBusinessService({
+    required String id,
+    String? name,
+    double? pricePerKg,
+  }) async {
+    try {
+      final res = await _api.put(
+        '${ApiConstants.businessServices}/$id',
+        data: {
+          if (name != null) 'name': name,
+          if (pricePerKg != null) 'pricePerKg': pricePerKg,
+        },
+      );
+      return TripModel.fromJson(
+        (res.data as Map<String, dynamic>)['service'] as Map<String, dynamic>,
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> deleteBusinessService(String id) async {
+    try {
+      await _api.delete('${ApiConstants.businessServices}/$id');
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
   Future<List<TripModel>> searchTrips({
     String? from,
     String? to,

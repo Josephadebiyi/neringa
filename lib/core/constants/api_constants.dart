@@ -92,6 +92,8 @@ class ApiConstants {
   static const String createTrip = '/api/bago/AddAtrip';
   static const String myTrips = '/api/bago/MyTrips';
   static const String searchTrips = '/api/bago/getTravelers';
+  // Business named per-kg services (e.g. "Express") — caller appends /<id> for PUT/DELETE
+  static const String businessServices = '/api/bago/business-services';
 
   // ---------------------------------------------------------------------------
   // Packages / Shipments

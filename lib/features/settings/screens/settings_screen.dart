@@ -339,8 +339,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 leading: const Icon(Icons.credit_card_rounded,
                     color: AppColors.gray600),
                 onTap: () => context.push('/profile/payment-methods'),
-                showDivider: false,
+                showDivider: user?.isCompany != true,
               ),
+              if (user?.isCompany == true)
+                BagoMenuItem(
+                  label: 'Business services',
+                  leading: const Icon(Icons.storefront_rounded,
+                      color: AppColors.gray600),
+                  onTap: () => context.push('/business-services'),
+                  showDivider: false,
+                ),
             ],
           ),
           const SizedBox(height: 24),

@@ -43,7 +43,9 @@ export async function ensureTripCapacityColumns(executor = { query }) {
       ADD COLUMN IF NOT EXISTS travel_document_url TEXT,
       ADD COLUMN IF NOT EXISTS travel_document_uploaded_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS travel_document_verified BOOLEAN DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS request_count INTEGER DEFAULT 0
+      ADD COLUMN IF NOT EXISTS request_count INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS is_business_service BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS service_name TEXT
   `);
 
   // The original Supabase schema had status CHECK IN ('active','completed','cancelled').

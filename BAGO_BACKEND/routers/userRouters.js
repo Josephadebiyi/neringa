@@ -11,6 +11,7 @@ import { checkEmailAvailability, edit, useReferralDiscount, createDelivery, send
 import { signIn, signUp, verifySignupOtp, forgotPassword, resendOtp, verifyOtp, resetPassword, googleAuth, appleAuth, getUser, acceptTerms, logout, revokeAllSessions, getWallet, exportWalletTransactions, downloadEarningsSummaryPDF, getReferral, editCurrency, activateEarning, requestEmailChange, verifyEmailChange, requestPhoneChange, verifyPhoneChange, savePushToken as savePushTokenPg, removePushToken as removePushTokenPg, getCommunicationPrefs, updateCommunicationPrefs, detectLocation } from '../controllers/postgresUserController.js';
 import { getCurrentSetting } from '../controllers/AdminControllers/setting.js';
 import { AddAtrip, MyTrips, GetTripById, UpdateTrip, AddReviewToTrip, AddReviewToRequest, DeleteTrip, GetMyReviews } from '../controllers/AddaTripController.js';
+import { createBusinessService, listMyBusinessServices, updateBusinessService, deleteBusinessService } from '../controllers/BusinessServiceController.js';
 import { isAuthenticated } from '../Auth/UserAuthentication.js';
 import { requireKycVerification } from '../middleware/kycMiddleware.js';
 import { requireInternalWalletMutation, requireVerifiedContact } from '../middleware/securityGuards.js';
@@ -179,6 +180,13 @@ userRouter.post("/revoke-all-sessions", isAuthenticated, revokeAllSessions)
 userRouter.put("/edit", isAuthenticated, edit)
 userRouter.put("/Trip/:id", isAuthenticated, requireKycVerification, UpdateTrip);
 userRouter.delete("/Trip/:id", isAuthenticated, requireKycVerification, DeleteTrip);
+
+// Business named per-kg services (e.g. "Express", "Standard") — a business's
+// standing rate, not tied to one route/date. Reuses the trips table/pipeline.
+userRouter.post("/business-services", isAuthenticated, requireKycVerification, createBusinessService);
+userRouter.get("/business-services", isAuthenticated, listMyBusinessServices);
+userRouter.put("/business-services/:serviceId", isAuthenticated, requireKycVerification, updateBusinessService);
+userRouter.delete("/business-services/:serviceId", isAuthenticated, requireKycVerification, deleteBusinessService);
 
 // Refund routes — authenticated
 userRouter.post("/request/refund", isAuthenticated, requireKycVerification, requestRefund);

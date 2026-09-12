@@ -12,6 +12,8 @@ function normalizeTrip(row) {
     trip_number: row.trip_number,
     batchId: row.batch_id,
     userId: row.user_id,
+    isBusinessService: row.is_business_service === true,
+    serviceName: row.service_name || null,
     user: row.user_id
       ? {
           _id: row.user_id,

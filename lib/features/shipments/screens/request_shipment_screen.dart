@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/services/api_service.dart';
+import '../../../shared/services/app_settings_service.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/utils/trip_price_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
@@ -456,7 +457,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           'declaredValue': declaredValue,
           'insurance': _insurance,
         },
-      );
+      ).timeout(const Duration(seconds: 8));
       final data = response.data ?? {};
       final previewRaw = data['preview'];
       if (previewRaw is! Map) {
@@ -1016,6 +1017,15 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
               totalAmount: preview?.totalAmount,
               insuranceBaseAmount: preview?.insuranceBaseAmount,
               insuranceBaseCurrency: preview?.insuranceBaseCurrency,
+              // Before the real quote lands, estimate with the same
+              // all-inclusive markup the backend applies (trip.pricePerKg is
+              // the traveler's raw rate, not what the sender pays) so this
+              // never shows a lower, pre-commission number.
+              fallbackPricePerKg: trip.pricePerKg *
+                  AppSettingsService.instance.cachedOrFallback
+                      .surchargeMultiplier,
+              fallbackCurrency: trip.currency,
+              fallbackWeight: double.tryParse(_weightCtrl.text.trim()) ?? 0,
               isLoading: _isPreviewLoading,
               error: _previewError,
             ),
@@ -1939,6 +1949,9 @@ class _PriceSummaryCard extends StatelessWidget {
     this.error,
     this.insuranceBaseAmount,
     this.insuranceBaseCurrency,
+    this.fallbackPricePerKg,
+    this.fallbackCurrency,
+    required this.fallbackWeight,
   });
   final String currency;
   final double? shippingAmount;
@@ -1946,6 +1959,9 @@ class _PriceSummaryCard extends StatelessWidget {
   final double? totalAmount;
   final double? insuranceBaseAmount;
   final String? insuranceBaseCurrency;
+  final double? fallbackPricePerKg;
+  final String? fallbackCurrency;
+  final double fallbackWeight;
   final bool isLoading;
   final String? error;
 
@@ -1955,6 +1971,20 @@ class _PriceSummaryCard extends StatelessWidget {
         insuranceAmount != null &&
         totalAmount != null &&
         error == null;
+    final hasFallback = !hasAmounts &&
+      fallbackPricePerKg != null &&
+      fallbackPricePerKg! > 0 &&
+      fallbackWeight > 0;
+    final displayCurrency = hasAmounts
+      ? currency
+      : (fallbackCurrency?.trim().isNotEmpty == true
+        ? fallbackCurrency!.toUpperCase()
+        : currency);
+    final displayShipping = hasAmounts
+      ? shippingAmount!
+      : (hasFallback ? fallbackPricePerKg! * fallbackWeight : null);
+    final displayInsurance = hasAmounts ? insuranceAmount! : 0.0;
+    final displayTotal = hasAmounts ? totalAmount! : displayShipping;
 
     return Container(
       decoration: BoxDecoration(
@@ -1964,7 +1994,7 @@ class _PriceSummaryCard extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(18),
       child: Column(children: [
-        if (isLoading) ...[
+        if (isLoading && !hasFallback) ...[
           Row(children: [
             const SizedBox(
               width: 16,
@@ -2010,7 +2040,9 @@ class _PriceSummaryCard extends StatelessWidget {
         _Row(
             label: 'Shipping fee',
             value: hasAmounts
-                ? '$currency ${shippingAmount!.toStringAsFixed(2)}'
+              ? '$displayCurrency ${displayShipping!.toStringAsFixed(2)}'
+              : hasFallback
+                ? '$displayCurrency ${displayShipping!.toStringAsFixed(2)}'
                 : '--'),
         const SizedBox(height: 12),
         _Row(
@@ -2018,7 +2050,9 @@ class _PriceSummaryCard extends StatelessWidget {
                 ? 'Item protection (${insuranceBaseCurrency ?? currency} ${insuranceBaseAmount!.toStringAsFixed(insuranceBaseAmount! % 1 == 0 ? 0 : 2)} fixed)'
                 : 'Item protection',
             value: hasAmounts
-                ? '$currency ${insuranceAmount!.toStringAsFixed(2)}'
+              ? '$displayCurrency ${displayInsurance.toStringAsFixed(2)}'
+              : hasFallback
+                ? '$displayCurrency ${displayInsurance.toStringAsFixed(2)}'
                 : '--'),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
@@ -2037,7 +2071,9 @@ class _PriceSummaryCard extends StatelessWidget {
             ),
             child: Text(
               hasAmounts
-                  ? '$currency ${totalAmount!.toStringAsFixed(2)}'
+                  ? '$displayCurrency ${displayTotal!.toStringAsFixed(2)}'
+                  : hasFallback
+                    ? '$displayCurrency ${displayTotal!.toStringAsFixed(2)}'
                   : '--',
               style: AppTextStyles.labelLg.copyWith(
                 color: AppColors.primary,

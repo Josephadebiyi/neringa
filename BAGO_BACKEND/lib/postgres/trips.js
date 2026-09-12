@@ -153,6 +153,8 @@ function normalizeTripRow(row, reviews = []) {
     batchId: row.batch_id,
     userId: row.user_id,
     user,
+    isBusinessService: row.is_business_service === true,
+    serviceName: row.service_name || null,
     fromLocation: row.from_location,
     fromCountry: row.from_country,
     toLocation: row.to_location,
@@ -205,6 +207,8 @@ const baseTripSelect = `
     t.price_per_kg,
     t.currency,
     t.landmark,
+    t.is_business_service,
+    t.service_name,
     t.departure_date,
     t.arrival_date,
     coalesce(nullif(t.total_kg, 0), greatest(coalesce(t.available_kg, 0) + coalesce(trip_stats.sold_kg, 0) + coalesce(trip_stats.reserved_kg, 0), coalesce(t.available_kg, 0))) as total_kg,
@@ -342,6 +346,11 @@ export async function createTripRecord({
   // approver, so that path passes status: 'active' directly.
   status = 'pending_admin_review',
   travelDocumentVerified = proofExempt,
+  // A business's standing per-kg service (e.g. "Express"), not tied to one
+  // route/date — reuses the trips table + this same status/document pipeline
+  // so it goes through the identical checkout-preview pricing as a real trip.
+  isBusinessService = false,
+  serviceName = null,
 }) {
   await ensureTripCapacityColumns({ query });
   await ensureTripReferenceColumn({ query });
@@ -376,9 +385,11 @@ export async function createTripRecord({
             travel_document_url,
             travel_document_uploaded_at,
             travel_document_verified,
-            status
+            status,
+            is_business_service,
+            service_name
           )
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,0,0,$13,$14,$15,$16,$17,$18,$19,$20)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,0,0,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
           returning id
         `,
         [
@@ -402,6 +413,8 @@ export async function createTripRecord({
           travelDocument ? departureDate : null,
           travelDocumentVerified,
           status,
+          isBusinessService,
+          serviceName,
         ],
       );
       await recordOperationalEvent(null, {
