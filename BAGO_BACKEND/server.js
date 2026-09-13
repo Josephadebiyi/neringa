@@ -1209,14 +1209,6 @@ app.use(express.static(path.join(__dirname, '../BAGO_WEBAPP/public'), {
   maxAge: '1d',
 }));
 
-// Serve admin panel from /admin
-const adminDist = path.join(__dirname, '../ADMIN_NEW/dist');
-app.use('/admin', express.static(adminDist));
-app.get(/^\/admin(\/.*)?$/, (req, res) => {
-  if (req.originalUrl === '/admin') return res.redirect(301, '/admin/');
-  res.sendFile(path.join(adminDist, 'index.html'));
-});
-
 // ✅ Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
