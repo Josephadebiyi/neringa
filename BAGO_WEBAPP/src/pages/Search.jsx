@@ -29,71 +29,12 @@ import {
     locationMatches,
 } from '../utils/citySearch.jsx';
 
-const FALLBACK_PRICING_SETTINGS = {
-    platformCommissionPercent: 15,
-    processingFeePercent: 0,
-    fxBufferPercent: 0,
-    exchangeRates: {
-        USD: 1,
-        EUR: 0.92,
-        GBP: 0.79,
-        CAD: 1.36,
-        NGN: 1550,
-        GHS: 15.2,
-        KES: 129,
-        ZAR: 18.5,
-    },
-};
-
 const normalizeCurrency = (value, fallback = 'USD') => (
     String(value || fallback).trim().toUpperCase() || fallback
 );
 
-const numberOr = (value, fallback = 0) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const senderPriceMultiplier = (settings) => {
-    const platform = 1 + numberOr(settings?.platformCommissionPercent, 15) / 100;
-    const variable =
-        1 +
-        numberOr(settings?.processingFeePercent, 0) / 100 +
-        numberOr(settings?.fxBufferPercent, 0) / 100;
-    return platform * variable;
-};
-
-const convertDisplayCurrency = (amount, fromCurrency, toCurrency, settings) => {
-    const from = normalizeCurrency(fromCurrency);
-    const to = normalizeCurrency(toCurrency);
-    if (from === to) return amount;
-    const rates = settings?.exchangeRates || FALLBACK_PRICING_SETTINGS.exchangeRates;
-    const fromRate = numberOr(rates[from], 0);
-    const toRate = numberOr(rates[to], 0);
-    if (fromRate <= 0 || toRate <= 0) return null;
-    return (amount / fromRate) * toRate;
-};
-
 const formatMoney = (amount, currency, decimals = 2) =>
     `${normalizeCurrency(currency)} ${Number(amount).toFixed(decimals)}`;
-
-const formatTripRate = (trip, viewerCurrency, settings) => {
-    const baseCurrency = normalizeCurrency(trip.currency);
-    const pricePerKg = numberOr(trip.pricePerKg, 0);
-    if (pricePerKg <= 0) return { primary: 'Standard rate', secondary: '' };
-
-    const senderPrice = pricePerKg * senderPriceMultiplier(settings);
-    const displayCurrency = normalizeCurrency(viewerCurrency, baseCurrency);
-    const converted = convertDisplayCurrency(senderPrice, baseCurrency, displayCurrency, settings);
-    const primaryAmount = converted ?? senderPrice;
-    const primaryCurrency = converted == null ? baseCurrency : displayCurrency;
-    const travelerRate = `${formatMoney(pricePerKg, baseCurrency)}/kg traveler rate`;
-
-    return {
-        primary: `${formatMoney(primaryAmount, primaryCurrency)}/kg`,
-        secondary: `Includes Bago fees · ${travelerRate}`,
-    };
-};
 
 const parseTripDate = (value) => {
     if (!value) return null;
@@ -145,11 +86,14 @@ const Navbar = () => {
     );
 };
 
-const TripCard = ({ trip, weight, pricingSettings, authoritativeRate }) => {
+const TripCard = ({ trip, weight, authoritativeRate }) => {
     const navigate = useNavigate();
     const { isAuthenticated, user } = useAuth();
     const { t, currency } = useLanguage();
-    const rate = authoritativeRate || formatTripRate(trip, currency, pricingSettings);
+    // No local estimate fallback — a sender should only ever see the one
+    // real, backend-computed price, never a number that might change a
+    // moment later once the authoritative quote loads.
+    const rate = authoritativeRate;
     const travelDate = trip.isBusinessService ? null : formatTravelDate(trip.departureDate, true);
     const isVerified = trip.isVerified === true ||
         trip.kycStatus === 'approved' ||
@@ -300,11 +244,17 @@ const TripCard = ({ trip, weight, pricingSettings, authoritativeRate }) => {
                     </div>
                     <div className="text-right">
                         <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mb-0.5">{t('rate') || 'Rate'}</p>
-                        <p className="text-[#5845D8] font-black text-lg tracking-tight">
-                            {rate.primary}
-                        </p>
-                        {rate.secondary && (
-                            <p className="text-[8px] text-gray-400 font-black mt-0.5">{rate.secondary}</p>
+                        {rate ? (
+                            <>
+                                <p className="text-[#5845D8] font-black text-lg tracking-tight">
+                                    {rate.primary}
+                                </p>
+                                {rate.secondary && (
+                                    <p className="text-[8px] text-gray-400 font-black mt-0.5">{rate.secondary}</p>
+                                )}
+                            </>
+                        ) : (
+                            <div className="h-5 w-16 rounded bg-gray-200 animate-pulse ml-auto" />
                         )}
                     </div>
                 </div>
@@ -391,7 +341,6 @@ export default function Search() {
     const [searchParams] = useSearchParams();
     const [trips, setTrips] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [pricingSettings, setPricingSettings] = useState(FALLBACK_PRICING_SETTINGS);
     const [authoritativeRates, setAuthoritativeRates] = useState({});
 
     const findInitialLocation = (cityParam, countryParam) => {
@@ -459,32 +408,6 @@ export default function Search() {
 
         return () => { cancelled = true; };
     }, [trips, currency]);
-
-    useEffect(() => {
-        let cancelled = false;
-        const fetchPricingSettings = async () => {
-            try {
-                const response = await api.get('/api/bago/get-settings');
-                const data = response.data?.data || response.data?.setting || response.data;
-                if (!cancelled && data) {
-                    setPricingSettings({
-                        ...FALLBACK_PRICING_SETTINGS,
-                        ...data,
-                        exchangeRates: {
-                            ...FALLBACK_PRICING_SETTINGS.exchangeRates,
-                            ...(data.exchangeRates || {}),
-                        },
-                    });
-                }
-            } catch (_) {
-                if (!cancelled) setPricingSettings(FALLBACK_PRICING_SETTINGS);
-            }
-        };
-        fetchPricingSettings();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
 
     const fetchTrips = async () => {
         setLoading(true);
@@ -740,7 +663,6 @@ export default function Search() {
                                         key={trip._id || trip.id}
                                         trip={trip}
                                         weight={filters.weight}
-                                        pricingSettings={pricingSettings}
                                         authoritativeRate={authoritativeRates[trip.id || trip._id]}
                                     />
                                 ))}

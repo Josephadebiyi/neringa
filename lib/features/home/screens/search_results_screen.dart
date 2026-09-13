@@ -416,9 +416,9 @@ class _TripCard extends ConsumerWidget {
       trip: trip,
       onTap: startShipment,
       actionLabel: 'Send package',
-      // While the authoritative per-kg quote is in flight, fall through to
-      // TripTicketCard's own client-side price (trip.pricePerKg) instead of a
-      // placeholder, so the list never shows a "Loading price…" state.
+      // null while the authoritative per-kg quote is in flight — TripTicketCard
+      // shows a shimmer placeholder rather than any estimate, so the sender
+      // only ever sees the one real, backend-computed price.
       authoritativeSenderPrice: senderPrice == null
           ? null
           : '${senderPrice!.currency} ${senderPrice!.amount.toStringAsFixed(2)}/kg',

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/utils/name_formatter.dart';
 import '../../../shared/utils/status_formatter.dart';
-import '../../../shared/utils/trip_price_formatter.dart';
-import '../../../shared/utils/user_currency_helper.dart';
-import '../../auth/providers/auth_provider.dart';
 import '../models/trip_model.dart';
 
 class TripTicketCard extends ConsumerWidget {
@@ -28,9 +26,6 @@ class TripTicketCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userCurrency =
-        UserCurrencyHelper.resolve(ref.watch(authProvider).user);
-    final price = formatTripPriceForViewer(trip, userCurrency, decimals: 0);
     final from = _cityLabel(trip.fromLocation);
     final to = _cityLabel(trip.toLocation);
     final fromCode = _codeFor(from);
@@ -91,15 +86,18 @@ class TripTicketCard extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        Text(
-                          ownerView
-                              ? '${trip.currency} ${trip.pricePerKg.toStringAsFixed(0)}/kg'
-                              : authoritativeSenderPrice ?? price.primary,
-                          style: AppTextStyles.h3.copyWith(
-                            color: AppColors.black,
-                            fontWeight: FontWeight.w900,
+                        if (!ownerView && authoritativeSenderPrice == null)
+                          const _PriceShimmer()
+                        else
+                          Text(
+                            ownerView
+                                ? '${trip.currency} ${trip.pricePerKg.toStringAsFixed(0)}/kg'
+                                : authoritativeSenderPrice!,
+                            style: AppTextStyles.h3.copyWith(
+                              color: AppColors.black,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -403,6 +401,29 @@ class _RouteLine extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// A brand-consistent placeholder for the sender price while the authoritative
+// quote loads — deliberately never shows a number, since a wrong estimate
+// that changes a moment later reads worse than a short, honest loading state.
+class _PriceShimmer extends StatelessWidget {
+  const _PriceShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppColors.gray200,
+      highlightColor: AppColors.gray100,
+      child: Container(
+        width: 64,
+        height: 20,
+        decoration: BoxDecoration(
+          color: AppColors.gray200,
+          borderRadius: BorderRadius.circular(6),
+        ),
+      ),
     );
   }
 }
