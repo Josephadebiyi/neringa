@@ -1,8 +1,9 @@
-import { 
+import {
   CurrencyService,
-  convertCurrency, 
-  getExchangeRate, 
-  getAllRates, 
+  convertCurrency,
+  convertCurrencyWithRate,
+  getExchangeRate,
+  getAllRates,
   formatCurrency,
   processPaymentQuote,
   choosePaymentProcessor,
@@ -22,19 +23,6 @@ const isRateAvailabilityError = (error) =>
   error?.code === 'EXCHANGE_RATE_MISSING' ||
   error?.statusCode === 503 ||
   error?.status === 503;
-
-const convertWithFallback = async (amount, fromCurrency, toCurrency) => {
-  try {
-    return Number(await convertCurrency(amount, fromCurrency, toCurrency));
-  } catch (error) {
-    if (!isRateAvailabilityError(error)) throw error;
-    const fromRate = CHECKOUT_REFERENCE_RATES[fromCurrency];
-    const toRate = CHECKOUT_REFERENCE_RATES[toCurrency];
-    if (!fromRate || !toRate) throw error;
-    console.warn(`Using reference FX for checkout preview after rate service failure: ${fromCurrency}->${toCurrency}`, error.message);
-    return Number(((Number(amount) / fromRate) * toRate).toFixed(2));
-  }
-};
 
 const getExchangeRateWithFallback = async (fromCurrency, toCurrency) => {
   try {
@@ -302,18 +290,23 @@ export const buildShipmentCheckoutPreview = async ({
     const config = await getFullPricingConfig();
     const travelerPayout = Number((numericWeight * pricePerKg).toFixed(2));
     const pricing = calculateAllInclusivePrice(travelerPayout, config);
-    const shippingAmount = travelerCurrency === checkoutCurrency
-      ? Number(pricing.senderShippingFee)
-      : Number((await convertWithFallback(pricing.senderShippingFee, travelerCurrency, checkoutCurrency)).toFixed(2));
-    const convertedTravelerPayout = travelerCurrency === checkoutCurrency
-      ? Number(pricing.travelerPayout)
-      : Number((await convertWithFallback(pricing.travelerPayout, travelerCurrency, checkoutCurrency)).toFixed(2));
-    const convertBreakdownAmount = async (value) => travelerCurrency === checkoutCurrency
+    // Fetch the traveler->sender exchange rate once and reuse it for every
+    // amount below, instead of each conversion independently re-fetching
+    // (and re-hitting the rates cache/DB for) the identical currency pair.
+    // With N trips searched in parallel this endpoint gets called N times at
+    // once, and 5-6x redundant DB round trips per call was making that burst
+    // slow enough to occasionally miss the client's timeout.
+    const exchangeRate = travelerCurrency === checkoutCurrency
+      ? { rate: 1, source: 'same_currency', timestamp: new Date().toISOString() }
+      : await getExchangeRateWithFallback(travelerCurrency, checkoutCurrency);
+    const convertOnce = (value) => travelerCurrency === checkoutCurrency
       ? Number(value)
-      : Number((await convertWithFallback(value, travelerCurrency, checkoutCurrency)).toFixed(2));
-    const platformFee = await convertBreakdownAmount(pricing.platformCommission || 0);
-    const processingFee = await convertBreakdownAmount(pricing.processingFee || 0);
-    const fxBuffer = await convertBreakdownAmount(pricing.fxBuffer || 0);
+      : Number(convertCurrencyWithRate(value, travelerCurrency, checkoutCurrency, exchangeRate.rate).toFixed(2));
+    const shippingAmount = convertOnce(pricing.senderShippingFee);
+    const convertedTravelerPayout = convertOnce(pricing.travelerPayout);
+    const platformFee = convertOnce(pricing.platformCommission || 0);
+    const processingFee = convertOnce(pricing.processingFee || 0);
+    const fxBuffer = convertOnce(pricing.fxBuffer || 0);
     // Derive the displayed Bago revenue from the authoritative sender amount so
     // independently rounded FX conversions can never make the breakdown differ
     // from the amount collected at checkout.
@@ -325,9 +318,6 @@ export const buildShipmentCheckoutPreview = async ({
     });
     const insuranceAmount = insurance === true ? protection.amount : 0;
     const totalAmount = Number((shippingAmount + insuranceAmount).toFixed(2));
-    const exchangeRate = travelerCurrency === checkoutCurrency
-      ? { rate: 1, source: 'same_currency', timestamp: new Date().toISOString() }
-      : await getExchangeRateWithFallback(travelerCurrency, checkoutCurrency);
 
     return {
         tripId: trip.id,

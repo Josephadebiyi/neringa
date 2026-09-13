@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
+import 'shared/services/app_settings_service.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/storage_service.dart';
 
@@ -42,6 +43,13 @@ void _applySystemUi() {
 void _finishStartup() {
   _clearKeychainOnFreshInstall().catchError((_) {});
   _initFirebase();
+  // Populates AppSettingsService's cache and CurrencyConversionHelper's rate
+  // table from the backend. Without this call neither is ever refreshed and
+  // every client-side price estimate (search results, checkout fallback,
+  // "approx in currency" lines) silently uses the hardcoded rates baked into
+  // AppSettingsSnapshot.fallbackSnapshot / CurrencyConversionHelper's
+  // defaults forever, drifting further from reality as real rates move.
+  AppSettingsService.instance.fetchPublicSettings();
 }
 
 /// Clears keychain on the first launch after a fresh install.

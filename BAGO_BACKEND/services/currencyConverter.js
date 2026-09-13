@@ -399,6 +399,20 @@ export async function convertCurrency(amount, fromCurrency, toCurrency) {
   return CurrencyService.minorToMajor(converted.amount_minor, to);
 }
 
+// Same minor-unit ratio math as convertCurrency, but takes an already-fetched
+// rate instead of looking one up. Lets a caller that needs several amounts
+// converted between the same currency pair (e.g. a checkout preview's fee
+// breakdown) fetch the rate once and reuse it, instead of hitting the rates
+// cache/DB once per amount.
+export function convertCurrencyWithRate(amount, fromCurrency, toCurrency, rate) {
+  const from = CurrencyService.normalizeCurrency(fromCurrency);
+  const to = CurrencyService.normalizeCurrency(toCurrency);
+  if (from === to) return Number(amount);
+  const amountMinor = CurrencyService.majorToMinor(amount, from);
+  const convertedMinor = multiplyRatioRound(Number(amountMinor), decimalToRatio(rate));
+  return CurrencyService.minorToMajor(convertedMinor, to);
+}
+
 export async function getExchangeRate(fromCurrency, toCurrency) {
   const result = await CurrencyService.getExchangeRate(fromCurrency, toCurrency);
   return result.rate;
