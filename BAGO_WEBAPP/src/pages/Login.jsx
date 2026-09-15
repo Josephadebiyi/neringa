@@ -7,6 +7,7 @@ import { AlertCircle, ArrowRight, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { GOOGLE_CLIENT_ID } from '../config/googleAuth';
 import { loadDashboard } from '../routeLoaders';
+import { consumePendingTripRedirect, peekPendingTripRedirect } from '../utils/pendingTrip';
 
 function GoogleLoginButton({ loading, onStart, onDone, onSuccess, onError, label }) {
     const handleGoogleLogin = useGoogleLogin({
@@ -47,9 +48,15 @@ export default function Login() {
     const { login } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const redirectPath = searchParams.get('redirect')?.startsWith('/')
-        ? searchParams.get('redirect')
-        : '/dashboard';
+    const pendingTrip = peekPendingTripRedirect();
+    const redirectPath = pendingTrip
+        ? '/send-package'
+        : (searchParams.get('redirect')?.startsWith('/') ? searchParams.get('redirect') : '/dashboard');
+
+    const goToRedirect = () => {
+        const trip = consumePendingTripRedirect();
+        navigate(redirectPath, trip ? { state: { trip } } : undefined);
+    };
 
     useEffect(() => {
         // Download dashboard code while credentials are being entered, not after login.
@@ -76,7 +83,7 @@ export default function Login() {
                 if (response.data.user?.mustChangePassword) {
                     navigate('/set-password', { state: { currentPassword: password, redirectPath } });
                 } else {
-                    navigate(redirectPath);
+                    goToRedirect();
                 }
             } else {
                 setError(response.data.message || 'Login failed');
@@ -92,7 +99,7 @@ export default function Login() {
                     if (staffResponse.data.success && staffResponse.data.user) {
                         setAuthSession(staffResponse.data);
                         login(staffResponse.data.user);
-                        navigate(redirectPath);
+                        goToRedirect();
                         return;
                     }
                 } catch (_staffErr) {
@@ -170,7 +177,7 @@ export default function Login() {
                                     if (response.data.success) {
                                         setAuthSession(response.data);
                                         login(response.data.user);
-                                        navigate(redirectPath);
+                                        goToRedirect();
                                     } else {
                                         setError(response.data.message || t('googleSignupFailed') || 'Unable to sign in with Google');
                                     }

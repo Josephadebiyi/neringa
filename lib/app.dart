@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'features/auth/widgets/app_unlock_gate.dart';
 import 'l10n/app_localizations.dart';
 import 'shared/providers/app_lock_provider.dart';
 import 'shared/providers/locale_provider.dart';
+import 'shared/services/pending_trip_link.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/socket_service.dart';
 import 'shared/utils/country_currency_helper.dart';
@@ -50,7 +52,9 @@ class BagoApp extends ConsumerWidget {
       builder: (context, child) => _SecurityGateHost(
         child: _CurrencyLocationPromptHost(
           child: _NotificationPromptHost(
-            child: child ?? const SizedBox.shrink(),
+            child: _DeepLinkHost(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         ),
       ),
@@ -547,4 +551,56 @@ class _NotificationPromptHostState
       );
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared trip links — sendwithbago.com/trip/<id> opens straight into the
+// booking screen (Universal Links on iOS, App Links on Android). Handles
+// both a cold start from the link and a link tapped while already running.
+// ---------------------------------------------------------------------------
+class _DeepLinkHost extends ConsumerStatefulWidget {
+  const _DeepLinkHost({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_DeepLinkHost> createState() => _DeepLinkHostState();
+}
+
+class _DeepLinkHostState extends ConsumerState<_DeepLinkHost> {
+  final _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _appLinks.getInitialLink().then(_handleUri);
+    _linkSub = _appLinks.uriLinkStream.listen(_handleUri);
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
+  }
+
+  void _handleUri(Uri? uri) {
+    if (uri == null) return;
+    final segments = uri.pathSegments;
+    if (segments.length < 2 || segments[0] != 'trip') return;
+    final tripId = segments[1];
+    if (tripId.isEmpty) return;
+
+    final router = ref.read(routerProvider);
+    final isLoggedIn = ref.read(authProvider).isLoggedIn;
+    if (isLoggedIn) {
+      router.push('/request-shipment/$tripId');
+    } else {
+      PendingTripLink.set(tripId);
+      router.go('/auth/signin');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

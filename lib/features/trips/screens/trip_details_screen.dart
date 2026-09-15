@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -97,6 +98,19 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
           l10n.tripDetailsTitle,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          if (resolvedTrip != null && resolvedTrip.isPubliclyVisible)
+            IconButton(
+              icon: const Icon(Icons.share_outlined, color: AppColors.gray900),
+              tooltip: 'Share trip',
+              onPressed: () => Share.share(
+                'Check out my Bago trip from '
+                '${resolvedTrip.fromLocation} to ${resolvedTrip.toLocation} — '
+                'book a delivery on it here: '
+                'https://sendwithbago.com/trip/${resolvedTrip.id}',
+              ),
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: AppLoading())

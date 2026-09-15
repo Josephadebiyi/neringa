@@ -31,6 +31,7 @@ const Support = lazy(() => import('./pages/Support'));
 const ShippingSuccess = lazy(() => import('./pages/ShippingSuccess'));
 const PaymentCallback = lazy(() => import('./pages/PaymentCallback'));
 const PaymentCheckout = lazy(() => import('./pages/PaymentCheckout'));
+const TripView = lazy(() => import('./pages/TripView'));
 const Test = lazy(() => import('./Test'));
 
 function App() {
@@ -67,6 +68,7 @@ function App() {
                         <Route path="/shipping-success" element={<ShippingSuccess />} />
                         <Route path="/payment/callback" element={<PaymentCallback />} />
                         <Route path="/checkout/payment" element={<PaymentCheckout />} />
+                        <Route path="/trip/:tripId" element={<TripView />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                     </Suspense>

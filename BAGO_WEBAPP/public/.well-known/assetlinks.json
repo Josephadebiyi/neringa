@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.deracali.boltexponativewind",
+      "sha256_cert_fingerprints": [
+        "00:B8:00:6D:BA:74:8A:EA:4D:A4:E4:07:C1:3B:88:F2:5E:20:7A:67:BB:28:6C:26:D5:2B:85:35:9D:CB:FD:1C"
+      ]
+    }
+  }
+]

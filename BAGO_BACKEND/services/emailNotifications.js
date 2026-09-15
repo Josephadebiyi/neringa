@@ -680,6 +680,15 @@ export async function sendTripApprovedEmail(userEmail, userName, trip) {
       <p style="margin:0 0 18px; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         Your trip is now visible to senders looking for travelers. You'll receive notifications when someone sends you a shipping request.
       </p>
+      ${trip.id ? `
+      <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border:1px dashed #d1d5db;">
+        <p style="margin:0 0 10px; font-size:14px; color:#111827; font-weight:600;">📤 Share this trip with family & friends</p>
+        <p style="margin:0 0 12px; font-size:13px; color:#374151; line-height:1.5;">
+          Anyone with this link can view your trip and book a delivery on it directly — copy and share it however you like (WhatsApp, SMS, email).
+        </p>
+        <p style="margin:0; padding:12px 14px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px; font-family:monospace; font-size:13px; color:#5240E8; word-break:break-all;">${FRONTEND_URL}/trip/${trip.id}</p>
+      </div>
+      ` : ''}
       <p style="margin:0; font-family:Arial, sans-serif; font-size:14px; color:#374151; line-height:1.6;">
         Good luck with your trip and happy travels! 🌍
       </p>
@@ -689,7 +698,7 @@ export async function sendTripApprovedEmail(userEmail, userName, trip) {
       from: 'Bago Trips <no-reply@sendwithbago.com>',
       to: userEmail,
       subject: '✅ Your Trip Has Been Approved!',
-      html: generateEmailTemplate('Trip Approved', content, 'View My Trips', `${FRONTEND_URL}/dashboard`),
+      html: generateEmailTemplate('Trip Approved', content, 'View & Share My Trip', trip.id ? `${FRONTEND_URL}/trip/${trip.id}` : `${FRONTEND_URL}/dashboard`),
     });
 
     console.log(`✅ Sent trip approved email to ${userEmail}`);

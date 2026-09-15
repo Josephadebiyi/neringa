@@ -12,8 +12,18 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/services/storage_service.dart';
+import '../../../shared/services/pending_trip_link.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
+
+void _goPostSignIn(BuildContext context) {
+  final tripId = PendingTripLink.consume();
+  if (tripId != null) {
+    context.go('/request-shipment/$tripId');
+  } else {
+    context.go('/home');
+  }
+}
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -68,7 +78,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       await ref
           .read(authProvider.notifier)
           .login(email: email, password: password);
-      if (mounted) context.go('/home');
+      if (mounted) _goPostSignIn(context);
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(
@@ -137,7 +147,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     try {
       await ref.read(authProvider.notifier).googleSignIn();
       await _promptForNameIfNeeded();
-      if (mounted) context.go('/home');
+      if (mounted) _goPostSignIn(context);
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(
@@ -153,7 +163,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     try {
       await ref.read(authProvider.notifier).appleSignIn();
       await _promptForNameIfNeeded();
-      if (mounted) context.go('/home');
+      if (mounted) _goPostSignIn(context);
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(
@@ -202,7 +212,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         type: SnackBarType.error,
       );
     } else if (ok && mounted) {
-      context.go('/home');
+      _goPostSignIn(context);
     }
   }
 

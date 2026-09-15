@@ -4,6 +4,12 @@ AddType image/svg+xml .svgz
 AddType text/javascript .js
 AddType text/css .css
 
+# iOS Universal Links verification file has no extension — force its type
+# so Apple's CDN fetch doesn't choke on octet-stream.
+<Files "apple-app-site-association">
+  ForceType application/json
+</Files>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

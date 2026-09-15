@@ -10,6 +10,7 @@ import { CheckCircle, AlertCircle, ArrowRight, ChevronDown } from 'lucide-react'
 import { useLanguage } from '../context/LanguageContext';
 import { GOOGLE_CLIENT_ID } from '../config/googleAuth';
 import { trackSignupConversion } from '../utils/googleAds';
+import { consumePendingTripRedirect } from '../utils/pendingTrip';
 
 function GoogleSignupButton({ loading, label, onStart, onDone, onSuccess, onError, referralCode, country }) {
     const handleGoogleSignup = useGoogleLogin({
@@ -161,7 +162,12 @@ export default function Signup() {
                 setAuthSession(response.data);
                 login(response.data.user);
                 trackSignupConversion(response.data.user?.id || response.data.user?._id);
-                navigate('/dashboard');
+                const pendingTrip = consumePendingTripRedirect();
+                if (pendingTrip) {
+                    navigate('/send-package', { state: { trip: pendingTrip } });
+                } else {
+                    navigate('/dashboard');
+                }
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Verification failed. Please check your code and try again.');
@@ -290,7 +296,12 @@ export default function Signup() {
                                             if (response.data.isNewUser === true) {
                                                 trackSignupConversion(response.data.user?.id || response.data.user?._id);
                                             }
-                                            navigate('/dashboard');
+                                            const pendingTrip = consumePendingTripRedirect();
+                                            if (pendingTrip) {
+                                                navigate('/send-package', { state: { trip: pendingTrip } });
+                                            } else {
+                                                navigate('/dashboard');
+                                            }
                                         } else {
                                             setError(response.data.message || 'Google signup failed');
                                         }

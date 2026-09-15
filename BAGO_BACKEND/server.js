@@ -2098,6 +2098,67 @@ app.post("/api/trips/search-compatible", async (req, res) => {
 });
 
 /**
+ * Public trip detail lookup — powers shareable trip links (e.g. from the
+ * "trip approved" email) so anyone with the link can view a live trip
+ * without logging in. Only ever exposes trips that are actually live, and
+ * only public-safe fields (no contact info, no internal ids beyond the
+ * trip's own).
+ * GET /api/trips/public/:id
+ */
+app.get("/api/trips/public/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tripRow = await queryOne(
+      `SELECT t.id, t.user_id, t.from_location, t.from_country, t.to_location, t.to_country,
+              t.departure_date, t.arrival_date, t.available_kg, t.price_per_kg,
+              t.currency, t.travel_means, t.status,
+              p.first_name, p.last_name, p.rating, p.completed_trips, p.image_url
+       FROM public.trips t
+       LEFT JOIN public.profiles p ON p.id = t.user_id
+       WHERE t.id = $1 AND coalesce(p.is_demo_account, false) = false`,
+      [id]
+    );
+
+    if (!tripRow || !['active', 'verified'].includes(tripRow.status)) {
+      return res.status(404).json({ success: false, message: "Trip not found or no longer available" });
+    }
+
+    res.json({
+      success: true,
+      trip: {
+        _id: tripRow.id,
+        id: tripRow.id,
+        userId: tripRow.user_id,
+        travelerId: tripRow.user_id,
+        fromLocation: tripRow.from_location,
+        fromCountry: tripRow.from_country,
+        toLocation: tripRow.to_location,
+        toCountry: tripRow.to_country,
+        departureDate: tripRow.departure_date,
+        arrivalDate: tripRow.arrival_date,
+        availableKg: parseFloat(tripRow.available_kg) || 0,
+        pricePerKg: parseFloat(tripRow.price_per_kg) || 0,
+        currency: tripRow.currency || 'USD',
+        travelMeans: tripRow.travel_means,
+        traveler: {
+          _id: tripRow.user_id,
+          id: tripRow.user_id,
+          firstName: tripRow.first_name,
+          name: `${tripRow.first_name || ''} ${tripRow.last_name || ''}`.trim(),
+          rating: parseFloat(tripRow.rating) || 0,
+          completedTrips: parseInt(tripRow.completed_trips) || 0,
+          image: tripRow.image_url,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("❌ Public trip lookup error:", err.message);
+    res.status(500).json({ success: false, message: "Failed to load trip" });
+  }
+});
+
+/**
  * Get shipment assessment history
  * GET /api/shipment/history
  */
