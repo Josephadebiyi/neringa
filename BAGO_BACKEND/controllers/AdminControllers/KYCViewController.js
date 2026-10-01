@@ -335,6 +335,7 @@ export const adminResendKycVerification = async (req, res) => {
     const userName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
     let emailed = false;
     let pushed = false;
+    let pushNote = '';
 
     if (channels.includes('email') && profile.email && verificationUrl) {
       emailed = await sendKycVerificationLinkEmail(profile.email, userName, null, verificationUrl)
@@ -345,15 +346,33 @@ export const adminResendKycVerification = async (req, res) => {
     // the app already listens for, which silently refreshes the user's
     // profile state and surfaces an alert telling them to reopen the app.
     if (channels.includes('push')) {
-      pushed = await sendPushNotification(
-        userId,
-        'Verification needed',
-        "We need you to verify your identity again — open Bago to continue.",
-        { type: 'kyc_retry_requested' },
-      ).then(() => true).catch((err) => { console.error('KYC resend push failed:', err.message); return false; });
+      try {
+        // sendPushNotification never throws for "no tokens" or "every token
+        // failed" — it resolves with a per-token results array either way, so
+        // resolving isn't success. Previously this was `.then(() => true)`,
+        // which reported `pushed: true` unconditionally whenever the promise
+        // resolved, even with zero tokens or every send failing — admin saw
+        // "pushed" with nothing actually delivered.
+        const results = await sendPushNotification(
+          userId,
+          'Verification needed',
+          "We need you to verify your identity again — open Bago to continue.",
+          { type: 'kyc_retry_requested' },
+        );
+        pushed = Array.isArray(results) && results.some((r) => r?.ok);
+        if (!pushed) {
+          pushNote = !results?.length
+            ? 'User has no push token registered on this device/app.'
+            : (results.find((r) => !r?.ok)?.reason || results.find((r) => !r?.ok)?.error || 'Push delivery failed.');
+        }
+      } catch (err) {
+        console.error('KYC resend push failed:', err.message);
+        pushed = false;
+        pushNote = err.message || 'Push delivery failed.';
+      }
     }
 
-    return res.status(200).json({ success: true, verificationUrl, emailed, pushed });
+    return res.status(200).json({ success: true, verificationUrl, emailed, pushed, pushNote: pushed ? undefined : pushNote });
   } catch (error) {
     console.error('adminResendKycVerification error:', error);
     return res.status(500).json({ success: false, message: 'Failed to resend KYC verification', error: error.message });
