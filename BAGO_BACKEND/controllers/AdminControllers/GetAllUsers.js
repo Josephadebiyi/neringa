@@ -80,6 +80,11 @@ export const GetAllUsers = async (req, res, next) => {
     const skip = (page - 1) * limit;
     const banned = req.query.banned;
     const kycStatus = req.query.kycStatus;
+    // Coarser than kycStatus: groups every non-approved state (not_started,
+    // pending, declined, failed_verification, manual_review, blocked_duplicate)
+    // together as "not verified" — for the Users page's Verified/Not Verified
+    // split, where admin wants the group, not one specific status.
+    const kycVerified = req.query.kycVerified;
     const signupMethod = req.query.signupMethod;
     const accountType = req.query.accountType;
     // accountState: active | reactivated | deleted_by_user | disabled_by_admin | deactivated | inactive
@@ -97,6 +102,11 @@ export const GetAllUsers = async (req, res, next) => {
     if (kycStatus) {
       conditions.push(`p.kyc_status = $${index++}`);
       params.push(kycStatus);
+    }
+    if (kycVerified === 'true') {
+      conditions.push(`p.kyc_status in ('approved', 'verified', 'completed')`);
+    } else if (kycVerified === 'false') {
+      conditions.push(`coalesce(p.kyc_status, 'not_started') not in ('approved', 'verified', 'completed')`);
     }
     if (signupMethod) {
       conditions.push(`p.signup_method = $${index++}`);
