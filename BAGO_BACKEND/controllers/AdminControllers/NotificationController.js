@@ -24,11 +24,23 @@ export const getPushStatus = async (req, res) => {
   }
 };
 
+// Audiences the broadcast can target instead of literally everyone.
+// 'kyc_unverified' = hasn't passed identity verification yet (not_started,
+// pending, declined, failed_verification, manual_review — anything short of
+// approved/blocked_duplicate), used to nudge users to verify before they can
+// list a trip.
+const AUDIENCE_FILTERS = {
+  kyc_unverified: `AND COALESCE(kyc_status, 'not_started') NOT IN ('approved', 'blocked_duplicate')`,
+};
+
 export const sendNotification = async (req, res) => {
-  const { userId, title, body } = req.body;
+  const { userId, title, body, audience } = req.body;
 
   if (!title || !body) {
     return res.status(400).json({ error: 'title and body are required' });
+  }
+  if (audience && !Object.prototype.hasOwnProperty.call(AUDIENCE_FILTERS, audience)) {
+    return res.status(400).json({ error: `Unknown audience. Must be one of: ${Object.keys(AUDIENCE_FILTERS).join(', ')}` });
   }
 
   try {
@@ -43,9 +55,9 @@ export const sendNotification = async (req, res) => {
       }
       rows = [user];
     } else {
-      // Broadcast to ALL users
+      // Broadcast to ALL users, or a narrower audience when one is given.
       const result = await query(
-        `SELECT id, push_tokens FROM public.profiles WHERE banned = false`
+        `SELECT id, push_tokens FROM public.profiles WHERE banned = false ${audience ? AUDIENCE_FILTERS[audience] : ''}`
       );
       rows = result.rows;
       if (!rows.length) {
@@ -89,7 +101,11 @@ export const sendNotification = async (req, res) => {
     const deliverySummary = {};
     for (const token of uniqueTokens) {
       try {
-        const result = await sendPushNotificationToToken(token, title, body, { type: 'broadcast' });
+        // kyc_unverified broadcasts use the 'kyc_' prefix the app already
+        // listens for, which silently refreshes the recipient's profile/KYC
+        // state when the notification is received or tapped.
+        const pushType = audience === 'kyc_unverified' ? 'kyc_retry_requested' : 'broadcast';
+        const result = await sendPushNotificationToToken(token, title, body, { type: pushType });
         results.push(result);
         if (result?.ok) sentCount++;
         const key = result?.ok

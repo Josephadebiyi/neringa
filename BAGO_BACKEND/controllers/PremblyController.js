@@ -451,7 +451,7 @@ async function findPremblyUserIdFromSession(reference = '') {
 // ---------------------------------------------------------------------------
 async function applyPremblyResult(userId, status, rawPayload, { referenceId = '', notify = true } = {}) {
   const userRow = await queryOne(
-    `SELECT email, first_name, last_name, device_fingerprint AS "deviceFingerprint" FROM public.profiles WHERE id = $1`,
+    `SELECT email, first_name, last_name, device_fingerprint AS "deviceFingerprint", kyc_status AS "kycStatus" FROM public.profiles WHERE id = $1`,
     [userId],
   ).catch(() => null);
   const userEmail = userRow?.email;
@@ -506,14 +506,22 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
   }
 
   if (status === 'pending') {
+    // The background reconciler re-confirms 'pending' on every pass for
+    // sessions stuck under review — without this guard it would re-send the
+    // "under review" email/push every 5 minutes for as long as the session
+    // stays pending. Only notify on the actual not_started/declined → pending
+    // transition.
+    const wasAlreadyPending = userRow?.kycStatus === 'pending';
     await query(
       `UPDATE public.profiles
        SET kyc_status = 'pending', kyc_provider = 'prembly', kyc_verified_data = $2, updated_at = NOW()
        WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
       [userId, stored],
     ).catch(() => {});
-    if (notify && userEmail) sendKycSubmittedEmail(userEmail, userName).catch(() => {});
-    if (notify) sendPushNotification(userId, 'Verification Under Review ⏳', "Your identity verification is being reviewed. We'll notify you when it's approved.", { type: 'kyc_pending' }).catch(() => {});
+    if (!wasAlreadyPending) {
+      if (notify && userEmail) sendKycSubmittedEmail(userEmail, userName).catch(() => {});
+      if (notify) sendPushNotification(userId, 'Verification Under Review ⏳', "Your identity verification is being reviewed. We'll notify you when it's approved.", { type: 'kyc_pending' }).catch(() => {});
+    }
     await updatePremblySessionStatus(userId, 'pending', rawPayload, { referenceId, source: 'apply_result' });
     return { status: 'pending' };
   }
@@ -1291,88 +1299,154 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
     const reference = session.reference;
     if (!reference || !isPremblyConfigured()) continue;
 
-    try {
-      let responseData;
-      try {
-        const premblyRes = await axios.get(
-          `${PREMBLY_BASE}/verification`,
-          { params: { verification_ref: reference }, headers: premblyHeaders(), timeout: 12000 },
-        );
-        responseData = premblyRes.data;
-      } catch (identitypassErr) {
-        if (identitypassErr?.response?.status !== 404) throw identitypassErr;
-        // checker-widget session — try the checker-widget sessions API
-        const checkerSessionBase = PREMBLY_SDK_SESSION_URL.replace(/\/initiate\/?$/, '');
-        const checkerRes = await axios.get(
-          `${checkerSessionBase}/${encodeURIComponent(reference)}/`,
-          { headers: premblyHeaders(), timeout: 12000 },
-        );
-        responseData = checkerRes.data;
-      }
-      const status = normalizePremblyStatus(responseData);
-      if (status === 'unknown') {
-        await query(
-          `UPDATE public.prembly_kyc_sessions
-           SET last_synced_at = timezone('utc', now()),
-               last_error = 'unknown_status',
-               raw_payload = $2,
-               updated_at = timezone('utc', now())
-           WHERE id = $1`,
-          [session.id, responseData],
-        ).catch(() => {});
-        continue;
-      }
-      const applied = await applyPremblyResult(session.userId, status, responseData, { referenceId: reference, notify });
+    // Delegate to the same resolution path the admin's manual "sync Prembly
+    // status" button uses (identitypass API → checker-widget API → stored
+    // webhook event fallback). The background job previously duplicated only
+    // the first two steps, so a result that only showed up via webhook (and
+    // couldn't be matched to a user at receipt time) was never picked up here
+    // — the only way to resolve it was an admin manually clicking sync.
+    const applied = await syncPremblyReferenceForUser(session.userId, reference, { notify });
+
+    if (applied.success) {
       await query(
         `UPDATE public.prembly_kyc_sessions
          SET status = $2,
-             raw_payload = $3,
              last_error = NULL,
              last_synced_at = timezone('utc', now()),
              completed_at = CASE WHEN $2 IN ('approved','declined','blocked_duplicate') THEN timezone('utc', now()) ELSE completed_at END,
              updated_at = timezone('utc', now())
          WHERE id = $1`,
-        [session.id, applied.status || status, responseData],
+        [session.id, applied.status],
       ).catch(() => {});
-      if (['approved', 'declined', 'blocked_duplicate'].includes(applied.status || status)) summary.updated += 1;
-    } catch (err) {
-      summary.failed += 1;
-      const errorMessage = String(err?.response?.data?.message || err.message || err).slice(0, 300);
-      const terminalNotFound = err?.response?.status === 404;
-      console.error(
-        `❌ Prembly reconcile failed for session ${session.id} (user ${session.userId}, ref ${reference}):`,
-        `status=${err?.response?.status || 'n/a'}`,
-        errorMessage,
-      );
-      await query(
-        `UPDATE public.prembly_kyc_sessions
-         SET status = CASE WHEN $3::boolean THEN 'not_found' ELSE status END,
-             last_synced_at = timezone('utc', now()),
-             last_error = $2,
-             updated_at = timezone('utc', now())
-         WHERE id = $1`,
-        [session.id, errorMessage, terminalNotFound],
-      ).catch(() => {});
+      if (['approved', 'declined', 'blocked_duplicate'].includes(applied.status)) summary.updated += 1;
+      continue;
     }
+
+    // Not resolved this pass — including a plain 404 while Prembly is still
+    // processing. Previously a single 404 permanently marked the session
+    // 'not_found', which removed it from every future reconcile query and
+    // silently stranded the user until an admin manually synced them. Leave
+    // `status` untouched so it stays eligible for the next pass; only stamp
+    // the attempt so it's visible for debugging.
+    summary.failed += 1;
+    console.error(
+      `Prembly reconcile: not yet resolved for session ${session.id} (user ${session.userId}, ref ${reference}):`,
+      applied.message || applied.status,
+    );
+    await query(
+      `UPDATE public.prembly_kyc_sessions
+       SET last_synced_at = timezone('utc', now()),
+           last_error = $2,
+           updated_at = timezone('utc', now())
+       WHERE id = $1`,
+      [session.id, String(applied.message || applied.status || 'sync_failed').slice(0, 300)],
+    ).catch(() => {});
   }
   return summary;
+}
+
+// ---------------------------------------------------------------------------
+// Catches the other half of the gap above: a webhook that arrived with a
+// real result but whose reference couldn't be matched to a user yet at
+// receipt time (e.g. it raced ahead of the session row being committed).
+// premblyWebhook stores these as `handled = false` and returns 200 to
+// Prembly (so Prembly never retries), so without this, that event — and the
+// result inside it — is stored but never looked at again. Retried here on
+// the same interval as reconcilePremblySessions via findPremblyUserId, which
+// does the broader reference lookup (session table, profile JSON, raw UUID).
+// ---------------------------------------------------------------------------
+export async function reconcileUnhandledPremblyWebhookEvents({ limit = 25, notify = true } = {}) {
+  await ensurePremblyWebhookEventTable();
+  const result = await query(
+    `SELECT id, reference_id AS "referenceId", session_id AS "sessionId", user_ref AS "userRef",
+            raw_payload AS "rawPayload", created_at AS "createdAt"
+     FROM public.prembly_webhook_events
+     WHERE handled = false
+       AND COALESCE(reference_id, session_id, user_ref) IS NOT NULL
+     ORDER BY updated_at ASC
+     LIMIT $1`,
+    [limit],
+  ).catch(() => ({ rows: [] }));
+
+  const summary = { checked: 0, resolved: 0, stillUnresolved: 0 };
+  const GIVE_UP_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+  for (const event of result.rows || []) {
+    summary.checked += 1;
+    const reference = event.referenceId || event.sessionId || event.userRef;
+
+    if (Date.now() - new Date(event.createdAt).getTime() > GIVE_UP_AFTER_MS) {
+      await query(
+        `UPDATE public.prembly_webhook_events
+         SET handled = true, last_error = 'given_up_stale', updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [event.id],
+      ).catch(() => {});
+      continue;
+    }
+
+    const userId = await findPremblyUserId(reference).catch(() => '');
+    if (!userId) {
+      summary.stillUnresolved += 1;
+      await query(
+        `UPDATE public.prembly_webhook_events
+         SET last_error = 'user_not_found_retry', updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [event.id],
+      ).catch(() => {});
+      continue;
+    }
+
+    const status = normalizePremblyStatus(event.rawPayload);
+    if (status === 'unknown') {
+      summary.stillUnresolved += 1;
+      await query(
+        `UPDATE public.prembly_webhook_events
+         SET last_error = 'unknown_status', updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [event.id],
+      ).catch(() => {});
+      continue;
+    }
+
+    await applyPremblyResult(userId, status, event.rawPayload, { referenceId: reference, notify }).catch((err) => {
+      console.error('reconcileUnhandledPremblyWebhookEvents applyPremblyResult failed:', err?.message || err);
+    });
+    summary.resolved += 1;
+    await query(
+      `UPDATE public.prembly_webhook_events
+       SET handled = true, user_id = $2::uuid, last_error = NULL, updated_at = timezone('utc', now())
+       WHERE id = $1`,
+      [event.id, userId],
+    ).catch(() => {});
+  }
+  return summary;
+}
+
+async function runPremblyReconcilePass() {
+  const [sessions, webhooks] = await Promise.all([
+    reconcilePremblySessions({ notify: true }).catch((err) => {
+      console.error('Prembly session reconcile failed:', err?.message || err);
+      return null;
+    }),
+    reconcileUnhandledPremblyWebhookEvents({ notify: true }).catch((err) => {
+      console.error('Prembly webhook-event reconcile failed:', err?.message || err);
+      return null;
+    }),
+  ]);
+  if (sessions && (sessions.checked || sessions.updated || sessions.failed)) {
+    console.log('Prembly session reconcile summary:', sessions);
+  }
+  if (webhooks && (webhooks.checked || webhooks.resolved || webhooks.stillUnresolved)) {
+    console.log('Prembly webhook-event reconcile summary:', webhooks);
+  }
 }
 
 export function startPremblySessionReconciler() {
   const intervalMs = Number(process.env.PREMBLY_RECONCILE_INTERVAL_MS || 5 * 60 * 1000);
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) return;
-  setTimeout(() => reconcilePremblySessions({ notify: true }).catch((err) => {
-    console.error('Prembly initial reconcile failed:', err?.message || err);
-  }), 30 * 1000);
-  setInterval(() => {
-    reconcilePremblySessions({ notify: true }).then((summary) => {
-      if (summary.checked || summary.updated || summary.failed) {
-        console.log('Prembly reconcile summary:', summary);
-      }
-    }).catch((err) => {
-      console.error('Prembly reconcile failed:', err?.message || err);
-    });
-  }, intervalMs);
+  setTimeout(() => runPremblyReconcilePass(), 30 * 1000);
+  setInterval(() => runPremblyReconcilePass(), intervalMs);
 }
 
 export async function trackPremblyInlineStart(userId, { source = 'inline_config', rawPayload = {} } = {}) {

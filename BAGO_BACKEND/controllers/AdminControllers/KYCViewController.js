@@ -1,7 +1,9 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { markKycApproved } from '../../lib/postgres/accounts.js';
 import { dojahReferenceFromPayload, syncDojahReferenceForUser } from '../DojahController.js';
-import { syncPremblyForUser, syncPremblyReferenceForUser } from '../PremblyController.js';
+import { syncPremblyForUser, syncPremblyReferenceForUser, createPremblySessionForUser } from '../PremblyController.js';
+import { sendKycVerificationLinkEmail } from '../../services/emailNotifications.js';
+import { sendPushNotification } from '../../services/pushNotificationService.js';
 
 function buildManualApprovalPayload(user = {}) {
   const submission = user.kycVerifiedData || {};
@@ -111,6 +113,20 @@ export const getUserKYCDetails = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    // Attempt history: the profile's kyc_status/kyc_verified_data only ever
+    // reflects the current/latest state, so an admin looking at a user who
+    // retried several times (or got stuck) can't otherwise tell that from a
+    // single row. prembly_kyc_sessions keeps one row per attempt.
+    const attempts = await query(
+      `SELECT status, source, verification_ref AS "verificationRef", last_error AS "lastError",
+              created_at AS "startedAt", completed_at AS "completedAt", last_synced_at AS "lastSyncedAt"
+       FROM public.prembly_kyc_sessions
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [userId],
+    ).catch(() => ({ rows: [] }));
+
     return res.status(200).json({
       success: true,
       data: {
@@ -129,6 +145,7 @@ export const getUserKYCDetails = async (req, res) => {
           verifiedAt: user.kycVerifiedAt,
           failureReason: user.kycFailureReason,
           manualSubmission: user.kycProvider === 'manual' ? user.kycVerifiedData : null,
+          attempts: attempts.rows,
         },
         accountStatus: {
           accountStatus: user.status,
@@ -261,6 +278,85 @@ export const updateKYCStatus = async (req, res) => {
   } catch (error) {
     console.error('Error updating KYC status:', error);
     return res.status(500).json({ success: false, message: 'Failed to update KYC status', error: error.message });
+  }
+};
+
+// POST /admin/kyc/users/:userId/resend-verification
+// Escape hatch for a user who's genuinely stuck (session expired, declined,
+// or their last attempt can't be resolved even by "Sync Status") — resets
+// them to a retryable state and sends a brand-new Prembly link by email
+// and/or push. Try syncPremblyKYCStatus first; this is for when that finds
+// nothing to sync and the user actually needs to redo verification.
+export const adminResendKycVerification = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const requested = Array.isArray(req.body?.channels) ? req.body.channels : null;
+    const channels = requested && requested.length ? requested : ['email', 'push'];
+
+    const profile = await queryOne(
+      `SELECT id, email, first_name AS "firstName", last_name AS "lastName",
+              phone, country, kyc_status AS "kycStatus"
+       FROM public.profiles WHERE id = $1`,
+      [userId],
+    );
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (['approved', 'blocked_duplicate'].includes(profile.kycStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: profile.kycStatus === 'approved'
+          ? 'This user is already verified — nothing to resend.'
+          : 'This identity is flagged as a duplicate — resolve that before issuing a new link.',
+      });
+    }
+
+    // Clear the stale status/reason first so the app's own KYC gate treats
+    // this as a fresh attempt instead of still showing the old decline.
+    await query(
+      `UPDATE public.profiles
+       SET kyc_status = 'not_started', kyc_failure_reason = NULL, updated_at = NOW()
+       WHERE id = $1`,
+      [userId],
+    );
+
+    let verificationUrl = '';
+    try {
+      const session = await createPremblySessionForUser(userId, {
+        country: profile.country || '',
+        phone: profile.phone || '',
+        req,
+      });
+      verificationUrl = session.verificationUrl || '';
+    } catch (err) {
+      return res.status(err.statusCode || 502).json({ success: false, message: err.message || 'Could not generate a verification link.' });
+    }
+
+    const userName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
+    let emailed = false;
+    let pushed = false;
+
+    if (channels.includes('email') && profile.email && verificationUrl) {
+      emailed = await sendKycVerificationLinkEmail(profile.email, userName, null, verificationUrl)
+        .catch((err) => { console.error('KYC resend email failed:', err.message); return false; });
+    }
+    // The push can't deep-link straight into the verification screen on
+    // already-released app builds, but it does get the "type":"kyc_*" prefix
+    // the app already listens for, which silently refreshes the user's
+    // profile state and surfaces an alert telling them to reopen the app.
+    if (channels.includes('push')) {
+      pushed = await sendPushNotification(
+        userId,
+        'Verification needed',
+        "We need you to verify your identity again — open Bago to continue.",
+        { type: 'kyc_retry_requested' },
+      ).then(() => true).catch((err) => { console.error('KYC resend push failed:', err.message); return false; });
+    }
+
+    return res.status(200).json({ success: true, verificationUrl, emailed, pushed });
+  } catch (error) {
+    console.error('adminResendKycVerification error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to resend KYC verification', error: error.message });
   }
 };
 
