@@ -1269,7 +1269,7 @@ export async function syncPremblyForUser(userId, { notify = true } = {}) {
 export async function reconcilePremblySessions({ limit = 25, notify = true } = {}) {
   await ensurePremblySessionTable();
   const result = await query(
-    `SELECT s.id, s.user_id AS "userId",
+    `SELECT s.id, s.user_id AS "userId", s.created_at AS "createdAt",
             COALESCE(
               NULLIF(s.session_id, s.user_id::text),
               NULLIF(s.prembly_ref, s.user_id::text),
@@ -1293,11 +1293,31 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
     [limit],
   ).catch(() => ({ rows: [] }));
 
-  const summary = { checked: 0, updated: 0, failed: 0 };
+  // Sessions are retried indefinitely below (no more giving up after one
+  // 404), and the oldest unresolved session always sorts first — so without
+  // a cutoff, one genuinely-unresolvable session (stale test data, a record
+  // truly lost on Prembly's side) would occupy a LIMIT slot on every single
+  // pass forever, eventually starving newer stuck sessions from ever being
+  // checked. Real verifications resolve in hours/days, never weeks, so this
+  // is a generous ceiling, not a race against real review times.
+  const GIVE_UP_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
+
+  const summary = { checked: 0, updated: 0, failed: 0, givenUp: 0 };
   for (const session of result.rows || []) {
     summary.checked += 1;
     const reference = session.reference;
     if (!reference || !isPremblyConfigured()) continue;
+
+    if (Date.now() - new Date(session.createdAt).getTime() > GIVE_UP_AFTER_MS) {
+      summary.givenUp += 1;
+      await query(
+        `UPDATE public.prembly_kyc_sessions
+         SET status = 'not_found', last_error = 'given_up_stale', updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [session.id],
+      ).catch(() => {});
+      continue;
+    }
 
     // Delegate to the same resolution path the admin's manual "sync Prembly
     // status" button uses (identitypass API → checker-widget API → stored
