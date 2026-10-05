@@ -173,8 +173,7 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
       final status = res.data?['kycStatus']?.toString() ?? '';
       if (status == 'approved' ||
           status == 'declined' ||
-          status == 'blocked_duplicate' ||
-          status == 'pending') {
+          status == 'blocked_duplicate') {
         _pollTimer?.cancel();
         if (mounted) _finishWithStatus(status);
       }

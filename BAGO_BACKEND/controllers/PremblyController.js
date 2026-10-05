@@ -63,16 +63,17 @@ const verifyPremblyWebhook = (req) => {
 };
 
 const premblyHeaders = () => {
-  const headers = { 'x-api-key': PREMBLY_API_KEY, 'Content-Type': 'application/json' };
-  if (PREMBLY_APP_ID) {
-    headers['app_id'] = PREMBLY_APP_ID;
-    headers['app-id'] = PREMBLY_APP_ID;
-    headers['x-app-id'] = PREMBLY_APP_ID;
+  const headers = { 'x-api-key': process.env.PREMBLY_API_KEY || PREMBLY_API_KEY, 'Content-Type': 'application/json' };
+  const appId = process.env.PREMBLY_APP_ID || PREMBLY_APP_ID;
+  if (appId) {
+    headers['app_id'] = appId;
+    headers['app-id'] = appId;
+    headers['x-app-id'] = appId;
   }
   return headers;
 };
 
-const isPremblyConfigured = () => !!PREMBLY_API_KEY;
+const isPremblyConfigured = () => !!(process.env.PREMBLY_API_KEY || PREMBLY_API_KEY);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let sessionTableReady;
 let webhookEventTableReady;
@@ -270,12 +271,13 @@ async function recordPremblyWebhookEvent({
   lastError = '',
 }) {
   await ensurePremblyWebhookEventTable();
-  await query(
+  const result = await query(
     `INSERT INTO public.prembly_webhook_events
        (reference_id, session_id, user_ref, user_id, status, handled, raw_payload, last_error)
-     VALUES (NULLIF($1::text, ''), NULLIF($2::text, ''), NULLIF($3::text, ''), $4::uuid, NULLIF($5::text, ''), $6::boolean, $7::jsonb, NULLIF($8::text, ''))`,
+     VALUES (NULLIF($1::text, ''), NULLIF($2::text, ''), NULLIF($3::text, ''), $4::uuid, NULLIF($5::text, ''), $6::boolean, $7::jsonb, NULLIF($8::text, '')) RETURNING id`,
     [referenceId, sessionId, userRef, userId, status, handled, rawPayload, lastError],
-  ).catch((err) => console.warn('Prembly webhook event store failed:', err?.message || err));
+  );
+  return result.rows[0].id;
 }
 
 async function recordPremblySession({
@@ -419,6 +421,25 @@ async function findPremblyUserId(reference = '') {
   return match?.[1] || '';
 }
 
+// Authenticated provider webhooks may carry a provider reference that differs
+// from the session/user reference we recorded. Try every available identifier.
+async function resolvePremblyWebhookUser(references) {
+  for (const reference of [...new Set(references.filter(Boolean))]) {
+    const userId = await findPremblyUserId(reference);
+    if (userId) return { userId, reference };
+  }
+  return { userId: '', reference: references.find(Boolean) || '' };
+}
+
+async function markPremblyWebhookHandled(eventId, userId) {
+  await query(
+    `UPDATE public.prembly_webhook_events
+     SET handled = true, user_id = $2::uuid, last_error = NULL, updated_at = timezone('utc', now())
+     WHERE id = $1`,
+    [eventId, userId],
+  );
+}
+
 // Trust boundary: only resolve a userId from a reference we ourselves issued
 // and recorded server-side when starting the session (`recordPremblySession`,
 // called from the authenticated `startPremblySession`). Unlike
@@ -517,7 +538,7 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
        SET kyc_status = 'pending', kyc_provider = 'prembly', kyc_verified_data = $2, updated_at = NOW()
        WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
       [userId, stored],
-    ).catch(() => {});
+    );
     if (!wasAlreadyPending) {
       if (notify && userEmail) sendKycSubmittedEmail(userEmail, userName).catch(() => {});
       if (notify) sendPushNotification(userId, 'Verification Under Review ⏳', "Your identity verification is being reviewed. We'll notify you when it's approved.", { type: 'kyc_pending' }).catch(() => {});
@@ -891,7 +912,9 @@ export const premblyWebhook = async (req, res) => {
       return res.status(200).json({ received: true, note: 'no verification_ref' });
     }
 
-    const userId = await findPremblyUserId(verificationRef);
+    const { userId } = await resolvePremblyWebhookUser([
+      payloadVerificationRef, payloadSessionId, payloadUserRef,
+    ]);
     if (!userId) {
       console.warn('Prembly webhook: cannot resolve userId from ref', verificationRef);
       await recordPremblyWebhookEvent({
@@ -906,20 +929,21 @@ export const premblyWebhook = async (req, res) => {
       return res.status(200).json({ received: true, queued: true, note: 'user not found' });
     }
 
-    await recordPremblyWebhookEvent({
+    const eventId = await recordPremblyWebhookEvent({
       referenceId: payloadVerificationRef || verificationRef,
       sessionId: payloadSessionId,
       userRef: payloadUserRef,
       userId,
       status,
-      handled: true,
+      handled: false,
       rawPayload: payload,
     });
-    await applyPremblyResult(userId, status, payload, { referenceId: verificationRef, notify: true });
+    const applied = await applyPremblyResult(userId, status, payload, { referenceId: verificationRef, notify: true });
+    if (applied.status !== 'unknown') await markPremblyWebhookHandled(eventId, userId);
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('premblyWebhook error:', err);
-    return res.status(200).json({ received: true, error: err.message });
+    return res.status(503).json({ received: false, message: 'Prembly result processing failed; retry delivery.' });
   }
 };
 
@@ -1393,7 +1417,7 @@ export async function reconcileUnhandledPremblyWebhookEvents({ limit = 25, notif
 
   for (const event of result.rows || []) {
     summary.checked += 1;
-    const reference = event.referenceId || event.sessionId || event.userRef;
+    const { userId, reference } = await resolvePremblyWebhookUser([event.referenceId, event.sessionId, event.userRef]);
 
     if (Date.now() - new Date(event.createdAt).getTime() > GIVE_UP_AFTER_MS) {
       await query(
@@ -1405,7 +1429,6 @@ export async function reconcileUnhandledPremblyWebhookEvents({ limit = 25, notif
       continue;
     }
 
-    const userId = await findPremblyUserId(reference).catch(() => '');
     if (!userId) {
       summary.stillUnresolved += 1;
       await query(
@@ -1429,16 +1452,19 @@ export async function reconcileUnhandledPremblyWebhookEvents({ limit = 25, notif
       continue;
     }
 
-    await applyPremblyResult(userId, status, event.rawPayload, { referenceId: reference, notify }).catch((err) => {
+    try {
+      await applyPremblyResult(userId, status, event.rawPayload, { referenceId: reference, notify });
+      await markPremblyWebhookHandled(event.id, userId);
+      summary.resolved += 1;
+    } catch (err) {
+      summary.stillUnresolved += 1;
       console.error('reconcileUnhandledPremblyWebhookEvents applyPremblyResult failed:', err?.message || err);
-    });
-    summary.resolved += 1;
-    await query(
-      `UPDATE public.prembly_webhook_events
-       SET handled = true, user_id = $2::uuid, last_error = NULL, updated_at = timezone('utc', now())
-       WHERE id = $1`,
-      [event.id, userId],
-    ).catch(() => {});
+      await query(
+        `UPDATE public.prembly_webhook_events
+         SET last_error = $2, updated_at = timezone('utc', now()) WHERE id = $1`,
+        [event.id, String(err?.message || err).slice(0, 300)],
+      );
+    }
   }
   return summary;
 }
