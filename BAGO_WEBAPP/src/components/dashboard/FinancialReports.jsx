@@ -108,13 +108,10 @@ export default function FinancialReports({ user }) {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                <div>
-                    <h2 className="text-lg font-black text-[#111827]">Financial Reports</h2>
-                    <p className="text-xs text-gray-400 font-medium mt-1">Download your transaction history and earnings summary.</p>
-                </div>
+                <p className="text-sm text-[#6B7280]">Download your transaction history and earnings summary.</p>
                 <div className="flex flex-wrap items-end gap-2">
                     <div>
-                        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">From</label>
+                        <label className="block text-xs font-semibold text-[#6B7280] mb-1">From</label>
                         <input
                             type="date"
                             value={from}
@@ -123,7 +120,7 @@ export default function FinancialReports({ user }) {
                         />
                     </div>
                     <div>
-                        <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">To</label>
+                        <label className="block text-xs font-semibold text-[#6B7280] mb-1">To</label>
                         <input
                             type="date"
                             value={to}
@@ -134,7 +131,7 @@ export default function FinancialReports({ user }) {
                     <button
                         onClick={handleFilter}
                         disabled={loading}
-                        className="px-4 py-2 bg-gray-900 hover:bg-black text-white rounded-xl text-xs font-black disabled:opacity-50"
+                        className="px-4 py-2 bg-gray-900 hover:bg-black text-white rounded-full text-xs font-semibold disabled:opacity-50"
                     >
                         Apply
                     </button>
@@ -154,10 +151,10 @@ export default function FinancialReports({ user }) {
                     { label: 'Net Total', value: report?.netTotal, icon: FileText, color: 'text-[#5845D8]' },
                     { label: 'Current Balance', value: balance, icon: Wallet, color: 'text-gray-700' },
                 ].map(({ label, value, icon: Icon, color }) => (
-                    <div key={label} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+                    <div key={label} className="bg-white rounded-[24px] border border-[#ECEBF3] p-6">
                         <Icon className={`w-4 h-4 mb-2 ${color}`} />
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
-                        <p className="text-lg font-black text-[#111827] mt-0.5">
+                        <p className="text-xs font-semibold text-[#6B7280] ">{label}</p>
+                        <p className="font-['Manrope'] text-[26px] font-extrabold tracking-[-0.03em] text-[#171B22] mt-2">
                             {loading ? '—' : formatMoney(value, currency)}
                         </p>
                     </div>
@@ -168,7 +165,7 @@ export default function FinancialReports({ user }) {
                 <button
                     onClick={handleExportCsv}
                     disabled={exportingCsv || !report?.transactions?.length}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-black disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-full text-xs font-semibold disabled:opacity-50"
                 >
                     <Download className="w-3.5 h-3.5" />
                     Export CSV
@@ -176,7 +173,7 @@ export default function FinancialReports({ user }) {
                 <button
                     onClick={handleExportPdf}
                     disabled={exportingPdf}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-[#5845D8] hover:bg-[#4a3ac2] text-white rounded-xl text-xs font-black disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#5845D8] hover:bg-[#4a3ac2] text-white rounded-full text-xs font-semibold disabled:opacity-50"
                 >
                     {exportingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
                     Download PDF Report
@@ -186,21 +183,21 @@ export default function FinancialReports({ user }) {
                 <p className="text-xs font-bold text-red-600">{pdfError}</p>
             )}
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Transactions</h3>
+            <div className="bg-white rounded-2xl border border-[#ECEBF3] shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-[#ECEBF3]">
+                    <h3 className="text-xs font-semibold text-[#6B7280] ">Transactions</h3>
                 </div>
                 {loading ? (
                     <div className="p-10 flex justify-center">
-                        <Loader2 className="w-6 h-6 animate-spin text-gray-300" />
+                        <Loader2 className="w-6 h-6 animate-spin text-[#9CA3AF]" />
                     </div>
                 ) : !report?.transactions?.length ? (
-                    <div className="p-10 text-center text-gray-400 text-sm">No transactions in this period.</div>
+                    <div className="p-10 text-center text-[#6B7280] text-sm">No transactions in this period.</div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                             <thead>
-                                <tr className="text-left text-[9px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
+                                <tr className="text-left text-xs font-semibold text-[#6B7280] border-b border-[#ECEBF3]">
                                     <th className="px-5 py-3">Date</th>
                                     <th className="px-5 py-3">Description</th>
                                     <th className="px-5 py-3">Type</th>
@@ -211,11 +208,11 @@ export default function FinancialReports({ user }) {
                             <tbody>
                                 {report.transactions.map(t => (
                                     <tr key={t.id} className="border-b border-gray-50 last:border-0">
-                                        <td className="px-5 py-3 text-gray-500">{new Date(t.created_at || t.createdAt).toLocaleDateString()}</td>
+                                        <td className="px-5 py-3 text-[#6B7280]">{new Date(t.created_at || t.createdAt).toLocaleDateString()}</td>
                                         <td className="px-5 py-3 font-semibold text-gray-800">{t.description || '—'}</td>
-                                        <td className="px-5 py-3 text-gray-500 capitalize">{(t.type || '').replace(/_/g, ' ')}</td>
-                                        <td className="px-5 py-3 text-gray-500 capitalize">{(t.status || '').replace(/_/g, ' ')}</td>
-                                        <td className="px-5 py-3 text-right font-black text-gray-900">
+                                        <td className="px-5 py-3 text-[#6B7280] capitalize">{(t.type || '').replace(/_/g, ' ')}</td>
+                                        <td className="px-5 py-3 text-[#6B7280] capitalize">{(t.status || '').replace(/_/g, ' ')}</td>
+                                        <td className="px-5 py-3 text-right font-semibold text-gray-900">
                                             {formatMoney(t.displayAmount ?? t.amount, t.displayCurrency || t.currency || currency)}
                                         </td>
                                     </tr>

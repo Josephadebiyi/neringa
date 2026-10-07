@@ -99,7 +99,7 @@ export default function DateSelector({ dates, onChange, isBusinessAccount }) {
                             key={m.id}
                             type="button"
                             onClick={() => changeMode(m.id)}
-                            className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${mode === m.id ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                            className={`px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-all ${mode === m.id ? 'bg-[#5845D8] text-white shadow-lg shadow-[#5845D8]/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
                         >
                             {m.label}
                         </button>
@@ -113,27 +113,27 @@ export default function DateSelector({ dates, onChange, isBusinessAccount }) {
                     value={dates[0] || ''}
                     min={toDateStr(today)}
                     onChange={(e) => onChange(e.target.value ? [e.target.value] : [])}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                    className="w-full px-4 py-2.5 rounded-xl border border-[#ECEBF3] focus:border-[#5845D8]/30 outline-none text-sm font-semibold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#171B22] focus:bg-white focus:shadow-sm"
                 />
             )}
 
             {(mode === 'pick' || mode === 'month') && (
-                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-4">
+                <div className="bg-gray-50/50 rounded-2xl border border-[#ECEBF3] p-4">
                     <div className="flex items-center justify-between mb-3">
                         <button
                             type="button"
                             onClick={() => setCursor(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                            className="p-1.5 rounded-lg hover:bg-white text-gray-400"
+                            className="p-1.5 rounded-lg hover:bg-white text-[#6B7280]"
                         >
                             <ChevronLeft size={16} />
                         </button>
-                        <span className="text-xs font-black text-[#012126] uppercase tracking-wider">
+                        <span className="text-xs font-semibold text-[#171B22] ">
                             {cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                         </span>
                         <button
                             type="button"
                             onClick={() => setCursor(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                            className="p-1.5 rounded-lg hover:bg-white text-gray-400"
+                            className="p-1.5 rounded-lg hover:bg-white text-[#6B7280]"
                         >
                             <ChevronRight size={16} />
                         </button>
@@ -143,7 +143,7 @@ export default function DateSelector({ dates, onChange, isBusinessAccount }) {
                         <button
                             type="button"
                             onClick={selectWholeMonth}
-                            className="w-full mb-3 py-2 bg-[#5845D8]/10 text-[#5845D8] rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-[#5845D8]/15"
+                            className="w-full mb-3 py-2 bg-[#5845D8]/10 text-[#5845D8] rounded-xl text-[13px] font-semibold hover:bg-[#5845D8]/15"
                         >
                             Select all remaining days this month
                         </button>
@@ -151,7 +151,7 @@ export default function DateSelector({ dates, onChange, isBusinessAccount }) {
 
                     <div className="grid grid-cols-7 gap-1 text-center mb-1">
                         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                            <span key={i} className="text-[9px] font-black text-gray-300 uppercase">{d}</span>
+                            <span key={i} className="text-xs font-semibold text-[#9CA3AF] ">{d}</span>
                         ))}
                     </div>
                     <div className="grid grid-cols-7 gap-1">
@@ -166,7 +166,7 @@ export default function DateSelector({ dates, onChange, isBusinessAccount }) {
                                     type="button"
                                     disabled={isPast}
                                     onClick={() => toggleDate(date)}
-                                    className={`aspect-square rounded-lg text-[11px] font-bold transition-all ${
+                                    className={`aspect-square rounded-lg text-[13px] font-bold transition-all ${
                                         isPast ? 'text-gray-200 cursor-not-allowed' :
                                         isSelected ? 'bg-[#5845D8] text-white shadow-md' :
                                         'text-[#012126] hover:bg-white'
@@ -178,7 +178,7 @@ export default function DateSelector({ dates, onChange, isBusinessAccount }) {
                         })}
                     </div>
                     {dates.length > 0 && (
-                        <p className="mt-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                        <p className="mt-3 text-xs font-semibold text-[#6B7280] ">
                             {dates.length} date{dates.length > 1 ? 's' : ''} selected
                         </p>
                     )}
@@ -186,39 +186,39 @@ export default function DateSelector({ dates, onChange, isBusinessAccount }) {
             )}
 
             {mode === 'daily' && (
-                <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-4 space-y-3">
+                <div className="bg-gray-50/50 rounded-2xl border border-[#ECEBF3] p-4 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-[9px] font-black text-gray-400 uppercase mb-1 tracking-widest">Start date</label>
+                            <label className="block text-xs font-semibold text-[#6B7280] mb-1 ">Start date</label>
                             <input
                                 type="date"
                                 value={dailyStart}
                                 min={toDateStr(today)}
                                 onChange={(e) => setDailyStart(e.target.value)}
-                                className="w-full px-3 py-2 rounded-xl border border-gray-100 text-xs font-black bg-white"
+                                className="w-full px-3 py-2 rounded-xl border border-[#ECEBF3] text-xs font-semibold bg-white"
                             />
                         </div>
                         <div>
-                            <label className="block text-[9px] font-black text-gray-400 uppercase mb-1 tracking-widest">Number of days</label>
+                            <label className="block text-xs font-semibold text-[#6B7280] mb-1 ">Number of days</label>
                             <input
                                 type="number"
                                 min={1}
                                 max={MAX_BULK_DATES}
                                 value={dailyCount}
                                 onChange={(e) => setDailyCount(e.target.value)}
-                                className="w-full px-3 py-2 rounded-xl border border-gray-100 text-xs font-black bg-white"
+                                className="w-full px-3 py-2 rounded-xl border border-[#ECEBF3] text-xs font-semibold bg-white"
                             />
                         </div>
                     </div>
                     <button
                         type="button"
                         onClick={applyDailyRange}
-                        className="w-full py-2 bg-[#5845D8]/10 text-[#5845D8] rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-[#5845D8]/15"
+                        className="w-full py-2 bg-[#5845D8]/10 text-[#5845D8] rounded-xl text-[13px] font-semibold hover:bg-[#5845D8]/15"
                     >
                         Post daily for {Math.min(Math.max(1, Number(dailyCount) || 1), MAX_BULK_DATES)} days
                     </button>
                     {dates.length > 0 && (
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                        <p className="text-xs font-semibold text-[#6B7280] ">
                             {dates.length} date{dates.length > 1 ? 's' : ''} selected — {dates[0]} to {dates[dates.length - 1]}
                         </p>
                     )}

@@ -69,7 +69,7 @@ const chatStatusColor = (s) => {
         case 'delivering': return 'bg-amber-500/20 text-amber-700';
         case 'rejected':
         case 'cancelled':  return 'bg-red-500/20 text-red-700';
-        default:           return 'bg-gray-200/60 text-gray-500';
+        default:           return 'bg-gray-200/60 text-[#6B7280]';
     }
 };
 
@@ -535,32 +535,31 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className="flex h-[calc(100vh-130px)] bg-white rounded-[24px] border border-gray-100 overflow-hidden shadow-sm font-sans text-[#111827]">
+        <div className="flex h-[calc(100dvh-230px)] min-h-[520px] bg-white rounded-[28px] border border-[#ECEBF3] overflow-hidden font-sans text-[#171B22]">
 
             {/* ── Col 1: Conversation list ── */}
-            <div className={`flex-shrink-0 w-full md:w-[280px] border-r border-gray-100 flex flex-col bg-[#FAFAFA] ${selectedConv ? 'hidden md:flex' : 'flex'}`}>
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+            <div className={`flex-shrink-0 w-full md:w-[320px] flex flex-col bg-[#171B22] ${selectedConv ? 'hidden md:flex' : 'flex'}`}>
+                <div className="px-5 py-5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <MessageCircle size={16} className="text-[#5845D8]" />
-                        <h3 className="font-black text-[#111827] text-[11px] uppercase tracking-widest">Messages</h3>
+                        <h3 className="font-semibold text-white text-[15px]">Conversations</h3>
                     </div>
                     {conversations.length > 0 && (
-                        <span className="px-2 py-0.5 bg-[#5845D8] text-white rounded-full text-[9px] font-black">
+                        <span className="min-w-[24px] h-6 px-2 bg-white text-[#5845D8] rounded-full text-xs font-bold flex items-center justify-center">
                             {conversations.length}
                         </span>
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
                     {conversations.length === 0 ? (
                         <div className="p-10 flex flex-col items-center gap-3 text-center">
-                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                                <MessageCircle size={20} className="text-gray-300" />
+                            <div className="w-12 h-12 bg-white/[0.06] rounded-full flex items-center justify-center">
+                                <MessageCircle size={20} className="text-white/50" />
                             </div>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">
+                            <p className="text-sm font-semibold text-white/80">
                                 No conversations yet
                             </p>
-                            <p className="text-[8px] text-gray-300 font-medium leading-relaxed max-w-[160px]">
+                            <p className="text-xs text-white/50 leading-relaxed max-w-[180px]">
                                 Chats appear here when a traveler is matched to your shipment
                             </p>
                         </div>
@@ -574,36 +573,34 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 <button
                                     key={conv._id}
                                     onClick={() => setSelectedConv(conv)}
-                                    className={`w-full p-4 flex items-start gap-3 transition-all border-b border-gray-100/60 group text-left ${
-                                        isActive ? 'bg-[#5845D8]/5 border-l-[3px] border-l-[#5845D8]' : 'hover:bg-white'
+                                    className={`w-full p-3.5 flex items-start gap-3 rounded-2xl transition-all group text-left ${
+                                        isActive ? 'bg-gradient-to-r from-[#6C5CE7] to-[#5845D8] shadow-[0_10px_24px_rgba(88,69,216,0.35)]' : 'bg-white/[0.04] hover:bg-white/[0.08]'
                                     }`}
                                 >
-                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm shrink-0 border-2 transition-all ${
-                                        isActive
-                                            ? 'bg-[#5845D8] text-white border-[#5845D8]/30 shadow-md shadow-[#5845D8]/20'
-                                            : 'bg-gray-100 text-gray-500 border-gray-100 group-hover:border-[#5845D8]/20'
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
+                                        isActive ? 'bg-white/20 text-white' : 'bg-white/10 text-white/80'
                                     }`}>
                                         {conv.otherUser?.firstName?.charAt(0) || <User size={14} />}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-0.5">
-                                            <p className={`text-[11px] font-black truncate tracking-tight ${isActive ? 'text-[#5845D8]' : 'text-[#111827]'}`}>
+                                            <p className="text-sm font-semibold truncate text-white">
                                                 {conv.otherUser?.firstName || 'User'}
                                             </p>
-                                            <p className="text-[8px] text-gray-300 font-medium whitespace-nowrap ml-1">
+                                            <p className={`text-[11px] font-medium whitespace-nowrap ml-1 ${isActive ? 'text-white/75' : 'text-white/45'}`}>
                                                 {formatTime(conv.updated_at || conv.updatedAt)}
                                             </p>
                                         </div>
                                         {fromCity && toCity && (
-                                            <p className="text-[8px] font-black text-[#111827]/40 uppercase tracking-wider mb-0.5">
+                                            <p className={`text-[11px] font-semibold mb-0.5 ${isActive ? 'text-white/80' : 'text-[#B3A9FF]'}`}>
                                                 {fromCity} → {toCity}
                                             </p>
                                         )}
-                                        <p className="text-[9px] text-gray-400 truncate font-medium opacity-80">
+                                        <p className={`text-xs truncate ${isActive ? 'text-white/85' : 'text-white/55'}`}>
                                             {conv.lastMessage || 'Click to chat'}
                                         </p>
                                         {conv.request?.status && (
-                                            <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${chatStatusColor(conv.request.status)}`}>
+                                            <span className={`mt-1.5 inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${isActive ? 'bg-white text-[#171B22]' : 'bg-white/[0.07] text-white/70 border border-white/10'}`}>
                                                 {chatStatusLabel(conv.request.status)}
                                                 {convPackages.length > 1 && ` · ${convPackages.length} shipments`}
                                             </span>
@@ -621,43 +618,43 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                 {selectedConv ? (
                     <>
                         {/* Header */}
-                        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between bg-white z-10">
+                        <div className="px-5 py-3.5 border-b border-[#ECEBF3] flex items-center justify-between bg-white z-10">
                             <div className="flex items-center gap-3">
-                                <button onClick={() => setSelectedConv(null)} className="md:hidden p-1.5 -ml-1.5 text-gray-400 hover:text-[#5845D8]">
+                                <button onClick={() => setSelectedConv(null)} className="md:hidden p-1.5 -ml-1.5 text-[#6B7280] hover:text-[#5845D8]">
                                     <ArrowLeft size={19} />
                                 </button>
-                                <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-black text-sm shadow-md shadow-[#5845D8]/20">
+                                <div className="w-8 h-8 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-semibold text-sm shadow-md shadow-[#5845D8]/20">
                                     {selectedConv.otherUser?.firstName?.charAt(0) || <User size={14} />}
                                 </div>
                                 <div>
-                                    <p className="font-black text-[#111827] text-[12px] tracking-tight">
+                                    <p className="font-semibold text-[#171B22] text-[12px] tracking-tight">
                                         {selectedConv.otherUser?.firstName || 'User'}
                                     </p>
                                     <div className="flex items-center gap-1.5">
                                         {isConnected
-                                            ? <><span className="w-1.5 h-1.5 rounded-full bg-green-500" /><p className="text-[8px] text-green-600 font-bold uppercase tracking-widest">Online</p></>
-                                            : <><WifiOff size={10} className="text-amber-400" /><p className="text-[8px] text-amber-500 font-bold uppercase tracking-widest">Reconnecting…</p></>
+                                            ? <><span className="w-1.5 h-1.5 rounded-full bg-green-500" /><p className="text-[11px] text-green-600 font-bold ">Online</p></>
+                                            : <><WifiOff size={10} className="text-amber-400" /><p className="text-[11px] text-amber-500 font-bold ">Reconnecting…</p></>
                                         }
                                     </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 {selectedConv.request?.status === 'completed' && (
-                                    <button onClick={() => handleDeleteConversation(selectedConv)} className="p-2 text-gray-300 hover:text-red-400" title="Delete chat">
+                                    <button onClick={() => handleDeleteConversation(selectedConv)} className="p-2 text-[#9CA3AF] hover:text-red-400" title="Delete chat">
                                         <Trash2 size={16} />
                                     </button>
                                 )}
                                 {hasAddKgShipment && (
                                     <button
                                         onClick={() => setShowAddKgModal(true)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#5845D8]/20 bg-[#5845D8]/5 text-[#5845D8] hover:bg-[#5845D8]/10 font-black text-[8px] uppercase tracking-widest"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#5845D8]/20 bg-[#5845D8]/5 text-[#5845D8] hover:bg-[#5845D8]/10 font-semibold text-[11px] "
                                     >
                                         <Plus size={11} /> Add KG
                                     </button>
                                 )}
                                 <button
                                     onClick={() => setShowDisputeModal(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-100 text-red-400 hover:bg-red-50 font-bold text-[8px] uppercase tracking-widest"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-100 text-red-400 hover:bg-red-50 font-bold text-[11px] "
                                 >
                                     <AlertTriangle size={11} /> Report Issue
                                 </button>
@@ -669,18 +666,18 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             <div className="xl:hidden flex items-center gap-2.5 px-4 py-2 bg-[#5845D8] border-b border-white/5 flex-shrink-0">
                                 <Package size={12} className="text-[#5845D8] shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-white text-[9px] font-black truncate">
+                                    <p className="text-white text-xs font-semibold truncate">
                                         {convShipments[0]?.package?.description || 'Package'}
                                         {convShipments.length > 1 && ` · +${convShipments.length - 1} more`}
                                     </p>
                                 </div>
-                                <span className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest flex-shrink-0 ${chatStatusColor(convShipments[0]?.status)}`}>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 ${chatStatusColor(convShipments[0]?.status)}`}>
                                     {chatStatusLabel(convShipments[0]?.status)}
                                 </span>
                                 <button
                                     type="button"
                                     onClick={() => onTabChange && onTabChange(req?.role === 'sender' ? 'shipments' : 'deliveries')}
-                                    className="flex-shrink-0 bg-[#5845D8] text-white text-[8px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg hover:bg-[#4838B5] whitespace-nowrap"
+                                    className="flex-shrink-0 bg-[#5845D8] text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-full hover:bg-[#4838B5] whitespace-nowrap"
                                 >
                                     View
                                 </button>
@@ -690,7 +687,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                         {/* Messages */}
                         <div className="flex-1 px-5 py-5 overflow-y-auto space-y-3 bg-[#F6F5FC]/40">
                             <div className="flex justify-center mb-4">
-                                <span className="bg-white px-3 py-1 rounded-full text-[7px] font-black text-gray-400 uppercase tracking-widest border border-gray-100 shadow-sm">
+                                <span className="bg-white px-3 py-1 rounded-full text-[11px] font-semibold text-[#6B7280] border border-[#ECEBF3] shadow-sm">
                                     🔒 Messages are private and secure
                                 </span>
                             </div>
@@ -701,7 +698,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 const isMe = senderId !== '' && senderId === participantId;
                                 return (
                                     <div key={getMessageId(msg) || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
-                                        <div className={`relative max-w-[78%] px-4 py-3 rounded-2xl text-[11px] font-medium shadow-sm ${
+                                        <div className={`relative max-w-[78%] px-4 py-3 rounded-2xl text-[13px] font-medium shadow-sm ${
                                             isMe
                                                 ? 'bg-[#5845D8] text-white rounded-tr-sm'
                                                 : 'bg-white text-[#111827] border border-gray-100 rounded-tl-sm'
@@ -715,15 +712,15 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                 <a href={msg.fileUrl} target="_blank" rel="noreferrer"
                                                     className={`mb-2 flex items-center gap-2.5 rounded-xl border px-3 py-2.5 ${isMe ? 'border-white/20 bg-white/10' : 'border-gray-100 bg-gray-50'}`}>
                                                     <FileText size={16} className="shrink-0" />
-                                                    <span className="min-w-0 flex-1 truncate text-[10px] font-bold">{msg.fileName || 'Attachment'}</span>
+                                                    <span className="min-w-0 flex-1 truncate text-[13px] font-bold">{msg.fileName || 'Attachment'}</span>
                                                 </a>
                                             )}
                                             {msg.text && msg.text !== 'Image' && <p className="leading-relaxed">{msg.text}</p>}
                                             <div className="flex items-center justify-end gap-1 mt-1 opacity-50">
-                                                <p className={`text-[7px] font-bold ${isMe ? 'text-white' : 'text-gray-400'}`}>
+                                                <p className={`text-[11px] font-bold ${isMe ? 'text-white' : 'text-gray-400'}`}>
                                                     {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                                 </p>
-                                                {isMe && <span className="text-[10px] text-white">✓✓</span>}
+                                                {isMe && <span className="text-[13px] text-white">✓✓</span>}
                                             </div>
                                         </div>
                                     </div>
@@ -744,33 +741,33 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     : <AlertTriangle size={15} className="shrink-0 text-amber-500 mt-0.5" />
                                 }
                                 <div className="flex-1">
-                                    <p className="text-[9px] font-black uppercase tracking-widest mb-0.5">
+                                    <p className="text-xs font-semibold mb-0.5">
                                         {warningType === 'abuse' ? 'Abusive language detected' : 'Contact sharing not permitted'}
                                     </p>
-                                    <p className="text-[9px] font-medium leading-relaxed">
+                                    <p className="text-xs font-medium leading-relaxed">
                                         {warningType === 'abuse'
                                             ? 'Abusive messages violate Bago\'s guidelines and may result in account suspension.'
                                             : 'Sharing phone numbers, links, or external contacts is not permitted. All communication must stay within Bago to protect both parties.'
                                         }
                                     </p>
                                 </div>
-                                <button onClick={() => setWarningType(null)} className="font-black text-[11px] opacity-50 hover:opacity-100 shrink-0">×</button>
+                                <button onClick={() => setWarningType(null)} className="font-semibold text-[13px] opacity-50 hover:opacity-100 shrink-0">×</button>
                             </div>
                         )}
 
                         {/* Message input / closed banner */}
                         {isChatClosed ? (
                             <div className="px-5 pb-5 pt-2 bg-white border-t border-gray-50">
-                                <div className="flex items-center justify-center gap-2 rounded-[18px] border border-gray-100 bg-gray-50 px-4 py-3.5 text-[10px] font-bold text-gray-400">
+                                <div className="flex items-center justify-center gap-2 rounded-[18px] border border-[#ECEBF3] bg-gray-50 px-4 py-3.5 text-[13px] font-bold text-[#6B7280]">
                                     <CheckCircle size={14} className="text-green-500 shrink-0" />
                                     This shipment is completed — chat is now read-only
                                 </div>
                             </div>
                         ) : (
                         <div className="px-5 pb-5 pt-2 bg-white border-t border-gray-50">
-                            <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-gray-50 rounded-[18px] border border-gray-100 px-3 py-2 focus-within:border-[#5845D8]/25 focus-within:bg-white focus-within:shadow-md transition-all">
+                            <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-gray-50 rounded-[18px] border border-[#ECEBF3] px-3 py-2 focus-within:border-[#5845D8]/25 focus-within:bg-white focus-within:shadow-md transition-all">
                                 <input ref={attachmentInputRef} type="file" className="hidden" onChange={handleSendAttachment} />
-                                <button type="button" onClick={() => attachmentInputRef.current?.click()} disabled={isSending} className="p-1.5 text-gray-400 hover:text-[#5845D8] disabled:opacity-40">
+                                <button type="button" onClick={() => attachmentInputRef.current?.click()} disabled={isSending} className="p-1.5 text-[#6B7280] hover:text-[#5845D8] disabled:opacity-40">
                                     <Paperclip size={17} />
                                 </button>
                                 <input
@@ -778,7 +775,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                     value={newMessage}
                                     onChange={e => { setNewMessage(e.target.value); if (warningType) setWarningType(null); }}
                                     placeholder="Type a message…"
-                                    className="flex-1 bg-transparent outline-none text-[12px] text-[#111827] placeholder:text-gray-300 font-medium"
+                                    className="flex-1 bg-transparent outline-none text-[12px] text-[#171B22] placeholder:text-gray-300 font-medium"
                                 />
                                 <button
                                     type="submit"
@@ -793,11 +790,11 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-center p-10 bg-[#F6F5FC]/30">
-                        <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-5 shadow-xl shadow-gray-200/50 border border-gray-100">
+                        <div className="w-20 h-20 bg-white rounded-[24px] flex items-center justify-center mb-5 shadow-xl shadow-gray-200/50 border border-[#ECEBF3]">
                             <MessageCircle size={30} className="text-[#5845D8]/30" />
                         </div>
-                        <h3 className="text-sm font-black text-[#111827] mb-2 uppercase tracking-wider">Select a conversation</h3>
-                        <p className="text-[10px] text-gray-400 font-medium max-w-[220px] leading-relaxed">
+                        <h3 className="text-sm font-semibold text-[#171B22] mb-2 ">Select a conversation</h3>
+                        <p className="text-[13px] text-[#6B7280] font-medium max-w-[220px] leading-relaxed">
                             Choose a conversation from the list on the left to start chatting
                         </p>
                     </div>
@@ -806,7 +803,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
 
             {/* ── Col 3: Shipments panel (CRM-style, desktop only) ── */}
             {selectedConv && (
-                <div className="hidden xl:flex flex-col w-[280px] flex-shrink-0 border-l border-gray-100 overflow-y-auto bg-[#FAFAFA]">
+                <div className="hidden xl:flex flex-col w-[280px] flex-shrink-0 border-l border-[#ECEBF3] overflow-y-auto bg-[#FAFAFA]">
                     {convShipments.length > 0 ? (
                         <>
                             {/* Scrollable shipment cards */}
@@ -814,7 +811,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 {/* Navigation header if multiple shipments */}
                                 {convShipments.length > 1 && (
                                     <div className="flex items-center justify-between mb-3">
-                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                                        <p className="text-[11px] font-semibold text-[#6B7280] ">
                                             Shipment {activeShipmentIdx + 1} of {convShipments.length}
                                         </p>
                                         <div className="flex items-center gap-1">
@@ -823,14 +820,14 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                 disabled={activeShipmentIdx === 0}
                                                 className="p-1 rounded-lg hover:bg-gray-200 disabled:opacity-30 transition-all"
                                             >
-                                                <ChevronLeft size={14} className="text-gray-500" />
+                                                <ChevronLeft size={14} className="text-[#6B7280]" />
                                             </button>
                                             <button
                                                 onClick={() => setActiveShipmentIdx(i => Math.min(convShipments.length - 1, i + 1))}
                                                 disabled={activeShipmentIdx === convShipments.length - 1}
                                                 className="p-1 rounded-lg hover:bg-gray-200 disabled:opacity-30 transition-all"
                                             >
-                                                <ChevronRight size={14} className="text-gray-500" />
+                                                <ChevronRight size={14} className="text-[#6B7280]" />
                                             </button>
                                         </div>
                                     </div>
@@ -850,10 +847,10 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                             <div className="relative z-10">
                                                 {/* Status */}
                                                 <div className="flex items-center justify-between mb-3">
-                                                    <span className="text-[8px] text-white/40 font-black uppercase tracking-[2px]">
+                                                    <span className="text-[11px] text-white/40 font-semibold tracking-[2px]">
                                                         {s?.trackingNumber ? `#${s.trackingNumber}` : 'Awaiting Tracking'}
                                                     </span>
-                                                    <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${chatStatusColor(s?.status)}`}>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${chatStatusColor(s?.status)}`}>
                                                         {chatStatusLabel(s?.status)}
                                                     </span>
                                                 </div>
@@ -868,41 +865,41 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                 </div>
 
                                                 {/* Description */}
-                                                <p className="text-white font-black text-[13px] leading-snug mb-3 truncate">
+                                                <p className="text-white font-semibold text-[13px] leading-snug mb-3 truncate">
                                                     {p.description || s?.description || 'Package'}
                                                 </p>
 
                                                 {/* Route */}
                                                 <div className="flex items-center gap-1.5 mb-3 bg-white/5 rounded-xl px-3 py-2">
-                                                    <span className="text-[9px] text-white/60 font-black uppercase truncate">{fromCity}</span>
-                                                    <span className="text-white/20 font-black">→</span>
-                                                    <span className="text-[9px] text-white/60 font-black uppercase truncate">{toCity}</span>
+                                                    <span className="text-xs text-white/60 font-semibold truncate">{fromCity}</span>
+                                                    <span className="text-white/20 font-semibold">→</span>
+                                                    <span className="text-xs text-white/60 font-semibold truncate">{toCity}</span>
                                                 </div>
 
                                                 {/* Key fields */}
                                                 <div className="space-y-2 mb-4">
                                                     {p.packageWeight ? (
                                                         <div className="flex justify-between">
-                                                            <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">Weight</span>
-                                                            <span className="text-[10px] text-white font-black">{p.packageWeight} kg</span>
+                                                            <span className="text-[11px] text-white/30 font-semibold ">Weight</span>
+                                                            <span className="text-[13px] text-white font-semibold">{p.packageWeight} kg</span>
                                                         </div>
                                                     ) : null}
                                                     {s?.amount ? (
                                                         <div className="flex justify-between">
-                                                            <span className="text-[8px] text-white/30 font-black uppercase tracking-widest">Amount</span>
-                                                            <span className="text-[10px] text-white font-black">{s.currency} {s.amount}</span>
+                                                            <span className="text-[11px] text-white/30 font-semibold ">Amount</span>
+                                                            <span className="text-[13px] text-white font-semibold">{s.currency} {s.amount}</span>
                                                         </div>
                                                     ) : null}
                                                     {pickupAddr && (
                                                         <div className="flex gap-2 pt-1">
                                                             <MapPin size={10} className="text-[#5845D8] shrink-0 mt-0.5" />
-                                                            <span className="text-[8px] text-white/50 leading-relaxed">{pickupAddr}</span>
+                                                            <span className="text-[11px] text-white/50 leading-relaxed">{pickupAddr}</span>
                                                         </div>
                                                     )}
                                                     {deliveryAddr && (
                                                         <div className="flex gap-2">
                                                             <MapPin size={10} className="text-green-400 shrink-0 mt-0.5" />
-                                                            <span className="text-[8px] text-white/50 leading-relaxed">{deliveryAddr}</span>
+                                                            <span className="text-[11px] text-white/50 leading-relaxed">{deliveryAddr}</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -912,7 +909,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                     <button
                                                         type="button"
                                                         onClick={() => onTabChange && onTabChange(s?.role === 'sender' ? 'shipments' : 'deliveries')}
-                                                        className="w-full bg-[#5845D8] text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all"
+                                                        className="w-full bg-[#5845D8] text-white py-2.5 rounded-full text-xs font-semibold hover:bg-[#4838B5] transition-all"
                                                     >
                                                         View Full Details
                                                     </button>
@@ -921,7 +918,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                                             type="button"
                                                             onClick={() => handleDownloadPDF(s?._id || s?.id, s?.trackingNumber)}
                                                             disabled={downloading === (s?._id || s?.id)}
-                                                            className="w-full bg-white/8 border border-white/10 text-white/70 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-white/12 flex items-center justify-center gap-2 disabled:opacity-40"
+                                                            className="w-full bg-white/8 border border-white/10 text-white/70 py-2.5 rounded-full text-xs font-semibold hover:bg-white/12 flex items-center justify-center gap-2 disabled:opacity-40"
                                                         >
                                                             {downloading === (s?._id || s?.id)
                                                                 ? <><RefreshCw size={12} className="animate-spin" /> Downloading…</>
@@ -949,16 +946,16 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             </div>
 
                             {/* Quick actions */}
-                            <div className="mx-4 mb-4 bg-white rounded-[20px] p-4 border border-gray-100 shadow-sm">
-                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-3">Quick Actions</p>
+                            <div className="mx-4 mb-4 bg-white rounded-[20px] p-4 border border-[#ECEBF3] shadow-sm">
+                                <p className="text-[11px] font-semibold text-[#6B7280] mb-3">Quick Actions</p>
                                 <div className="space-y-2">
                                     <button onClick={() => setShowDisputeModal(true)}
-                                        className="w-full flex items-center gap-2.5 px-4 py-3 bg-red-50 text-red-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-100 transition-all">
+                                        className="w-full flex items-center gap-2.5 px-4 py-3 bg-red-50 text-red-500 rounded-full text-xs font-semibold hover:bg-red-100 transition-all">
                                         <AlertTriangle size={13} /> Report Issue
                                     </button>
                                     {selectedConv.request?.status === 'completed' && (
                                         <button onClick={() => handleDeleteConversation(selectedConv)}
-                                            className="w-full flex items-center gap-2.5 px-4 py-3 bg-gray-50 text-gray-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all">
+                                            className="w-full flex items-center gap-2.5 px-4 py-3 bg-gray-50 text-[#6B7280] rounded-full text-xs font-semibold hover:bg-gray-100 transition-all">
                                             <Trash2 size={13} /> Delete Chat
                                         </button>
                                     )}
@@ -966,11 +963,11 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             </div>
                         </>
                     ) : (
-                        <div className="m-4 bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm text-center">
-                            <div className="w-12 h-12 bg-[#5845D8]/8 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                        <div className="m-4 bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm text-center">
+                            <div className="w-12 h-12 bg-[#5845D8]/8 rounded-full flex items-center justify-center mx-auto mb-3">
                                 <Package size={20} className="text-[#5845D8]/40" />
                             </div>
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">No shipment linked</p>
+                            <p className="text-xs font-semibold text-[#6B7280] ">No shipment linked</p>
                         </div>
                     )}
                 </div>
@@ -979,24 +976,24 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             {/* ── Add KG Modal ── */}
             {showAddKgModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 font-sans">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-gray-100/50">
+                    <div className="bg-white w-full max-w-md rounded-[24px] overflow-hidden shadow-2xl border border-[#ECEBF3]/50">
                         <div className="p-7 border-b border-gray-50 flex flex-col gap-2 bg-[#5845D8]/5">
                             <div className="w-12 h-12 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-[#5845D8]/10">
                                 <Weight size={22} />
                             </div>
-                            <h3 className="text-lg font-black text-[#111827] uppercase tracking-tight">Add Extra Weight</h3>
-                            <p className="text-[9px] text-gray-400 font-bold leading-relaxed">
+                            <h3 className="text-lg font-semibold text-[#171B22] tracking-tight">Add Extra Weight</h3>
+                            <p className="text-xs text-[#6B7280] font-bold leading-relaxed">
                                 This adds weight to the active shipment. The receiver's details and destination stay the same.
                             </p>
                         </div>
                         <div className="p-7 space-y-5">
                             {convShipments.length > 1 && (
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Select Shipment</label>
+                                    <label className="text-xs font-semibold text-[#6B7280] ">Select Shipment</label>
                                     <select
                                         value={activeShipmentIdx}
                                         onChange={e => setActiveShipmentIdx(Number(e.target.value))}
-                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-xs font-bold text-[#111827] outline-none"
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-transparent text-xs font-bold text-[#171B22] outline-none"
                                     >
                                         {convShipments.map((s, i) => (
                                             <option key={i} value={i}>
@@ -1007,27 +1004,27 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                                 </div>
                             )}
                             <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest block">Additional weight</label>
+                                <label className="text-xs font-semibold text-[#6B7280] block">Additional weight</label>
                                 <div className="flex items-center gap-3 px-4 py-3.5 bg-gray-50 rounded-2xl border border-transparent focus-within:border-[#5845D8]/20 focus-within:bg-white transition-all">
                                     <input
                                         type="number" step="0.1" min="0.1"
                                         value={addKgInput}
                                         onChange={e => setAddKgInput(e.target.value)}
                                         placeholder="0.0"
-                                        className="flex-1 bg-transparent outline-none text-base font-black text-[#111827] placeholder:text-gray-300"
+                                        className="flex-1 bg-transparent outline-none text-base font-semibold text-[#171B22] placeholder:text-gray-300"
                                         autoFocus
                                     />
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">KG</span>
+                                    <span className="text-[13px] font-semibold text-[#6B7280] ">KG</span>
                                 </div>
                             </div>
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => { setShowAddKgModal(false); setAddKgInput(''); }}
-                                    className="flex-1 py-3.5 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600">
+                                    className="flex-1 py-3.5 text-xs font-semibold text-[#6B7280] hover:text-gray-600">
                                     Cancel
                                 </button>
                                 <button type="button" onClick={handleAddKg}
                                     disabled={!addKgInput || parseFloat(addKgInput) <= 0 || addKgLoading}
-                                    className="flex-[2] bg-[#5845D8] text-white py-3.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] flex items-center justify-center gap-2 disabled:opacity-40">
+                                    className="flex-[2] bg-[#5845D8] text-white py-3.5 rounded-full font-semibold text-xs shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] flex items-center justify-center gap-2 disabled:opacity-40">
                                     {addKgLoading ? <RefreshCw className="animate-spin" size={14} /> : <><Plus size={14} /> Confirm & Pay</>}
                                 </button>
                             </div>
@@ -1039,22 +1036,22 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             {/* ── Dispute Modal ── */}
             {showDisputeModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-6 font-sans">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-gray-100/50">
+                    <div className="bg-white w-full max-w-md rounded-[24px] overflow-hidden shadow-2xl border border-[#ECEBF3]/50">
                         <div className="p-7 border-b border-gray-50 flex flex-col items-center gap-3 bg-red-50/30">
                             <div className="w-12 h-12 bg-white text-red-500 rounded-2xl flex items-center justify-center shadow-lg border border-red-50">
                                 <AlertTriangle size={22} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-lg font-black text-[#111827] uppercase tracking-tight">Report an Issue</h3>
-                                <p className="text-[9px] text-red-500 font-black mt-0.5 uppercase tracking-widest">Bago Support Mediation</p>
+                                <h3 className="text-lg font-semibold text-[#171B22] tracking-tight">Report an Issue</h3>
+                                <p className="text-xs text-red-500 font-semibold mt-0.5 ">Bago Support Mediation</p>
                             </div>
                         </div>
                         <form onSubmit={handleRaiseDispute} className="p-7 space-y-5">
-                            <p className="text-[10px] text-gray-400 font-medium leading-relaxed text-center">
+                            <p className="text-[13px] text-[#6B7280] font-medium leading-relaxed text-center">
                                 Reporting an issue will pause the escrow and notify the Bago team, who will contact both parties to resolve the matter.
                             </p>
                             <div>
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest block mb-1.5">Describe the problem</label>
+                                <label className="text-xs font-semibold text-[#6B7280] block mb-1.5">Describe the problem</label>
                                 <textarea
                                     value={disputeReason}
                                     onChange={e => setDisputeReason(e.target.value)}
@@ -1065,11 +1062,11 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             </div>
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setShowDisputeModal(false)}
-                                    className="flex-1 py-3.5 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600">
+                                    className="flex-1 py-3.5 text-xs font-semibold text-[#6B7280] hover:text-gray-600">
                                     Cancel
                                 </button>
                                 <button type="submit" disabled={isSubmittingDispute}
-                                    className="flex-[2] bg-[#5845D8] text-white py-3.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-red-600 flex items-center justify-center gap-2 disabled:opacity-50">
+                                    className="flex-[2] bg-[#5845D8] text-white py-3.5 rounded-full font-semibold text-xs shadow-lg hover:bg-red-600 flex items-center justify-center gap-2 disabled:opacity-50">
                                     {isSubmittingDispute ? <RefreshCw className="animate-spin" size={14} /> : 'Submit Report'}
                                 </button>
                             </div>

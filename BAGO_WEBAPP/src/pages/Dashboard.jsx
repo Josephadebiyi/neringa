@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../api';
-import Sidebar from '../components/dashboard/Sidebar';
+import Sidebar, { useUnreadCount } from '../components/dashboard/Sidebar';
+import TopNav from '../components/dashboard/TopNav';
 import Overview from '../components/dashboard/Overview';
 import Trips from '../components/dashboard/Trips';
 import Shipments from '../components/dashboard/Shipments';
@@ -20,8 +21,9 @@ import {
     Menu,
     Shield,
     AlertCircle,
-    Bell,
-    Search,
+    ArrowLeft,
+    Package,
+    Plus,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { getUserPayoutCurrency } from '../utils/userCurrency';
@@ -40,6 +42,23 @@ const TAB_LABELS = {
     settings: 'Settings',
     insurance: 'Insurance',
     staff: 'Staff Accounts',
+    'business-verification': 'Business Verification',
+};
+
+const TAB_SUBTITLES = {
+    overview: 'Track your shipments, trips and earnings in one place.',
+    trips: 'Manage the trips you have posted.',
+    services: 'Manage the shipping services your business offers.',
+    shipments: 'Follow every package you are sending.',
+    deliveries: 'Packages you are carrying for other people.',
+    chats: 'Talk to senders and travellers.',
+    earnings: 'Your balance, escrow and payouts.',
+    financial: 'Revenue and payout reports for your business.',
+    referral: 'Invite friends and earn rewards.',
+    settings: 'Profile, security and preferences.',
+    insurance: 'Protect the packages you send.',
+    staff: 'Control who on your team can access this account.',
+    'business-verification': 'Verify your business to unlock every feature.',
 };
 
 export default function Dashboard() {
@@ -51,6 +70,7 @@ export default function Dashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [userStats, setUserStats] = useState({ totalUsers: 0 });
     const [chatConv, setChatConv] = useState(null);
+    const unreadCount = useUnreadCount(user);
     const location = useLocation();
     const [msg, setMsg] = useState(location.state?.message || '');
     // Dark mode is temporarily disabled — the CSS-override implementation
@@ -302,20 +322,22 @@ export default function Dashboard() {
     }
 
     const userInitial = user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'B';
-    const tabLabel = TAB_LABELS[activeTab] || activeTab;
+    const tabLabel = activeTab === 'overview' ? 'Dashboard' : (TAB_LABELS[activeTab] || activeTab);
+    const tabSubtitle = TAB_SUBTITLES[activeTab] || '';
+    const goBack = () => (activeTab === 'overview' ? navigate('/') : setActiveTab('overview'));
 
     return (
-        <div className={`dashboard-shell min-h-screen bg-[#F5F4FC] flex font-sans ${darkMode ? 'dashboard-dark' : ''}`}>
+        <div className={`dashboard-shell min-h-screen bg-[#ECEBF7] font-sans lg:p-5 ${darkMode ? 'dashboard-dark' : ''}`}>
 
             {/* Mobile overlay */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden"
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
-            {/* Sidebar */}
+            {/* Drawer navigation (below lg) */}
             <Sidebar
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
@@ -324,86 +346,87 @@ export default function Dashboard() {
                 sidebarOpen={sidebarOpen}
                 setSidebarOpen={setSidebarOpen}
                 isBusinessAccount={isBusinessAccount}
+                unreadCount={unreadCount}
             />
 
-            {/* Main */}
-            <main className="flex-1 md:ml-64 min-h-screen flex flex-col">
+            <div className="min-h-screen lg:min-h-[calc(100vh-40px)] bg-[#F7F7FC] lg:rounded-[32px] lg:shadow-[0_30px_80px_rgba(88,69,216,0.10)] lg:border lg:border-white px-4 sm:px-6 lg:px-8 xl:px-10 pt-4 lg:pt-7 pb-10">
 
-                {/* ── Top bar – Velto style ── */}
-                <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
-
-                    {/* Left: hamburger + tab label */}
-                    <div className="flex items-center gap-3 min-w-0">
-                        <button
-                            className="md:hidden p-2 rounded-xl bg-gray-50 text-[#111827] hover:bg-gray-100 shrink-0"
-                            onClick={() => setSidebarOpen(true)}
-                        >
-                            <Menu size={20} />
-                        </button>
-                        <div>
-                            <h1 className="text-sm font-black text-[#111827] uppercase tracking-widest leading-none">
-                                {tabLabel}
-                            </h1>
-                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5 hidden sm:block">
-                                {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Center: search bar — all tabs */}
-                    <div className="hidden lg:flex items-center gap-2.5 bg-gray-50 rounded-xl px-4 py-2.5 w-80 border border-gray-100 hover:border-[#5845D8]/20 focus-within:border-[#5845D8]/40 focus-within:bg-white focus-within:shadow-sm transition-all">
-                        <Search size={13} className="text-gray-400 shrink-0" />
-                        <input
-                            placeholder="Search shipments, trips, earnings…"
-                            className="bg-transparent text-[11px] outline-none text-[#111827] placeholder:text-gray-300 w-full font-medium"
-                        />
-                        <kbd className="hidden xl:flex items-center gap-0.5 text-[8px] font-bold text-gray-300 bg-gray-100 px-1.5 py-0.5 rounded-md shrink-0">⌘F</kbd>
-                    </div>
-
-                    {/* Right: back link + bell + avatar */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <Link
-                            to="/"
-                            className="text-[10px] text-gray-400 hover:text-[#5845D8] font-bold uppercase tracking-wider hidden sm:block transition-colors"
-                        >
-                            ← Site
-                        </Link>
-
-                        <button className="p-2.5 rounded-xl bg-gray-50 text-gray-500 hover:bg-[#5845D8]/5 hover:text-[#5845D8] transition-all relative">
-                            <Bell size={17} />
-                        </button>
-
-                        <div className="flex items-center gap-2.5 pl-3 border-l border-gray-100">
-                            <div className="text-right hidden md:block">
-                                <p className="text-[11px] font-black text-[#111827] leading-tight">
-                                    {isBusinessAccount
-                                        ? (user?.tradingName || user?.companyName)
-                                        : `${user?.firstName || ''} ${user?.lastName || ''}`.trim()}
-                                </p>
-                                <p className="text-[9px] text-gray-400 font-medium truncate max-w-[150px]">
-                                    {user?.email}
-                                </p>
-                            </div>
-                            <div className="w-9 h-9 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-black text-sm overflow-hidden border-2 border-[#5845D8]/20 shrink-0">
-                                {user?.image
-                                    ? <img src={user.image} alt="" className="w-full h-full object-cover" />
-                                    : userInitial}
-                            </div>
-                        </div>
+                {/* Mobile header */}
+                <header className="lg:hidden flex items-center justify-between gap-3 mb-5">
+                    <button
+                        className="w-11 h-11 rounded-full bg-white border border-gray-200/80 text-[#171B22] flex items-center justify-center"
+                        onClick={() => setSidebarOpen(true)}
+                        aria-label="Open menu"
+                    >
+                        <Menu size={19} />
+                    </button>
+                    <Link to="/" aria-label="Bago home">
+                        <img src="/bago_logo.png" alt="Bago" className="h-8 w-auto" />
+                    </Link>
+                    <div className="relative w-11 h-11 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold overflow-hidden ring-2 ring-white">
+                        {user?.image ? <img src={user.image} alt="" className="w-full h-full object-cover" /> : userInitial}
+                        {unreadCount > 0 && (
+                            <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-[#EF4444] ring-2 ring-[#F7F7FC]" />
+                        )}
                     </div>
                 </header>
 
-                {/* Page content */}
-                <div className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
+                {/* Desktop top navigation */}
+                <TopNav
+                    activeTab={activeTab}
+                    setActiveTab={setActiveTab}
+                    user={user}
+                    logout={logout}
+                    isBusinessAccount={isBusinessAccount}
+                    unreadCount={unreadCount}
+                />
+
+                <main className="max-w-[1400px] mx-auto w-full">
+                    {/* Page heading */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2 lg:mt-10 mb-7">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <button
+                                type="button"
+                                onClick={goBack}
+                                aria-label={activeTab === 'overview' ? 'Back to website' : 'Back to overview'}
+                                className="hidden sm:flex w-12 h-12 rounded-full bg-white border border-gray-200/80 items-center justify-center text-[#171B22] hover:text-[#5845D8] hover:border-[#5845D8]/40 transition-colors shrink-0"
+                            >
+                                <ArrowLeft size={19} />
+                            </button>
+                            <div className="min-w-0">
+                                <h1 className="font-['Manrope'] text-[30px] sm:text-[40px] font-extrabold text-[#171B22] tracking-[-0.03em] leading-[1.05] truncate">
+                                    {tabLabel}
+                                </h1>
+                                {tabSubtitle && (
+                                    <p className="text-sm text-[#6B7280] mt-1.5">{tabSubtitle}</p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <Link
+                                to="/search"
+                                className="flex-1 sm:flex-none justify-center whitespace-nowrap flex items-center gap-2 h-12 px-5 rounded-full bg-white border border-gray-200/80 text-sm font-semibold text-[#171B22] hover:border-[#5845D8]/40 hover:text-[#5845D8] transition-colors"
+                            >
+                                <Package size={16} /> Send a package
+                            </Link>
+                            <Link
+                                to="/post-trip"
+                                className="flex-1 sm:flex-none justify-center whitespace-nowrap flex items-center gap-2 h-12 px-6 rounded-full bg-[#5845D8] text-white text-sm font-semibold shadow-[0_10px_24px_rgba(88,69,216,0.35)] hover:bg-[#4A38C9] transition-colors"
+                            >
+                                <Plus size={17} /> Post a trip
+                            </Link>
+                        </div>
+                    </div>
+
                     {msg && (
-                        <div className="mb-5 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3 text-amber-900 font-bold animate-in slide-in-from-top duration-300">
+                        <div className="mb-6 bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center gap-3 text-amber-900 font-semibold text-sm">
                             <AlertCircle className="text-amber-500 shrink-0" size={20} />
                             {msg}
                         </div>
                     )}
                     {renderTabContent()}
-                </div>
-            </main>
+                </main>
+            </div>
         </div>
     );
 }

@@ -25,35 +25,15 @@ import {
     Ticket
 } from 'lucide-react';
 import api from '../api';
+import AppTopBar from '../components/AppTopBar';
 import { locations } from '../utils/countries';
 import Select from 'react-select';
 import DateSelector from '../components/posttrip/DateSelector';
 
 const Navbar = ({ step }) => {
-    const navigate = useNavigate();
     const { t } = useLanguage();
-    const steps = [t('routeDetailsTitle'), t('reviewTitle'), t('doneTitle')];
-    return (
-        <nav className="w-full bg-white border-b border-gray-100 py-2.5 px-6 md:px-12 flex justify-between items-center z-50 sticky top-0">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8]">
-                <ChevronLeft size={20} />
-                <span className="font-bold text-xs">{t('back')}</span>
-            </button>
-            <Link to="/" className="flex items-center">
-                <img src="/bago_logo.png" alt="Bago" className="h-7 w-auto" />
-            </Link>
-            <div className="hidden md:flex items-center gap-1 font-black text-[8px] uppercase tracking-[0.2em] opacity-60">
-                {steps.map((_s, i) => (
-                    <React.Fragment key={i}>
-                        <span className={`px-2 py-0.5 rounded-full transition-all duration-300 ${i + 1 === step ? 'bg-[#5845D8] text-white shadow-xl shadow-[#5845D8]/20' : i + 1 < step ? 'text-green-600' : 'text-gray-300'}`}>
-                            {i + 1 < step ? '✓' : i + 1}
-                        </span>
-                        {i < steps.length - 1 && <span className="text-gray-100 mx-1">/</span>}
-                    </React.Fragment>
-                ))}
-            </div>
-        </nav>
-    );
+    const steps = [t('routeDetailsTitle') || 'Route details', t('reviewTitle') || 'Review', t('doneTitle') || 'Done'];
+    return <AppTopBar steps={steps} step={step} backLabel={t('back') || 'Back'} />;
 };
 
 const LocationSelect = ({ value, onChange, placeholder, label, icon: Icon, t }) => {
@@ -96,9 +76,9 @@ const LocationSelect = ({ value, onChange, placeholder, label, icon: Icon, t }) 
 
     return (
         <div className="space-y-2">
-            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-[0.15em] ml-1">{label}</label>
-            <div className="flex items-center px-4 py-3 bg-gray-50/50 rounded-2xl border border-gray-100 focus-within:border-[#5845D8]/30 focus-within:bg-white transition-all">
-                <Icon size={18} className="text-gray-400 mr-3 shrink-0" />
+            <label className="block text-[13px] font-semibold text-[#6B7280] mb-1 ml-1">{label}</label>
+            <div className="flex items-center px-4 py-3 bg-gray-50/50 rounded-2xl border border-[#ECEBF3] focus-within:border-[#5845D8]/30 focus-within:bg-white transition-all">
+                <Icon size={18} className="text-[#6B7280] mr-3 shrink-0" />
                 <div className="flex-1">
                     <Select
                         options={locationOptions}
@@ -352,13 +332,13 @@ export default function PostTrip() {
     };
 
     const CurrencyModal = () => (
-        <div className="fixed inset-0 bg-[#012126]/40 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-300 border border-gray-100">
-                <div className="w-16 h-16 bg-[#5845D8]/10 text-[#5845D8] rounded-3xl flex items-center justify-center mx-auto mb-8">
+        <div className="fixed inset-0 bg-[#171B22]/40 backdrop-blur-md flex items-center justify-center z-[100] p-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-[24px] p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-300 border border-[#ECEBF3]">
+                <div className="w-16 h-16 bg-[#5845D8]/10 text-[#5845D8] rounded-[24px] flex items-center justify-center mx-auto mb-8">
                     <Wallet size={32} />
                 </div>
-                <h3 className="text-2xl font-black text-[#012126] text-center mb-3 uppercase tracking-tight">{t('setWalletCurrency') || 'Set Wallet Currency'}</h3>
-                <p className="text-gray-400 font-bold text-xs text-center mb-8 uppercase tracking-[2px] leading-relaxed">
+                <h3 className="text-2xl font-extrabold text-[#171B22] text-center mb-3 tracking-[-0.03em]">{t('setWalletCurrency') || 'Set Wallet Currency'}</h3>
+                <p className="text-[#6B7280] font-bold text-xs text-center mb-8 leading-relaxed">
                     {t('setCurrencyDesc') || 'Please select your preferred currency for earnings and trip pricing.'}
                 </p>
                 <div className="space-y-3 mb-10">
@@ -366,7 +346,7 @@ export default function PostTrip() {
                         <button
                             key={curr}
                             onClick={() => setSelectedCurrency(curr)}
-                            className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-[3px] transition-all flex items-center justify-between px-6 border-2 ${selectedCurrency === curr ? 'bg-[#5845D8] border-[#5845D8] text-white shadow-xl shadow-[#5845D8]/20' : 'bg-gray-50 border-gray-50 text-gray-400 hover:bg-white hover:border-[#5845D8]/20 hover:text-[#5845D8]'}`}
+                            className={`w-full py-4 rounded-2xl font-semibold text-xs transition-all flex items-center justify-between px-6 border-2 ${selectedCurrency === curr ? 'bg-[#5845D8] border-[#5845D8] text-white shadow-xl shadow-[#5845D8]/20' : 'bg-gray-50 border-gray-50 text-gray-400 hover:bg-white hover:border-[#5845D8]/20 hover:text-[#5845D8]'}`}
                         >
                             {curr}
                             {selectedCurrency === curr && <CheckCircle size={14} />}
@@ -376,7 +356,7 @@ export default function PostTrip() {
                 <button
                     onClick={handleSaveCurrency}
                     disabled={!selectedCurrency || loading}
-                    className="w-full py-4 bg-[#012126] text-white rounded-2xl font-black text-xs uppercase tracking-[2px] shadow-xl hover:bg-[#0a262c] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                    className="w-full py-4 bg-[#171B22] text-white rounded-2xl font-semibold text-xs shadow-xl hover:bg-[#0a262c] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
                 >
                     {loading ? <Loader2 className="animate-spin" size={14} /> : <>{t('confirmSelection') || 'Confirm Selection'} <ChevronRight size={14} /></>}
                 </button>
@@ -386,21 +366,21 @@ export default function PostTrip() {
 
     if (step === 3) {
         return (
-            <div className="min-h-screen bg-[#F8F6F3]">
+            <div className="min-h-screen bg-[#F7F7FC]">
                 <Navbar step={step} />
                 <div className="max-w-md mx-auto px-6 py-20 text-center animate-in zoom-in-95 duration-500">
-                    <div className="w-20 h-20 bg-green-50 text-green-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
+                    <div className="w-20 h-20 bg-green-50 text-green-600 rounded-[24px] flex items-center justify-center mx-auto mb-8 shadow-sm">
                         <CheckCircle size={40} />
                     </div>
-                    <h1 className="text-3xl font-black text-[#012126] mb-4 tracking-tight uppercase">
+                    <h1 className="text-3xl font-extrabold text-[#171B22] mb-4 tracking-[-0.03em] ">
                         {postedCount > 1 ? `${postedCount} Trips Posted` : t('tripPostedSuccess')}
                     </h1>
-                    <p className="text-gray-500 font-bold text-xs mb-10 leading-relaxed uppercase tracking-widest">
+                    <p className="text-[#6B7280] font-bold text-xs mb-10 leading-relaxed ">
                         {postedCount > 1
                             ? `Your trip was listed across ${postedCount} dates.`
                             : t('tripPostedDesc')}
                     </p>
-                    <Link to="/dashboard" className="inline-flex items-center gap-2 px-10 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.02] active:scale-95">
+                    <Link to="/dashboard" className="inline-flex items-center gap-2 px-10 py-4 bg-[#5845D8] text-white rounded-full font-semibold text-[13px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.02] active:scale-95">
                         {t('goDashboard')} <ArrowRight size={14} />
                     </Link>
                 </div>
@@ -409,7 +389,7 @@ export default function PostTrip() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F8F6F3]">
+        <div className="min-h-screen bg-[#F7F7FC]">
             <Navbar step={step} />
 
             <div className="max-w-[1240px] mx-auto px-6 md:px-12 py-10 font-sans">
@@ -417,17 +397,17 @@ export default function PostTrip() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                         <div className="lg:col-span-2">
                             <div className="mb-10">
-                                <h1 className="text-4xl font-black text-[#012126] mb-3 tracking-tight">{t('postTripTitle')}</h1>
+                                <h1 className="text-4xl font-extrabold text-[#171B22] mb-3 tracking-[-0.03em]">{t('postTripTitle')}</h1>
                                 <div className="h-1 w-20 bg-[#5845D8] rounded-full"></div>
                             </div>
 
                             <form onSubmit={handleFormNext} className="space-y-8">
-                                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#ECEBF3]">
                                     <div className="flex items-center gap-3 mb-8">
                                         <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                                             <MapPin size={20} />
                                         </div>
-                                        <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('routeDetails')}</h2>
+                                        <h2 className="text-sm font-semibold text-[#171B22] ">{t('routeDetails')}</h2>
                                     </div>                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                                         <LocationSelect 
                                             label={t('leavingFromLabel') || 'Origin City'}
@@ -457,7 +437,7 @@ export default function PostTrip() {
                                     </div>
 
                                                     <div className="mb-8">
-                                        <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('departureLabel')}</label>
+                                        <label className="block text-xs font-semibold text-[#6B7280] mb-2 ml-1">{t('departureLabel')}</label>
                                         <DateSelector
                                             dates={formData.departureDates}
                                             onChange={(dates) => setFormData(prev => ({ ...prev, departureDates: dates }))}
@@ -466,16 +446,16 @@ export default function PostTrip() {
                                     </div>
                                 </div>
 
-                                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#ECEBF3]">
                                     <div className="flex items-center gap-3 mb-8">
                                         <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
                                             <Package size={20} />
                                         </div>
-                                        <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('transportAndWeight')}</h2>
+                                        <h2 className="text-sm font-semibold text-[#171B22] ">{t('transportAndWeight')}</h2>
                                     </div>
 
                                     <div className="mb-8">
-                                        <label className="block text-[8px] font-black text-gray-400 uppercase mb-4 tracking-[0.15em] ml-1">{t('transportMode')}</label>
+                                        <label className="block text-[11px] font-semibold text-[#6B7280] mb-4 ml-1">{t('transportMode')}</label>
                                         <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                                             {[
                                                 { id: 'airplane', icon: Plane, label: t('airplane') },
@@ -491,7 +471,7 @@ export default function PostTrip() {
                                                     className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all gap-2 group ${formData.transportMode === mode.id ? 'bg-[#5845D8] border-[#5845D8] text-white shadow-lg' : 'border-gray-100 hover:border-gray-200 text-gray-400'}`}
                                                 >
                                                     <mode.icon size={20} className={formData.transportMode === mode.id ? 'text-white' : 'group-hover:text-[#5845D8]'} />
-                                                    <span className="text-[8px] font-black uppercase tracking-wider">{mode.label}</span>
+                                                    <span className="text-[11px] font-semibold ">{mode.label}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -499,7 +479,7 @@ export default function PostTrip() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                                         <div>
-                                            <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('availableWeightLabel')}</label>
+                                            <label className="block text-xs font-semibold text-[#6B7280] mb-2 ml-1">{t('availableWeightLabel')}</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
@@ -507,13 +487,13 @@ export default function PostTrip() {
                                                     value={formData.availableWeight}
                                                     onChange={handleChange}
                                                     placeholder="e.g. 15"
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-[#ECEBF3] focus:border-[#5845D8]/30 outline-none text-sm font-semibold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#171B22] focus:bg-white focus:shadow-sm"
                                                 />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400 uppercase">KG</div>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#6B7280] ">KG</div>
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('pricePerKg')} ({activeCurrency}) <span className="text-red-500">*</span></label>
+                                            <label className="block text-xs font-semibold text-[#6B7280] mb-2 ml-1">{t('pricePerKg')} ({activeCurrency}) <span className="text-red-500">*</span></label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
@@ -521,51 +501,51 @@ export default function PostTrip() {
                                                     value={formData.pricePerKg}
                                                     onChange={handleChange}
                                                     placeholder="0.00"
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-[#ECEBF3] focus:border-[#5845D8]/30 outline-none text-sm font-semibold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#171B22] focus:bg-white focus:shadow-sm"
                                                 />
-                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">{activeCurrency}</div>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#6B7280] ">{activeCurrency}</div>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-[0.15em] ml-1">{t('pickupLandmark') || 'Pick up Landmark'} <span className="text-red-500">*</span></label>
+                                        <label className="block text-xs font-semibold text-[#6B7280] mb-2 ml-1">{t('pickupLandmark') || 'Pick up Landmark'} <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             name="landmark"
                                             value={formData.landmark}
                                             onChange={handleChange}
                                             placeholder="e.g. Near Central Station, or Hilton Lobby..."
-                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-black uppercase tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-[#ECEBF3] focus:border-[#5845D8]/30 outline-none text-sm font-semibold tracking-tight bg-gray-50/50 hover:bg-white transition-all text-[#171B22] focus:bg-white focus:shadow-sm"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#ECEBF3]">
                                     <div className="flex items-center gap-3 mb-8">
                                         <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
                                             <FileText size={20} />
                                         </div>
-                                        <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">{t('additionalNotesLabel')}</h2>
+                                        <h2 className="text-sm font-semibold text-[#171B22] ">{t('additionalNotesLabel')}</h2>
                                     </div>
                                     <textarea
                                         name="additionalNotes"
                                         value={formData.additionalNotes}
                                         onChange={handleChange}
                                         rows="3"
-                                        className="w-full px-5 py-4 rounded-2xl border border-gray-100 focus:border-[#5845D8]/30 outline-none text-xs font-bold bg-gray-50/50 hover:bg-white transition-all text-[#012126] focus:bg-white focus:shadow-sm resize-none"
+                                        className="w-full px-5 py-4 rounded-2xl border border-[#ECEBF3] focus:border-[#5845D8]/30 outline-none text-xs font-bold bg-gray-50/50 hover:bg-white transition-all text-[#171B22] focus:bg-white focus:shadow-sm resize-none"
                                         placeholder={t('additionalNotesPlaceholder')}
                                     ></textarea>
                                 </div>
 
-                                {!isBusinessAccount && <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                {!isBusinessAccount && <div className="bg-white p-8 rounded-[24px] shadow-sm border border-[#ECEBF3]">
                                     <div className="flex items-center gap-3 mb-8">
                                         <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                                             <Ticket size={20} />
                                         </div>
-                                        <h2 className="text-sm font-black text-[#012126] uppercase tracking-[2px]">Travel Document <span className="text-red-500">*</span></h2>
+                                        <h2 className="text-sm font-semibold text-[#171B22] ">Travel Document <span className="text-red-500">*</span></h2>
                                     </div>
-                                    <div className="p-6 border-2 border-dashed border-gray-100 rounded-2xl text-center group hover:border-[#5845D8]/30 transition-all cursor-pointer relative">
+                                    <div className="p-6 border-2 border-dashed border-[#ECEBF3] rounded-2xl text-center group hover:border-[#5845D8]/30 transition-all cursor-pointer relative">
                                         <input
                                             type="file"
                                             onChange={handleDocumentUpload}
@@ -573,16 +553,16 @@ export default function PostTrip() {
                                             accept="image/*,application/pdf"
                                         />
                                         <Upload className={`mx-auto mb-4 ${documentPreview ? 'text-green-500' : 'text-gray-300 group-hover:text-[#5845D8]'}`} size={32} />
-                                        <p className="text-[10px] font-black text-[#012126] uppercase tracking-wider mb-2">
+                                        <p className="text-[13px] font-semibold text-[#171B22] mb-2">
                                             {documentPreview || 'Click to upload flight or bus ticket'}
                                         </p>
-                                        <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
+                                        <p className="text-[11px] text-[#6B7280] font-bold ">
                                             JPG, PNG or PDF (Max 5MB)
                                         </p>
                                     </div>
                                     <div className="mt-4 p-4 bg-amber-50/50 border border-amber-100 rounded-xl flex gap-3">
                                         <Shield size={16} className="text-amber-600 flex-shrink-0" />
-                                        <p className="text-[8px] text-amber-700 font-bold uppercase tracking-wide leading-relaxed">
+                                        <p className="text-[11px] text-amber-700 font-bold tracking-wide leading-relaxed">
                                             Your trip will be verified by our team. Proof of travel is mandatory to ensure reliability.
                                         </p>
                                     </div>
@@ -592,8 +572,8 @@ export default function PostTrip() {
                                     <div className="p-5 bg-green-50 border border-green-100 rounded-2xl flex gap-3">
                                         <Shield size={18} className="text-green-600 flex-shrink-0" />
                                         <div>
-                                            <p className="text-[10px] text-green-800 font-black uppercase tracking-wider">Business account</p>
-                                            <p className="text-[9px] text-green-700 font-bold mt-1">Travel proof is not required for trips listed by your business.</p>
+                                            <p className="text-[13px] text-green-800 font-semibold ">Business account</p>
+                                            <p className="text-xs text-green-700 font-bold mt-1">Travel proof is not required for trips listed by your business.</p>
                                         </div>
                                     </div>
                                 )}
@@ -601,17 +581,17 @@ export default function PostTrip() {
                                 {error && (
                                     <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 animate-in fade-in duration-300">
                                         <AlertCircle size={18} />
-                                        <p className="text-xs font-black uppercase tracking-wider">{error}</p>
+                                        <p className="text-xs font-semibold ">{error}</p>
                                     </div>
                                 )}
 
-                                <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-8 rounded-[32px] shadow-sm border border-gray-100">
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-8 rounded-[24px] shadow-sm border border-[#ECEBF3]">
                                     {termsAlreadyAccepted ? (
                                         <div className="flex items-center gap-3">
                                             <div className="w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center">
                                                 <CheckCircle size={14} className="text-white" />
                                             </div>
-                                            <span className="text-[10px] font-black text-green-700 uppercase tracking-widest">
+                                            <span className="text-[13px] font-semibold text-green-700 ">
                                                 Terms already accepted
                                             </span>
                                         </div>
@@ -629,7 +609,7 @@ export default function PostTrip() {
                                                     {formData.termsAccepted && <CheckCircle size={14} className="text-white" />}
                                                 </div>
                                             </div>
-                                            <span className="text-[10px] font-black text-[#012126] uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">
+                                            <span className="text-[13px] font-semibold text-[#171B22] opacity-60 group-hover:opacity-100 transition-opacity">
                                                 {t('agreeToTermsPrefix') || 'I agree to the'} <Link to="/terms" className="text-[#5845D8] underline">{t('termsAndConditions') || 'Terms & Conditions'}</Link>
                                             </span>
                                         </label>
@@ -637,7 +617,7 @@ export default function PostTrip() {
 
                                     <button
                                         type="submit"
-                                        className="w-full md:w-auto inline-flex items-center gap-2 px-10 py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.02] active:scale-95 group"
+                                        className="w-full md:w-auto inline-flex items-center gap-2 px-10 py-4 bg-[#5845D8] text-white rounded-2xl font-semibold text-[13px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.02] active:scale-95 group"
                                     >
                                         {t('reviewTrip')} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                                     </button>
@@ -647,19 +627,19 @@ export default function PostTrip() {
 
                         <div className="lg:col-span-1">
                             <div className="space-y-6 sticky top-28">
-                                <div className="bg-[#012126] rounded-[32px] p-8 text-white relative overflow-hidden shadow-xl">
+                                <div className="bg-[#171B22] rounded-[24px] p-8 text-white relative overflow-hidden shadow-xl">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-16 -mb-16"></div>
                                     <Shield className="text-[#5845D8] mb-6" size={32} />
-                                    <h3 className="text-base font-black mb-4 uppercase tracking-wider leading-tight">{t('postTripHeading')}</h3>
-                                    <p className="text-white/60 font-bold text-[10px] mb-8 leading-relaxed uppercase tracking-widest">
+                                    <h3 className="text-base font-semibold mb-4 leading-tight">{t('postTripHeading')}</h3>
+                                    <p className="text-white/60 font-bold text-[13px] mb-8 leading-relaxed ">
                                         {t('postTripSub')}
                                     </p>
                                     <ul className="space-y-4">
-                                        <li className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-white/80">
+                                        <li className="flex items-center gap-3 text-xs font-semibold text-white/80">
                                             <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[#5845D8]">✓</div>
                                             {t('verifiedTransactions')}
                                         </li>
-                                        <li className="flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-white/80">
+                                        <li className="flex items-center gap-3 text-xs font-semibold text-white/80">
                                             <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[#5845D8]">✓</div>
                                             {t('escrowPayment')}
                                         </li>
@@ -673,11 +653,11 @@ export default function PostTrip() {
                 {step === 2 && (
                     <div className="max-w-3xl mx-auto">
                         <div className="mb-10 text-center">
-                            <h1 className="text-4xl font-black text-[#012126] mb-3 tracking-tight uppercase">{t('reviewYourTrip')}</h1>
-                            <p className="text-gray-400 font-bold text-xs uppercase tracking-[3px]">{t('confirmDetails')}</p>
+                            <h1 className="text-4xl font-extrabold text-[#171B22] mb-3 tracking-[-0.03em] ">{t('reviewYourTrip')}</h1>
+                            <p className="text-[#6B7280] font-bold text-xs ">{t('confirmDetails')}</p>
                         </div>
 
-                        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-10">
+                        <div className="bg-white rounded-[24px] shadow-sm border border-[#ECEBF3] overflow-hidden mb-10">
                             <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-[#5845D8]">
@@ -688,23 +668,23 @@ export default function PostTrip() {
                                         {formData.transportMode === 'ship' && <Ship size={20} />}
                                     </div>
                                     <div>
-                                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">{t('transportMode')}</p>
-                                        <p className="text-xs font-black uppercase">{formData.transportMode}</p>
+                                        <p className="text-xs font-semibold text-[#6B7280] ">{t('transportMode')}</p>
+                                        <p className="text-xs font-semibold ">{formData.transportMode}</p>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest">{t('availableWeight')}</p>
-                                    <p className="text-lg font-black text-[#5845D8]">{formData.availableWeight} KG</p>
+                                    <p className="text-xs font-semibold text-[#6B7280] ">{t('availableWeight')}</p>
+                                    <p className="text-lg font-semibold text-[#5845D8]">{formData.availableWeight} KG</p>
                                 </div>
                             </div>
 
                             <div className="p-10 space-y-12">
                                 <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative">
                                     <div className="text-center md:text-left flex-1">
-                                        <p className="text-xs font-black text-[#5845D8] uppercase tracking-[3px] mb-3">{t('origin')}</p>
-                                        <h3 className="text-xl font-black text-[#012126] uppercase mb-1">{formData.originCity || 'Any City'}</h3>
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter">{formData.originCountry}</p>
-                                        <div className="mt-4 flex items-center justify-center md:justify-start gap-2 text-[10px] font-black text-gray-400">
+                                        <p className="text-xs font-semibold text-[#5845D8] mb-3">{t('origin')}</p>
+                                        <h3 className="text-xl font-extrabold text-[#171B22] mb-1">{formData.originCity || 'Any City'}</h3>
+                                        <p className="text-xs font-bold text-[#6B7280] tracking-tighter">{formData.originCountry}</p>
+                                        <div className="mt-4 flex items-center justify-center md:justify-start gap-2 text-[13px] font-semibold text-[#6B7280]">
                                             <Calendar size={14} className="text-[#5845D8]/50" />
                                             {formData.departureDates.length > 1
                                                 ? `${t('departure')}: ${formData.departureDates[0]} + ${formData.departureDates.length - 1} more date${formData.departureDates.length > 2 ? 's' : ''}`
@@ -713,33 +693,33 @@ export default function PostTrip() {
                                     </div>
 
                                     <div className="hidden md:flex flex-col items-center gap-2 group">
-                                        <div className="w-12 h-12 rounded-full bg-[#F8F6F3] flex items-center justify-center text-gray-300 group-hover:text-[#5845D8] transition-colors">
+                                        <div className="w-12 h-12 rounded-full bg-[#F7F7FC] flex items-center justify-center text-[#9CA3AF] group-hover:text-[#5845D8] transition-colors">
                                             <ArrowRight size={24} />
                                         </div>
                                     </div>
 
                                     <div className="text-center md:text-right flex-1">
-                                        <p className="text-xs font-black text-[#5845D8] uppercase tracking-[3px] mb-3">{t('destination')}</p>
-                                        <h3 className="text-xl font-black text-[#012126] uppercase mb-1">{formData.destinationCity || 'Any City'}</h3>
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter">{formData.destinationCountry}</p>
+                                        <p className="text-xs font-semibold text-[#5845D8] mb-3">{t('destination')}</p>
+                                        <h3 className="text-xl font-extrabold text-[#171B22] mb-1">{formData.destinationCity || 'Any City'}</h3>
+                                        <p className="text-xs font-bold text-[#6B7280] tracking-tighter">{formData.destinationCountry}</p>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-8 pt-8 border-t border-gray-50">
                                     <div className="text-center md:text-left">
-                                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">{t('pricePerKg')}</p>
-                                        <p className="text-xl font-black text-[#012126]">{formData.pricePerKg} {activeCurrency}</p>
+                                        <p className="text-xs font-semibold text-[#6B7280] mb-1">{t('pricePerKg')}</p>
+                                        <p className="text-xl font-extrabold text-[#171B22]">{formData.pricePerKg} {activeCurrency}</p>
                                     </div>
                                     <div className="text-center md:text-right">
-                                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">{t('landmark')}</p>
-                                        <p className="text-xs font-bold text-[#012126] uppercase">{formData.landmark}</p>
+                                        <p className="text-xs font-semibold text-[#6B7280] mb-1">{t('landmark')}</p>
+                                        <p className="text-xs font-bold text-[#171B22] ">{formData.landmark}</p>
                                     </div>
                                 </div>
 
                                 {formData.additionalNotes && (
-                                    <div className="bg-[#F8F6F3] p-6 rounded-3xl border border-gray-100">
-                                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">{t('tripNotes')}</p>
-                                        <p className="text-xs font-bold text-[#012126] leading-relaxed italic">"{formData.additionalNotes}"</p>
+                                    <div className="bg-[#F7F7FC] p-6 rounded-[24px] border border-[#ECEBF3]">
+                                        <p className="text-xs font-semibold text-[#6B7280] mb-2">{t('tripNotes')}</p>
+                                        <p className="text-xs font-bold text-[#171B22] leading-relaxed italic">"{formData.additionalNotes}"</p>
                                     </div>
                                 )}
                             </div>
@@ -748,21 +728,21 @@ export default function PostTrip() {
                         {error && (
                             <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 mb-8 animate-in shake duration-500">
                                 <AlertCircle size={18} />
-                                <p className="text-xs font-black uppercase tracking-wider">{error}</p>
+                                <p className="text-xs font-semibold ">{error}</p>
                             </div>
                         )}
 
                         <div className="flex flex-col md:flex-row gap-4">
                             <button
                                 onClick={() => setStep(1)}
-                                className="flex-1 py-4 bg-white border border-gray-100 rounded-2xl font-black text-[10px] uppercase tracking-[2px] text-[#012126] hover:bg-gray-50 transition-all"
+                                className="flex-1 py-4 bg-white border border-[#ECEBF3] rounded-2xl font-semibold text-[13px] text-[#171B22] hover:bg-gray-50 transition-all"
                             >
                                 {t('editDetails')}
                             </button>
                             <button
                                 onClick={handlePostTrip}
                                 disabled={loading}
-                                className="flex-[2] py-4 bg-[#5845D8] text-white rounded-2xl font-black text-[10px] uppercase tracking-[2px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2 group disabled:opacity-70"
+                                className="flex-[2] py-4 bg-[#5845D8] text-white rounded-full font-semibold text-[13px] shadow-xl hover:shadow-[#5845D8]/20 transition-all hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2 group disabled:opacity-70"
                             >
                                 {loading ? <Loader2 className="animate-spin" size={16} /> : <><Shield size={16} /> {t('confirmPost')}</>}
                             </button>

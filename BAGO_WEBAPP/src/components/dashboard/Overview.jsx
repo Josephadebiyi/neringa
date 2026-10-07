@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Package, Clock, Star, ArrowRight, ArrowUpRight, ArrowDownLeft,
-    TrendingUp, TrendingDown, Shield, Plane, Wallet, ChevronRight,
+    Package, ArrowRight, ArrowUpRight, ArrowDownLeft, ArrowUp, ArrowDown,
+    Shield, Plane, Wallet, Search, ChevronDown, CalendarDays, MapPin,
+    BarChart3, TrendingUp, Truck, ExternalLink, X,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
@@ -49,28 +50,39 @@ function firstNumber(...values) {
     return 0;
 }
 
-function BarChart({ data, activeIndex }) {
+
+const fmtMoney = (n) =>
+    Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function txDateOf(tx) {
+    const d = new Date(tx.created_at || tx.createdAt || tx.date);
+    return isNaN(d) ? null : d;
+}
+
+/* Vertical bars, brand gradient — the reference's "due within next month" card. */
+function BarChart({ data }) {
     const max = Math.max(...data.map(d => d.value), 1);
     const hasData = data.some(d => d.value > 0);
     return (
-        <div className="flex items-end gap-2 h-32 w-full">
+        <div className="flex items-end gap-2.5 h-[118px] w-full">
             {data.map((d, i) => {
-                const pct = Math.max((d.value / max) * 100, hasData ? 4 : 12);
-                const isActive = i === activeIndex;
+                const pct = hasData ? Math.max((d.value / max) * 100, 6) : 10 + ((i * 37) % 30);
+                const strong = i % 2 === 0 || i === data.length - 1;
                 return (
-                    <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+                    <div key={i} className="flex flex-1 flex-col items-center gap-2 h-full justify-end">
                         <div
-                            className="w-full rounded-lg transition-all duration-700"
+                            className="w-full max-w-[26px] rounded-t-[7px] rounded-b-[3px]"
+                            title={`${d.label}: ${d.value}`}
                             style={{
                                 height: `${pct}%`,
-                                backgroundColor: isActive ? '#5845D8' : d.value > 0 ? '#5845D8' : '#E9EAF0',
-                                opacity: isActive ? 1 : d.value > 0 ? 0.3 : 1,
-                                boxShadow: isActive ? '0 6px 20px #5845D840' : 'none',
+                                background: hasData
+                                    ? strong
+                                        ? 'linear-gradient(180deg, #8B7DFF 0%, #5845D8 100%)'
+                                        : 'linear-gradient(180deg, #D9D4FF 0%, #B3A9FF 100%)'
+                                    : '#ECEBF7',
                             }}
                         />
-                        <span className={`text-[8px] font-bold uppercase tracking-wider ${isActive ? 'text-[#5845D8] font-black' : 'text-gray-400'}`}>
-                            {d.label}
-                        </span>
+                        <span className="text-[10px] font-medium text-[#9CA3AF]">{d.label}</span>
                     </div>
                 );
             })}
@@ -78,31 +90,107 @@ function BarChart({ data, activeIndex }) {
     );
 }
 
-function Sparkline({ data, color = '#5845D8', height = 40 }) {
-    if (!data || data.length < 2) {
-        return <div style={{ height }} className="w-full opacity-20 bg-gray-100 rounded" />;
-    }
+/* Area line with dots — the reference's "average time to get paid" card. */
+function LineChart({ data }) {
+    const w = 300;
+    const h = 110;
     const max = Math.max(...data, 0.01);
-    const w = 100;
-    const h = height;
+    const hasData = data.some(v => v > 0);
     const pts = data.map((v, i) => {
-        const x = (i / (data.length - 1)) * w;
-        const y = h - (v / max) * (h * 0.8) - h * 0.1;
-        return `${x},${y}`;
+        const x = 8 + (i / Math.max(data.length - 1, 1)) * (w - 16);
+        const y = hasData ? h - 12 - (v / max) * (h - 30) : h - 20 - i * 4;
+        return [x, y];
     });
-    const fill = `${pts.join(' ')} ${w},${h} 0,${h}`;
+    const line = pts.map(p => p.join(',')).join(' ');
+    const area = `${line} ${w - 8},${h} 8,${h}`;
     return (
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }} preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[110px]" preserveAspectRatio="none" aria-hidden="true">
             <defs>
-                <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-                    <stop offset="100%" stopColor={color} stopOpacity="0" />
+                <linearGradient id="bagoArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8B7DFF" stopOpacity="0.28" />
+                    <stop offset="100%" stopColor="#8B7DFF" stopOpacity="0" />
                 </linearGradient>
             </defs>
-            <polygon points={fill} fill="url(#sg)" />
-            <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <polygon points={area} fill="url(#bagoArea)" />
+            <polyline points={line} fill="none" stroke={hasData ? '#5845D8' : '#D9D4FF'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            {pts.map(([x, y], i) => (
+                <circle key={i} cx={x} cy={y} r="4" fill="#fff" stroke={hasData ? '#5845D8' : '#D9D4FF'} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+            ))}
         </svg>
     );
+}
+
+function StatCard({ label, icon: Icon, tone = 'purple', children, className = '', onClick }) {
+    const tones = {
+        purple: 'text-[#5845D8] bg-[#5845D8]/8',
+        red: 'text-[#EF4444] bg-red-50',
+        teal: 'text-[#0EA5E9] bg-sky-50',
+        green: 'text-[#16A34A] bg-emerald-50',
+    };
+    return (
+        <div
+            onClick={onClick}
+            className={`relative bg-white rounded-[24px] border border-[#ECEBF3] shadow-[0_1px_2px_rgba(23,27,34,0.04)] p-6 flex flex-col overflow-hidden ${onClick ? 'cursor-pointer hover:border-[#5845D8]/30 transition-colors' : ''} ${className}`}
+        >
+            <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-[#171B22]">{label}</p>
+                <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${tones[tone]}`}>
+                    <Icon size={17} />
+                </span>
+            </div>
+            {children}
+        </div>
+    );
+}
+
+function Delta({ value, suffix }) {
+    if (value === null || value === undefined) return null;
+    const up = value >= 0;
+    return (
+        <p className="flex items-center gap-1 text-xs text-[#6B7280] mt-2">
+            {up ? <ArrowUp size={13} className="text-[#5845D8]" /> : <ArrowDown size={13} className="text-[#EF4444]" />}
+            <span className={`font-semibold ${up ? 'text-[#5845D8]' : 'text-[#EF4444]'}`}>{Math.abs(value)}</span>
+            {suffix}
+        </p>
+    );
+}
+
+function Amount({ sym, value, size = 'text-[34px]' }) {
+    return (
+        <p className={`font-['Manrope'] ${size} font-extrabold text-[#171B22] tracking-[-0.03em] leading-none`}>
+            <span className="text-[0.62em] font-bold text-[#6B7280] mr-1">{sym}</span>
+            {value}
+        </p>
+    );
+}
+
+function FilterSelect({ value, onChange, options, label, icon: Icon = ChevronDown }) {
+    return (
+        <label className="relative flex-1 min-w-[150px]">
+            <span className="sr-only">{label}</span>
+            <select
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="w-full appearance-none h-12 rounded-full bg-white border border-[#ECEBF3] pl-5 pr-11 text-[13px] font-medium text-[#171B22] outline-none focus:border-[#5845D8]/50 cursor-pointer"
+            >
+                {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <Icon size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280] pointer-events-none" />
+        </label>
+    );
+}
+
+function StatusPill({ status, onDark = false, selected = false }) {
+    const s = (status || 'completed').toLowerCase();
+    if (onDark) {
+        return (
+            <span className={`px-3.5 py-1.5 rounded-full text-[11px] font-semibold capitalize whitespace-nowrap ${selected ? 'bg-white text-[#171B22]' : 'bg-white/[0.07] text-white/70 border border-white/10'}`}>
+                {s}
+            </span>
+        );
+    }
+    const tone = s === 'failed' ? 'bg-red-400/20 text-red-100' : s === 'pending' ? 'bg-amber-300/20 text-amber-100' : 'bg-white/15 text-white';
+    return <span className={`px-3 py-1 rounded-full text-[11px] font-semibold capitalize ${tone}`}>{s}</span>;
 }
 
 export default function Overview({ user, kycStatus, handleStartKyc, userStats }) {
@@ -199,7 +287,6 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
 
     const sparkValues = chartData.map(d => d.value);
 
-    const recentTxs = [...walletData.history].slice(0, 8);
     const derivedAllTimeReceived = walletData.history
         .filter(tx => EARNING_TYPES.has((tx.type || '').toLowerCase()) && (tx.status || 'completed').toLowerCase() === 'completed')
         .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
@@ -207,335 +294,445 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
     const thisMonth = userStats?.thisMonthShipments ?? 0;
     const lastMonth = userStats?.lastMonthShipments ?? 0;
     const monthDelta = thisMonth - lastMonth;
-    const monthUp = monthDelta >= 0;
 
     const allTimeIncome = walletData.allTimeReceived || derivedAllTimeReceived;
     const allTimeFormatted = allTimeIncome.toLocaleString(undefined, {
         minimumFractionDigits: 2, maximumFractionDigits: 2,
     });
 
+
+    /* ── Transaction panel state ── */
+    const [typeTab, setTypeTab] = useState('all'); // all | in | out
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [rangeFilter, setRangeFilter] = useState('all');
+    const [query, setQuery] = useState('');
+    const [selectedKey, setSelectedKey] = useState(null);
+
+    const allTxs = walletData.history;
+    const inCount = allTxs.filter(tx => !EXPENSE_TYPES.has(tx.type)).length;
+    const outCount = allTxs.length - inCount;
+
+    const filteredTxs = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        const now = Date.now();
+        const rangeDays = { '7': 7, '30': 30, '90': 90 }[rangeFilter];
+        return allTxs.filter(tx => {
+            const isOut = EXPENSE_TYPES.has(tx.type);
+            if (typeTab === 'in' && isOut) return false;
+            if (typeTab === 'out' && !isOut) return false;
+            if (statusFilter !== 'all' && (tx.status || 'completed').toLowerCase() !== statusFilter) return false;
+            if (rangeDays) {
+                const d = txDateOf(tx);
+                if (!d || now - d.getTime() > rangeDays * 86400000) return false;
+            }
+            if (q) {
+                const hay = [transactionTitle(tx, isOut), transactionMeta(tx), tx.type, tx.tracking_number, tx.trip_number]
+                    .filter(Boolean).join(' ').toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [allTxs, typeTab, statusFilter, rangeFilter, query]);
+
+    const keyOf = (tx, i) => String(tx.id || tx._id || `${tx.created_at || tx.createdAt || ''}-${i}`);
+    const selectedIndex = Math.max(0, filteredTxs.findIndex((tx, i) => keyOf(tx, i) === selectedKey));
+    const selected = filteredTxs[selectedIndex] || null;
+    const activeFilterCount = (statusFilter !== 'all') + (rangeFilter !== 'all') + (query.trim() ? 1 : 0);
+    const clearFilters = () => { setStatusFilter('all'); setRangeFilter('all'); setQuery(''); setTypeTab('all'); };
+
+    const weekTotal = chartData.reduce((sum, d) => sum + d.value, 0);
+    const balanceText = walletData.balance === null ? null : fmtMoney(walletData.balance);
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-400">
+        <div className="space-y-6">
 
-            {/* ── Top: Greeting + Month pill ── */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-black text-[#111827] tracking-tight">
-                        Hello, {greetingName} 👋
-                    </h1>
-                    <p className="text-[11px] text-gray-400 font-medium mt-1">
-                        Monitor your shipments and trips in real time.
-                    </p>
-                </div>
-
-                {/* Month-over-month pill */}
-                <div className="flex items-stretch gap-0 bg-[#5845D8] rounded-2xl overflow-hidden shrink-0 divide-x divide-white/8">
-                    <div className="px-5 py-3 text-center">
-                        <p className="text-[8px] text-white/40 uppercase tracking-widest font-bold mb-1">This Month</p>
-                        <p className="text-2xl font-black text-white leading-none">{thisMonth}</p>
-                        <p className="text-[8px] text-white/30 font-medium mt-0.5">shipments</p>
-                    </div>
-                    <div className="px-5 py-3 text-center">
-                        <p className="text-[8px] text-white/40 uppercase tracking-widest font-bold mb-1">Last Month</p>
-                        <p className="text-2xl font-black text-white/50 leading-none">{lastMonth}</p>
-                        <p className="text-[8px] text-white/30 font-medium mt-0.5">shipments</p>
-                    </div>
-                    <div className="px-4 py-3 flex items-center justify-center">
-                        <div className={`flex flex-col items-center gap-1 px-2 py-1.5 rounded-xl ${monthUp ? 'bg-emerald-400/10' : 'bg-red-400/10'}`}>
-                            {monthUp
-                                ? <TrendingUp size={14} className="text-emerald-400" />
-                                : <TrendingDown size={14} className="text-red-400" />}
-                            <span className={`text-[8px] font-black ${monthUp ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {monthDelta > 0 ? `+${monthDelta}` : monthDelta}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── KYC Banner ── */}
+            {/* ── KYC prompt ── */}
             {effectiveKycStatus !== 'approved' && (
-                <div className="bg-gradient-to-r from-[#5845D8] to-[#7B6BE8] rounded-[24px] p-5 flex items-center justify-between shadow-lg shadow-[#5845D8]/20">
+                <div className="bg-white rounded-[24px] border border-[#5845D8]/15 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 bg-white/15 rounded-xl flex items-center justify-center shrink-0">
-                            <Shield size={22} className="text-white" />
-                        </div>
+                        <span className="w-12 h-12 rounded-2xl bg-[#5845D8] text-white flex items-center justify-center shrink-0">
+                            <Shield size={22} />
+                        </span>
                         <div>
-                            <p className="text-white font-black text-sm uppercase tracking-tight">Verify Your Identity</p>
-                            <p className="text-white/60 text-[9px] font-bold uppercase tracking-widest mt-0.5">
-                                Complete KYC to post trips and earn
-                            </p>
+                            <p className="font-['Manrope'] font-extrabold text-[#171B22]">Verify your identity</p>
+                            <p className="text-sm text-[#6B7280]">Complete KYC to post trips and start earning on Bago.</p>
                         </div>
                     </div>
                     <button
                         onClick={handleStartKyc}
-                        className="bg-white text-[#5845D8] px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all shrink-0"
+                        className="h-11 px-6 rounded-full bg-[#5845D8] text-white text-sm font-semibold hover:bg-[#4A38C9] transition-colors shrink-0"
                     >
-                        Verify Now
+                        Verify now
                     </button>
                 </div>
             )}
 
-            {/* ── 3 Stat Cards ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Total Shipments */}
-                <div
-                    className="bg-white border border-[#5845D8]/10 rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md hover:border-[#5845D8]/25 transition-all"
-                    onClick={() => navigate('/dashboard?tab=shipments')}
-                >
-                    <div>
-                        <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Total Shipments</p>
-                        <p className="text-3xl font-black text-[#111827] tracking-tight leading-none">
-                            {userStats?.completedBookings ?? '—'}
-                        </p>
-                        <p className="text-[9px] text-gray-400 font-medium mt-1">completed deliveries</p>
-                    </div>
-                    <div className="w-10 h-10 bg-[#5845D8]/8 group-hover:bg-[#5845D8] rounded-xl flex items-center justify-center transition-all">
-                        <Package size={18} className="text-[#5845D8] group-hover:text-white" />
-                    </div>
-                </div>
+            {/* ── Stat cards ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
 
-                {/* Active Deliveries */}
-                <div
-                    className="bg-white border border-[#5845D8]/10 rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md hover:border-[#5845D8]/25 transition-all"
-                    onClick={() => navigate('/dashboard?tab=deliveries')}
-                >
-                    <div>
-                        <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Active Deliveries</p>
-                        <p className="text-3xl font-black text-[#111827] tracking-tight leading-none">
-                            {userStats?.activePackages ?? '—'}
-                        </p>
-                        <p className="text-[9px] text-gray-400 font-medium mt-1">in transit now</p>
-                    </div>
-                    <div className="w-10 h-10 bg-[#5845D8]/8 group-hover:bg-[#5845D8] rounded-xl flex items-center justify-center transition-all">
-                        <Clock size={18} className="text-[#5845D8] group-hover:text-white" />
-                    </div>
-                </div>
-
-                {/* Wallet Balance */}
-                <div
-                    className="bg-white border border-[#5845D8]/10 rounded-[20px] p-5 flex items-center justify-between group cursor-pointer hover:shadow-md hover:border-[#5845D8]/25 transition-all"
-                    onClick={() => navigate('/dashboard?tab=earnings')}
-                >
-                    <div>
-                        <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Wallet Balance</p>
-                        <p className="text-2xl font-black text-[#111827] tracking-tight leading-none">
-                            {walletData.balance === null ? <span className="text-sm opacity-40 animate-pulse">Loading balance…</span> : `${sym}${walletData.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                        </p>
-                        {walletData.escrow > 0 && (
-                            <p className="text-[9px] text-amber-600 font-medium mt-1">
-                                + {sym}{walletData.escrow.toFixed(2)} in escrow
-                            </p>
-                        )}
-                    </div>
-                    <div className="w-10 h-10 bg-[#5845D8]/8 group-hover:bg-[#5845D8] rounded-xl flex items-center justify-center transition-all">
-                        <Wallet size={18} className="text-[#5845D8] group-hover:text-white" />
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Bottom Row: Chart + Insights ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-
-                {/* Left 3/5 — Shipment Activity */}
-                <div className="lg:col-span-3 bg-white border border-gray-100 rounded-[24px] shadow-sm p-6">
-                    <div className="flex items-center justify-between mb-5">
-                        <div>
-                            <h3 className="text-sm font-black text-[#111827] tracking-tight">Shipment Activity</h3>
-                            <p className="text-[9px] text-gray-400 font-medium mt-0.5">Past 7 days</p>
+                {/* Wallet */}
+                <StatCard label="Wallet balance" icon={Wallet} onClick={() => navigate('/dashboard?tab=earnings')}>
+                    {balanceText === null
+                        ? <div className="h-[34px] w-40 rounded-lg bg-[#F3F4F6] animate-pulse" />
+                        : <Amount sym={sym} value={balanceText} />}
+                    <p className="text-xs text-[#6B7280] mt-2">Available in {walletCurrency}</p>
+                    <div className="mt-auto pt-6">
+                        <div className="rounded-2xl bg-[#F7F7FC] border border-[#ECEBF3] p-4 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <p className="text-[11px] text-[#6B7280] font-medium">In escrow</p>
+                                <p className="font-['Manrope'] text-lg font-extrabold text-[#171B22] mt-0.5">{sym}{fmtMoney(walletData.escrow)}</p>
+                            </div>
+                            <span className="text-[11px] font-semibold text-[#16A34A] bg-emerald-50 px-2.5 py-1 rounded-full">After delivery</span>
                         </div>
-                        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
-                            {[{ id: 'earnings', label: 'Earnings' }, { id: 'count', label: 'Count' }].map(t => (
+                    </div>
+                </StatCard>
+
+                {/* Shipments this month */}
+                <StatCard label="Shipments this month" icon={CalendarDays}>
+                    <div className="flex items-end justify-between gap-3">
+                        <div>
+                            <Amount sym="" value={thisMonth} />
+                            <Delta value={monthDelta} suffix="from last month" />
+                        </div>
+                        <div className="flex bg-[#F3F4F6] rounded-full p-1">
+                            {[{ id: 'earnings', label: sym }, { id: 'count', label: '#' }].map(t => (
                                 <button
                                     key={t.id}
+                                    type="button"
                                     onClick={() => setChartTab(t.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${
-                                        chartTab === t.id
-                                            ? 'bg-[#5845D8] text-white shadow-sm'
-                                            : 'text-gray-400 hover:text-gray-600'
-                                    }`}
+                                    aria-label={t.id === 'earnings' ? 'Show earnings' : 'Show count'}
+                                    className={`w-8 h-7 rounded-full text-[11px] font-bold transition-colors ${chartTab === t.id ? 'bg-[#5845D8] text-white' : 'text-[#6B7280]'}`}
                                 >
                                     {t.label}
                                 </button>
                             ))}
                         </div>
                     </div>
-
-                    <BarChart data={chartData} activeIndex={6} />
-
-                    {/* Quick actions */}
-                    <div className="flex gap-3 mt-5 pt-4 border-t border-gray-50">
-                        <Link
-                            to="/post-trip"
-                            className="flex-1 flex items-center justify-center gap-2 bg-[#5845D8] text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all"
-                        >
-                            <Plane size={12} /> Post a Trip
-                        </Link>
-                        <Link
-                            to="/search"
-                            className="flex-1 flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 text-[#111827]/60 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all"
-                        >
-                            <Package size={12} /> Send Package
-                        </Link>
+                    <div className="mt-auto pt-5">
+                        <BarChart data={chartData} />
                     </div>
-                </div>
+                </StatCard>
 
-                {/* Right 2/5 — Bago Insights */}
-                <div className="lg:col-span-2 bg-white border border-gray-100 rounded-[24px] shadow-sm p-6 flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="text-sm font-black text-[#111827] tracking-tight">Earnings Insight</h3>
-                            <p className="text-[9px] text-gray-400 font-medium mt-0.5">All-time income</p>
-                        </div>
+                {/* Total earned */}
+                <StatCard label="Total earned" icon={TrendingUp} tone="teal" onClick={() => navigate('/dashboard?tab=earnings')}>
+                    <Amount sym={sym} value={allTimeFormatted} />
+                    <p className="flex items-center gap-1 text-xs text-[#6B7280] mt-2">
+                        <ArrowUp size={13} className="text-[#0EA5E9]" />
+                        <span className="font-semibold text-[#0EA5E9]">{chartTab === 'earnings' ? sym : ''}{weekTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        {chartTab === 'earnings' ? 'this week' : 'transactions this week'}
+                    </p>
+                    <div className="mt-auto pt-4 -mx-2">
+                        <LineChart data={sparkValues} />
+                    </div>
+                </StatCard>
+
+                {/* Deliveries + quick actions */}
+                <StatCard label="Active deliveries" icon={Truck} tone="green" className="!pb-0">
+                    <div className="flex items-center gap-3">
+                        <Amount sym="" value={userStats?.activePackages ?? 0} />
+                        <span className="text-[11px] font-semibold text-[#171B22] border border-[#ECEBF3] px-3 py-1.5 rounded-full">
+                            {userStats?.completedBookings ?? 0} completed
+                        </span>
+                    </div>
+                    <p className="text-xs text-[#6B7280] mt-2">In transit right now</p>
+                    <div className="relative mt-auto pt-5 grid grid-cols-3 gap-2 -mx-1">
+                        <Link to="/post-trip" className="h-[96px] rounded-t-2xl bg-[#F3F4F6] p-3 flex flex-col gap-1.5 hover:bg-[#ECEBF7] transition-colors">
+                            <Plane size={16} className="text-[#171B22]" />
+                            <span className="text-[11px] font-semibold text-[#6B7280]">Post trip</span>
+                        </Link>
+                        <Link to="/search" className="h-[110px] -mt-[14px] rounded-t-2xl bg-gradient-to-b from-[#8B7DFF] to-[#5845D8] p-3 flex flex-col gap-1.5 shadow-[0_-6px_20px_rgba(88,69,216,0.25)]">
+                            <Package size={16} className="text-white" />
+                            <span className="text-[11px] font-semibold text-white">Send package</span>
+                        </Link>
+                        <Link to="/track" className="h-[96px] rounded-t-2xl bg-[#F3F4F6] p-3 flex flex-col gap-1.5 hover:bg-[#ECEBF7] transition-colors">
+                            <MapPin size={16} className="text-[#171B22]" />
+                            <span className="text-[11px] font-semibold text-[#6B7280]">Track</span>
+                        </Link>
                         <button
-                            onClick={() => navigate('/dashboard?tab=earnings')}
-                            className="w-8 h-8 bg-[#5845D8]/8 rounded-xl flex items-center justify-center hover:bg-[#5845D8]/15 transition-all"
+                            type="button"
+                            onClick={() => navigate('/dashboard?tab=deliveries')}
+                            className="absolute right-1 bottom-2 h-9 px-4 rounded-full bg-[#171B22] text-white text-xs font-semibold shadow-lg hover:bg-black transition-colors"
                         >
-                            <ArrowRight size={13} className="text-[#5845D8]" />
+                            View all
                         </button>
                     </div>
+                </StatCard>
+            </div>
 
-                    <div className="bg-[#F5F4FC] rounded-2xl px-4 py-4 mb-4">
-                        <p className="text-[8px] font-black text-[#5845D8]/60 uppercase tracking-widest mb-1">Total Earned</p>
-                        <p className="text-3xl font-black text-[#111827] tracking-tight leading-none">
-                            {sym}{allTimeFormatted}
-                        </p>
-                        <p className="text-[9px] text-gray-400 font-medium mt-1">All time · {walletCurrency}</p>
-                    </div>
-
-                    <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">7-Day Trend</p>
-                            <p className="text-[9px] font-black text-[#5845D8]">
-                                {sym}{chartData.reduce((s, d) => s + d.value, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} this week
-                            </p>
-                        </div>
-                        <Sparkline data={sparkValues} color="#5845D8" height={52} />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mt-auto">
-                        <div className="bg-gray-50 rounded-xl p-3 text-center">
-                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">This Month</p>
-                            <p className="text-lg font-black text-[#111827] leading-none">{thisMonth}</p>
-                            <p className="text-[8px] text-gray-400 font-medium mt-0.5">shipments</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-xl p-3 text-center">
-                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Completed</p>
-                            <p className="text-lg font-black text-[#111827] leading-none">{userStats?.completedBookings ?? 0}</p>
-                            <p className="text-[8px] text-gray-400 font-medium mt-0.5">all time</p>
-                        </div>
-                    </div>
-
-                    {effectiveKycStatus !== 'approved' && (
-                        <button
-                            onClick={handleStartKyc}
-                            className="mt-4 flex items-center justify-between bg-[#5845D8]/6 border border-[#5845D8]/15 rounded-xl px-4 py-3 hover:bg-[#5845D8]/10 transition-all w-full"
-                        >
-                            <div className="flex items-center gap-2.5">
-                                <Shield size={14} className="text-[#5845D8]" />
-                                <span className="text-[9px] font-black text-[#5845D8] uppercase tracking-widest">Complete KYC</span>
-                            </div>
-                            <ChevronRight size={13} className="text-[#5845D8]/50" />
+            {/* ── Filters ── */}
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                <div className="flex items-center gap-2.5 shrink-0 pr-2">
+                    <span className="text-sm font-semibold text-[#171B22]">Active filters</span>
+                    <span className="w-6 h-6 rounded-full bg-[#171B22] text-white text-[11px] font-bold flex items-center justify-center">
+                        {activeFilterCount}
+                    </span>
+                    {activeFilterCount > 0 && (
+                        <button type="button" onClick={clearFilters} className="text-xs font-semibold text-[#5845D8] hover:underline">
+                            Clear
                         </button>
                     )}
                 </div>
+                <div className="flex flex-1 flex-wrap gap-3">
+                    <FilterSelect
+                        label="Status"
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        options={[
+                            { value: 'all', label: 'All statuses' },
+                            { value: 'completed', label: 'Completed' },
+                            { value: 'pending', label: 'Pending' },
+                            { value: 'failed', label: 'Failed' },
+                        ]}
+                    />
+                    <FilterSelect
+                        label="Date range"
+                        value={rangeFilter}
+                        onChange={setRangeFilter}
+                        icon={CalendarDays}
+                        options={[
+                            { value: 'all', label: 'All time' },
+                            { value: '7', label: 'Last 7 days' },
+                            { value: '30', label: 'Last 30 days' },
+                            { value: '90', label: 'Last 90 days' },
+                        ]}
+                    />
+                    <label className="relative flex-[1.4] min-w-[200px]">
+                        <span className="sr-only">Search transactions</span>
+                        <input
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            placeholder="Search trip, tracking or route"
+                            className="w-full h-12 rounded-full bg-white border border-[#ECEBF3] pl-5 pr-11 text-[13px] font-medium text-[#171B22] placeholder:text-[#9CA3AF] outline-none focus:border-[#5845D8]/50"
+                        />
+                        <Search size={17} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#171B22] pointer-events-none" />
+                    </label>
+                </div>
             </div>
 
-            {/* ── Transaction History ── */}
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-                    <div>
-                        <h3 className="text-sm font-black text-[#111827] uppercase tracking-tight">Transaction History</h3>
-                        <p className="text-[9px] text-gray-400 font-medium mt-0.5">
-                            {recentTxs.length > 0 ? `${recentTxs.length} recent entries` : 'No transactions yet'}
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => navigate('/dashboard?tab=earnings')}
-                        className="flex items-center gap-1.5 text-[9px] font-black text-[#5845D8] hover:text-[#4838B5] uppercase tracking-widest transition-colors"
-                    >
-                        View All <ArrowRight size={11} />
-                    </button>
-                </div>
-
-                {/* Table header */}
-                <div className="hidden md:grid grid-cols-4 px-6 py-3 bg-gray-50/60 border-b border-gray-100/80">
-                    {['Transaction', 'Date', 'Status', 'Amount'].map((h, i) => (
-                        <span key={h} className={`text-[8px] font-black text-gray-400 uppercase tracking-widest ${i === 3 ? 'text-right' : ''}`}>
-                            {h}
-                        </span>
-                    ))}
-                </div>
-
-                {recentTxs.length === 0 ? (
-                    <div className="py-14 flex flex-col items-center gap-4 text-center">
-                        <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center">
-                            <Wallet size={22} className="text-gray-200" />
-                        </div>
-                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">No transactions yet</p>
-                        <p className="text-[9px] text-gray-300 font-medium max-w-[180px]">
-                            Complete a delivery or post a trip to start earning
-                        </p>
-                    </div>
-                ) : (
-                    <div className="divide-y divide-gray-50">
-                        {recentTxs.map((tx, i) => {
-                            const isOut = EXPENSE_TYPES.has(tx.type);
-                            const txDate = new Date(tx.created_at || tx.createdAt || tx.date);
-                            const txStatus = tx.status || 'completed';
-                            const meta = transactionMeta(tx);
-                            const openTarget = transactionOpenTarget(tx);
-                            const Row = openTarget ? 'button' : 'div';
+            {/* ── Activity panel ── */}
+            <div className="relative bg-[#171B22] rounded-[28px] p-4 sm:p-6">
+                {/* Segmented tabs sit in a notch cut into the panel (from md up) */}
+                <div className="mb-4 md:mb-0 md:absolute md:left-1/2 md:-translate-x-1/2 md:-top-px md:bg-[#F7F7FC] md:rounded-b-[26px] md:px-3 md:pb-3 max-w-full">
+                    <div className="flex items-center gap-1 bg-white rounded-full p-1.5 border border-[#ECEBF3] shadow-sm overflow-x-auto">
+                        {[
+                            { id: 'all', label: 'All', count: null },
+                            { id: 'in', label: 'Money in', count: inCount },
+                            { id: 'out', label: 'Money out', count: outCount },
+                        ].map(t => {
+                            const active = typeTab === t.id;
                             return (
-                                <Row
-                                    key={tx.id || i}
-                                    type={openTarget ? 'button' : undefined}
-                                    onClick={openTarget ? () => navigate(openTarget) : undefined}
-                                    className={`w-full grid grid-cols-1 md:grid-cols-4 items-center px-6 py-4 text-left hover:bg-gray-50/50 transition-all gap-3 md:gap-0 ${openTarget ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5845D8]' : ''}`}
-                                    aria-label={openTarget ? `Open ${transactionTitle(tx, isOut)}` : undefined}
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => setTypeTab(t.id)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors ${active ? 'bg-[#5845D8] text-white' : 'text-[#171B22] hover:bg-[#F3F4F6]'}`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isOut ? 'bg-orange-50' : 'bg-emerald-50'}`}>
-                                            {isOut
-                                                ? <ArrowUpRight size={14} className="text-orange-500" />
-                                                : <ArrowDownLeft size={14} className="text-emerald-600" />}
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] font-black text-[#111827] tracking-tight block truncate max-w-[130px]">
-                                                {transactionTitle(tx, isOut)}
-                                            </span>
-                                            <span className="text-[8px] text-gray-400 font-medium capitalize">{tx.type?.replace(/_/g, ' ')}</span>
-                                            {meta && (
-                                                <span className="text-[8px] text-[#5845D8] font-bold block truncate max-w-[180px]">
-                                                    {meta}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <span className="text-[9px] font-medium text-gray-400 pl-12 md:pl-0">
-                                        {isNaN(txDate) ? '—' : txDate.toLocaleDateString('en-GB', {
-                                            month: 'short', day: 'numeric', year: 'numeric',
-                                        })}
-                                    </span>
-                                    <span className="hidden md:flex">
-                                        <span className={`px-2.5 py-1 text-[8px] font-black uppercase tracking-widest rounded-full ${
-                                            txStatus === 'failed'  ? 'bg-red-50 text-red-500' :
-                                            txStatus === 'pending' ? 'bg-amber-50 text-amber-600' :
-                                                                     'bg-emerald-50 text-emerald-600'
-                                        }`}>
-                                            {txStatus}
+                                    {t.label}
+                                    {t.count !== null && (
+                                        <span className={`min-w-[22px] h-[22px] px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center ${active ? 'bg-white text-[#5845D8]' : 'bg-[#F3F4F6] text-[#171B22]'}`}>
+                                            {t.count}
                                         </span>
-                                    </span>
-                                    <span className={`text-sm font-black tracking-tight md:text-right ${isOut ? 'text-orange-500' : 'text-emerald-600'}`}>
-                                        {isOut ? '−' : '+'}{sym}{Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                    </span>
-                                </Row>
+                                    )}
+                                </button>
                             );
                         })}
                     </div>
+                </div>
+
+                <div className="flex items-center justify-between mb-5 md:min-h-[44px]">
+                    <h3 className="text-white font-semibold">Recent activity</h3>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/dashboard?tab=earnings')}
+                            aria-label="Open wallet"
+                            title="Open wallet"
+                            className="w-10 h-10 rounded-full border border-white/15 text-white/80 flex items-center justify-center hover:bg-white/10"
+                        >
+                            <Wallet size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => navigate('/dashboard?tab=shipments')}
+                            aria-label="Open shipments"
+                            title="Open shipments"
+                            className="w-10 h-10 rounded-full border border-white/15 text-white/80 flex items-center justify-center hover:bg-white/10"
+                        >
+                            <BarChart3 size={16} />
+                        </button>
+                    </div>
+                </div>
+
+                {allTxs.length === 0 ? (
+                    <div className="py-16 flex flex-col items-center text-center">
+                        <span className="w-14 h-14 rounded-full bg-white/[0.06] flex items-center justify-center mb-4">
+                            <Wallet size={22} className="text-white/50" />
+                        </span>
+                        <p className="text-white font-semibold">{loadingWallet ? 'Loading your activity…' : 'No transactions yet'}</p>
+                        {!loadingWallet && (
+                            <>
+                                <p className="text-sm text-white/50 mt-1 max-w-xs">Post a trip or send a package to get started.</p>
+                                <div className="flex gap-3 mt-6">
+                                    <Link to="/post-trip" className="h-11 px-5 rounded-full bg-[#5845D8] text-white text-sm font-semibold flex items-center gap-2">
+                                        <Plane size={15} /> Post a trip
+                                    </Link>
+                                    <Link to="/search" className="h-11 px-5 rounded-full bg-white text-[#171B22] text-sm font-semibold flex items-center gap-2">
+                                        <Package size={15} /> Send a package
+                                    </Link>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                ) : filteredTxs.length === 0 ? (
+                    <div className="py-16 flex flex-col items-center text-center">
+                        <p className="text-white font-semibold">No activity matches these filters</p>
+                        <button type="button" onClick={clearFilters} className="mt-4 h-10 px-5 rounded-full bg-white text-[#171B22] text-sm font-semibold flex items-center gap-2">
+                            <X size={14} /> Clear filters
+                        </button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-5">
+                        {/* List */}
+                        <div className="space-y-2.5 lg:max-h-[440px] lg:overflow-y-auto lg:pr-1">
+                            {filteredTxs.slice(0, 30).map((tx, i) => {
+                                const isOut = EXPENSE_TYPES.has(tx.type);
+                                const isSel = i === selectedIndex;
+                                const d = txDateOf(tx);
+                                return (
+                                    <button
+                                        key={keyOf(tx, i)}
+                                        type="button"
+                                        onClick={() => setSelectedKey(keyOf(tx, i))}
+                                        className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left transition-colors ${
+                                            isSel
+                                                ? 'bg-gradient-to-r from-[#6C5CE7] to-[#5845D8] shadow-[0_10px_24px_rgba(88,69,216,0.35)]'
+                                                : 'bg-white/[0.04] hover:bg-white/[0.08]'
+                                        }`}
+                                    >
+                                        <span className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${isSel ? 'bg-white/20' : isOut ? 'bg-orange-400/15' : 'bg-emerald-400/15'}`}>
+                                            {isOut
+                                                ? <ArrowUpRight size={17} className={isSel ? 'text-white' : 'text-orange-300'} />
+                                                : <ArrowDownLeft size={17} className={isSel ? 'text-white' : 'text-emerald-300'} />}
+                                        </span>
+                                        <span className="flex-1 min-w-0">
+                                            <span className="block text-sm font-semibold text-white truncate">{transactionTitle(tx, isOut)}</span>
+                                            <span className="block text-xs text-white/55 mt-0.5">
+                                                {d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                                            </span>
+                                        </span>
+                                        <span className="hidden sm:block"><StatusPill status={tx.status} onDark selected={isSel} /></span>
+                                        <span className="w-[110px] text-right text-[15px] font-semibold text-white tabular-nums shrink-0">
+                                            {isOut ? '−' : '+'}{sym}{fmtMoney(tx.amount)}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Detail */}
+                        {selected && (() => {
+                            const isOut = EXPENSE_TYPES.has(selected.type);
+                            const d = txDateOf(selected);
+                            const route = [selected.trip_from_location, selected.trip_to_location].filter(Boolean).join(' → ');
+                            const openTarget = transactionOpenTarget(selected);
+                            const tiles = [
+                                { label: 'Amount', value: `${isOut ? '−' : '+'}${sym}${fmtMoney(selected.amount)}` },
+                                selected.trip_number && { label: 'Trip', value: `#${selected.trip_number}` },
+                                selected.tracking_number && { label: 'Tracking', value: selected.tracking_number },
+                                route && { label: 'Route', value: route },
+                            ].filter(Boolean).slice(0, 3);
+                            return (
+                                <div className="rounded-[24px] bg-gradient-to-br from-[#7A6CF0] via-[#5F4FDC] to-[#4C3CC8] p-5 sm:p-6 text-white flex flex-col">
+                                    <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_1fr_1fr] gap-5">
+                                        <div className="min-w-0">
+                                            <p className="text-xs text-white/65">Transaction details</p>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-1.5">
+                                                <p className="font-['Manrope'] text-xl xl:text-[22px] font-extrabold tracking-[-0.02em] leading-tight break-words min-w-0">
+                                                    {transactionTitle(selected, isOut)}
+                                                </p>
+                                                <StatusPill status={selected.status} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-white/65">Type</p>
+                                            <p className="text-base font-semibold mt-1.5 capitalize">{(selected.type || (isOut ? 'withdrawal' : 'earning')).replace(/_/g, ' ')}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-white/65">Date</p>
+                                            <p className="text-base font-semibold mt-1.5">
+                                                {d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+                                        {tiles.map(t => (
+                                            <div key={t.label} className="rounded-2xl bg-white/[0.12] border border-white/10 p-4 min-h-[96px] flex flex-col justify-between">
+                                                <p className="font-['Manrope'] text-lg font-extrabold tracking-[-0.02em] truncate" title={t.value}>{t.value}</p>
+                                                <p className="text-xs text-white/70">{t.label}</p>
+                                            </div>
+                                        ))}
+                                        {openTarget ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate(openTarget)}
+                                                className="rounded-2xl border border-dashed border-white/35 p-4 min-h-[96px] flex flex-col items-center justify-center gap-1.5 hover:bg-white/[0.06] transition-colors"
+                                            >
+                                                <ExternalLink size={17} />
+                                                <span className="text-xs font-semibold">{selected.request_id ? 'Open shipment' : 'Open trip'}</span>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate('/dashboard?tab=earnings')}
+                                                className="rounded-2xl border border-dashed border-white/35 p-4 min-h-[96px] flex flex-col items-center justify-center gap-1.5 hover:bg-white/[0.06] transition-colors"
+                                            >
+                                                <Wallet size={17} />
+                                                <span className="text-xs font-semibold">Open wallet</span>
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-6 pt-5 border-t border-white/15 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                                        <div className="grid grid-cols-3 gap-6">
+                                            <div>
+                                                <p className="text-xs text-white/65">Balance</p>
+                                                <p className="font-['Manrope'] text-lg font-extrabold mt-1">{sym}{balanceText ?? '—'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-white/65">In escrow</p>
+                                                <p className="font-['Manrope'] text-lg font-extrabold mt-1">{sym}{fmtMoney(walletData.escrow)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-white/65">Currency</p>
+                                                <p className="font-['Manrope'] text-lg font-extrabold mt-1">{walletCurrency}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate('/dashboard?tab=chats')}
+                                                aria-label="Messages"
+                                                title="Messages"
+                                                className="w-11 h-11 rounded-full border border-white/30 flex items-center justify-center hover:bg-white/10"
+                                            >
+                                                <ArrowRight size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => navigate('/dashboard?tab=earnings')}
+                                                className="h-11 px-6 rounded-full bg-white text-[#171B22] text-sm font-semibold hover:bg-white/90"
+                                            >
+                                                Withdraw
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
                 )}
             </div>
-
         </div>
     );
 }

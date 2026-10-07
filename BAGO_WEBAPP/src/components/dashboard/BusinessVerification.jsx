@@ -25,7 +25,7 @@ const DOC_STATUS_LABEL = {
     rejected: 'Rejected',
 };
 const DOC_STATUS_STYLE = {
-    not_uploaded: 'bg-gray-100 text-gray-500',
+    not_uploaded: 'bg-gray-100 text-[#6B7280]',
     pending_review: 'bg-amber-100 text-amber-700',
     approved: 'bg-emerald-100 text-emerald-700',
     rejected: 'bg-red-100 text-red-700',
@@ -140,12 +140,9 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-black text-[#012126]">Business Verification</h1>
-                <p className="text-[#6B7280] font-semibold text-sm mt-1">
-                    Complete these steps so an admin can verify and fully approve your business account.
-                </p>
-            </div>
+            <p className="text-sm text-[#6B7280]">
+                Complete these steps so an admin can verify and fully approve your business account.
+            </p>
 
             {banner && (
                 <div className={`rounded-2xl p-5 flex gap-4 items-start border ${
@@ -157,16 +154,16 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                         : banner.tone === 'danger' ? <AlertTriangle className="text-red-600 shrink-0" size={22} />
                         : <Clock className="text-amber-600 shrink-0" size={22} />}
                     <div>
-                        <p className="font-black text-[#012126] text-sm">{banner.title}</p>
+                        <p className="font-semibold text-[#171B22] text-sm">{banner.title}</p>
                         <p className="text-sm text-[#374151] mt-1">{banner.body}</p>
                     </div>
                 </div>
             )}
 
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6 md:p-8">
+            <div className="bg-white rounded-[24px] border border-[#ECEBF3] shadow-sm p-6 md:p-8">
                 <form onSubmit={saveRepresentative}>
-                <h2 className="text-lg font-black text-[#012126] mb-1">Registered business details</h2>
-                <p className="text-sm text-gray-500 mb-6">These must match the CAC or registration certificate. They lock once the document is approved.</p>
+                <h2 className="text-lg font-semibold text-[#171B22] mb-1">Registered business details</h2>
+                <p className="text-sm text-[#6B7280] mb-6">These must match the CAC or registration certificate. They lock once the document is approved.</p>
                 <div className="grid md:grid-cols-2 gap-5 mb-8">
                     {[
                         ['companyName', 'Registered company name'],
@@ -175,22 +172,22 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                         ['businessTaxId', 'Tax ID (optional)'],
                     ].map(([key, label]) => (
                         <label key={key}>
-                            <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">{label}</span>
+                            <span className="block text-[13px] font-semibold text-[#171B22] mb-1.5">{label}</span>
                             <input value={form[key]} onChange={change(key)} required={key !== 'businessTaxId'} disabled={user?.businessDocumentStatus === 'approved' || user?.businessStatus === 'verified'}
                                 className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] outline-none text-sm font-bold disabled:text-gray-400" />
                         </label>
                     ))}
                     <label className="md:col-span-2">
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">Registered business address</span>
+                        <span className="block text-[13px] font-semibold text-[#171B22] mb-1.5">Registered business address</span>
                         <textarea value={form.businessAddress} onChange={change('businessAddress')} required disabled={user?.businessDocumentStatus === 'approved' || user?.businessStatus === 'verified'} rows={3}
                             className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] outline-none text-sm font-bold disabled:text-gray-400" />
                     </label>
                 </div>
-                <h2 className="text-lg font-black text-[#012126] mb-1">Representative details</h2>
-                <p className="text-sm text-gray-500 mb-6">The person authorised to act on behalf of the business.</p>
+                <h2 className="text-lg font-semibold text-[#171B22] mb-1">Representative details</h2>
+                <p className="text-sm text-[#6B7280] mb-6">The person authorised to act on behalf of the business.</p>
                 <div className="grid md:grid-cols-2 gap-5">
                     <label>
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                        <span className="block text-[13px] font-semibold text-[#171B22] mb-1.5 flex items-center gap-1">
                             First name
                             {kycApproved && <Shield size={10} className="text-green-500" />}
                         </span>
@@ -198,7 +195,7 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                             className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all text-sm font-bold ${kycApproved ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-[#f8f9fa] border-transparent focus:border-[#5845D8] focus:bg-white'}`} />
                     </label>
                     <label>
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                        <span className="block text-[13px] font-semibold text-[#171B22] mb-1.5 flex items-center gap-1">
                             Last name
                             {kycApproved && <Shield size={10} className="text-green-500" />}
                         </span>
@@ -206,12 +203,12 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                             className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all text-sm font-bold ${kycApproved ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-[#f8f9fa] border-transparent focus:border-[#5845D8] focus:bg-white'}`} />
                     </label>
                     <label>
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                        <span className="block text-[13px] font-semibold text-[#171B22] mb-1.5 flex items-center gap-1">
                             Date of birth
                             {kycApproved && <Shield size={10} className="text-green-500" />}
                         </span>
                         {kycApproved ? (
-                            <div className="w-full px-4 py-3 rounded-xl border-2 border-transparent bg-gray-100 text-gray-400 text-sm font-bold cursor-not-allowed">
+                            <div className="w-full px-4 py-3 rounded-xl border-2 border-transparent bg-gray-100 text-[#6B7280] text-sm font-bold cursor-not-allowed">
                                 {maskDateOfBirth(form.dateOfBirth)}
                             </div>
                         ) : (
@@ -220,7 +217,7 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                         )}
                     </label>
                     <label>
-                        <span className="block text-[10px] font-black text-[#012126] uppercase tracking-widest mb-1.5">Role in the business</span>
+                        <span className="block text-[13px] font-semibold text-[#171B22] mb-1.5">Role in the business</span>
                         <input value={form.representativeRole} onChange={change('representativeRole')} required disabled={user?.businessDocumentStatus === 'approved' || user?.businessStatus === 'verified'}
                             className="w-full px-4 py-3 bg-[#f8f9fa] rounded-xl border-2 border-transparent focus:border-[#5845D8] focus:bg-white outline-none transition-all text-sm font-bold disabled:text-gray-400" />
                     </label>
@@ -230,7 +227,7 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
 
                     <div className="md:col-span-2">
                         <button type="submit" disabled={saving}
-                            className="px-6 py-3 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-xl font-bold text-sm disabled:opacity-60">
+                            className="px-6 py-3 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-full font-bold text-sm disabled:opacity-60">
                             {saving ? 'Saving…' : 'Save business details'}
                         </button>
                     </div>
@@ -238,14 +235,14 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                 </form>
             </div>
 
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6 md:p-8">
+            <div className="bg-white rounded-[24px] border border-[#ECEBF3] shadow-sm p-6 md:p-8">
                 <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-lg font-black text-[#012126]">CAC / registration document</h2>
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${DOC_STATUS_STYLE[docStatus] || 'bg-gray-100 text-gray-500'}`}>
+                    <h2 className="text-lg font-semibold text-[#171B22]">CAC / registration document</h2>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${DOC_STATUS_STYLE[docStatus] || 'bg-gray-100 text-[#6B7280]'}`}>
                         {DOC_STATUS_LABEL[docStatus] || docStatus}
                     </span>
                 </div>
-                <p className="text-sm text-gray-500 mb-5">Upload your CAC or business registration certificate for admin review.</p>
+                <p className="text-sm text-[#6B7280] mb-5">Upload your CAC or business registration certificate for admin review.</p>
 
                 {docStatus === 'rejected' && user?.businessDocumentRejectionReason && (
                     <p className="mb-5 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-xs font-bold text-red-600">
@@ -263,7 +260,7 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                     <Upload className="text-[#5845D8]" />
                     <div>
                         <b className="text-sm">{docStatus === 'not_uploaded' ? 'Upload document' : 'Replace document'}</b>
-                        <p className="text-sm text-gray-500">PDF, JPEG, PNG or WebP, up to 10 MB.</p>
+                        <p className="text-sm text-[#6B7280]">PDF, JPEG, PNG or WebP, up to 10 MB.</p>
                     </div>
                     <input className="hidden" type="file" accept="application/pdf,image/png,image/jpeg,image/webp"
                         onChange={(e) => setFile(e.target.files?.[0] || null)} />
@@ -273,23 +270,23 @@ export default function BusinessVerification({ user, checkAuthStatus }) {
                 {uploadSuccess && <p className="mt-4 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-xs font-bold text-emerald-700">{uploadSuccess}</p>}
 
                 <button onClick={uploadDocument} disabled={!file || uploading}
-                    className="mt-5 px-6 py-3 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-xl font-bold text-sm disabled:opacity-60">
+                    className="mt-5 px-6 py-3 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-full font-bold text-sm disabled:opacity-60">
                     {uploading ? 'Uploading…' : 'Upload document'}
                 </button>
             </div>
 
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-sm p-6 md:p-8">
+            <div className="bg-white rounded-[24px] border border-[#ECEBF3] shadow-sm p-6 md:p-8">
                 <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-lg font-black text-[#012126]">Identity verification (KYC)</h2>
+                    <h2 className="text-lg font-semibold text-[#171B22]">Identity verification (KYC)</h2>
                     <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${kycApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                         {kycApproved ? 'Approved' : (kycStatus || 'Not started')}
                     </span>
                 </div>
-                <p className="text-sm text-gray-500 mb-5">
+                <p className="text-sm text-[#6B7280] mb-5">
                     Verify the identity of the business representative with a government ID and a quick selfie/liveness check.
                 </p>
                 <button onClick={() => navigate('/verify')}
-                    className="px-6 py-3 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-xl font-bold text-sm flex items-center gap-2">
+                    className="px-6 py-3 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-full font-bold text-sm flex items-center gap-2">
                     <ShieldCheck size={16} /> {kycApproved ? 'View verification' : 'Complete KYC verification'}
                 </button>
             </div>

@@ -19,7 +19,7 @@ import {
 import { Link } from 'react-router-dom';
 import api from '../../api';
 
-const GENERAL_ITEMS = [
+export const GENERAL_ITEMS = [
     { id: 'overview', label: 'Home', icon: LayoutDashboard },
     { id: 'chats', label: 'Messages', icon: MessageCircle, badge: true },
     { id: 'trips', label: 'My Trips', icon: Plane },
@@ -37,7 +37,7 @@ const STAFF_PERMISSION_BY_NAV_ID = {
     financial: 'accounts.view',
 };
 
-function filterByStaffPermission(items, user) {
+export function filterByStaffPermission(items, user) {
     if (!user?.isStaffSession) return items;
     const permissions = user.staffPermissions || [];
     return items.filter((item) => {
@@ -46,7 +46,7 @@ function filterByStaffPermission(items, user) {
     });
 }
 
-function getAccountItems(isBusinessAccount, user) {
+export function getAccountItems(isBusinessAccount, user) {
     const items = [
         { id: 'earnings', label: 'Wallet', icon: Wallet },
     ];
@@ -67,7 +67,7 @@ function getAccountItems(isBusinessAccount, user) {
     return items;
 }
 
-export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen, isBusinessAccount = false }) {
+export function useUnreadCount(user) {
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
@@ -82,6 +82,12 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
         const id = setInterval(fetchUnread, 30000);
         return () => clearInterval(id);
     }, [user]);
+
+    return unreadCount;
+}
+
+// Mobile / tablet navigation drawer. On large screens the dashboard uses TopNav instead.
+export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen, isBusinessAccount = false, unreadCount = 0 }) {
 
     const NavItem = ({ item }) => {
         const isActive = activeTab === item.id;
@@ -122,10 +128,9 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
 
     return (
         <aside className={`
-            fixed left-0 top-0 h-screen w-64 bg-[#5845D8] flex flex-col z-40
+            fixed left-0 top-0 h-screen w-72 bg-[#171B22] flex flex-col z-40 lg:hidden
             transition-transform duration-300 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            md:translate-x-0
         `}>
             {/* Logo */}
             <div className="px-6 pt-7 pb-5 flex items-center justify-between">
@@ -142,7 +147,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
                     <span className="hidden text-white font-black text-xl tracking-tight">bago</span>
                 </Link>
                 <button
-                    className="md:hidden p-1.5 rounded-xl text-white/30 hover:text-white/70 transition-colors"
+                    className="p-1.5 rounded-xl text-white/30 hover:text-white/70 transition-colors"
                     onClick={() => setSidebarOpen(false)}
                 >
                     <X size={18} />

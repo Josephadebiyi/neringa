@@ -325,20 +325,13 @@ export default function Deliveries({ user, onNavigateToChat }) {
 
     return (
         <div className="space-y-6 font-sans">
-            <div className="mb-8 px-1">
-                <h2 className="text-lg font-black text-[#111827] tracking-tight uppercase">My Deliveries</h2>
-                <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">
-                    Packages you are carrying — accept requests and update delivery status
-                </p>
-            </div>
-
             {deliveries.length === 0 ? (
-                <div className="bg-white rounded-[24px] p-12 text-center border border-dashed border-gray-100 shadow-sm">
+                <div className="bg-white rounded-[24px] p-12 text-center border border-dashed border-[#ECEBF3] shadow-sm">
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
-                        <Package size={24} className="text-gray-300" />
+                        <Package size={24} className="text-[#9CA3AF]" />
                     </div>
-                    <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">No delivery requests yet</h3>
-                    <p className="text-gray-400 text-[10px] max-w-xs mx-auto font-bold uppercase tracking-wider opacity-60 leading-relaxed">
+                    <h3 className="text-sm font-semibold text-[#171B22] mb-1.5 tracking-tight">No delivery requests yet</h3>
+                    <p className="text-[#6B7280] text-[13px] max-w-xs mx-auto  leading-relaxed">
                         When senders match their package to your trip, requests will appear here for you to accept or reject.
                     </p>
                 </div>
@@ -350,10 +343,10 @@ export default function Deliveries({ user, onNavigateToChat }) {
                         const status = (req.status || '').toLowerCase();
                         const isPending = status === 'pending';
                         return (
-                            <div key={id || index} className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
+                            <div key={id || index} className="bg-white rounded-[20px] p-5 border border-[#ECEBF3] shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all">
                                 <div
                                     onClick={() => { setViewingDetails(req); setAcceptedTerms([false, false, false]); }}
-                                    className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 cursor-zoom-in border border-gray-100 shadow-sm"
+                                    className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 cursor-zoom-in border border-[#ECEBF3] shadow-sm"
                                 >
                                     {imgFor(req) ? (
                                         <img src={imgFor(req)} className="w-full h-full object-cover" alt="Item" />
@@ -365,30 +358,30 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                 <div className="flex-1 text-center md:text-left">
                                     <div className="flex items-center justify-center md:justify-start gap-1.5 mb-1.5 cursor-pointer"
                                         onClick={() => setViewingDetails(req)}>
-                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
+                                        <span className="text-base font-semibold text-[#171B22]">
                                             {req.originCity || p.fromCity || '—'}
                                         </span>
-                                        <ArrowRight size={12} className="text-gray-300" />
-                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
+                                        <ArrowRight size={12} className="text-[#9CA3AF]" />
+                                        <span className="text-base font-semibold text-[#171B22]">
                                             {req.destinationCity || p.toCity || '—'}
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-2">
-                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
+                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-[#ECEBF3] shadow-sm">
                                             <Clock size={10} className="text-[#5845D8]" />
-                                            <span className="text-[9px] font-black text-[#111827] uppercase tracking-widest">
+                                            <span className="text-xs font-semibold text-[#171B22] ">
                                                 {req.trackingNumber || 'PENDING'}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50/50 rounded-lg border border-indigo-100/50 shadow-sm">
                                             <User size={10} className="text-[#5845D8]" />
-                                            <span className="text-[9px] font-black text-[#111827]/70 uppercase tracking-widest">
+                                            <span className="text-xs font-semibold text-[#171B22]/70 ">
                                                 Sender: {req.senderName || req.sender?.firstName || '—'}
                                             </span>
                                         </div>
                                         {p.packageWeight ? (
-                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
-                                                <span className="text-[9px] font-black text-[#111827]/60 uppercase tracking-widest">
+                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-[#ECEBF3] shadow-sm">
+                                                <span className="text-xs font-semibold text-[#171B22]/60 ">
                                                     {p.packageWeight} KG
                                                 </span>
                                             </div>
@@ -396,14 +389,14 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                         {status === 'accepted' && (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-100 shadow-sm">
                                                 <ShieldCheck size={10} />
-                                                <span className="text-[9px] font-black uppercase tracking-widest">Escrow Active</span>
+                                                <span className="text-xs font-semibold ">Escrow Active</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
                                 <div className="flex flex-col items-center md:items-end gap-3">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${statusColor(req.status)}`}>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold shadow-sm ${statusColor(req.status)}`}>
                                         {isPending ? 'Awaiting Your Response' : statusLabel(req.status)}
                                     </span>
                                     <div className="flex gap-2 flex-wrap justify-center">
@@ -411,21 +404,21 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                             <>
                                                 <button
                                                     onClick={() => { setViewingDetails(req); setAcceptedTerms([false, false, false]); }}
-                                                    className="flex items-center gap-1.5 bg-gray-100 text-[#111827] px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all shadow-sm"
+                                                    className="flex items-center gap-1.5 bg-gray-100 text-[#171B22] px-4 py-2 rounded-full text-xs font-semibold hover:bg-gray-200 transition-all shadow-sm"
                                                 >
                                                     <Package size={13} /> Inspect
                                                 </button>
                                                 <button
                                                     onClick={() => handleAcceptPending(req)}
                                                     disabled={isSubmitting}
-                                                    className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-green-700 transition-all shadow-md shadow-green-500/10"
+                                                    className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-full text-xs font-semibold hover:bg-green-700 transition-all shadow-md shadow-green-500/10"
                                                 >
                                                     <CheckCircle size={13} /> Accept
                                                 </button>
                                                 <button
                                                     onClick={() => handleUpdateStatus(id, 'rejected')}
                                                     disabled={isSubmitting}
-                                                    className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-md shadow-red-500/10"
+                                                    className="flex items-center gap-1.5 bg-red-600 text-white px-4 py-2 rounded-full text-xs font-semibold hover:bg-red-700 transition-all shadow-md shadow-red-500/10"
                                                 >
                                                     <X size={13} /> Reject
                                                 </button>
@@ -435,7 +428,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                                 {status !== 'completed' && status !== 'rejected' && (
                                                     <button
                                                         onClick={() => openStatusModal(req)}
-                                                        className="flex items-center gap-1.5 bg-[#5845D8] text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/10"
+                                                        className="flex items-center gap-1.5 bg-[#5845D8] text-white px-4 py-2 rounded-full text-xs font-semibold hover:bg-[#4838B5] transition-all shadow-md shadow-[#5845D8]/10"
                                                     >
                                                         <CheckCircle size={13} />
                                                         {isBusinessAccount && !BUSINESS_STATUS_SEQUENCE.includes(status) ? 'Start Delivery' : 'Update Status'}
@@ -446,7 +439,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                         {isBusinessAccount && !isPending && (
                                             <button
                                                 onClick={() => openExternalTracking(req)}
-                                                className="p-2 rounded-xl border border-gray-100 text-[#5845D8] hover:bg-[#5845D8]/5 transition-all shadow-sm"
+                                                className="p-2 rounded-xl border border-[#ECEBF3] text-[#5845D8] hover:bg-[#5845D8]/5 transition-all shadow-sm"
                                                 title="External Carrier Tracking"
                                             >
                                                 <Link2 size={13} />
@@ -462,7 +455,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                         <button
                                             onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}
                                             disabled={!req.conversationId}
-                                            className="p-2 rounded-xl border border-gray-100 text-[#111827] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="p-2 rounded-xl border border-[#ECEBF3] text-[#171B22] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                             title={req.conversationId ? 'Chat with Sender' : 'Chat available after acceptance'}
                                         >
                                             <MessageSquare size={13} />
@@ -478,14 +471,14 @@ export default function Deliveries({ user, onNavigateToChat }) {
             {/* ─── Dispute Modal ─── */}
             {selectedDispute && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] flex items-center justify-center p-6 font-sans">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-gray-100/50">
+                    <div className="bg-white w-full max-w-md rounded-[24px] overflow-hidden shadow-2xl border border-[#ECEBF3]/50">
                         <div className="p-6 border-b border-gray-50 flex flex-col items-center gap-3 bg-red-50/20">
                             <div className="w-14 h-14 bg-white text-red-500 rounded-2xl flex items-center justify-center shadow-lg border border-red-50">
                                 <AlertTriangle size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">Report an Issue</h3>
-                                <p className="text-[9px] text-red-600 font-black mt-1 uppercase tracking-widest opacity-70">
+                                <h3 className="text-xl font-extrabold text-[#171B22] tracking-[-0.03em]">Report an Issue</h3>
+                                <p className="text-xs text-red-600 font-semibold mt-1 opacity-70">
                                     Order #{selectedDispute.trackingNumber || 'Pending'}
                                 </p>
                             </div>
@@ -494,19 +487,19 @@ export default function Deliveries({ user, onNavigateToChat }) {
                             e.preventDefault();
                             handleRaiseDispute(rid(selectedDispute), e.target.reason.value);
                         }} className="p-6 space-y-6">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-relaxed text-center px-4">
+                            <p className="text-[13px] text-[#6B7280] font-bold leading-relaxed text-center px-4">
                                 Are you having issues with the pickup, package content, or sender? This will alert the Bago team for mediation.
                             </p>
                             <div className="space-y-2">
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Describe the problem</label>
+                                <label className="text-xs font-semibold text-[#6B7280] ml-1">Describe the problem</label>
                                 <textarea name="reason" placeholder="Provide details about the issue..."
                                     className="w-full px-5 py-4 bg-gray-50 rounded-2xl border border-transparent outline-none text-xs font-bold min-h-[120px] focus:border-red-500/20 focus:bg-white transition-all" required />
                             </div>
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setSelectedDispute(null)}
-                                    className="flex-1 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600">Cancel</button>
+                                    className="flex-1 py-4 text-xs font-semibold text-[#6B7280] hover:text-gray-600">Cancel</button>
                                 <button type="submit" disabled={isSubmitting}
-                                    className="flex-[2] bg-[#5845D8] text-white py-4 rounded-xl font-black text-xs uppercase tracking-[2px] shadow-lg hover:bg-red-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                                    className="flex-[2] bg-[#5845D8] text-white py-4 rounded-full font-semibold text-xs tracking-[2px] shadow-lg hover:bg-red-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                                     {isSubmitting ? <RefreshCw className="animate-spin" size={16} /> : 'Submit Report'}
                                 </button>
                             </div>
@@ -518,21 +511,21 @@ export default function Deliveries({ user, onNavigateToChat }) {
             {/* ─── External Carrier Tracking Modal ─── */}
             {extTrackingTarget && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-gray-100/50">
+                    <div className="bg-white w-full max-w-md rounded-[24px] overflow-hidden shadow-2xl border border-[#ECEBF3]/50">
                         <div className="p-6 border-b border-gray-50 flex flex-col items-center gap-3 bg-gray-50/30">
-                            <div className="w-14 h-14 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-gray-100">
+                            <div className="w-14 h-14 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-[#ECEBF3]">
                                 <Link2 size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">External Carrier Tracking</h3>
-                                <p className="text-[9px] text-gray-500 font-black mt-1 uppercase tracking-widest opacity-70">
+                                <h3 className="text-xl font-extrabold text-[#171B22] tracking-[-0.03em]">External Carrier Tracking</h3>
+                                <p className="text-xs text-[#6B7280] font-semibold mt-1 opacity-70">
                                     Bago Tracking: {extTrackingTarget.trackingNumber || 'Pending'}
                                 </p>
                             </div>
                         </div>
                         <div className="p-6 space-y-4">
                             <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Carrier</label>
+                                <label className="text-xs font-semibold text-[#6B7280] ml-1">Carrier</label>
                                 <select
                                     value={extCarrier}
                                     onChange={(e) => {
@@ -549,7 +542,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                             </div>
                             {extCarrier === 'other' && (
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Carrier / logistics company name</label>
+                                    <label className="text-xs font-semibold text-[#6B7280] ml-1">Carrier / logistics company name</label>
                                     <input
                                         type="text"
                                         value={extCarrierCustomName}
@@ -561,7 +554,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                             )}
                             {extCarrier && (
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Tracking Number</label>
+                                    <label className="text-xs font-semibold text-[#6B7280] ml-1">Tracking Number</label>
                                     <input
                                         type="text"
                                         value={extTrackingNumber}
@@ -571,12 +564,12 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                     />
                                 </div>
                             )}
-                            {extError && <p className="text-[10px] font-bold text-red-600">{extError}</p>}
+                            {extError && <p className="text-[13px] font-bold text-red-600">{extError}</p>}
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={() => setExtTrackingTarget(null)}
                                     disabled={extSaving}
-                                    className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-2xl text-xs font-black uppercase tracking-widest"
+                                    className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold "
                                 >
                                     Cancel
                                 </button>
@@ -584,7 +577,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                     <button
                                         onClick={removeExternalTracking}
                                         disabled={extSaving}
-                                        className="flex-1 py-3 bg-red-50 text-red-600 rounded-2xl text-xs font-black uppercase tracking-widest"
+                                        className="flex-1 py-3 bg-red-50 text-red-600 rounded-full text-xs font-semibold "
                                     >
                                         Remove
                                     </button>
@@ -592,7 +585,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                 <button
                                     onClick={saveExternalTracking}
                                     disabled={extSaving}
-                                    className="flex-1 py-3 bg-[#5845D8] text-white rounded-2xl text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                                    className="flex-1 py-3 bg-[#5845D8] text-white rounded-full text-xs font-semibold disabled:opacity-50"
                                 >
                                     {extSaving ? <RefreshCw className="animate-spin mx-auto" size={14} /> : 'Save'}
                                 </button>
@@ -605,23 +598,23 @@ export default function Deliveries({ user, onNavigateToChat }) {
             {/* ─── Status Update Modal ─── */}
             {updatingStatus && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-gray-100/50">
+                    <div className="bg-white w-full max-w-md rounded-[24px] overflow-hidden shadow-2xl border border-[#ECEBF3]/50">
                         <div className="p-6 border-b border-gray-50 flex flex-col items-center gap-3 bg-gray-50/30">
-                            <div className="w-14 h-14 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-gray-100">
+                            <div className="w-14 h-14 bg-white text-[#5845D8] rounded-2xl flex items-center justify-center shadow-lg border border-[#ECEBF3]">
                                 <ShieldCheck size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">
+                                <h3 className="text-xl font-extrabold text-[#171B22] tracking-[-0.03em]">
                                     {isBusinessAccount ? 'Start Delivery' : 'Update Delivery Status'}
                                 </h3>
-                                <p className="text-[9px] text-gray-500 font-black mt-1 uppercase tracking-widest opacity-70">
+                                <p className="text-xs text-[#6B7280] font-semibold mt-1 opacity-70">
                                     Order #{updatingStatus.trackingNumber}
                                 </p>
                             </div>
                         </div>
                         <div className="p-6 space-y-5">
                             <div className="space-y-2">
-                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Select the new status</label>
+                                <label className="text-xs font-semibold text-[#6B7280] ml-1">Select the new status</label>
                                 <div className="space-y-2">
                                     {(isBusinessAccount ? BUSINESS_STATUS_UPDATE_OPTIONS : STATUS_UPDATE_OPTIONS).map((option) => {
                                         const Icon = option.icon;
@@ -644,8 +637,8 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                                         <Icon size={17} />
                                                     </div>
                                                     <div>
-                                                        <p className="text-[10px] font-black text-[#111827] uppercase tracking-widest">{option.label}</p>
-                                                        <p className="mt-1 text-[10px] font-bold leading-relaxed text-gray-500">{option.description}</p>
+                                                        <p className="text-[13px] font-semibold text-[#171B22] ">{option.label}</p>
+                                                        <p className="mt-1 text-[13px] font-bold leading-relaxed text-[#6B7280]">{option.description}</p>
                                                     </div>
                                                 </div>
                                             </button>
@@ -655,25 +648,25 @@ export default function Deliveries({ user, onNavigateToChat }) {
                             </div>
                             <div className="space-y-4 pt-2">
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Current Location (optional)</label>
+                                    <label className="text-xs font-semibold text-[#6B7280] ml-1">Current Location (optional)</label>
                                     <input type="text" value={statusLocation} onChange={e => setStatusLocation(e.target.value)}
                                         placeholder="e.g. Dubai International Airport"
                                         className="w-full px-5 py-3.5 bg-gray-50 rounded-xl border border-transparent outline-none focus:border-[#5845D8]/20 focus:bg-white text-xs font-bold transition-all" />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                                    <label className="text-xs font-semibold text-[#6B7280] ml-1">
                                         Proof Photo {selectedStatus === 'delivered' ? '(required)' : '(optional)'}
                                     </label>
                                     <div className="flex items-center gap-4">
-                                        <label className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-[#5845D8]/5 text-[#5845D8] rounded-xl border border-[#5845D8]/10 cursor-pointer hover:bg-[#5845D8]/10 transition-all">
+                                        <label className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-[#5845D8]/5 text-[#5845D8] rounded-full border border-[#5845D8]/10 cursor-pointer hover:bg-[#5845D8]/10 transition-all">
                                             <Camera size={16} />
-                                            <span className="text-[9px] font-black uppercase tracking-widest">
+                                            <span className="text-xs font-semibold ">
                                                 {proofImage ? 'Photo Selected ✓' : 'Upload Photo'}
                                             </span>
                                             <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                                         </label>
                                         {proofImage && (
-                                            <div className="w-12 h-12 rounded-xl overflow-hidden border border-gray-100 shadow-sm relative group">
+                                            <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#ECEBF3] shadow-sm relative group">
                                                 <img src={proofImage} className="w-full h-full object-cover" alt="Proof" />
                                                 <button onClick={() => setProofImage(null)}
                                                     className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -687,18 +680,18 @@ export default function Deliveries({ user, onNavigateToChat }) {
                             {selectedStatus === 'delivered' && !proofImage && (
                                 <div className="flex items-start gap-2 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-amber-800">
                                     <Truck size={15} className="mt-0.5 shrink-0" />
-                                    <p className="text-[10px] font-bold leading-relaxed">
+                                    <p className="text-[13px] font-bold leading-relaxed">
                                         Upload a delivery proof photo before marking this shipment as delivered.
                                     </p>
                                 </div>
                             )}
                             <div className="flex gap-3 pt-4 border-t border-gray-50">
                                 <button onClick={resetStatusModal}
-                                    className="flex-1 py-3 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600">Cancel</button>
+                                    className="flex-1 py-3 text-xs font-semibold text-[#6B7280] hover:text-gray-600">Cancel</button>
                                 <button
                                     onClick={() => handleUpdateStatus(rid(updatingStatus), selectedStatus)}
                                     disabled={!selectedStatus || isSubmitting || (selectedStatus === 'delivered' && !proofImage)}
-                                    className="flex-[2] bg-[#5845D8] text-white py-3 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none flex items-center justify-center gap-2"
+                                    className="flex-[2] bg-[#5845D8] text-white py-3 rounded-full font-semibold text-xs shadow-lg shadow-[#5845D8]/20 hover:bg-[#4838B5] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none flex items-center justify-center gap-2"
                                 >
                                     {isSubmitting ? <RefreshCw className="animate-spin" size={14} /> : <CheckCircle size={14} />}
                                     OK, Update Status
@@ -712,16 +705,16 @@ export default function Deliveries({ user, onNavigateToChat }) {
             {/* ─── Package Inspection Modal (before accept) ─── */}
             {viewingDetails && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-4xl rounded-[28px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+                    <div className="bg-white w-full max-w-4xl rounded-[24px] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
                         <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/50">
                             <div>
-                                <h3 className="text-lg font-black text-[#111827] uppercase tracking-tight">Package Inspection</h3>
-                                <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest opacity-70">
+                                <h3 className="text-lg font-semibold text-[#171B22] tracking-tight">Package Inspection</h3>
+                                <p className="text-xs text-[#6B7280] font-semibold opacity-70">
                                     Review all details before accepting
                                 </p>
                             </div>
                             <button onClick={() => setViewingDetails(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                                <X size={20} className="text-gray-400" />
+                                <X size={20} className="text-[#6B7280]" />
                             </button>
                         </div>
 
@@ -729,18 +722,18 @@ export default function Deliveries({ user, onNavigateToChat }) {
                             {/* Image */}
                             <button type="button"
                                 onClick={() => imgFor(viewingDetails) && setPreviewImage(imgFor(viewingDetails))}
-                                className="aspect-video w-full bg-gray-100 rounded-[20px] overflow-hidden relative border border-gray-100 shadow-inner group text-left">
+                                className="aspect-video w-full bg-gray-100 rounded-[20px] overflow-hidden relative border border-[#ECEBF3] shadow-inner group text-left">
                                 {imgFor(viewingDetails) ? (
                                     <>
                                         <img src={imgFor(viewingDetails)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Package" />
-                                        <div className="absolute bottom-4 right-4 px-4 py-2 rounded-xl bg-white/95 text-[#111827] text-[9px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2">
+                                        <div className="absolute bottom-4 right-4 px-4 py-2 rounded-full bg-white/95 text-[#171B22] text-xs font-semibold shadow-sm flex items-center gap-2">
                                             <ZoomIn size={14} /> Zoom
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3">
+                                    <div className="flex flex-col items-center justify-center h-full text-[#9CA3AF] gap-3">
                                         <Package size={48} className="opacity-20" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">No Image Provided</span>
+                                        <span className="text-[13px] font-semibold ">No Image Provided</span>
                                     </div>
                                 )}
                             </button>
@@ -763,9 +756,9 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                     ['Your Payout', `${viewingDetails.currency || ''} ${viewingDetails.travelerPayout || '—'}`],
                                     ['Tracking', viewingDetails.trackingNumber || 'Pending'],
                                 ].filter(([, v]) => v && v.trim() && v !== ' ' && v !== 'undefined undefined' && v !== ' KG').map(([label, value]) => (
-                                    <div key={label} className="p-4 bg-gray-50 rounded-[14px] border border-gray-100">
-                                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-                                        <p className="text-sm font-black text-[#111827] break-words">{value}</p>
+                                    <div key={label} className="p-4 bg-gray-50 rounded-[14px] border border-[#ECEBF3]">
+                                        <p className="text-[11px] font-semibold text-[#6B7280] mb-1">{label}</p>
+                                        <p className="text-sm font-semibold text-[#171B22] break-words">{value}</p>
                                     </div>
                                 ))}
                             </div>
@@ -773,8 +766,8 @@ export default function Deliveries({ user, onNavigateToChat }) {
                             {/* Description */}
                             {(pkg(viewingDetails).description || viewingDetails.description) && (
                                 <div className="space-y-2">
-                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Item Description</p>
-                                    <div className="p-5 bg-gray-50 rounded-[20px] border border-gray-100 text-xs font-bold leading-relaxed text-[#111827]">
+                                    <p className="text-xs font-semibold text-[#6B7280] ml-1">Item Description</p>
+                                    <div className="p-5 bg-gray-50 rounded-[20px] border border-[#ECEBF3] text-xs font-bold leading-relaxed text-[#171B22]">
                                         {pkg(viewingDetails).description || viewingDetails.description}
                                     </div>
                                 </div>
@@ -786,10 +779,10 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                     <div className="flex gap-3">
                                         <ShieldCheck className="text-amber-500 flex-shrink-0" size={20} />
                                         <div className="flex-1">
-                                            <p className="text-[10px] font-black text-amber-900 uppercase tracking-tight mb-1">
+                                            <p className="text-[13px] font-semibold text-amber-900 tracking-tight mb-1">
                                                 Before You Accept
                                             </p>
-                                            <p className="text-[9px] text-amber-700/80 font-medium leading-normal mb-4">
+                                            <p className="text-xs text-amber-700/80 font-medium leading-normal mb-4">
                                                 By accepting, I confirm that:
                                             </p>
                                             <div className="space-y-2">
@@ -802,7 +795,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                                         <input type="checkbox" checked={acceptedTerms[i]}
                                                             onChange={e => setAcceptedTerms(prev => { const n = [...prev]; n[i] = e.target.checked; return n; })}
                                                             className="w-4 h-4 mt-0.5 rounded border-amber-300 text-amber-600 cursor-pointer flex-shrink-0" />
-                                                        <span className="text-[9px] font-semibold text-amber-800 leading-relaxed">{label}</span>
+                                                        <span className="text-xs font-semibold text-amber-800 leading-relaxed">{label}</span>
                                                     </label>
                                                 ))}
                                             </div>
@@ -823,7 +816,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                             setViewingDetails(null);
                                             handleUpdateStatus(id, 'rejected');
                                         }}
-                                        className="flex-1 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-red-100 text-red-500 hover:bg-red-50 transition-all"
+                                        className="flex-1 py-4 rounded-2xl text-[13px] font-semibold border border-red-100 text-red-500 hover:bg-red-50 transition-all"
                                     >
                                         Reject
                                     </button>
@@ -836,7 +829,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                             handleUpdateStatus(id, 'accepted');
                                         }}
                                         disabled={!acceptedTerms.every(Boolean) || isSubmitting}
-                                        className={`flex-[2] py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
+                                        className={`flex-[2] py-4 rounded-2xl text-[13px] font-semibold transition-all shadow-lg active:scale-95 ${
                                             acceptedTerms.every(Boolean) && !isSubmitting
                                                 ? 'bg-[#5845D8] text-white hover:bg-[#4838B5] shadow-indigo-500/20'
                                                 : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
@@ -847,7 +840,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                 </>
                             ) : (
                                 <button onClick={() => setViewingDetails(null)}
-                                    className="flex-1 bg-gray-100 text-[#111827] py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all">
+                                    className="flex-1 bg-gray-100 text-[#171B22] py-3 rounded-full text-xs font-semibold hover:bg-gray-200 transition-all">
                                     Close
                                 </button>
                             )}
@@ -872,7 +865,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
                         toast.ok ? 'bg-green-500 text-white border-green-400' : 'bg-red-500 text-white border-red-400'
                     }`}>
                         {toast.ok ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
-                        <p className="text-[11px] font-black uppercase tracking-wider">{toast.msg}</p>
+                        <p className="text-[13px] font-semibold ">{toast.msg}</p>
                         <button onClick={() => setToast(s => ({ ...s, show: false }))} className="ml-2 hover:opacity-70">
                             <X size={16} />
                         </button>

@@ -156,24 +156,24 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
                     type="button"
                     disabled={disabled}
                     onClick={() => setOpen(o => !o)}
-                    className="h-full flex items-center gap-1 px-2.5 py-2 bg-gray-50 border border-transparent rounded-xl text-[10px] font-black text-[#111827] hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="h-full flex items-center gap-1 px-2.5 py-2 bg-gray-50 border border-transparent rounded-full text-[13px] font-semibold text-[#171B22] hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                     <span className="text-sm">{selected.flag}</span>
                     <span>{dialCode}</span>
                     <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
                 </button>
                 {open && (
-                    <div className="absolute left-0 top-full mt-1 z-50 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="absolute left-0 top-full mt-1 z-50 w-64 bg-white rounded-2xl shadow-xl border border-[#ECEBF3] overflow-hidden">
                         <div className="p-2 border-b border-gray-50">
                             <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded-xl">
-                                <Search size={11} className="text-gray-400 shrink-0" />
+                                <Search size={11} className="text-[#6B7280] shrink-0" />
                                 <input
                                     autoFocus
                                     type="text"
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
                                     placeholder="Search country..."
-                                    className="flex-1 bg-transparent outline-none text-[10px] font-bold text-[#111827] placeholder:text-gray-400"
+                                    className="flex-1 bg-transparent outline-none text-[13px] font-bold text-[#171B22] placeholder:text-gray-400"
                                 />
                             </div>
                         </div>
@@ -186,8 +186,8 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
                                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#5845D8]/5 transition-all ${dialCode === c.dial ? 'bg-[#5845D8]/10' : ''}`}
                                 >
                                     <span className="text-base">{c.flag}</span>
-                                    <span className="flex-1 text-[10px] font-bold text-[#111827] truncate">{c.name}</span>
-                                    <span className="text-[10px] font-black text-[#5845D8]">{c.dial}</span>
+                                    <span className="flex-1 text-[13px] font-bold text-[#171B22] truncate">{c.name}</span>
+                                    <span className="text-[13px] font-semibold text-[#5845D8]">{c.dial}</span>
                                 </button>
                             ))}
                         </div>
@@ -200,7 +200,7 @@ function CountryPhoneInput({ value, onChange, placeholder = 'Phone number', disa
                 onChange={handleLocal}
                 disabled={disabled}
                 placeholder={placeholder}
-                className="min-w-0 flex-1 px-3 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[10px] text-[#111827] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="min-w-0 flex-1 px-3 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-semibold text-[13px] text-[#171B22] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
         </div>
     );
@@ -559,17 +559,17 @@ export default function Settings({ user, checkAuthStatus }) {
     };
 
     return (
-        <div className="space-y-6 max-w-[1200px] pb-10 font-sans text-[#111827]">
+        <div className="space-y-6 pb-10 font-sans text-[#171B22]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Profile Edit */}
-                <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
+                <div className="bg-white p-5 rounded-[24px] border border-[#ECEBF3] shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <User className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#111827] text-[10px] uppercase tracking-widest">{t('personalInfo')}</h3>
+                        <h3 className="font-semibold text-[#171B22] text-[13px] ">{t('personalInfo')}</h3>
                     </div>
 
                     <div className="flex justify-center mb-5 relative group">
-                        <div className="w-16 h-16 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-xl font-black border-[3px] border-white shadow-md overflow-hidden relative">
+                        <div className="w-16 h-16 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-xl font-extrabold border-[3px] border-white shadow-md overflow-hidden relative">
                             {user?.image ? <img src={user.image} alt="User" className="w-full h-full object-cover" /> : (firstName?.charAt(0) || 'B')}
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                                 <Camera className="text-white" size={16} />
@@ -585,7 +585,7 @@ export default function Settings({ user, checkAuthStatus }) {
                     <form onSubmit={handleUpdateProfile} className="space-y-4">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-1">
+                                <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5 ml-1 flex items-center gap-1">
                                     {t('firstName')}
                                     {user?.kycStatus === 'approved' && <Shield size={8} className="text-green-500" />}
                                 </label>
@@ -594,11 +594,11 @@ export default function Settings({ user, checkAuthStatus }) {
                                     value={firstName}
                                     onChange={(e) => setFirstName(e.target.value)}
                                     disabled={user?.kycStatus === 'approved'}
-                                    className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
+                                    className={`w-full px-4 py-2 rounded-full border font-semibold text-[13px] transition-all tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
                                 />
                             </div>
                             <div>
-                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-1">
+                                <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5 ml-1 flex items-center gap-1">
                                     {t('lastName')}
                                     {user?.kycStatus === 'approved' && <Shield size={8} className="text-green-500" />}
                                 </label>
@@ -607,18 +607,18 @@ export default function Settings({ user, checkAuthStatus }) {
                                     value={lastName}
                                     onChange={(e) => setLastName(e.target.value)}
                                     disabled={user?.kycStatus === 'approved'}
-                                    className={`w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
+                                    className={`w-full px-4 py-2 rounded-full border font-semibold text-[13px] transition-all tracking-tight ${user?.kycStatus === 'approved' ? 'bg-gray-100 border-transparent text-gray-400 cursor-not-allowed' : 'bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none'}`}
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1 flex items-center gap-1">
+                            <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5 ml-1 flex items-center gap-1">
                                 {t('dateOfBirth') || 'Date of Birth'}
                                 {user?.kycStatus === 'approved' && <Shield size={8} className="text-green-500" />}
                             </label>
                             {user?.kycStatus === 'approved' ? (
-                                <div className="w-full px-4 py-2 rounded-xl border bg-gray-100 border-transparent text-gray-400 font-black text-[11px] uppercase tracking-tight cursor-not-allowed">
+                                <div className="w-full px-4 py-2 rounded-full border bg-gray-100 border-transparent text-[#6B7280] font-semibold text-[13px] tracking-tight cursor-not-allowed">
                                     {maskDateOfBirth(dateOfBirth)}
                                 </div>
                             ) : (
@@ -626,15 +626,15 @@ export default function Settings({ user, checkAuthStatus }) {
                                     type="date"
                                     value={dateOfBirth}
                                     onChange={(e) => setDateOfBirth(e.target.value)}
-                                    className="w-full px-4 py-2 rounded-xl border font-black text-[11px] transition-all uppercase tracking-tight bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none"
+                                    className="w-full px-4 py-2 rounded-xl border font-semibold text-[13px] transition-all tracking-tight bg-gray-50 border-[#ECEBF3] focus:border-[#5845D8]/20 focus:bg-white outline-none"
                                 />
                             )}
                         </div>
 
                         <div>
                             <div className="mb-1.5 ml-1 flex items-center justify-between">
-                                <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest">Bio</label>
-                                <span className="text-[8px] font-bold text-gray-400">{bio.length}/250</span>
+                                <label className="block text-[11px] font-semibold text-[#6B7280] ">Bio</label>
+                                <span className="text-[11px] font-bold text-[#6B7280]">{bio.length}/250</span>
                             </div>
                             <textarea
                                 value={bio}
@@ -642,14 +642,14 @@ export default function Settings({ user, checkAuthStatus }) {
                                 maxLength={250}
                                 rows={4}
                                 placeholder="Tell people a little about yourself"
-                                className="w-full resize-none px-4 py-3 rounded-xl border bg-gray-50 border-gray-100 focus:border-[#5845D8]/20 focus:bg-white outline-none font-semibold text-[11px] text-[#111827] transition-all"
+                                className="w-full resize-none px-4 py-3 rounded-xl border bg-gray-50 border-[#ECEBF3] focus:border-[#5845D8]/20 focus:bg-white outline-none font-semibold text-[13px] text-[#171B22] transition-all"
                             />
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/15"
+                            className="w-full bg-[#5845D8] text-white py-3 rounded-full font-semibold text-[13px] hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#5845D8]/15"
                         >
                             {loading ? <RefreshCw className="animate-spin" size={14} /> : t('saveChanges')}
                         </button>
@@ -657,39 +657,39 @@ export default function Settings({ user, checkAuthStatus }) {
                 </div>
 
                 {/* Account Settings */}
-                <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
+                <div className="bg-white p-5 rounded-[24px] border border-[#ECEBF3] shadow-sm space-y-5">
                     <div className="flex items-center gap-2 border-b border-gray-50 pb-3 mb-4">
                         <Mail className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#111827] text-[10px] uppercase tracking-widest">{t('emailSettings')}</h3>
+                        <h3 className="font-semibold text-[#171B22] text-[13px] ">{t('emailSettings')}</h3>
                     </div>
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('currentEmail')}</label>
+                            <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5 ml-1">{t('currentEmail')}</label>
                             <input
                                 type="email"
                                 value={email}
                                 disabled
-                                className="w-full px-4 py-2 bg-gray-100 rounded-xl border border-transparent font-black text-[11px] text-gray-400 cursor-not-allowed opacity-70"
+                                className="w-full px-4 py-2 bg-gray-100 rounded-full border border-transparent font-semibold text-[13px] text-[#6B7280] cursor-not-allowed opacity-70"
                             />
                         </div>
 
                         {!showEmailOtp ? (
                             <form onSubmit={handleRequestEmailChange} className="space-y-4 pt-4 border-t border-gray-50">
                                 <div>
-                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">{t('newEmailLabel')}</label>
+                                    <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5 ml-1">{t('newEmailLabel')}</label>
                                     <input
                                         type="email"
                                         value={newEmail}
                                         onChange={(e) => setNewEmail(e.target.value)}
                                         placeholder={t('enterNewEmail')}
-                                        className="w-full px-4 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-black text-[11px] transition-all"
+                                        className="w-full px-4 py-2 bg-gray-50 border border-transparent focus:border-[#5845D8]/20 focus:bg-white rounded-xl outline-none font-semibold text-[13px] transition-all"
                                     />
                                 </div>
                                 <button
                                     type="submit"
                                     disabled={!newEmail || loading}
-                                    className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50"
+                                    className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-full font-semibold text-xs hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50"
                                 >
                                     {t('updateAddress')}
                                 </button>
@@ -697,19 +697,19 @@ export default function Settings({ user, checkAuthStatus }) {
                         ) : (
                             <div className="space-y-4 pt-4 border-t border-gray-50 animate-in fade-in duration-300">
                                 <div>
-                                    <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">{t('verificationCode')}</label>
+                                    <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5">{t('verificationCode')}</label>
                                     <input
                                         type="text"
                                         maxLength={6}
                                         value={emailOtp}
                                         onChange={(e) => setEmailOtp(e.target.value)}
                                         placeholder="000000"
-                                        className="w-full px-4 py-2.5 bg-[#5845D8]/5 rounded-xl border border-[#5845D8]/20 outline-none focus:border-[#5845D8] font-black text-center text-sm tracking-[8px]"
+                                        className="w-full px-4 py-2.5 bg-[#5845D8]/5 rounded-xl border border-[#5845D8]/20 outline-none focus:border-[#5845D8] font-semibold text-center text-sm tracking-[8px]"
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={handleVerifyEmailChange} disabled={!emailOtp || emailOtp.length < 4 || loading} className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50">{loading ? '...' : t('verify')}</button>
-                                    <button onClick={() => setShowEmailOtp(false)} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">{t('cancel')}</button>
+                                    <button onClick={handleVerifyEmailChange} disabled={!emailOtp || emailOtp.length < 4 || loading} className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-full font-semibold text-xs disabled:opacity-50">{loading ? '...' : t('verify')}</button>
+                                    <button onClick={() => setShowEmailOtp(false)} className="px-3 text-[#6B7280] font-semibold text-[11px] ">{t('cancel')}</button>
                                 </div>
                             </div>
                         )}
@@ -718,18 +718,18 @@ export default function Settings({ user, checkAuthStatus }) {
             </div>
 
             {/* Phone Verification */}
-            <div className="bg-white p-5 rounded-[24px] border border-gray-100 shadow-sm space-y-5">
+            <div className="bg-white p-5 rounded-[24px] border border-[#ECEBF3] shadow-sm space-y-5">
                 <div className="flex items-center justify-between border-b border-gray-50 pb-3 mb-4">
                     <div className="flex items-center gap-2">
                         <Shield className="text-[#5845D8]" size={16} />
-                        <h3 className="font-black text-[#111827] text-[10px] uppercase tracking-widest">Phone Number</h3>
+                        <h3 className="font-semibold text-[#171B22] text-[13px] ">Phone Number</h3>
                     </div>
                     {phoneVerified || phoneSuccess ? (
-                        <span className="flex items-center gap-1 text-green-600 font-black text-[8px] uppercase tracking-widest">
+                        <span className="flex items-center gap-1 text-green-600 font-semibold text-[11px] ">
                             <CheckCircle size={12} /> Verified
                         </span>
                     ) : (
-                        <span className="flex items-center gap-1 text-amber-600 font-black text-[8px] uppercase tracking-widest">
+                        <span className="flex items-center gap-1 text-amber-600 font-semibold text-[11px] ">
                             <AlertCircle size={12} /> Unverified
                         </span>
                     )}
@@ -739,14 +739,14 @@ export default function Settings({ user, checkAuthStatus }) {
                     <div className="flex items-center gap-3 bg-green-50/50 rounded-xl p-3 border border-green-100">
                         <CheckCircle className="text-green-600 shrink-0" size={16} />
                         <div>
-                            <p className="font-black text-[10px] text-green-700 uppercase tracking-widest">Phone Verified</p>
-                            <p className="text-[9px] text-gray-400 font-bold mt-0.5">{phone || user?.phone}</p>
+                            <p className="font-semibold text-[13px] text-green-700 ">Phone Verified</p>
+                            <p className="text-xs text-[#6B7280] font-bold mt-0.5">{phone || user?.phone}</p>
                         </div>
                     </div>
                 ) : !showPhoneOtp ? (
                     <form onSubmit={handleSendPhoneOtp} className="space-y-4">
                         <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
+                            <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5 ml-1">
                                 {user?.phone ? 'Current Phone' : 'Phone Number'}
                             </label>
                             <CountryPhoneInput
@@ -758,7 +758,7 @@ export default function Settings({ user, checkAuthStatus }) {
                         <button
                             type="submit"
                             disabled={!phone || phoneLoading}
-                            className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="w-full border-2 border-[#5845D8]/20 text-[#5845D8] py-2.5 rounded-full font-semibold text-xs hover:bg-[#5845D8] hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             {phoneLoading ? <RefreshCw className="animate-spin" size={12} /> : null}
                             {user?.phone ? 'Send Code to Verify' : 'Add & Verify Phone'}
@@ -766,51 +766,51 @@ export default function Settings({ user, checkAuthStatus }) {
                     </form>
                 ) : (
                     <div className="space-y-4 animate-in fade-in duration-300">
-                        <p className="text-[9px] text-gray-500 font-bold">We sent a 6-digit code to <strong>{phone}</strong> via SMS.</p>
+                        <p className="text-xs text-[#6B7280] font-bold">We sent a 6-digit code to <strong>{phone}</strong> via SMS.</p>
                         <div>
-                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Verification Code</label>
+                            <label className="block text-[11px] font-semibold text-[#6B7280] mb-1.5">Verification Code</label>
                             <input
                                 type="text"
                                 maxLength={6}
                                 value={phoneOtp}
                                 onChange={(e) => setPhoneOtp(e.target.value)}
                                 placeholder="000000"
-                                className="w-full px-4 py-2.5 bg-[#5845D8]/5 rounded-xl border border-[#5845D8]/20 outline-none focus:border-[#5845D8] font-black text-center text-sm tracking-[8px]"
+                                className="w-full px-4 py-2.5 bg-[#5845D8]/5 rounded-xl border border-[#5845D8]/20 outline-none focus:border-[#5845D8] font-semibold text-center text-sm tracking-[8px]"
                             />
                         </div>
                         <div className="flex gap-2">
                             <button
                                 onClick={handleVerifyPhoneOtp}
                                 disabled={phoneLoading || phoneOtp.length < 4}
-                                className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 bg-[#5845D8] text-white py-2.5 rounded-full font-semibold text-xs disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 {phoneLoading ? <RefreshCw className="animate-spin" size={12} /> : null}
                                 Verify
                             </button>
-                            <button onClick={() => { setShowPhoneOtp(false); setPhoneOtp(''); }} className="px-3 text-gray-400 font-black text-[8px] uppercase tracking-widest">Cancel</button>
+                            <button onClick={() => { setShowPhoneOtp(false); setPhoneOtp(''); }} className="px-3 text-[#6B7280] font-semibold text-[11px] ">Cancel</button>
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Payout Settings */}
-            <div className="bg-white p-6 md:p-8 rounded-[32px] border border-gray-100 shadow-sm relative overflow-hidden">
+            <div className="bg-white p-6 md:p-8 rounded-[24px] border border-[#ECEBF3] shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#5845D8]/5 rounded-full blur-2xl -mr-16 -mt-16"></div>
                 <div className="flex items-center gap-3 border-b border-gray-50 pb-4 mb-6">
                     <Landmark className="text-[#5845D8]" size={18} />
-                    <h3 className="font-black text-[#111827] text-[11px] uppercase tracking-widest">{t('withdrawalMethods')}</h3>
+                    <h3 className="font-semibold text-[#171B22] text-[13px] ">{t('withdrawalMethods')}</h3>
                 </div>
 
                 {user?.kycStatus !== 'approved' && !user?.isKycCompleted && (
                     <div className="mb-6 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
                         <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16} />
                         <div className="flex-1">
-                            <p className="font-black text-[10px] text-amber-900 uppercase tracking-wider mb-1">Identity Verification Required</p>
-                            <p className="text-[10px] text-amber-700 font-medium leading-relaxed">You need to verify your identity before setting up payout methods.</p>
+                            <p className="font-semibold text-[13px] text-amber-900 mb-1">Identity Verification Required</p>
+                            <p className="text-[13px] text-amber-700 font-medium leading-relaxed">You need to verify your identity before setting up payout methods.</p>
                         </div>
                         <button
                             onClick={() => navigate('/verify')}
-                            className="shrink-0 bg-amber-500 text-white px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-600 transition-all"
+                            className="shrink-0 bg-amber-500 text-white px-3 py-1.5 rounded-full font-semibold text-xs hover:bg-amber-600 transition-all"
                         >
                             Verify Now
                         </button>
@@ -818,7 +818,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 )}
 
                 <div className="mb-6 rounded-2xl border border-[#5845D8]/10 bg-[#5845D8]/5 p-4">
-                    <label className="mb-2 block text-[8px] font-black uppercase tracking-widest text-[#5845D8]">
+                    <label className="mb-2 block text-[11px] font-semibold text-[#5845D8]">
                         Country of residence
                     </label>
                     <select
@@ -829,27 +829,27 @@ export default function Settings({ user, checkAuthStatus }) {
                             if (detectedCurrency) handlePayoutCurrencyChange(detectedCurrency, country);
                         }}
                         disabled={bankLoading}
-                        className="mb-4 w-full rounded-xl border border-[#5845D8]/10 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-tight text-[#111827] outline-none focus:border-[#5845D8]/30 disabled:opacity-60"
+                        className="mb-4 w-full rounded-xl border border-[#5845D8]/10 bg-white px-4 py-3 text-[13px] font-semibold tracking-tight text-[#171B22] outline-none focus:border-[#5845D8]/30 disabled:opacity-60"
                     >
                         <option value="">— select your country —</option>
                         {COUNTRY_CODES.filter((country) => PAYOUT_CURRENCIES.includes(COUNTRY_TO_CURRENCY[country.code])).map((country) => (
                             <option key={country.code} value={country.code}>{country.flag} {country.name}</option>
                         ))}
                     </select>
-                    <label className="mb-2 block text-[8px] font-black uppercase tracking-widest text-[#5845D8]">
+                    <label className="mb-2 block text-[11px] font-semibold text-[#5845D8]">
                         Payout and wallet currency
                     </label>
                     <select
                         value={payoutCurrency}
                         onChange={(event) => handlePayoutCurrencyChange(event.target.value)}
                         disabled={bankLoading}
-                        className="w-full rounded-xl border border-[#5845D8]/10 bg-white px-4 py-3 text-[11px] font-black uppercase tracking-tight text-[#111827] outline-none focus:border-[#5845D8]/30 disabled:opacity-60"
+                        className="w-full rounded-xl border border-[#5845D8]/10 bg-white px-4 py-3 text-[13px] font-semibold tracking-tight text-[#171B22] outline-none focus:border-[#5845D8]/30 disabled:opacity-60"
                     >
                         {PAYOUT_CURRENCIES.map((code) => (
                             <option key={code} value={code}>{code}</option>
                         ))}
                     </select>
-                    <p className="mt-2 text-[8px] font-bold leading-relaxed text-[#5845D8]/70">
+                    <p className="mt-2 text-[11px] font-bold leading-relaxed text-[#5845D8]/70">
                         Selecting another currency starts account setup. Bago keeps {linkedPayoutCurrency} unless the new account is confirmed by email OTP.
                     </p>
                 </div>
@@ -857,9 +857,9 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="grid grid-cols-1 gap-8">
                     {showBankOption && (
                         <div className="space-y-4">
-                            <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 group hover:border-[#5845D8]/20 transition-all">
-                                <h4 className="flex items-center gap-2 text-[10px] font-black text-[#111827] mb-4 uppercase tracking-widest">
-                                    <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[8px]">2</span>
+                            <div className="p-6 bg-gray-50/50 rounded-[24px] border border-[#ECEBF3] group hover:border-[#5845D8]/20 transition-all">
+                                <h4 className="flex items-center gap-2 text-[13px] font-semibold text-[#171B22] mb-4 ">
+                                    <span className="w-5 h-5 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[11px]">2</span>
                                     Bank Transfer ({payoutCurrency})
                                 </h4>
                                 {hasBankPayout && (
@@ -868,8 +868,8 @@ export default function Settings({ user, checkAuthStatus }) {
                                             <Check size={14} strokeWidth={4} />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-[9px] font-black text-green-700 uppercase tracking-widest">Bank payout connected</p>
-                                            <p className="text-[8px] text-green-600 font-bold uppercase opacity-60">
+                                            <p className="text-xs font-semibold text-green-700 ">Bank payout connected</p>
+                                            <p className="text-[11px] text-green-600 font-bold opacity-60">
                                                 {bankDetails?.bankName || bankDetails?.bank_name || bankName || 'Bank transfer'}
                                             </p>
                                         </div>
@@ -884,35 +884,35 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 value={accountHolderName}
                                                 onChange={(e) => setAccountHolderName(e.target.value)}
                                                 placeholder="Account holder name"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm tracking-tight"
                                             />
                                             <input
                                                 type="text"
                                                 value={iban}
                                                 onChange={(e) => setIban(e.target.value)}
                                                 placeholder="IBAN"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest uppercase"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm "
                                             />
                                             <input
                                                 type="text"
                                                 value={bankName}
                                                 onChange={(e) => setBankName(e.target.value)}
                                                 placeholder="Bank name"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm"
                                             />
                                             <input
                                                 type="text"
                                                 value={swiftBic}
                                                 onChange={(e) => setSwiftBic(e.target.value)}
                                                 placeholder="SWIFT/BIC"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest uppercase"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm "
                                             />
                                             <input
                                                 type="text"
                                                 value={payoutAddressLine1}
                                                 onChange={(e) => setPayoutAddressLine1(e.target.value)}
                                                 placeholder="Residential street address"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm"
                                             />
                                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                                 <input
@@ -920,14 +920,14 @@ export default function Settings({ user, checkAuthStatus }) {
                                                     value={payoutCity}
                                                     onChange={(e) => setPayoutCity(e.target.value)}
                                                     placeholder="City"
-                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={payoutState}
                                                     onChange={(e) => setPayoutState(e.target.value)}
                                                     placeholder="State / region (optional)"
-                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm"
+                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm"
                                                 />
                                             </div>
                                             <input
@@ -935,7 +935,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 value={payoutPostalCode}
                                                 onChange={(e) => setPayoutPostalCode(e.target.value)}
                                                 placeholder="Postal code"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm "
                                             />
                                         </>
                                     ) : (
@@ -949,7 +949,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                                         value={bankCode}
                                                         onChange={(e) => setBankCode(e.target.value)}
                                                         placeholder="Sort code (6 digits)"
-                                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest"
+                                                        className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm "
                                                     />
                                                 </>
                                             ) : (
@@ -960,7 +960,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                                         const selectedBank = banks.find(bank => String(bank.code) === e.target.value);
                                                         setBankName(selectedBank?.name || '');
                                                     }}
-                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight"
+                                                    className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm tracking-tight"
                                                 >
                                                     <option value="">Select bank</option>
                                                     {banks.map((bank) => (
@@ -973,7 +973,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 value={accountNumber}
                                                 onChange={(e) => setAccountNumber(e.target.value)}
                                                 placeholder={t('accountNumber')}
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[11px] font-black text-[#111827] shadow-sm tracking-widest"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent focus:border-[#5845D8]/20 outline-none text-[13px] font-semibold text-[#171B22] shadow-sm "
                                             />
                                             <input
                                                 type="text"
@@ -981,7 +981,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 onChange={(e) => setAccountHolderName(e.target.value)}
                                                 placeholder={t('accountHolderName')}
                                                 readOnly={!isGbpCurrency}
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[11px] font-black text-[#111827] shadow-sm uppercase tracking-tight opacity-70"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-transparent outline-none text-[13px] font-semibold text-[#171B22] shadow-sm tracking-tight opacity-70"
                                             />
                                         </>
                                     )}
@@ -990,7 +990,7 @@ export default function Settings({ user, checkAuthStatus }) {
                                             type="button"
                                             onClick={isIbanCurrency ? handleStartIbanSetup : handleStartBankSetup}
                                             disabled={bankLoading}
-                                            className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                            className="w-full bg-[#5845D8] text-white py-3 rounded-full font-semibold text-[13px] hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
                                             {bankLoading ? <RefreshCw className="animate-spin" size={14} /> : <ShieldCheck size={14} />}
                                             Verify bank account
@@ -1003,13 +1003,13 @@ export default function Settings({ user, checkAuthStatus }) {
                                                 value={bankOtp}
                                                 onChange={(e) => setBankOtp(e.target.value)}
                                                 placeholder="000000"
-                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-[#5845D8]/20 outline-none text-center text-sm font-black tracking-[8px] text-[#111827] shadow-sm"
+                                                className="w-full px-4 py-2.5 bg-white rounded-xl border border-[#5845D8]/20 outline-none text-center text-sm font-semibold tracking-[8px] text-[#171B22] shadow-sm"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={handleVerifyBankOtp}
                                                 disabled={bankLoading}
-                                                className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                                className="w-full bg-[#5845D8] text-white py-3 rounded-full font-semibold text-[13px] hover:bg-[#4838B5] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
                                                 {bankLoading ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                                                 Confirm payout account
@@ -1025,7 +1025,7 @@ export default function Settings({ user, checkAuthStatus }) {
                 <div className="mt-8 pt-6 border-t border-gray-50 flex justify-end">
                     <button
                         onClick={handleUpdateProfile}
-                        className="px-6 py-3 bg-[#5845D8] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#4838B5] transition-all flex items-center gap-2 shadow-lg"
+                        className="px-6 py-3 bg-[#5845D8] text-white rounded-full font-semibold text-[13px] hover:bg-[#4838B5] transition-all flex items-center gap-2 shadow-lg"
                     >
                         {loading ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                         {t('saveDetails')}
@@ -1038,14 +1038,14 @@ export default function Settings({ user, checkAuthStatus }) {
             {successMessage && (
                 <div className="fixed bottom-10 right-10 bg-[#5845D8] text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50 border border-white/20 backdrop-blur-md">
                     <CheckCircle className="text-green-400" size={18} />
-                    <span className="font-black text-[11px] uppercase tracking-wide">{successMessage}</span>
+                    <span className="font-semibold text-[13px] tracking-wide">{successMessage}</span>
                     <button onClick={() => setSuccessMessage('')} className="ml-3 opacity-40 hover:opacity-100 transition-opacity">✕</button>
                 </div>
             )}
             {error && (
                 <div className="fixed bottom-10 right-10 bg-red-500 text-white px-5 py-3.5 rounded-[20px] shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-right duration-500 z-50">
                     <AlertCircle size={18} />
-                    <span className="font-black text-[11px] uppercase tracking-wide">{error}</span>
+                    <span className="font-semibold text-[13px] tracking-wide">{error}</span>
                     <button onClick={() => setError('')} className="ml-3 opacity-40 hover:opacity-100 transition-opacity">✕</button>
                 </div>
             )}
@@ -1054,9 +1054,9 @@ export default function Settings({ user, checkAuthStatus }) {
 }
 
 const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountNumber, accountHolderName, setAccountHolderName }) => (
-    <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-        <h4 className="flex items-center gap-2 text-sm font-black text-[#111827] mb-4">
-            <span className="w-6 h-6 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[10px]">2</span>
+    <div className="p-6 bg-gray-50 rounded-[24px] border border-[#ECEBF3]">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-[#171B22] mb-4">
+            <span className="w-6 h-6 rounded-full bg-[#5845D8] text-white flex items-center justify-center text-[13px]">2</span>
             Nigerian Bank Transfer (NGN)
         </h4>
         <div className="space-y-3">
@@ -1065,21 +1065,21 @@ const BankTransferSection = ({ bankName, setBankName, accountNumber, setAccountN
                 value={bankName}
                 onChange={(e) => setBankName(e.target.value)}
                 placeholder="Bank Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#111827]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#171B22]"
             />
             <input
                 type="text"
                 value={accountNumber}
                 onChange={(e) => setAccountNumber(e.target.value)}
                 placeholder="Account Number"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#111827]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-200 focus:border-[#5845D8] outline-none text-sm font-bold text-[#171B22]"
             />
             <input
                 type="text"
                 value={accountHolderName}
                 onChange={(e) => setAccountHolderName(e.target.value)}
                 placeholder="Account Holder Name"
-                className="w-full px-4 py-3 bg-white rounded-2xl border border-gray-100 focus:border-[#5845D8] outline-none text-sm font-bold text-[#111827]"
+                className="w-full px-4 py-3 bg-white rounded-2xl border border-[#ECEBF3] focus:border-[#5845D8] outline-none text-sm font-bold text-[#171B22]"
             />
         </div>
     </div>

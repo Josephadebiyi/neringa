@@ -27,6 +27,7 @@ import {
     MapPin,
 } from 'lucide-react';
 import api from '../api';
+import AppTopBar from '../components/AppTopBar';
 import { countries, locations } from '../utils/countries';
 
 const ITEM_CATEGORIES = [
@@ -139,23 +140,8 @@ const TravelMeanIcon = ({ means }) => {
 };
 
 const Navbar = () => {
-    const navigate = useNavigate();
     const { t } = useLanguage();
-    return (
-        <nav className="w-full bg-white/95 backdrop-blur border-b border-gray-100 py-3 px-4 md:px-8 flex justify-between items-center z-50 sticky top-0">
-            <button
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-1.5 text-[#012126] hover:text-[#5845D8] transition-colors"
-            >
-                <ChevronLeft size={20} />
-                <span className="font-bold text-xs hidden sm:block">{t('back')}</span>
-            </button>
-            <Link to="/" className="flex items-center">
-                <img src="/bago_logo.png" alt="Bago" className="h-7 w-auto" />
-            </Link>
-            <div className="w-16" />
-        </nav>
-    );
+    return <AppTopBar backLabel={t('back') || 'Back'} />;
 };
 
 export default function SendPackage() {
@@ -429,7 +415,7 @@ export default function SendPackage() {
         ?? '–';
 
     // Shared field style
-    const field = 'w-full px-4 py-3 rounded-[14px] border border-gray-100 focus:border-[#5845D8]/30 outline-none text-sm font-bold bg-[#F5F4FC] hover:bg-white focus:bg-white focus:shadow-sm transition-all text-[#012126]';
+    const field = 'w-full px-4 py-3 rounded-[14px] border border-[#ECEBF3] focus:border-[#5845D8]/30 outline-none text-sm font-bold bg-[#F5F4FC] hover:bg-white focus:bg-white focus:shadow-sm transition-all text-[#171B22]';
 
     return (
         <div className="min-h-screen bg-[#F5F4FC]">
@@ -439,8 +425,8 @@ export default function SendPackage() {
 
                 {/* Page title — visible on desktop */}
                 <div className="hidden lg:flex items-center gap-3 mb-8">
-                    <h1 className="text-2xl font-black text-[#012126] tracking-tight">Request Shipment</h1>
-                    <span className="text-[10px] font-black text-[#5845D8] bg-[#5845D8]/8 px-3 py-1 rounded-full uppercase tracking-widest">Secure Checkout</span>
+                    <h1 className="text-2xl font-extrabold text-[#171B22] tracking-[-0.03em]">Request Shipment</h1>
+                    <span className="text-[13px] font-semibold text-[#5845D8] bg-[#5845D8]/8 px-3 py-1 rounded-full ">Secure Checkout</span>
                 </div>
 
                 {/* ── Traveler Hero Card (full-width) ── */}
@@ -453,20 +439,20 @@ export default function SendPackage() {
                         <div className="absolute bottom-0 left-0 w-28 h-28 bg-white/5 rounded-full -ml-10 -mb-10 pointer-events-none" />
 
                         <div className="flex items-center gap-4 relative">
-                            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-2xl font-black overflow-hidden shrink-0">
+                            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-2xl font-extrabold overflow-hidden shrink-0">
                                 {travelerImage
                                     ? <img src={travelerImage} alt={travelerName} className="w-full h-full object-cover" />
                                     : travelerName.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-black text-xl leading-tight truncate">{travelerName}</p>
+                                <p className="font-extrabold text-xl leading-tight truncate">{travelerName}</p>
                                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                     <span className="flex items-center gap-1">
                                         <Star size={12} className="fill-yellow-300 text-yellow-300" />
                                         <span className="text-xs font-bold text-white/90">{travelerRating}</span>
                                     </span>
                                     <span className="text-white/30">•</span>
-                                    <span className="inline-flex items-center gap-1 bg-white/15 rounded-full px-2.5 py-1 text-[10px] font-bold">
+                                    <span className="inline-flex items-center gap-1 bg-white/15 rounded-full px-2.5 py-1 text-[13px] font-bold">
                                         <TravelMeanIcon means={travelMeans} /> {travelMeans}
                                     </span>
                                 </div>
@@ -475,12 +461,12 @@ export default function SendPackage() {
 
                         <div className="flex gap-3 mt-4 relative">
                             <div className="flex-1 bg-white/15 rounded-[14px] px-3 py-3 text-center">
-                                <p className="text-[9px] font-bold text-white/55 uppercase tracking-wide mb-0.5">Available</p>
-                                <p className="text-sm font-black">{availableKg} kg</p>
+                                <p className="text-xs font-bold text-white/55 tracking-wide mb-0.5">Available</p>
+                                <p className="text-sm font-semibold">{availableKg} kg</p>
                             </div>
                             <div className="flex-1 bg-white/15 rounded-[14px] px-3 py-3 text-center">
-                                <p className="text-[9px] font-bold text-white/55 uppercase tracking-wide mb-0.5">Price / kg</p>
-                                <p className="text-sm font-black">
+                                <p className="text-xs font-bold text-white/55 tracking-wide mb-0.5">Price / kg</p>
+                                <p className="text-sm font-semibold">
                                     {previewLoading
                                         ? 'Calculating…'
                                         : senderPricePerKg !== null
@@ -490,8 +476,8 @@ export default function SendPackage() {
                             </div>
                             {selectedTrip.departureDate && (
                                 <div className="flex-1 bg-white/15 rounded-[14px] px-3 py-3 text-center">
-                                    <p className="text-[9px] font-bold text-white/55 uppercase tracking-wide mb-0.5">Departs</p>
-                                    <p className="text-sm font-black">
+                                    <p className="text-xs font-bold text-white/55 tracking-wide mb-0.5">Departs</p>
+                                    <p className="text-sm font-semibold">
                                         {new Date(selectedTrip.departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                     </p>
                                 </div>
@@ -502,12 +488,12 @@ export default function SendPackage() {
 
                 {/* ── Route Card (full-width) ── */}
                 {selectedTrip && (
-                    <div className="bg-white rounded-[20px] px-5 py-4 mb-5 border border-gray-100 shadow-sm">
+                    <div className="bg-white rounded-[20px] px-5 py-4 mb-5 border border-[#ECEBF3] shadow-sm">
                         <div className="flex items-center gap-4">
                             <MapPin size={15} className="text-[#5845D8] shrink-0" />
                             <div className="flex-1 min-w-0">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">From</p>
-                                <p className="text-sm font-black text-[#012126] truncate">
+                                <p className="text-xs font-semibold text-[#6B7280] ">From</p>
+                                <p className="text-sm font-semibold text-[#171B22] truncate">
                                     {formData.fromCity || '–'}{formData.fromCountry ? `, ${formData.fromCountry}` : ''}
                                 </p>
                             </div>
@@ -515,8 +501,8 @@ export default function SendPackage() {
                                 <ArrowRight size={14} className="text-[#5845D8]" />
                             </div>
                             <div className="flex-1 min-w-0 text-right">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">To</p>
-                                <p className="text-sm font-black text-[#012126] truncate">
+                                <p className="text-xs font-semibold text-[#6B7280] ">To</p>
+                                <p className="text-sm font-semibold text-[#171B22] truncate">
                                     {formData.toCity || '–'}{formData.toCountry ? `, ${formData.toCountry}` : ''}
                                 </p>
                             </div>
@@ -524,7 +510,7 @@ export default function SendPackage() {
                         <button
                             type="button"
                             onClick={() => navigate(-1)}
-                            className="mt-3 text-[10px] font-bold text-[#5845D8] hover:opacity-70 transition-opacity underline underline-offset-2"
+                            className="mt-3 text-[13px] font-bold text-[#5845D8] hover:opacity-70 transition-opacity underline underline-offset-2"
                         >
                             Change route
                         </button>
@@ -539,18 +525,18 @@ export default function SendPackage() {
                         <div className="lg:col-span-2 space-y-4">
 
                             {/* Shipment Details */}
-                            <div className="bg-white rounded-[20px] p-5 md:p-6 border border-gray-100 shadow-sm">
+                            <div className="bg-white rounded-[20px] p-5 md:p-6 border border-[#ECEBF3] shadow-sm">
                                 <div className="flex items-center gap-2.5 mb-5">
                                     <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                                         <Package size={17} />
                                     </div>
-                                    <h2 className="text-sm font-black text-[#012126]">Shipment Details</h2>
+                                    <h2 className="text-sm font-semibold text-[#171B22]">Shipment Details</h2>
                                 </div>
 
                                 {/* Weight + Value */}
                                 <div className="grid grid-cols-2 gap-3 mb-5">
                                     <div>
-                                        <label className="block text-xs font-black text-[#012126] mb-1.5 ml-0.5">Weight (kg)</label>
+                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Weight (kg)</label>
                                         <input
                                             required type="number"
                                             name="packageWeight"
@@ -562,7 +548,7 @@ export default function SendPackage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black text-[#012126] mb-1.5 ml-0.5">Item Value ({currency})</label>
+                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Item Value ({currency})</label>
                                         <input
                                             required type="number"
                                             name="packageValue"
@@ -577,7 +563,7 @@ export default function SendPackage() {
 
                                 {/* Category grid */}
                                 <div className="mb-5">
-                                    <label className="block text-xs font-black text-[#012126] mb-2.5 ml-0.5">Category</label>
+                                    <label className="block text-xs font-semibold text-[#171B22] mb-2.5 ml-0.5">Category</label>
                                     <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6 gap-2">
                                         {ITEM_CATEGORIES.map(({ value, label, icon: Icon }) => {
                                             const sel = formData.category === value;
@@ -592,7 +578,7 @@ export default function SendPackage() {
                                                     }`}
                                                 >
                                                     <Icon size={18} strokeWidth={2} />
-                                                    <span className="text-[10px] font-black">{label}</span>
+                                                    <span className="text-[13px] font-semibold">{label}</span>
                                                 </button>
                                             );
                                         })}
@@ -601,7 +587,7 @@ export default function SendPackage() {
 
                                 {/* Image picker */}
                                 <div>
-                                    <label className="block text-xs font-black text-[#012126] mb-2.5 ml-0.5">Item Photo</label>
+                                    <label className="block text-xs font-semibold text-[#171B22] mb-2.5 ml-0.5">Item Photo</label>
                                     <div
                                         onClick={() => document.getElementById('item-image').click()}
                                         className={`w-full h-44 md:h-52 border-2 border-dashed rounded-[18px] flex flex-col items-center justify-center cursor-pointer transition-all ${
@@ -614,11 +600,11 @@ export default function SendPackage() {
                                             <img src={formData.imagePreview} alt="Preview" className="w-full h-full object-cover rounded-[16px]" />
                                         ) : (
                                             <>
-                                                <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-300 mb-2">
+                                                <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-[#9CA3AF] mb-2">
                                                     <Package size={22} />
                                                 </div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tap to add photo</p>
-                                                <p className="text-[9px] text-gray-300 font-medium mt-1 px-8 text-center">A clear photo helps the traveler confirm your item</p>
+                                                <p className="text-[13px] font-semibold text-[#6B7280] ">Tap to add photo</p>
+                                                <p className="text-xs text-[#9CA3AF] font-medium mt-1 px-8 text-center">A clear photo helps the traveler confirm your item</p>
                                             </>
                                         )}
                                         <input id="item-image" type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
@@ -627,7 +613,7 @@ export default function SendPackage() {
                                         <button
                                             type="button"
                                             onClick={() => setFormData(prev => ({ ...prev, packageImage: null, imagePreview: null }))}
-                                            className="mt-2 text-[10px] font-bold text-red-400 hover:text-red-600 transition-colors ml-1"
+                                            className="mt-2 text-[13px] font-bold text-red-400 hover:text-red-600 transition-colors ml-1"
                                         >
                                             Remove photo
                                         </button>
@@ -636,17 +622,17 @@ export default function SendPackage() {
                             </div>
 
                             {/* Receiver Details */}
-                            <div className="bg-white rounded-[20px] p-5 md:p-6 border border-gray-100 shadow-sm">
+                            <div className="bg-white rounded-[20px] p-5 md:p-6 border border-[#ECEBF3] shadow-sm">
                                 <div className="flex items-center gap-2.5 mb-5">
                                     <div className="w-8 h-8 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
                                         <User size={17} />
                                     </div>
-                                    <h2 className="text-sm font-black text-[#012126]">Receiver Details</h2>
+                                    <h2 className="text-sm font-semibold text-[#171B22]">Receiver Details</h2>
                                 </div>
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-xs font-black text-[#012126] mb-1.5 ml-0.5">Full Name</label>
+                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Full Name</label>
                                         <input
                                             required type="text"
                                             name="receiverName"
@@ -658,7 +644,7 @@ export default function SendPackage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black text-[#012126] mb-1.5 ml-0.5">Phone Number</label>
+                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Phone Number</label>
                                         <PhoneInput
                                             country={receiverPhoneCountry}
                                             value={formData.receiverPhone}
@@ -666,15 +652,15 @@ export default function SendPackage() {
                                             enableSearch disableSearchIcon
                                             inputProps={{ name: 'receiverPhone', required: true }}
                                             containerClass="!w-full"
-                                            inputClass="!w-full !h-[50px] !pl-[68px] !pr-4 !rounded-[14px] !border !border-gray-100 !bg-[#F5F4FC] focus:!bg-white focus:!border-[#5845D8]/30 !outline-none !text-sm !font-bold !text-[#012126]"
-                                            buttonClass="!h-[50px] !w-[60px] !rounded-l-[14px] !border !border-gray-100 !border-r-0 !bg-white/70 hover:!bg-white"
-                                            dropdownClass="!rounded-2xl !border-gray-100 !shadow-xl !text-sm"
-                                            searchClass="!mx-3 !my-2 !w-[calc(100%-24px)] !rounded-xl !border-gray-100 !py-2"
+                                            inputClass="!w-full !h-[50px] !pl-[68px] !pr-4 !rounded-[14px] !border !border-[#ECEBF3] !bg-[#F5F4FC] focus:!bg-white focus:!border-[#5845D8]/30 !outline-none !text-sm !font-bold !text-[#171B22]"
+                                            buttonClass="!h-[50px] !w-[60px] !rounded-l-[14px] !border !border-[#ECEBF3] !border-r-0 !bg-white/70 hover:!bg-white"
+                                            dropdownClass="!rounded-2xl !border-[#ECEBF3] !shadow-xl !text-sm"
+                                            searchClass="!mx-3 !my-2 !w-[calc(100%-24px)] !rounded-xl !border-[#ECEBF3] !py-2"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black text-[#012126] mb-1.5 ml-0.5">Delivery Address</label>
+                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Delivery Address</label>
                                         <textarea
                                             required
                                             name="deliveryAddress"
@@ -687,8 +673,8 @@ export default function SendPackage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black text-[#012126] mb-1.5 ml-0.5">
-                                            Note to Traveler <span className="text-gray-400 font-medium">(optional)</span>
+                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">
+                                            Note to Traveler <span className="text-[#6B7280] font-medium">(optional)</span>
                                         </label>
                                         <textarea
                                             name="specialInstructions"
@@ -717,13 +703,13 @@ export default function SendPackage() {
                                         <Shield size={18} />
                                     </div>
                                     <div className="flex-1">
-                                        <p className="text-sm font-black text-[#012126]">Item Protection</p>
+                                        <p className="text-sm font-semibold text-[#171B22]">Item Protection</p>
                                         {formData.insuranceProtection && insuranceCost > 0 ? (
                                             <p className="text-xs text-[#5845D8] font-bold mt-0.5">
                                                 +{previewCurrency} {insuranceCost.toFixed(2)} fixed protection
                                             </p>
                                         ) : (
-                                            <p className="text-xs text-gray-400 font-medium mt-0.5">Protect your item against loss or damage</p>
+                                            <p className="text-xs text-[#6B7280] font-medium mt-0.5">Protect your item against loss or damage</p>
                                         )}
                                     </div>
                                     <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${formData.insuranceProtection ? 'bg-[#5845D8]' : 'bg-gray-200'}`}>
@@ -733,8 +719,8 @@ export default function SendPackage() {
                             </button>
 
                             {/* Terms — visible only on mobile (below form, before sidebar) */}
-                            <div className="lg:hidden bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm space-y-2.5">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Shipping Agreement</p>
+                            <div className="lg:hidden bg-white rounded-[20px] p-5 border border-[#ECEBF3] shadow-sm space-y-2.5">
+                                <p className="text-xs font-semibold text-[#6B7280] mb-1">Shipping Agreement</p>
                                 {['My shipment does not contain any prohibited or restricted items.',
                                   'I understand the traveler may inspect the contents for safety.',
                                   "I agree to follow Bago's guidelines and take responsibility for my shipment.",
@@ -745,7 +731,7 @@ export default function SendPackage() {
                                         }`}>
                                             <Check size={11} />
                                         </div>
-                                        <p className="text-xs font-medium text-gray-500 leading-relaxed group-hover:text-[#012126] transition-colors">{label}</p>
+                                        <p className="text-xs font-medium text-[#6B7280] leading-relaxed group-hover:text-[#171B22] transition-colors">{label}</p>
                                     </div>
                                 ))}
                             </div>
@@ -775,7 +761,7 @@ export default function SendPackage() {
                             <button
                                 type="submit"
                                 disabled={loading || !canCheckout}
-                                className="lg:hidden w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-black text-[11px] uppercase tracking-[2px] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="lg:hidden w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-semibold text-[13px] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
                             </button>
@@ -786,48 +772,48 @@ export default function SendPackage() {
                             <div className="sticky top-24 space-y-4">
 
                                 {/* Price Summary */}
-                                <div className="bg-[#012126] rounded-[24px] p-6 text-white overflow-hidden relative shadow-xl">
+                                <div className="bg-[#171B22] rounded-[24px] p-6 text-white overflow-hidden relative shadow-xl">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-12 -mt-12 pointer-events-none" />
-                                    <h3 className="text-[9px] font-black uppercase tracking-widest text-white/45 mb-5">Price Summary</h3>
+                                    <h3 className="text-xs font-semibold text-white/45 mb-5">Price Summary</h3>
                                     <div className="space-y-3 relative">
                                         {previewLoading && (
-                                            <div className="rounded-[14px] bg-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/70">
+                                            <div className="rounded-[14px] bg-white/10 px-3 py-2 text-[13px] font-semibold text-white/70">
                                                 Calculating checkout total…
                                             </div>
                                         )}
                                         {previewError && (
-                                            <div className="rounded-[14px] bg-red-500/15 px-3 py-2 text-[10px] font-bold text-red-100">
+                                            <div className="rounded-[14px] bg-red-500/15 px-3 py-2 text-[13px] font-bold text-red-100">
                                                 {previewError}
                                             </div>
                                         )}
                                         {selectedTrip && formData.fromCity && (
                                             <>
-                                                <div className="text-[10px] font-black text-white/40 uppercase tracking-wider mb-4">
+                                                <div className="text-[13px] font-semibold text-white/40 mb-4">
                                                     {formData.fromCity} → {formData.toCity}
                                                 </div>
                                             </>
                                         )}
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-white/60 font-medium">Traveler delivery rate</span>
-                                            <span className="text-sm font-black">
+                                            <span className="text-sm font-semibold">
                                                 {checkoutPreview ? `${previewCurrency} ${travelerCost.toFixed(2)}` : '--'}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm text-white/60 font-medium">Bago service and payment fees</span>
-                                            <span className="text-sm font-black">
+                                            <span className="text-sm font-semibold">
                                                 {checkoutPreview ? `${previewCurrency} ${bagoFee.toFixed(2)}` : '--'}
                                             </span>
                                         </div>
                                         {formData.insuranceProtection && insuranceCost > 0 && (
                                             <div className="flex justify-between items-center">
                                                 <span className="text-sm text-white/60 font-medium">Protection</span>
-                                                <span className="text-sm font-black">{previewCurrency} {insuranceCost.toFixed(2)}</span>
+                                                <span className="text-sm font-semibold">{previewCurrency} {insuranceCost.toFixed(2)}</span>
                                             </div>
                                         )}
                                         <div className="border-t border-white/10 pt-4 flex justify-between items-end">
-                                            <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Total</span>
-                                            <span className="text-2xl font-black">
+                                            <span className="text-xs font-semibold text-white/40 ">Total</span>
+                                            <span className="text-2xl font-extrabold">
                                                 {checkoutPreview ? `${previewCurrency} ${totalCost}` : '--'}
                                             </span>
                                         </div>
@@ -835,8 +821,8 @@ export default function SendPackage() {
                                 </div>
 
                                 {/* Terms — desktop */}
-                                <div className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm space-y-2.5">
-                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Agreement</p>
+                                <div className="bg-white rounded-[20px] p-5 border border-[#ECEBF3] shadow-sm space-y-2.5">
+                                    <p className="text-xs font-semibold text-[#6B7280] mb-1">Agreement</p>
                                     {['My shipment does not contain any prohibited or restricted items.',
                                       'I understand the traveler may inspect the contents for safety.',
                                       "I agree to follow Bago's guidelines and take responsibility.",
@@ -847,7 +833,7 @@ export default function SendPackage() {
                                             }`}>
                                                 <Check size={11} />
                                             </div>
-                                            <p className="text-[11px] font-medium text-gray-500 leading-relaxed group-hover:text-[#012126] transition-colors">{label}</p>
+                                            <p className="text-[13px] font-medium text-[#6B7280] leading-relaxed group-hover:text-[#171B22] transition-colors">{label}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -864,12 +850,12 @@ export default function SendPackage() {
                                 <button
                                     type="submit"
                                     disabled={loading || !canCheckout}
-                                    className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-black text-[11px] uppercase tracking-[2px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="w-full py-4 bg-[#5845D8] hover:bg-[#4838B5] text-white rounded-[18px] font-semibold text-[13px] transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                                 >
                                     {loading ? 'Processing…' : previewLoading ? 'Calculating…' : <><span>Continue to Payment</span> <ArrowRight size={14} /></>}
                                 </button>
 
-                                <p className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                                <p className="text-center text-xs font-bold text-[#6B7280] ">
                                     By continuing you agree to{' '}
                                     <Link to="/terms" className="text-[#5845D8] underline hover:opacity-70">Bago's terms</Link>
                                 </p>
@@ -878,7 +864,7 @@ export default function SendPackage() {
                     </div>
 
                     {/* Mobile terms link */}
-                    <p className="lg:hidden text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-4">
+                    <p className="lg:hidden text-center text-xs font-bold text-[#6B7280] mt-4">
                         By continuing you agree to{' '}
                         <Link to="/terms" className="text-[#5845D8] underline hover:opacity-70">Bago's terms</Link>
                     </p>

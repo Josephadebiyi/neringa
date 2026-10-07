@@ -139,38 +139,38 @@ export default function Referral({ user }) {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="rounded-[30px] bg-[#5845D8] text-white p-8 overflow-hidden relative">
+            <div className="rounded-[28px] bg-gradient-to-br from-[#7A6CF0] via-[#5F4FDC] to-[#4C3CC8] text-white p-8 overflow-hidden relative">
                 <div className="absolute right-0 top-0 w-72 h-72 bg-[#5845D8]/30 rounded-full blur-3xl translate-x-24 -translate-y-24" />
                 <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 items-end">
                     <div>
                         <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center mb-5">
                             <Gift size={24} />
                         </div>
-                        <p className="text-[10px] uppercase tracking-[0.25em] text-white/45 font-black mb-3">Referral Program</p>
-                        <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-none mb-4">Invite people. Earn real wallet bonuses.</h2>
+                        <p className="text-[13px] text-white/45 font-semibold mb-3">Referral Program</p>
+                        <h2 className="text-3xl md:text-5xl font-extrabold tracking-[-0.03em] leading-none mb-4">Invite people. Earn real wallet bonuses.</h2>
                         <p className="text-white/60 font-semibold max-w-2xl">
                             Both accounts receive the welcome referral bonus once your invite creates an account. A qualifying shipment unlocks the extra shipment bonus.
                         </p>
                     </div>
-                    <div className="bg-white/8 border border-white/10 rounded-3xl p-5">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-white/40 mb-2">Total referral earnings</p>
-                        <p className="text-4xl font-black tracking-tight">{money(totalEarned, currency)}</p>
-                        <p className="text-[10px] text-white/45 mt-2 font-bold">Added through real wallet transactions</p>
+                    <div className="bg-white/8 border border-white/10 rounded-[24px] p-5">
+                        <p className="text-xs font-semibold text-white/40 mb-2">Total referral earnings</p>
+                        <p className="text-4xl font-extrabold tracking-[-0.03em]">{money(totalEarned, currency)}</p>
+                        <p className="text-[13px] text-white/45 mt-2 font-bold">Added through real wallet transactions</p>
                     </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="lg:col-span-2 bg-white rounded-[28px] border border-gray-100 p-6 shadow-sm">
+                <div className="lg:col-span-2 bg-white rounded-[24px] border border-[#ECEBF3] p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-5">
                         <Share2 size={18} className="text-[#5845D8]" />
-                        <h3 className="font-black text-[#111827] text-lg">Your invite link</h3>
+                        <h3 className="font-semibold text-[#171B22] text-lg">Your invite link</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3">
                         <button
                             onClick={() => copyValue(referralCode, 'code')}
                             disabled={!referralCode}
-                            className="bg-[#5845D8]/8 text-[#5845D8] rounded-2xl px-5 py-4 font-black tracking-widest flex items-center justify-between"
+                            className="bg-[#5845D8]/8 text-[#5845D8] rounded-full px-5 py-4 font-semibold flex items-center justify-between"
                         >
                             {referralCode || 'Generating referral code...'}
                             <Copy size={15} />
@@ -178,37 +178,37 @@ export default function Referral({ user }) {
                         <button
                             onClick={() => copyValue(link, 'link')}
                             disabled={!link}
-                            className="bg-gray-50 rounded-2xl px-5 py-4 text-left text-sm font-bold text-[#111827] flex items-center justify-between gap-4 overflow-hidden"
+                            className="bg-gray-50 rounded-2xl px-5 py-4 text-left text-sm font-bold text-[#171B22] flex items-center justify-between gap-4 overflow-hidden"
                         >
                             <span className="truncate">{link || 'Referral link will appear when your code is ready'}</span>
                             <Copy size={15} className="text-[#5845D8] shrink-0" />
                         </button>
                     </div>
-                    {copied && <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest mt-3">{copied} copied</p>}
+                    {copied && <p className="text-[13px] text-emerald-600 font-semibold mt-3">{copied} copied</p>}
                 </div>
 
-                <div className="bg-white rounded-[28px] border border-gray-100 p-6 shadow-sm">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-4">Current reward rules</p>
+                <div className="bg-white rounded-[24px] border border-[#ECEBF3] p-6 shadow-sm">
+                    <p className="text-xs font-semibold text-[#6B7280] mb-4">Current reward rules</p>
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
                             <Wallet size={16} className="text-[#5845D8]" />
-                            <span className="text-sm font-bold text-[#111827]">You and your friend each get {welcomeDisplay} after signup</span>
+                            <span className="text-sm font-bold text-[#171B22]">You and your friend each get {welcomeDisplay} after signup</span>
                         </div>
                         <div className="flex items-center gap-3">
                             <CheckCircle size={16} className="text-emerald-600" />
-                            <span className="text-sm font-bold text-[#111827]">Earn another {shipmentDisplay} when they send an item over {thresholdDisplay}</span>
+                            <span className="text-sm font-bold text-[#171B22]">Earn another {shipmentDisplay} when they send an item over {thresholdDisplay}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <div className="bg-white rounded-[24px] border border-[#ECEBF3] shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-[#ECEBF3] flex items-center justify-between">
                     <div>
-                        <h3 className="font-black text-[#111827] text-lg">Referred users</h3>
-                        <p className="text-gray-400 text-xs font-bold">Track who used your code and their completion stage.</p>
+                        <h3 className="font-semibold text-[#171B22] text-lg">Referred users</h3>
+                        <p className="text-[#6B7280] text-xs font-bold">Track who used your code and their completion stage.</p>
                     </div>
-                    <div className="flex items-center gap-2 text-[#5845D8] font-black text-sm">
+                    <div className="flex items-center gap-2 text-[#5845D8] font-semibold text-sm">
                         <Users size={17} />
                         {referredUsers.length}
                     </div>
@@ -216,27 +216,27 @@ export default function Referral({ user }) {
 
                 {referredUsers.length === 0 ? (
                     <div className="p-10 text-center">
-                        <p className="text-gray-400 font-bold">No referred users yet.</p>
+                        <p className="text-[#6B7280] font-bold">No referred users yet.</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
                         {referredUsers.map((person) => (
                             <div key={person.id} className="p-5 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
                                 <div>
-                                    <p className="font-black text-[#111827]">{[person.first_name, person.last_name].filter(Boolean).join(' ') || person.email}</p>
-                                    <p className="text-xs text-gray-400 font-bold">{person.email}</p>
+                                    <p className="font-semibold text-[#171B22]">{[person.first_name, person.last_name].filter(Boolean).join(' ') || person.email}</p>
+                                    <p className="text-xs text-[#6B7280] font-bold">{person.email}</p>
                                     <div className="flex flex-wrap gap-2 mt-3">
-                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${person.signup_completed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${person.signup_completed ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                                             Account created
                                         </span>
-                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${person.shipment_completed ? 'bg-[#5845D8]/10 text-[#5845D8]' : 'bg-gray-100 text-gray-400'}`}>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${person.shipment_completed ? 'bg-[#5845D8]/10 text-[#5845D8]' : 'bg-gray-100 text-gray-400'}`}>
                                             Qualified shipment
                                         </span>
                                     </div>
                                 </div>
                                 <div className="md:text-right">
-                                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">Earned</p>
-                                    <p className="text-lg font-black text-[#111827]">{money(person.referrer_earned, person.referrer_earned_currency || currency)}</p>
+                                    <p className="text-xs font-semibold text-[#6B7280]">Earned</p>
+                                    <p className="text-lg font-semibold text-[#171B22]">{money(person.referrer_earned, person.referrer_earned_currency || currency)}</p>
                                 </div>
                             </div>
                         ))}

@@ -51,7 +51,7 @@ const statusColor = (req) => {
     if (s === 'delivering') return 'text-amber-600 bg-amber-50';
     if (s === 'rejected' || s === 'cancelled' || s === 'canceled') return 'text-red-600 bg-red-50';
     if (s === 'disputed') return 'text-red-700 bg-red-100';
-    return 'text-gray-500 bg-gray-50';
+    return 'text-[#6B7280] bg-gray-50';
 };
 
 const insuranceInfo = (req) => {
@@ -299,35 +299,28 @@ export default function Shipments({ onNavigateToChat }) {
 
     return (
         <div className="space-y-6 font-sans">
-            <div className="mb-8 px-1">
-                <h2 className="text-lg font-black text-[#111827] tracking-tight uppercase">My Shipments</h2>
-                <p className="text-gray-400 font-bold text-[10px] uppercase tracking-widest opacity-70">
-                    Packages you have sent — track and manage your deliveries
-                </p>
-            </div>
-
             {requests.length === 0 ? (
-                <div className="bg-white rounded-[24px] p-12 text-center border border-dashed border-gray-100 shadow-sm">
+                <div className="bg-white rounded-[24px] p-12 text-center border border-dashed border-[#ECEBF3] shadow-sm">
                     <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
-                        <Package size={24} className="text-gray-300" />
+                        <Package size={24} className="text-[#9CA3AF]" />
                     </div>
                     {fetchError ? (
                         <>
-                            <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">Could not load shipments</h3>
-                            <p className="text-gray-400 text-[10px] max-w-xs mx-auto mb-5 font-bold uppercase tracking-wider opacity-60 leading-relaxed">
+                            <h3 className="text-sm font-semibold text-[#171B22] mb-1.5 tracking-tight">Could not load shipments</h3>
+                            <p className="text-[#6B7280] text-[13px] max-w-xs mx-auto mb-5  leading-relaxed">
                                 {fetchError}
                             </p>
                             <button
                                 onClick={fetchMyRequests}
-                                className="text-[10px] font-black uppercase tracking-widest text-[#5845D8] hover:text-[#4838B5] transition-colors"
+                                className="text-[13px] font-semibold text-[#5845D8] hover:text-[#4838B5] transition-colors"
                             >
                                 Retry
                             </button>
                         </>
                     ) : (
                         <>
-                            <h3 className="text-sm font-black text-[#111827] mb-1.5 uppercase tracking-tight">No shipments yet</h3>
-                            <p className="text-gray-400 text-[10px] max-w-xs mx-auto font-bold uppercase tracking-wider opacity-60 leading-relaxed">
+                            <h3 className="text-sm font-semibold text-[#171B22] mb-1.5 tracking-tight">No shipments yet</h3>
+                            <p className="text-[#6B7280] text-[13px] max-w-xs mx-auto  leading-relaxed">
                                 Once you send a package with a Bago traveler, your shipments will appear here.
                             </p>
                         </>
@@ -348,12 +341,12 @@ export default function Shipments({ onNavigateToChat }) {
                                 onPointerUp={cancelDraftHold}
                                 onPointerCancel={cancelDraftHold}
                                 onPointerLeave={cancelDraftHold}
-                                className="bg-white rounded-[20px] p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all"
+                                className="bg-white rounded-[20px] p-5 border border-[#ECEBF3] shadow-sm flex flex-col md:flex-row gap-5 items-center group hover:border-[#5845D8]/20 transition-all"
                             >
                                 {/* Package image */}
                                 <div
                                     onClick={() => setViewingDetails(req)}
-                                    className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 cursor-pointer border border-gray-100 shadow-sm hover:scale-105 transition-transform"
+                                    className="w-12 h-12 bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center text-[#5845D8] flex-shrink-0 cursor-pointer border border-[#ECEBF3] shadow-sm hover:scale-105 transition-transform"
                                 >
                                     {img ? (
                                         <img src={img} className="w-full h-full object-cover" alt="Item" />
@@ -368,11 +361,11 @@ export default function Shipments({ onNavigateToChat }) {
                                         className="flex items-center justify-center md:justify-start gap-1.5 mb-2 cursor-pointer"
                                         onClick={() => setViewingDetails(req)}
                                     >
-                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
+                                        <span className="text-base font-semibold text-[#171B22]">
                                             {originCity(req)}
                                         </span>
-                                        <ChevronRight size={12} className="text-gray-300" />
-                                        <span className="text-xs font-black text-[#111827] uppercase tracking-tight">
+                                        <ChevronRight size={12} className="text-[#9CA3AF]" />
+                                        <span className="text-base font-semibold text-[#171B22]">
                                             {destinationCity(req)}
                                         </span>
                                     </div>
@@ -380,21 +373,21 @@ export default function Shipments({ onNavigateToChat }) {
                                         {paymentDraft ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-lg border border-amber-100 shadow-sm">
                                                 <CreditCard size={10} className="text-amber-600" />
-                                                <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">
+                                                <span className="text-xs font-semibold text-amber-700 ">
                                                     Continue payment{minutesLeft !== null ? ` · ${minutesLeft}m left` : ''}
                                                 </span>
                                             </div>
                                         ) : req.trackingNumber ? (
-                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
+                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-[#ECEBF3] shadow-sm">
                                                 <Clock size={10} className="text-[#5845D8]" />
-                                                <span className="text-[9px] font-black text-[#111827] uppercase tracking-widest">
+                                                <span className="text-xs font-semibold text-[#171B22] ">
                                                     {req.trackingNumber}
                                                 </span>
                                             </div>
                                         ) : (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-lg border border-amber-100 shadow-sm">
                                                 <Clock size={10} className="text-amber-500" />
-                                                <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">
+                                                <span className="text-xs font-semibold text-amber-700 ">
                                                     Awaiting Traveler
                                                 </span>
                                             </div>
@@ -402,14 +395,14 @@ export default function Shipments({ onNavigateToChat }) {
                                         {!paymentDraft && req.travelerName ? (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50/60 rounded-lg border border-indigo-100/50 shadow-sm">
                                                 <User size={10} className="text-[#5845D8]" />
-                                                <span className="text-[9px] font-black text-[#111827]/70 uppercase tracking-widest">
+                                                <span className="text-xs font-semibold text-[#171B22]/70 ">
                                                     Traveler: {req.travelerName}
                                                 </span>
                                             </div>
                                         ) : !paymentDraft ? (
-                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
-                                                <User size={10} className="text-gray-300" />
-                                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-lg border border-[#ECEBF3] shadow-sm">
+                                                <User size={10} className="text-[#9CA3AF]" />
+                                                <span className="text-xs font-semibold text-[#6B7280] ">
                                                     No Traveler Yet
                                                 </span>
                                             </div>
@@ -417,7 +410,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         {s === 'accepted' && (
                                             <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-lg border border-green-100 shadow-sm">
                                                 <ShieldCheck size={10} />
-                                                <span className="text-[9px] font-black uppercase tracking-widest">Funds in Escrow</span>
+                                                <span className="text-xs font-semibold ">Funds in Escrow</span>
                                             </div>
                                         )}
                                     </div>
@@ -425,19 +418,19 @@ export default function Shipments({ onNavigateToChat }) {
 
                                 {/* Status + actions */}
                                 <div className="flex flex-col items-center md:items-end gap-3">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${statusColor(req)}`}>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold shadow-sm ${statusColor(req)}`}>
                                         {paymentDraft ? 'Payment not completed' : statusLabel(req)}
                                     </span>
 
                                     {s === 'delivering' && !req.senderReceived && (
                                         <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 text-right max-w-xs">
-                                            <p className="text-[9px] font-bold text-amber-800 mb-2">
+                                            <p className="text-xs font-bold text-amber-800 mb-2">
                                                 The traveler has marked this as delivered. Confirm receipt to release payment.
                                             </p>
                                             <button
                                                 onClick={() => handleConfirmDelivery(id)}
                                                 disabled={!id || confirming === id}
-                                                className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-[8px] font-black uppercase tracking-widest text-white disabled:opacity-60"
+                                                className="inline-flex items-center gap-1.5 rounded-full bg-green-600 px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-60"
                                             >
                                                 {confirming === id ? <RefreshCw size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
                                                 Confirm Received
@@ -447,8 +440,8 @@ export default function Shipments({ onNavigateToChat }) {
 
                                     {req.travelerProof && (
                                         <div className="flex flex-col items-center md:items-end gap-1">
-                                            <p className="text-[7px] font-black text-[#5845D8] uppercase tracking-widest italic">Delivery proof uploaded</p>
-                                            <div className="w-12 h-12 rounded-lg overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:scale-105 transition-transform">
+                                            <p className="text-[11px] font-semibold text-[#5845D8] italic">Delivery proof uploaded</p>
+                                            <div className="w-12 h-12 rounded-lg overflow-hidden border border-[#ECEBF3] shadow-sm cursor-pointer hover:scale-105 transition-transform">
                                                 <img
                                                     src={req.travelerProof}
                                                     className="w-full h-full object-cover"
@@ -465,18 +458,18 @@ export default function Shipments({ onNavigateToChat }) {
                                                 <button
                                                     onClick={() => handleContinuePayment(req)}
                                                     disabled={deletingDraft === id}
-                                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5845D8] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#4838B5] transition-all shadow-sm disabled:opacity-60"
+                                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5845D8] text-white rounded-full text-xs font-semibold hover:bg-[#4838B5] transition-all shadow-sm disabled:opacity-60"
                                                 >
                                                     {deletingDraft === id ? <RefreshCw size={14} className="animate-spin" /> : <CreditCard size={14} />}
                                                     Continue Payment
                                                 </button>
-                                                <span className="text-[7px] font-bold uppercase tracking-wider text-gray-400">Press and hold draft to delete</span>
+                                                <span className="text-[11px] font-bold text-[#6B7280]">Press and hold draft to delete</span>
                                             </div>
                                         ) : (
                                         <button
                                             onClick={() => req.conversationId && onNavigateToChat(req.conversationId)}
                                             disabled={!req.conversationId}
-                                            className="p-2 rounded-xl border border-gray-100 text-[#111827] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="p-2 rounded-xl border border-[#ECEBF3] text-[#171B22] hover:bg-gray-50 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                             title={req.conversationId ? 'Chat with Traveler' : 'Chat available once traveler accepts'}
                                         >
                                             <MessageSquare size={14} />
@@ -484,7 +477,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         )}
                                         <button
                                             onClick={() => setViewingDetails(req)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5845D8]/8 text-[#5845D8] rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#5845D8]/15 transition-all shadow-sm"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#5845D8]/8 text-[#5845D8] rounded-full text-xs font-semibold hover:bg-[#5845D8]/15 transition-all shadow-sm"
                                         >
                                             <Package size={14} />
                                             View Details
@@ -493,7 +486,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         <button
                                             onClick={() => handleDownloadPDF(id, req.trackingNumber)}
                                             disabled={!id || downloading === id || !req.trackingNumber}
-                                            className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#5845D8] border border-[#5845D8] rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#5845D8] hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-white text-[#5845D8] border border-[#5845D8] rounded-full text-xs font-semibold hover:bg-[#5845D8] hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                                             title={!req.trackingNumber ? 'Label available once a traveler accepts' : 'Download shipping label'}
                                         >
                                             {downloading === id ? <RefreshCw size={14} className="animate-spin" /> : null}
@@ -503,7 +496,7 @@ export default function Shipments({ onNavigateToChat }) {
                                         {!paymentDraft && (
                                         <button
                                             onClick={() => setSelectedRequest(req)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 border border-red-50 text-red-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-all shadow-sm"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 border border-red-50 text-red-500 rounded-full text-xs font-semibold hover:bg-red-50 transition-all shadow-sm"
                                         >
                                             <AlertTriangle size={14} />
                                             Report Issue
@@ -520,14 +513,14 @@ export default function Shipments({ onNavigateToChat }) {
             {/* Dispute Modal */}
             {selectedRequest && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 font-sans">
-                    <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl border border-gray-100/50">
+                    <div className="bg-white w-full max-w-md rounded-[24px] overflow-hidden shadow-2xl border border-[#ECEBF3]/50">
                         <div className="p-6 border-b border-gray-50 flex flex-col items-center gap-3 bg-red-50/20">
                             <div className="w-14 h-14 bg-white text-red-500 rounded-2xl flex items-center justify-center shadow-lg border border-red-50">
                                 <AlertTriangle size={24} />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-xl font-black text-[#111827] uppercase tracking-tight">Report an Issue</h3>
-                                <p className="text-[9px] text-red-600 font-black mt-1 uppercase tracking-widest opacity-70">
+                                <h3 className="text-xl font-extrabold text-[#171B22] tracking-[-0.03em]">Report an Issue</h3>
+                                <p className="text-xs text-red-600 font-semibold mt-1 opacity-70">
                                     Order #{selectedRequest.trackingNumber || 'Pending'}
                                 </p>
                             </div>
@@ -535,12 +528,12 @@ export default function Shipments({ onNavigateToChat }) {
                         <form onSubmit={handleRaiseDispute} className="p-6 space-y-6">
                             <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex gap-2.5">
                                 <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                                <p className="text-[9px] font-bold text-amber-800 leading-relaxed">
+                                <p className="text-xs font-bold text-amber-800 leading-relaxed">
                                     Raising a dispute will pause the release of funds until Bago support reviews and resolves the issue.
                                 </p>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Describe the issue</label>
+                                <label className="text-xs font-semibold text-[#6B7280] ml-1">Describe the issue</label>
                                 <textarea
                                     value={disputeReason}
                                     onChange={e => setDisputeReason(e.target.value)}
@@ -551,11 +544,11 @@ export default function Shipments({ onNavigateToChat }) {
                             </div>
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setSelectedRequest(null)}
-                                    className="flex-1 py-4 text-[9px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600">
+                                    className="flex-1 py-4 text-xs font-semibold text-[#6B7280] hover:text-gray-600">
                                     Cancel
                                 </button>
                                 <button type="submit" disabled={isSubmittingDispute}
-                                    className="flex-[2] bg-red-500 text-white py-4 rounded-xl font-black text-xs uppercase tracking-[2px] shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                                    className="flex-[2] bg-red-500 text-white py-4 rounded-xl font-semibold text-xs tracking-[2px] shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                                     {isSubmittingDispute ? <RefreshCw className="animate-spin" size={16} /> : 'Submit Report'}
                                 </button>
                             </div>
@@ -593,12 +586,12 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
             <div className="flex items-center gap-4 mb-6">
                 <button
                     onClick={onBack}
-                    className="flex items-center gap-2 text-[#5845D8] font-black text-[10px] uppercase tracking-widest hover:opacity-70 transition-opacity"
+                    className="flex items-center gap-2 text-[#5845D8] font-semibold text-[13px] hover:opacity-70 transition-opacity"
                 >
                     <ArrowLeft size={16} /> Back to Shipments
                 </button>
                 <div className="flex-1 h-[1px] bg-gray-100" />
-                <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${statusColor(req)}`}>
+                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${statusColor(req)}`}>
                     {statusLabel(req)}
                 </span>
             </div>
@@ -608,7 +601,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                 <div className="lg:col-span-3 space-y-5">
                     {/* Package image */}
                     <div
-                        className="aspect-video bg-gray-100 rounded-[24px] overflow-hidden relative border border-gray-100 shadow-inner cursor-pointer group"
+                        className="aspect-video bg-gray-100 rounded-[24px] overflow-hidden relative border border-[#ECEBF3] shadow-inner cursor-pointer group"
                         onClick={() => imgUrl && setImgFullscreen(true)}
                     >
                         {imgUrl ? (
@@ -616,41 +609,41 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                 <img src={imgUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Package" />
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-3 shadow-lg">
-                                        <ZoomIn size={20} className="text-[#111827]" />
+                                        <ZoomIn size={20} className="text-[#171B22]" />
                                     </div>
                                 </div>
-                                <div className="absolute bottom-3 right-3 bg-black/40 text-white text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg backdrop-blur-sm">
+                                <div className="absolute bottom-3 right-3 bg-black/40 text-white text-[11px] font-semibold px-2 py-1 rounded-lg backdrop-blur-sm">
                                     Click to enlarge
                                 </div>
                             </>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3">
+                            <div className="flex flex-col items-center justify-center h-full text-[#9CA3AF] gap-3">
                                 <Package size={48} className="opacity-20" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">No Image Provided</span>
+                                <span className="text-[13px] font-semibold ">No Image Provided</span>
                             </div>
                         )}
                     </div>
 
                     {/* Description */}
                     {description && (
-                        <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm">
-                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">Item Description</p>
-                            <p className="text-sm font-bold leading-relaxed text-[#111827]">{description}</p>
+                        <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm">
+                            <p className="text-[11px] font-semibold text-[#6B7280] mb-2">Item Description</p>
+                            <p className="text-sm font-bold leading-relaxed text-[#171B22]">{description}</p>
                         </div>
                     )}
 
                     {/* Addresses */}
                     {(pickupAddress || deliveryAddress) && (
-                        <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm space-y-4">
-                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Addresses</p>
+                        <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm space-y-4">
+                            <p className="text-[11px] font-semibold text-[#6B7280] ">Addresses</p>
                             {pickupAddress && (
                                 <div className="flex gap-3">
                                     <div className="w-7 h-7 rounded-full bg-[#5845D8]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                                         <MapPin size={13} className="text-[#5845D8]" />
                                     </div>
                                     <div>
-                                        <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Pickup Address</p>
-                                        <p className="text-sm font-bold text-[#111827]">{pickupAddress}</p>
+                                        <p className="text-[11px] font-semibold text-[#6B7280] mb-0.5">Pickup Address</p>
+                                        <p className="text-sm font-bold text-[#171B22]">{pickupAddress}</p>
                                     </div>
                                 </div>
                             )}
@@ -660,8 +653,8 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                         <MapPin size={13} className="text-green-600" />
                                     </div>
                                     <div>
-                                        <p className="text-[7px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Delivery Address</p>
-                                        <p className="text-sm font-bold text-[#111827]">{deliveryAddress}</p>
+                                        <p className="text-[11px] font-semibold text-[#6B7280] mb-0.5">Delivery Address</p>
+                                        <p className="text-sm font-bold text-[#171B22]">{deliveryAddress}</p>
                                     </div>
                                 </div>
                             )}
@@ -670,8 +663,8 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
 
                     {/* Delivery proof */}
                     {req.travelerProof && (
-                        <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm space-y-3">
-                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Delivery Proof</p>
+                        <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm space-y-3">
+                            <p className="text-[11px] font-semibold text-[#6B7280] ">Delivery Proof</p>
                             <img
                                 src={req.travelerProof}
                                 className="w-full max-h-48 object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
@@ -687,14 +680,14 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                     {/* Confirm delivery banner */}
                     {s === 'delivering' && !req.senderReceived && (
                         <div className="bg-amber-50 border border-amber-200 rounded-[20px] p-5">
-                            <p className="text-[9px] font-black text-amber-800 uppercase tracking-widest mb-2">Action Required</p>
+                            <p className="text-xs font-semibold text-amber-800 mb-2">Action Required</p>
                             <p className="text-xs font-bold text-amber-700 mb-3">
                                 The traveler has marked this shipment as delivered. Please confirm receipt to release their payment.
                             </p>
                             <button
                                 onClick={() => onConfirmDelivery(id)}
                                 disabled={!id || confirming === id}
-                                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-green-700 transition-all disabled:opacity-60"
+                                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-full text-xs font-semibold hover:bg-green-700 transition-all disabled:opacity-60"
                             >
                                 {confirming === id ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
                                 Confirm Delivery Received
@@ -703,29 +696,29 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                     )}
 
                     {/* Route */}
-                    <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-4">Route</p>
+                    <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm">
+                        <p className="text-[11px] font-semibold text-[#6B7280] mb-4">Route</p>
                         <div className="flex items-center gap-3">
                             <div>
-                                <p className="text-[7px] font-black text-gray-400 uppercase mb-1">From</p>
-                                <p className="text-sm font-black text-[#111827] uppercase">{from}</p>
+                                <p className="text-[11px] font-semibold text-[#6B7280] mb-1">From</p>
+                                <p className="text-sm font-semibold text-[#171B22] ">{from}</p>
                             </div>
                             <div className="flex-1 h-[2px] bg-gradient-to-r from-[#5845D8]/20 via-[#5845D8] to-[#5845D8]/20 rounded-full" />
                             <div className="text-right">
-                                <p className="text-[7px] font-black text-gray-400 uppercase mb-1">To</p>
-                                <p className="text-sm font-black text-[#111827] uppercase">{to}</p>
+                                <p className="text-[11px] font-semibold text-[#6B7280] mb-1">To</p>
+                                <p className="text-sm font-semibold text-[#171B22] ">{to}</p>
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-2 gap-3">
                             <div>
-                                <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Tracking No.</p>
-                                <p className="text-[10px] font-black text-[#5845D8]">
+                                <p className="text-[11px] font-semibold text-[#6B7280] mb-1">Tracking No.</p>
+                                <p className="text-[13px] font-semibold text-[#5845D8]">
                                     {req.trackingNumber || 'Awaiting traveler'}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Traveler</p>
-                                <p className="text-[10px] font-black text-[#111827]">
+                                <p className="text-[11px] font-semibold text-[#6B7280] mb-1">Traveler</p>
+                                <p className="text-[13px] font-semibold text-[#171B22]">
                                     {req.travelerName || 'Not yet assigned'}
                                 </p>
                             </div>
@@ -733,8 +726,8 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                         {req.externalTrackingNumber && (
                             <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between gap-3 flex-wrap">
                                 <div>
-                                    <p className="text-[7px] font-black text-gray-400 uppercase mb-1">External Tracking</p>
-                                    <p className="text-[10px] font-black text-[#111827]">
+                                    <p className="text-[11px] font-semibold text-[#6B7280] mb-1">External Tracking</p>
+                                    <p className="text-[13px] font-semibold text-[#171B22]">
                                         {req.externalCarrierName}: {req.externalTrackingNumber}
                                     </p>
                                 </div>
@@ -743,7 +736,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                                         href={req.externalTrackingUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="px-3 py-1.5 bg-[#5845D8]/10 text-[#5845D8] rounded-lg text-[9px] font-black uppercase tracking-wider hover:bg-[#5845D8]/15"
+                                        className="px-3 py-1.5 bg-[#5845D8]/10 text-[#5845D8] rounded-full text-xs font-semibold hover:bg-[#5845D8]/15"
                                     >
                                         Track with {req.externalCarrierName}
                                     </a>
@@ -753,56 +746,56 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                     </div>
 
                     {/* Package + payment info */}
-                    <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-4">Package & Payment</p>
+                    <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm">
+                        <p className="text-[11px] font-semibold text-[#6B7280] mb-4">Package & Payment</p>
                         <div className="grid grid-cols-2 gap-3">
                             {weight ? (
-                                <div className="p-3 bg-gray-50 rounded-[14px] border border-gray-100">
-                                    <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Weight</p>
-                                    <p className="text-sm font-black text-[#111827]">{weight} KG</p>
+                                <div className="p-3 bg-gray-50 rounded-[14px] border border-[#ECEBF3]">
+                                    <p className="text-[11px] font-semibold text-[#6B7280] mb-1">Weight</p>
+                                    <p className="text-sm font-semibold text-[#171B22]">{weight} KG</p>
                                 </div>
                             ) : null}
                             {category && (
-                                <div className="p-3 bg-gray-50 rounded-[14px] border border-gray-100">
-                                    <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Category</p>
-                                    <p className="text-sm font-black text-[#111827] uppercase truncate">{category}</p>
+                                <div className="p-3 bg-gray-50 rounded-[14px] border border-[#ECEBF3]">
+                                    <p className="text-[11px] font-semibold text-[#6B7280] mb-1">Category</p>
+                                    <p className="text-sm font-semibold text-[#171B22] truncate">{category}</p>
                                 </div>
                             )}
                             {declaredValue && (
-                                <div className="p-3 bg-gray-50 rounded-[14px] border border-gray-100">
-                                    <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Declared Value</p>
-                                    <p className="text-sm font-black text-[#111827]">{currency} {Number(declaredValue).toLocaleString()}</p>
+                                <div className="p-3 bg-gray-50 rounded-[14px] border border-[#ECEBF3]">
+                                    <p className="text-[11px] font-semibold text-[#6B7280] mb-1">Declared Value</p>
+                                    <p className="text-sm font-semibold text-[#171B22]">{currency} {Number(declaredValue).toLocaleString()}</p>
                                 </div>
                             )}
                             {amountPaid && (
                                 <div className="p-3 bg-indigo-50/60 rounded-[14px] border border-indigo-100/50">
-                                    <p className="text-[7px] font-black text-gray-400 uppercase mb-1">Amount Paid</p>
-                                    <p className="text-sm font-black text-[#5845D8]">{currency} {Number(amountPaid).toLocaleString()}</p>
+                                    <p className="text-[11px] font-semibold text-[#6B7280] mb-1">Amount Paid</p>
+                                    <p className="text-sm font-semibold text-[#5845D8]">{currency} {Number(amountPaid).toLocaleString()}</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
                     {/* Receiver */}
-                    <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-4">Receiver</p>
+                    <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm">
+                        <p className="text-[11px] font-semibold text-[#6B7280] mb-4">Receiver</p>
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-[#5845D8]/10 flex items-center justify-center text-[#5845D8] shrink-0">
                                 <User size={18} />
                             </div>
                             <div>
-                                <p className="text-sm font-black text-[#111827]">{receiver.name || 'Not provided'}</p>
-                                <p className="text-[9px] text-gray-500 font-bold">{receiver.phone || 'No phone'}</p>
-                                {receiver.email && <p className="text-[9px] text-gray-400 font-bold break-all">{receiver.email}</p>}
+                                <p className="text-sm font-semibold text-[#171B22]">{receiver.name || 'Not provided'}</p>
+                                <p className="text-xs text-[#6B7280] font-bold">{receiver.phone || 'No phone'}</p>
+                                {receiver.email && <p className="text-xs text-[#6B7280] font-bold break-all">{receiver.email}</p>}
                             </div>
                         </div>
                     </div>
 
                     {/* Insurance */}
                     {req.insurance === true && (
-                        <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm">
-                            <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-3">Item Protection</p>
-                            <div className={`rounded-2xl px-4 py-3 text-[10px] font-black ${
+                        <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm">
+                            <p className="text-[11px] font-semibold text-[#6B7280] mb-3">Item Protection</p>
+                            <div className={`rounded-full px-4 py-3 text-[13px] font-semibold ${
                                 protection.tone === 'green' ? 'bg-green-50 text-green-700' :
                                 protection.tone === 'red' ? 'bg-red-50 text-red-600' :
                                 'bg-[#5845D8]/8 text-[#5845D8]'
@@ -813,13 +806,13 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                     )}
 
                     {/* Actions */}
-                    <div className="bg-white rounded-[20px] p-6 border border-gray-100 shadow-sm space-y-3">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Actions</p>
+                    <div className="bg-white rounded-[20px] p-6 border border-[#ECEBF3] shadow-sm space-y-3">
+                        <p className="text-[11px] font-semibold text-[#6B7280] mb-1">Actions</p>
                         {req.trackingNumber && (
                             <button
                                 onClick={() => onDownload(id, req.trackingNumber)}
                                 disabled={!id || downloading === id}
-                                className="w-full flex items-center justify-center gap-2 bg-[#5845D8] text-white py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
+                                className="w-full flex items-center justify-center gap-2 bg-[#5845D8] text-white py-3.5 rounded-full text-xs font-semibold hover:bg-black transition-all disabled:opacity-50"
                             >
                                 {downloading === id ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
                                 {downloading === id ? 'Downloading…' : 'Download Shipping Label'}
@@ -828,7 +821,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                         {req.conversationId && (
                             <button
                                 onClick={() => onNavigateToChat(req.conversationId)}
-                                className="w-full flex items-center justify-center gap-2 bg-[#5845D8]/8 text-[#5845D8] py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-[#5845D8]/15 transition-all border border-[#5845D8]/20"
+                                className="w-full flex items-center justify-center gap-2 bg-[#5845D8]/8 text-[#5845D8] py-3.5 rounded-full text-xs font-semibold hover:bg-[#5845D8]/15 transition-all border border-[#5845D8]/20"
                             >
                                 <MessageSquare size={14} />
                                 Chat with Traveler
@@ -836,7 +829,7 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                         )}
                         <button
                             onClick={onDispute}
-                            className="w-full flex items-center justify-center gap-2 border border-red-100 text-red-500 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-all"
+                            className="w-full flex items-center justify-center gap-2 border border-red-100 text-red-500 py-3.5 rounded-full text-xs font-semibold hover:bg-red-50 transition-all"
                         >
                             <AlertTriangle size={14} />
                             Report a Problem

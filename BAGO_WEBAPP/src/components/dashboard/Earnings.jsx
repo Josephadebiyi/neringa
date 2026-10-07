@@ -264,45 +264,45 @@ export default function Earnings({ user, checkAuthStatus }) {
     return (
         <div className="space-y-6 font-sans animate-in fade-in duration-500">
 
-            {/* ── Balance Hero ── */}
-            <div
-                className="rounded-[28px] p-7 relative overflow-hidden text-[#111827]"
-                style={{ background: 'linear-gradient(135deg, #e8f4fd 0%, #f0ebff 50%, #fef9ec 100%)' }}
-            >
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#5C4BFD]/8 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
-                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                    <div>
-                        <p className="text-[9px] font-black text-[#111827]/50 uppercase tracking-widest mb-2">Available Balance</p>
-                        <p className="text-5xl font-black text-[#111827] tracking-tighter leading-none">
-                            {balance === null ? <span className="text-2xl opacity-40 animate-pulse">Loading balance…</span> : `${sym}${balance.toLocaleString(undefined,{minimumFractionDigits:2})}`}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-3">
-                            <Lock size={11} className="text-[#111827]/50" />
-                            <p className="text-[10px] font-bold text-[#111827]/50">
-                                {sym}{escrow.toLocaleString(undefined,{minimumFractionDigits:2})} in escrow
-                            </p>
-                        </div>
+            {/* ── Balance cards ── */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="bg-white rounded-[24px] border border-[#ECEBF3] p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm font-semibold text-[#171B22]">Available balance</p>
+                        <span className="w-9 h-9 rounded-xl bg-[#5845D8]/8 text-[#5845D8] flex items-center justify-center"><Wallet size={17} /></span>
                     </div>
-                    <div className="flex flex-col gap-3 min-w-[200px]">
-                        {/* Payout method badge */}
-                        <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border ${hasPayoutMethod ? 'bg-white/70 border-white/60' : 'bg-red-50/80 border-red-200/60'}`}>
-                            <Wallet size={22} className="text-[#5C4BFD]" />
-                            <div>
-                                <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
-                                    Bank Transfer ({walletCurrency})
-                                </p>
-                                <p className={`text-[8px] font-bold uppercase tracking-wider ${hasPayoutMethod ? 'text-emerald-600' : 'text-red-500'}`}>
-                                    {hasPayoutMethod ? 'Connected' : 'Not connected'}
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => navigate('/dashboard?tab=settings')}
-                            className="text-[9px] font-black text-[#5C4BFD] uppercase tracking-widest hover:underline text-center"
-                        >
-                            {hasPayoutMethod ? 'Manage payout method →' : 'Set up payout method →'}
-                        </button>
+                    <p className="font-['Manrope'] text-[34px] font-extrabold text-[#171B22] tracking-[-0.03em] leading-none">
+                        {balance === null
+                            ? <span className="inline-block h-[34px] w-40 rounded-lg bg-[#F3F4F6] animate-pulse align-middle" />
+                            : <><span className="text-[0.62em] font-bold text-[#6B7280] mr-1">{sym}</span>{balance.toLocaleString(undefined,{minimumFractionDigits:2})}</>}
+                    </p>
+                    <p className="text-xs text-[#6B7280] mt-2">Ready to withdraw · {walletCurrency}</p>
+                </div>
+                <div className="bg-white rounded-[24px] border border-[#ECEBF3] p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm font-semibold text-[#171B22]">In escrow</p>
+                        <span className="w-9 h-9 rounded-xl bg-emerald-50 text-[#16A34A] flex items-center justify-center"><Lock size={16} /></span>
                     </div>
+                    <p className="font-['Manrope'] text-[34px] font-extrabold text-[#171B22] tracking-[-0.03em] leading-none">
+                        <span className="text-[0.62em] font-bold text-[#6B7280] mr-1">{sym}</span>{escrow.toLocaleString(undefined,{minimumFractionDigits:2})}
+                    </p>
+                    <p className="mt-2"><span className="text-[11px] font-semibold text-[#16A34A] bg-emerald-50 px-2.5 py-1 rounded-full">Released after delivery</span></p>
+                </div>
+                <div className="bg-[#171B22] rounded-[24px] p-6 text-white flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm font-semibold">Payout method</p>
+                        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${hasPayoutMethod ? 'bg-emerald-400/15 text-emerald-300' : 'bg-red-400/15 text-red-300'}`}>
+                            {hasPayoutMethod ? 'Connected' : 'Not connected'}
+                        </span>
+                    </div>
+                    <p className="font-['Manrope'] text-xl font-extrabold">Bank transfer</p>
+                    <p className="text-xs text-white/55 mt-1">{walletCurrency} · {hasPayoutMethod ? 'Funds sent after approval' : 'Link a bank account to withdraw'}</p>
+                    <button
+                        onClick={() => navigate('/dashboard?tab=settings')}
+                        className="mt-auto self-start h-10 px-5 rounded-full bg-white text-[#171B22] text-[13px] font-semibold hover:bg-white/90 transition-colors"
+                    >
+                        {hasPayoutMethod ? 'Manage method' : 'Set up payout'}
+                    </button>
                 </div>
             </div>
 
@@ -310,14 +310,14 @@ export default function Earnings({ user, checkAuthStatus }) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
                 {/* Earnings Chart (left 2/3) */}
-                <div className="lg:col-span-2 bg-white rounded-[28px] p-7 border border-gray-100 shadow-sm">
+                <div className="lg:col-span-2 bg-white rounded-[24px] p-7 border border-[#ECEBF3] shadow-sm">
                     {/* Received / Expenses toggle */}
-                    <div className="grid grid-cols-2 bg-gray-50 rounded-2xl p-1.5 mb-6 border border-gray-100">
+                    <div className="inline-grid grid-cols-2 bg-[#F3F4F6] rounded-full p-1 mb-6">
                         {[{ id:'received', label:'Received' }, { id:'expenses', label:'Withdrawn' }].map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setChartMode(tab.id)}
-                                className={`h-12 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${chartMode===tab.id ? 'bg-[#5C4BFD] text-white shadow-lg shadow-[#5C4BFD]/15' : 'text-[#111827]/40 hover:text-[#111827]'}`}
+                                className={`h-10 px-6 rounded-full text-[13px] font-semibold transition-all ${chartMode===tab.id ? 'bg-[#5845D8] text-white shadow-[0_6px_16px_rgba(88,69,216,0.35)]' : 'text-[#6B7280] hover:text-[#171B22]'}`}
                             >
                                 {tab.label}
                             </button>
@@ -325,39 +325,45 @@ export default function Earnings({ user, checkAuthStatus }) {
                     </div>
 
                     <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp size={13} className="text-[#5C4BFD]" />
-                        <span className="text-[10px] font-black text-[#111827]/40 uppercase tracking-widest">All time</span>
+                        <TrendingUp size={13} className="text-[#5845D8]" />
+                        <span className="text-[13px] font-semibold text-[#171B22]/40 ">All time</span>
                     </div>
-                    <p className="text-5xl font-black text-[#111827] tracking-tighter leading-none mb-1">
+                    <p className="font-['Manrope'] text-[40px] font-extrabold text-[#171B22] tracking-[-0.03em] leading-none mb-1">
                         {sym}{activeTotal.toLocaleString(undefined,{minimumFractionDigits:2})}
                     </p>
-                    <p className="text-[10px] text-[#111827]/40 font-bold mb-6">
+                    <p className="text-[13px] text-[#171B22]/40 font-bold mb-6">
                         {chartMode==='received' ? 'Total income received' : 'Total withdrawn from wallet'}
                     </p>
 
                     {/* Bar chart */}
-                    <div className="grid grid-cols-7 gap-2 items-end h-28">
-                        {chartDays.map(day => (
-                            <div key={day.key} className="flex h-full flex-col items-center justify-end gap-1.5">
-                                <div className="relative flex h-full w-full items-end justify-center rounded-full bg-gray-100 overflow-hidden">
-                                    <div
-                                        className={`w-full rounded-full transition-all duration-500 ${chartMode==='received' ? 'bg-[#5C4BFD]' : 'bg-[#5C4BFD]'}`}
-                                        style={{ height:`${Math.max(8,(day.value/maxChart)*100)}%`, opacity:day.value>0?1:0.15 }}
-                                    />
-                                </div>
-                                <span className="text-[8px] font-black uppercase tracking-widest text-[#111827]/40">{day.label}</span>
+                    <div className="grid grid-cols-7 gap-3 items-end h-64">
+                        {chartDays.map((day, i) => (
+                            <div key={day.key} className="flex h-full flex-col items-center justify-end gap-2">
+                                <div
+                                    className="w-full max-w-[34px] rounded-t-[8px] rounded-b-[3px] transition-all duration-500"
+                                    title={`${day.label}: ${sym}${day.value.toFixed(2)}`}
+                                    style={{
+                                        height:`${Math.max(6,(day.value/maxChart)*100)}%`,
+                                        background: day.value > 0
+                                            ? (i % 2 === 0 || i === chartDays.length - 1
+                                                ? 'linear-gradient(180deg, #8B7DFF 0%, #5845D8 100%)'
+                                                : 'linear-gradient(180deg, #D9D4FF 0%, #B3A9FF 100%)')
+                                            : '#ECEBF7',
+                                    }}
+                                />
+                                <span className="text-[11px] font-medium text-[#9CA3AF]">{day.label}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Quick Withdraw (right 1/3) */}
-                <div className="bg-white rounded-[28px] p-7 border border-gray-100 shadow-sm flex flex-col gap-5">
+                <div className="bg-white rounded-[24px] p-7 border border-[#ECEBF3] shadow-sm flex flex-col gap-5">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center">
                             <ArrowUpRight size={16} className="text-orange-500" />
                         </div>
-                        <h3 className="text-sm font-black text-[#111827] uppercase tracking-tight">Withdraw</h3>
+                        <h3 className="text-sm font-semibold text-[#171B22] tracking-tight">Withdraw</h3>
                     </div>
 
                     {/* No payout method warning */}
@@ -365,13 +371,13 @@ export default function Earnings({ user, checkAuthStatus }) {
                         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
                             <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
                             <div>
-                                <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight mb-1">No payout method linked</p>
-                                <p className="text-[9px] text-amber-700 font-medium leading-relaxed">
+                                <p className="text-[13px] font-semibold text-amber-800 tracking-tight mb-1">No payout method linked</p>
+                                <p className="text-xs text-amber-700 font-medium leading-relaxed">
                                     Please link a bank account before withdrawing.
                                 </p>
                                 <button
                                     onClick={() => navigate('/dashboard?tab=settings')}
-                                    className="mt-2 text-[9px] font-black text-amber-800 underline uppercase tracking-wider"
+                                    className="mt-2 text-xs font-semibold text-amber-800 underline "
                                 >
                                     Set up payout method →
                                 </button>
@@ -380,16 +386,16 @@ export default function Earnings({ user, checkAuthStatus }) {
                     )}
 
                     {/* Amount input */}
-                    <div className="bg-gray-50 rounded-2xl border border-gray-100 p-5 text-center">
-                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-3">Enter amount</p>
+                    <div className="bg-gray-50 rounded-2xl border border-[#ECEBF3] p-5 text-center">
+                        <p className="text-[11px] font-semibold text-[#6B7280] mb-3">Enter amount</p>
                         <div className="flex items-baseline justify-center gap-2">
-                            <span className="text-2xl font-black text-[#5C4BFD]">{sym}</span>
+                            <span className="text-2xl font-extrabold text-[#5845D8]">{sym}</span>
                             <input
                                 type="number"
                                 value={amount}
                                 onChange={e => setAmount(e.target.value)}
                                 placeholder="0.00"
-                                className="bg-transparent text-4xl font-black text-[#111827] outline-none w-32 text-center placeholder:text-gray-200"
+                                className="bg-transparent text-4xl font-extrabold text-[#171B22] outline-none w-32 text-center placeholder:text-gray-200"
                             />
                         </div>
                     </div>
@@ -398,42 +404,42 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={() => setAmount(minimum.toFixed(2))}
-                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#111827] uppercase tracking-widest hover:bg-gray-100 transition-all"
+                            className="bg-white border border-[#ECEBF3] rounded-full py-3 text-xs font-semibold text-[#171B22] hover:border-[#5845D8]/40 transition-all"
                         >
                             Minimum
                         </button>
                         <button
                             onClick={() => balance > 0 && setAmount(balance.toFixed(2))}
                             disabled={balance <= 0}
-                            className="bg-gray-50 border border-gray-200 rounded-xl py-3 text-[9px] font-black text-[#111827] uppercase tracking-widest hover:bg-gray-100 transition-all disabled:opacity-30"
+                            className="bg-white border border-[#ECEBF3] rounded-full py-3 text-xs font-semibold text-[#171B22] hover:border-[#5845D8]/40 transition-all disabled:opacity-30"
                         >
                             Withdraw all
                         </button>
                     </div>
 
                     {/* Summary */}
-                    <div className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4 space-y-3 text-[10px] font-bold">
-                        <div className="flex justify-between text-[#111827]">
-                            <span className="text-[#5C4BFD]">Amount</span>
-                            <span className="font-black">{sym}{amountNum.toFixed(2)}</span>
+                    <div className="bg-[#F7F7FC] rounded-2xl border border-[#ECEBF3] px-5 py-4 space-y-3 text-[13px]">
+                        <div className="flex justify-between text-[#171B22]">
+                            <span className="text-[#6B7280]">Amount</span>
+                            <span className="font-semibold">{sym}{amountNum.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between text-[#111827]">
-                            <span className="text-[#5C4BFD]">Bago fee</span>
-                            <span className="font-black text-emerald-600">No fee</span>
+                        <div className="flex justify-between text-[#171B22]">
+                            <span className="text-[#6B7280]">Bago fee</span>
+                            <span className="font-semibold text-emerald-600">No fee</span>
                         </div>
-                        <div className="flex justify-between text-[#111827]">
-                            <span className="text-[#5C4BFD]">Method</span>
-                            <span className="font-black flex items-center gap-1.5">
-                                <Wallet size={14} className="text-[#5C4BFD]" />
+                        <div className="flex justify-between text-[#171B22]">
+                            <span className="text-[#6B7280]">Method</span>
+                            <span className="font-semibold flex items-center gap-1.5">
+                                <Wallet size={14} className="text-[#5845D8]" />
                                 Bank Transfer
                             </span>
                         </div>
-                        <div className="border-t border-gray-200 pt-2 flex justify-between text-[#111827]">
-                            <span className="text-[#5C4BFD]">Minimum</span>
-                            <span className="font-black">{sym}{minimum.toFixed(2)}</span>
+                        <div className="border-t border-gray-200 pt-2 flex justify-between text-[#171B22]">
+                            <span className="text-[#6B7280]">Minimum</span>
+                            <span className="font-semibold">{sym}{minimum.toFixed(2)}</span>
                         </div>
                         {(belowMin || aboveBal) && (
-                            <p className="text-[9px] font-black text-red-500 uppercase tracking-tight">
+                            <p className="text-xs font-semibold text-red-500 tracking-tight">
                                 {aboveBal ? 'Amount exceeds your available balance.' : `Minimum withdrawal is ${sym}${minimum.toFixed(2)}.`}
                             </p>
                         )}
@@ -441,20 +447,20 @@ export default function Earnings({ user, checkAuthStatus }) {
 
                     {/* Payout method display */}
                     <div className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 ${hasPayoutMethod ? 'bg-white border border-gray-100' : 'bg-gray-50 border border-gray-100'}`}>
-                        <div className="w-10 h-7 bg-[#5C4BFD]/6 rounded-lg flex items-center justify-center shrink-0">
-                            <Wallet size={18} className="text-[#5C4BFD]" />
+                        <div className="w-10 h-7 bg-[#5845D8]/6 rounded-lg flex items-center justify-center shrink-0">
+                            <Wallet size={18} className="text-[#5845D8]" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black text-[#111827] uppercase tracking-tight">
+                            <p className="text-[13px] font-semibold text-[#171B22] tracking-tight">
                                 Bank Transfer ({walletCurrency})
                             </p>
-                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
+                            <p className="text-[11px] font-bold text-[#6B7280] ">
                                 {hasPayoutMethod ? 'Funds sent after approval' : 'Setup required before withdrawing'}
                             </p>
                         </div>
                         <button
                             onClick={() => navigate('/dashboard?tab=settings')}
-                            className="text-[8px] font-black text-[#5C4BFD] uppercase tracking-wider hover:underline shrink-0"
+                            className="text-[11px] font-semibold text-[#5845D8] hover:underline shrink-0"
                         >
                             {hasPayoutMethod ? 'Manage' : 'Set up'}
                         </button>
@@ -462,7 +468,7 @@ export default function Earnings({ user, checkAuthStatus }) {
 
                     {/* Status message */}
                     {status.msg && (
-                        <div className={`flex items-center gap-3 p-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border ${
+                        <div className={`flex items-center gap-3 p-4 rounded-2xl text-xs font-semibold border ${
                             status.type==='success'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                 : 'bg-red-50 text-red-600 border-red-100'
@@ -476,8 +482,8 @@ export default function Earnings({ user, checkAuthStatus }) {
                     <button
                         onClick={handleWithdraw}
                         disabled={!canSubmit}
-                        className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                        style={{ backgroundColor: '#5C4BFD', color: '#fff', boxShadow: canSubmit ? '0 8px 24px #5C4BFD30' : 'none' }}
+                        className="w-full h-12 rounded-full font-semibold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#5845D8', color: '#fff', boxShadow: canSubmit ? '0 8px 24px #5845D830' : 'none' }}
                     >
                         {submitting
                             ? <RefreshCw size={15} className="animate-spin" />
@@ -490,17 +496,17 @@ export default function Earnings({ user, checkAuthStatus }) {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
                     <form
                         onSubmit={handleConfirmWithdrawalOtp}
-                        className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl"
+                        className="w-full max-w-sm rounded-[24px] bg-white p-6 shadow-2xl"
                     >
                         <div className="mb-5 flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5C4BFD]/10">
-                                <Lock size={18} className="text-[#5C4BFD]" />
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#5845D8]/10">
+                                <Lock size={18} className="text-[#5845D8]" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-black uppercase tracking-tight text-[#111827]">
+                                <h3 className="text-sm font-semibold tracking-tight text-[#171B22]">
                                     Confirm withdrawal
                                 </h3>
-                                <p className="text-[10px] font-bold text-gray-400">
+                                <p className="text-[13px] font-bold text-[#6B7280]">
                                     Code sent to {otpDestination || 'your email'}
                                 </p>
                             </div>
@@ -511,7 +517,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                             inputMode="numeric"
                             autoFocus
                             placeholder="000000"
-                            className="mb-4 h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-center text-2xl font-black tracking-[0.4em] text-[#111827] outline-none focus:border-[#5C4BFD]"
+                            className="mb-4 h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-center text-2xl font-extrabold tracking-[0.4em] text-[#171B22] outline-none focus:border-[#5845D8]"
                         />
                         <div className="grid grid-cols-2 gap-3">
                             <button
@@ -520,14 +526,14 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     setShowModal(false);
                                     setOtpCode('');
                                 }}
-                                className="h-12 rounded-2xl bg-gray-100 text-[10px] font-black uppercase tracking-widest text-[#111827]"
+                                className="h-12 rounded-full bg-[#F3F4F6] text-[13px] font-semibold text-[#171B22]"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={submitting || otpCode.length !== 6}
-                                className="h-12 rounded-2xl bg-[#5C4BFD] text-[10px] font-black uppercase tracking-widest text-white disabled:opacity-40"
+                                className="h-12 rounded-full bg-[#5845D8] text-[13px] font-semibold text-white disabled:opacity-40"
                             >
                                 {submitting ? 'Checking...' : 'Confirm'}
                             </button>
@@ -537,30 +543,27 @@ export default function Earnings({ user, checkAuthStatus }) {
             )}
 
             {/* ── Transaction History ── */}
-            <div className="bg-white rounded-[28px] border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-7 py-5 border-b border-gray-50 flex items-center justify-between">
+            <div className="bg-[#171B22] rounded-[28px] p-4 sm:p-6">
+                <div className="px-1 pb-5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#5C4BFD]/6 flex items-center justify-center">
-                            <RefreshCw size={14} className="text-[#5C4BFD]" />
-                        </div>
-                        <h3 className="text-sm font-black text-[#111827] uppercase tracking-tight">
+                        <h3 className="text-white font-semibold">
                             {t('transactionHistory') || 'Transaction History'}
                         </h3>
                     </div>
-                    <span className="text-[9px] font-bold text-gray-400">{transactions.length} entries</span>
+                    <span className="text-xs font-semibold text-white/70 bg-white/[0.07] border border-white/10 px-3 py-1.5 rounded-full">{transactions.length} entries</span>
                 </div>
 
                 {transactions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                            <Wallet size={28} className="text-gray-200" />
+                        <div className="w-16 h-16 bg-white/[0.06] rounded-full flex items-center justify-center mb-4">
+                            <Wallet size={26} className="text-white/40" />
                         </div>
-                        <p className="text-gray-300 font-black uppercase tracking-widest text-[10px]">
+                        <p className="text-white/70 font-semibold text-sm">
                             No transactions recorded yet
                         </p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-gray-50">
+                    <div className="space-y-2.5">
                         {transactions.map((tx, i) => {
                             const isOut = expenseTypes.has(tx.type);
                             const meta = transactionMeta(tx);
@@ -577,37 +580,37 @@ export default function Earnings({ user, checkAuthStatus }) {
                                     key={tx.id || i}
                                     type={openTarget ? 'button' : undefined}
                                     onClick={openTarget ? () => navigate(openTarget) : undefined}
-                                    className={`w-full flex items-center justify-between px-7 py-5 text-left hover:bg-gray-50/40 transition-all group ${openTarget ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5C4BFD]' : ''}`}
+                                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl bg-white/[0.04] text-left hover:bg-white/[0.08] transition-all group ${openTarget ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5845D8]' : ''}`}
                                     aria-label={openTarget ? `Open ${transactionTitle(tx, isOut)}` : undefined}
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${isOut ? 'bg-amber-50 text-amber-500 group-hover:bg-amber-100' : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'}`}>
+                                        <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${isOut ? 'bg-orange-400/15 text-orange-300' : 'bg-emerald-400/15 text-emerald-300'}`}>
                                             {isOut ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
                                         </div>
                                         <div>
-                                            <p className="font-black text-[#111827] text-[11px] uppercase tracking-tight mb-0.5">
+                                            <p className="font-semibold text-white text-sm mb-0.5">
                                                 {transactionTitle(tx, isOut)}
                                             </p>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
+                                                <span className="text-xs text-white/55">
                                                     {tx.date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
                                                 </span>
-                                                <span className="w-1 h-1 bg-gray-200 rounded-full" />
-                                                <span className="text-[8px] text-[#5C4BFD] font-black uppercase tracking-widest capitalize">{formatTxType(tx.type)}</span>
+                                                <span className="w-1 h-1 bg-white/25 rounded-full" />
+                                                <span className="text-xs text-[#B3A9FF] font-semibold capitalize">{formatTxType(tx.type)}</span>
                                             </div>
                                             {meta && (
-                                                <p className="text-[8px] text-gray-400 font-bold mt-1 max-w-[260px] truncate">
+                                                <p className="text-xs text-white/45 mt-1 max-w-[260px] truncate">
                                                     {meta}
                                                 </p>
                                             )}
                                         </div>
                                     </div>
                                     <div className="text-right shrink-0 ml-4">
-                                        <p className={`text-xl font-black tracking-tighter ${isOut ? 'text-red-500' : 'text-emerald-600'}`}>
+                                        <p className="text-[15px] font-semibold text-white tabular-nums">
                                             {isOut ? '−' : '+'}{sym}{tx.amount.toLocaleString(undefined,{minimumFractionDigits:2})}
                                         </p>
-                                        <p className={`text-[8px] font-black uppercase tracking-widest mt-0.5 ${
-                                            tx.status==='completed' ? 'text-emerald-500'
+                                        <p className={`text-[11px] font-semibold mt-0.5 ${
+                                            tx.status==='completed' ? 'text-emerald-300'
                                             : tx.status==='failed' || tx.status==='rejected' ? 'text-red-500'
                                             : tx.status==='pending' || tx.status==='pending_admin_approval' || tx.status==='pending_admin_review' ? 'text-amber-500'
                                             : 'text-gray-400'
