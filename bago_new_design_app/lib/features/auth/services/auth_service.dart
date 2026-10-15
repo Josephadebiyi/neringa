@@ -1,0 +1,782 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+
+import '../../../core/constants/api_constants.dart';
+import '../../../shared/services/api_service.dart';
+import '../../../shared/services/storage_service.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
+import '../../../shared/utils/country_currency_helper.dart';
+import '../models/user_model.dart';
+
+class AuthService {
+  AuthService._();
+  static final AuthService instance = AuthService._();
+
+  final _api = ApiService.instance;
+  final _storage = StorageService.instance;
+  final _localAuth = LocalAuthentication();
+
+  bool get _isDebugIosSimulator {
+    if (kReleaseMode || !Platform.isIOS) return false;
+    final environment = Platform.environment;
+    return environment.containsKey('SIMULATOR_DEVICE_NAME') ||
+        environment.containsKey('SIMULATOR_UDID') ||
+        environment.containsKey('SIMULATOR_MODEL_IDENTIFIER');
+  }
+
+  // Google Sign-In initialization
+  static final _googleSignIn = _initializeGoogleSignIn();
+
+  static GoogleSignIn _initializeGoogleSignIn() {
+    final webClientId = ApiConstants.googleWebClientId.isNotEmpty
+        ? ApiConstants.googleWebClientId
+        : null;
+    final iosClientId = ApiConstants.googleIosClientId.isNotEmpty
+        ? ApiConstants.googleIosClientId
+        : null;
+
+    return GoogleSignIn(
+      // Android resolves its OAuth client from google-services.json and the
+      // app's package/signing certificate. Passing the iOS client ID on
+      // Android causes Google Play services DEVELOPER_ERROR / ApiException 10.
+      clientId: Platform.isIOS ? iosClientId : null,
+      scopes: ['email', 'profile'],
+      serverClientId: webClientId,
+    );
+  }
+
+  // ---------- Email / Password -----------------------------------------
+
+  Future<({UserModel user, String token})> login({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final res = await _api.post(
+        ApiConstants.login,
+        data: {'email': email.trim(), 'password': password},
+      );
+      return await _applyLoginResponse(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      // The owner-account email lookup returns 400 for "no such profile" —
+      // a business staff sub-account's email only exists in a separate
+      // table, so it always fails this way. Retry against the dedicated
+      // staff login endpoint before giving up (mirrors BAGO_WEBAPP's
+      // Login.jsx fallback).
+      if (e.response?.statusCode == 400) {
+        try {
+          final staffRes = await _api.post(
+            ApiConstants.businessStaffLogin,
+            data: {'email': email.trim(), 'password': password},
+          );
+          return await _applyLoginResponse(
+              staffRes.data as Map<String, dynamic>);
+        } on DioException catch (staffError) {
+          throw ApiService.parseError(staffError);
+        }
+      }
+      throw ApiService.parseError(e);
+    } on PlatformException catch (e) {
+      debugPrint('Login: platform/keychain error (non-fatal): $e');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
+    }
+  }
+
+  Future<({UserModel user, String token})> _applyLoginResponse(
+      Map<String, dynamic> data) async {
+    final user = await _applyStoredRole(
+      UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+    );
+    final token = data['token']?.toString() ?? '';
+    final refreshTok = data['refreshToken']?.toString();
+
+    await _storage.saveTokens(
+      accessToken: token,
+      refreshToken: refreshTok,
+    );
+    await _storage.saveRole(user.role);
+    await _storage.saveUser(user.toJsonString());
+    await _storage.saveBackendUrl(ApiConstants.baseUrl);
+    return (user: user, token: token);
+  }
+
+  /// Step 1 of registration: returns signupToken for OTP verification
+  Future<String> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    required String phone,
+    required String country,
+    String? currency,
+    String? accountType,
+    String? companyName,
+  }) async {
+    try {
+      final res = await _api.post(
+        ApiConstants.register,
+        data: {
+          'email': email.trim(),
+          'password': password,
+          'confirmPassword': password,
+          'firstName': firstName.trim(),
+          'lastName': lastName.trim(),
+          'phone': phone.trim(),
+          'country': country,
+          'currency': currency ?? _currencyForCountry(country),
+          if (accountType != null) 'accountType': accountType,
+          if (companyName != null && companyName.isNotEmpty)
+            'companyName': companyName.trim(),
+        },
+      );
+      final data = res.data as Map<String, dynamic>;
+      return data['signupToken']?.toString() ?? '';
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<bool> isEmailAvailable(String email) async {
+    try {
+      final res = await _api.post(
+        ApiConstants.checkEmail,
+        data: {'email': email.trim()},
+      );
+      final data = res.data as Map<String, dynamic>;
+      return data['available'] == true;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  /// Step 2: verify OTP, logs user in on success
+  Future<UserModel> verifyOtp({
+    required String signupToken,
+    required String otp,
+  }) async {
+    try {
+      final res = await _api.post(
+        ApiConstants.verifyOtp,
+        data: {'signupToken': signupToken, 'otp': otp.trim()},
+      );
+      final data = res.data as Map<String, dynamic>;
+      final user = await _applyStoredRole(
+        UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+      );
+      final token = data['token']?.toString() ?? '';
+      final refreshTok = data['refreshToken']?.toString();
+
+      await _storage.saveTokens(
+        accessToken: token,
+        refreshToken: refreshTok,
+      );
+      await _storage.saveRole(user.role);
+      await _storage.saveUser(user.toJsonString());
+      await _storage.saveBackendUrl(ApiConstants.baseUrl);
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    } on PlatformException catch (e) {
+      debugPrint('verifyOtp: platform/keychain error (non-fatal): $e');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
+    }
+  }
+
+  Future<void> resendOtp(String email) async {
+    try {
+      await _api.post(ApiConstants.resendOtp, data: {'email': email.trim()});
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> forgotPassword(String email) async {
+    try {
+      await _api.post(
+        ApiConstants.forgotPassword,
+        data: {'email': email.trim()},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<String> verifyPasswordResetOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final res = await _api.post(
+        ApiConstants.verifyPasswordResetOtp,
+        data: {'email': email.trim(), 'otp': otp.trim()},
+      );
+      final data = res.data as Map<String, dynamic>;
+      return data['token']?.toString() ?? '';
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _api.post(
+        ApiConstants.resetPassword,
+        data: {'email': email.trim(), 'newPassword': newPassword},
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _api.post(
+        ApiConstants.changePassword,
+        data: {'currentPassword': currentPassword, 'newPassword': newPassword},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> registerPushToken(
+    String token, {
+    String? platform,
+  }) async {
+    if (token.isEmpty) {
+      throw Exception('Cannot register empty push token');
+    }
+
+    try {
+      await _storage.savePushToken(token);
+      final pushPlatform =
+          (platform ?? (Platform.isIOS ? 'ios' : 'android')).trim();
+      debugPrint(
+          '🔔 Registering token with backend (len=${token.length}, platform=$pushPlatform)');
+      debugPrint('   Endpoint: POST ${ApiConstants.registerPushToken}');
+
+      final response = await _api.post(
+        ApiConstants.registerPushToken,
+        data: {
+          'token': token,
+          'deviceToken': token,
+          'pushToken': token,
+          'platform': pushPlatform,
+          'provider': pushPlatform,
+        },
+      );
+
+      // Validate response
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Server returned status ${response.statusCode}');
+      }
+
+      debugPrint(
+          '✅ Backend accepted token registration - Status: ${response.statusCode}');
+
+      final stored = await _storage.getPushToken();
+      if (stored == token) {
+        debugPrint('✅ Token confirmed in local secure storage');
+      } else {
+        debugPrint('⚠️  Local storage mismatch after backend success');
+      }
+    } on DioException catch (e) {
+      debugPrint(
+          '❌ Backend registration failed - Status: ${e.response?.statusCode}');
+      debugPrint('   Message: ${e.message}');
+      throw ApiService.parseError(e);
+    } catch (e, stack) {
+      debugPrint('❌ Token registration error: $e');
+      debugPrint(stack.toString());
+      rethrow;
+    }
+  }
+
+  // ---------- Google Sign-In ------------------------------------------
+
+  Future<UserModel> googleSignIn() async {
+    try {
+      // Check if Google Sign-In is properly configured
+      final hasGoogleConfig = ApiConstants.googleIosClientId.isNotEmpty ||
+          ApiConstants.googleWebClientId.isNotEmpty;
+      if (!hasGoogleConfig) {
+        throw 'Google Sign-In is not configured. Please provide GOOGLE_IOS_CLIENT_ID or GOOGLE_WEB_CLIENT_ID environment variables during build.';
+      }
+
+      try {
+        final googleUser =
+            await _googleSignIn.signIn().timeout(const Duration(seconds: 60));
+        if (googleUser == null) throw 'Google sign-in was cancelled';
+
+        final googleAuth = await googleUser.authentication
+            .timeout(const Duration(seconds: 30));
+        final idToken = googleAuth.idToken;
+        final accessToken = googleAuth.accessToken;
+
+        if ((idToken == null || idToken.isEmpty) &&
+            (accessToken == null || accessToken.isEmpty)) {
+          throw 'Failed to get Google authentication token';
+        }
+
+        final res = await _api.post(
+          ApiConstants.googleAuth,
+          data: {
+            if (idToken != null && idToken.isNotEmpty) 'idToken': idToken,
+            if (accessToken != null && accessToken.isNotEmpty)
+              'accessToken': accessToken,
+          },
+        );
+        final data = res.data as Map<String, dynamic>;
+        final user = await _applyStoredRole(
+          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+        );
+        final token = data['token']?.toString() ?? '';
+        final refreshTok = data['refreshToken']?.toString();
+
+        await _storage.saveTokens(
+          accessToken: token,
+          refreshToken: refreshTok,
+        );
+        await _storage.saveRole(user.role);
+        await _storage.saveUser(user.toJsonString());
+        await _storage.saveBackendUrl(ApiConstants.baseUrl);
+        return user;
+      } catch (googleError) {
+        throw _mapGoogleSignInError(googleError);
+      }
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    } catch (e) {
+      throw _mapGoogleSignInError(e);
+    }
+  }
+
+  // ---------- Apple Sign-In -------------------------------------------
+
+  Future<UserModel> appleSignIn() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final res = await _api.post(
+        ApiConstants.appleAuth,
+        data: {
+          'identityToken': credential.identityToken,
+          if (credential.email != null && credential.email!.isNotEmpty)
+            'email': credential.email,
+          if (credential.givenName != null && credential.givenName!.isNotEmpty)
+            'firstName': credential.givenName,
+          if (credential.familyName != null &&
+              credential.familyName!.isNotEmpty)
+            'lastName': credential.familyName,
+        },
+      );
+      final data = res.data as Map<String, dynamic>;
+      final user = await _applyStoredRole(
+        UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+      );
+      final token = data['token']?.toString() ?? '';
+      final refreshTok = data['refreshToken']?.toString();
+
+      await _storage.saveTokens(
+        accessToken: token,
+        refreshToken: refreshTok,
+      );
+      await _storage.saveRole(user.role);
+      await _storage.saveUser(user.toJsonString());
+      await _storage.saveBackendUrl(ApiConstants.baseUrl);
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    } on PlatformException catch (e) {
+      debugPrint('appleSignIn: platform/keychain error (non-fatal): $e');
+      throw Exception(
+          'A system error occurred. Please restart the app and try again.');
+    } catch (e) {
+      if (e is SignInWithAppleAuthorizationException) {
+        if (e.code == AuthorizationErrorCode.canceled) {
+          throw 'Apple sign-in was cancelled';
+        }
+        throw 'Apple sign-in failed: ${e.message}';
+      }
+      rethrow;
+    }
+  }
+
+  // ---------- Biometrics ----------------------------------------------
+
+  Future<bool> isBiometricAvailable() async {
+    try {
+      if (_isDebugIosSimulator) return false;
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isDeviceSupported = await _localAuth.isDeviceSupported();
+      return canCheck && isDeviceSupported;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> authenticateWithBiometrics() async {
+    try {
+      if (_isDebugIosSimulator) return false;
+      final enabled = await _storage.isBiometricEnabled();
+      if (!enabled) return false;
+      return await _localAuth.authenticate(
+        localizedReason: 'Use biometrics to sign in to Bago',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ---------- Profile -------------------------------------------------
+
+  Future<UserModel> getProfile() async {
+    try {
+      final res = await _api.get(ApiConstants.profile);
+      final data = res.data as Map<String, dynamic>;
+      final user = await _applyStoredRole(
+        UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>),
+      );
+      await _storage.saveRole(user.role);
+      await _storage.saveUser(user.toJsonString());
+      await _storage.saveBackendUrl(ApiConstants.baseUrl);
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<UserModel> updateProfile(Map<String, dynamic> updates) async {
+    try {
+      final res = await _api.put(ApiConstants.updateProfile, data: updates);
+      final data = res.data as Map<String, dynamic>;
+      final profileData = data['user'] ?? data['data'] ?? data;
+      final user = await _applyStoredRole(
+        UserModel.fromJson(profileData as Map<String, dynamic>),
+      );
+      await _storage.saveRole(user.role);
+      await _storage.saveUser(user.toJsonString());
+      await _storage.saveBackendUrl(ApiConstants.baseUrl);
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<UserModel> uploadAvatar(File file) async {
+    try {
+      if (!await file.exists()) {
+        throw Exception('The selected photo is no longer available.');
+      }
+      final response = await _api.uploadFile<Map<String, dynamic>>(
+        ApiConstants.uploadAvatar,
+        file: file,
+        fieldName: 'image',
+      );
+      final imageUrl = AvatarUrlParser.fromJson(response.data);
+      if (imageUrl == null) {
+        throw Exception('The server did not return the uploaded photo.');
+      }
+
+      final stored = await _storage.getUser();
+      final existing = stored == null ? null : UserModel.fromJsonString(stored);
+      if (existing == null) return await getProfile();
+
+      final updated = existing.copyWith(profilePicture: imageUrl);
+      await _storage.saveUser(updated.toJsonString());
+      return updated;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<UserModel> updateCurrency(String currency) async {
+    try {
+      final res = await _api
+          .put(ApiConstants.changeCurrency, data: {'currency': currency});
+      final data = res.data as Map<String, dynamic>;
+      final returned =
+          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>);
+      final stored = await _storage.getUser();
+      final existing = stored == null ? null : UserModel.fromJsonString(stored);
+      final user = (existing == null)
+          ? returned
+          : existing.copyWith(
+              currency: returned.currency.isNotEmpty
+                  ? returned.currency
+                  : existing.currency,
+              preferredCurrency: returned.preferredCurrency.isNotEmpty
+                  ? returned.preferredCurrency
+                  : (returned.currency.isNotEmpty
+                      ? returned.currency
+                      : existing.preferredCurrency),
+            );
+      await _storage.saveUser(user.toJsonString());
+      await _storage.saveBackendUrl(ApiConstants.baseUrl);
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<UserModel> activateEarning(String currency) async {
+    try {
+      final res = await _api
+          .post(ApiConstants.activateEarning, data: {'currency': currency});
+      final data = res.data as Map<String, dynamic>;
+      final returned =
+          UserModel.fromJson((data['user'] ?? data) as Map<String, dynamic>);
+      final stored = await _storage.getUser();
+      final existing = stored == null ? null : UserModel.fromJsonString(stored);
+      final user = (existing == null)
+          ? returned
+          : existing.copyWith(
+              earningCurrency: returned.earningCurrency ?? currency,
+              earningCurrencyLocked: returned.earningCurrencyLocked,
+              preferredCurrency: currency,
+              currency: currency,
+              walletCurrency: returned.walletCurrency.isNotEmpty
+                  ? returned.walletCurrency
+                  : currency,
+            );
+      await _storage.saveUser(user.toJsonString());
+      return user;
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<Map<String, String>> detectLocation() async {
+    try {
+      final res = await _api.get(ApiConstants.detectLocation);
+      final data = res.data as Map<String, dynamic>;
+      return {
+        'currency': (data['currency'] as String? ?? '').toUpperCase(),
+        'countryCode': (data['countryCode'] as String? ?? '').toUpperCase(),
+        'country': (data['country'] as String? ?? '').trim(),
+        'gateway': (data['gateway'] as String? ?? 'stripe').toLowerCase(),
+        'source': (data['source'] as String? ?? '').trim(),
+        'confidence': (data['confidence'] as String? ?? '').trim(),
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> requestEmailChange(String newEmail) async {
+    try {
+      await _api.post(ApiConstants.requestEmailChange,
+          data: {'newEmail': newEmail.trim()});
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> verifyEmailChange(String otp) async {
+    try {
+      await _api
+          .post(ApiConstants.verifyEmailChange, data: {'otp': otp.trim()});
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> requestPhoneChange(String newPhone) async {
+    try {
+      await _api.post(
+        ApiConstants.requestPhoneChange,
+        data: {'newPhone': newPhone.trim()},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> sendPhoneVerificationOtp(String phone) async {
+    try {
+      await _api.post(
+        ApiConstants.sendPhoneVerificationOtp,
+        data: {'phone': phone.trim()},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> verifyPhoneVerificationOtp(String otp) async {
+    try {
+      await _api.post(
+        ApiConstants.verifyPhoneVerificationOtp,
+        data: {'otp': otp.trim()},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  Future<void> verifyPhoneChange(String otp) async {
+    try {
+      await _api.post(
+        ApiConstants.verifyPhoneChange,
+        data: {'otp': otp.trim()},
+      );
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  // ---------- Logout / Delete -----------------------------------------
+
+  Future<void> logout() async {
+    try {
+      await _api.get(ApiConstants.logout);
+    } catch (_) {}
+    await _googleSignIn.signOut().catchError((_) => null);
+    await _storage.clearAll();
+  }
+
+  Future<void> deleteAccount() async {
+    try {
+      await _api.delete(ApiConstants.deleteAccount);
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    } finally {
+      await _storage.clearAll();
+    }
+  }
+
+  // ---------- Restore session from storage ----------------------------
+
+  Future<UserModel?> restoreSession({bool validateWithBackend = false}) async {
+    final token = await _storage.getAccessToken();
+    final userData = await _storage.getUser();
+    if (token == null || userData == null) return null;
+    final storedBackendUrl = await _storage.getBackendUrl();
+    if (storedBackendUrl != null &&
+        storedBackendUrl.isNotEmpty &&
+        storedBackendUrl != ApiConstants.baseUrl) {
+      await _storage.clearAll();
+      return null;
+    }
+    try {
+      final cachedUser =
+          await _applyStoredRole(UserModel.fromJsonString(userData));
+      if (!validateWithBackend) return cachedUser;
+
+      try {
+        final freshUser =
+            await getProfile().timeout(const Duration(seconds: 5));
+        return freshUser;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          await _storage.clearAll();
+          return null;
+        }
+
+        final isOfflineOrTimeout = e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout;
+        if (isOfflineOrTimeout) {
+          return cachedUser;
+        }
+
+        return cachedUser;
+      } on TimeoutException {
+        return cachedUser;
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ---------- Helpers -------------------------------------------------
+
+  Future<UserModel> _applyStoredRole(UserModel user) async {
+    final storedRole = await _storage.getRole();
+    if (storedRole == null || storedRole.isEmpty || storedRole == user.role) {
+      return user;
+    }
+    return user.copyWith(role: storedRole);
+  }
+
+  static String _currencyForCountry(String country) {
+    return CurrencyConversionHelper.countryByName(country)?.currency ?? 'USD';
+  }
+
+  String _mapGoogleSignInError(Object error) {
+    final message = error.toString();
+    final normalized = message.toLowerCase();
+    debugPrint('❌ Google Sign-In raw error: $message');
+
+    // Must be checked before the generic 'sign_in_failed' branch below:
+    // Android's native GoogleSignIn plugin always reports PlatformException
+    // code 'sign_in_failed' regardless of the underlying cause, so this more
+    // specific, more actionable check would otherwise never be reached.
+    if (normalized.contains('apiexception: 10') ||
+        normalized.contains('developer_error')) {
+      return 'Google Sign-In configuration does not match this Android app signing certificate. Please update the app and try again.';
+    }
+
+    if (normalized.contains('keychainerror') ||
+        normalized.contains('gidsignin') ||
+        normalized.contains('sign_in_failed') ||
+        normalized.contains('code: -34018')) {
+      if (Platform.isIOS) {
+        return 'Google Sign-In is not available on this iPhone simulator right now. Please try again on a real device or use email login.';
+      }
+      return 'Google Sign-In is temporarily unavailable. Please try again or use email login.';
+    }
+
+    if (normalized.contains('cancelled')) {
+      return 'Google sign-in was cancelled.';
+    }
+
+    if (normalized.contains('failed to get google authentication token')) {
+      return 'Google Sign-In could not complete. Please try again.';
+    }
+
+    if (normalized.contains('something went wrong')) {
+      if (Platform.isIOS) {
+        return 'Google Sign-In hit an iPhone-side error. If this is the simulator, please test Google Sign-In on a real device or use email login here.';
+      }
+      return 'Google Sign-In hit an unexpected error. Please try again.';
+    }
+
+    if (normalized.contains('timeoutexception')) {
+      if (Platform.isIOS) {
+        return 'Google Sign-In timed out on this iPhone simulator. Please use email login here, or test Google Sign-In on a real iPhone.';
+      }
+      return 'Google Sign-In timed out. Please try again.';
+    }
+
+    return message;
+  }
+}

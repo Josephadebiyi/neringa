@@ -1,0 +1,518 @@
+import '../../../core/theme/app_palette.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/constants/api_constants.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/user_currency_helper.dart';
+import '../../../shared/widgets/app_loading.dart';
+import '../../../shared/widgets/auth_required_modal.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../trips/models/trip_model.dart';
+import '../../trips/providers/trip_provider.dart';
+import '../../trips/widgets/trip_ticket_card.dart';
+
+class SearchResultsScreen extends ConsumerStatefulWidget {
+  final String? fromCity;
+  final String? toCity;
+  final String? date;
+
+  const SearchResultsScreen({
+    super.key,
+    this.fromCity,
+    this.toCity,
+    this.date,
+  });
+
+  @override
+  ConsumerState<SearchResultsScreen> createState() =>
+      _SearchResultsScreenState();
+}
+
+class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
+  Map<String, String> _matchBadges = {};
+  bool _scoresFetched = false;
+  Map<String, _SenderPriceQuote> _senderPrices = {};
+  bool _senderPricesFetched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.fromCity == null ||
+          widget.fromCity!.trim().isEmpty ||
+          widget.toCity == null ||
+          widget.toCity!.trim().isEmpty) {
+        return;
+      }
+      ref.read(tripProvider.notifier).searchTrips(
+            from: widget.fromCity,
+            to: widget.toCity,
+            date: widget.date,
+          );
+    });
+  }
+
+  Future<void> _fetchMatchScores(List<TripModel> results) async {
+    if (_scoresFetched) return;
+    _scoresFetched = true;
+    try {
+      final tripIds = results.map((t) => t.id).toList();
+      final res = await ApiService.instance.post(
+        ApiConstants.aiMatchScores,
+        data: {
+          'weight': 0,
+          'category': '',
+          'from': widget.fromCity ?? '',
+          'to': widget.toCity ?? '',
+          'tripIds': tripIds,
+        },
+      ).timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+      final scores = (res.data?['scores'] as List?) ?? [];
+      final badges = <String, String>{};
+      for (final s in scores) {
+        final id = s['tripId']?.toString();
+        final badge = s['badge']?.toString();
+        if (id != null && badge != null) badges[id] = badge;
+      }
+      if (badges.isNotEmpty) setState(() => _matchBadges = badges);
+    } catch (_) {}
+  }
+
+  Future<void> _fetchSenderPrices(List<TripModel> results) async {
+    if (_senderPricesFetched) return;
+    _senderPricesFetched = true;
+    final currency = UserCurrencyHelper.resolve(ref.read(authProvider).user);
+    if (currency.isEmpty) return;
+
+    final entries = await Future.wait(results.map((trip) async {
+      try {
+        final response = await ApiService.instance.post<Map<String, dynamic>>(
+          ApiConstants.shipmentCheckoutPreview,
+          data: {
+            'tripId': trip.id,
+            'weight': 1,
+            'senderCurrency': currency,
+            'declaredValue': 0,
+            'insurance': false,
+          },
+        ).timeout(const Duration(seconds: 15));
+        final raw = response.data?['preview'];
+        if (raw is! Map) return null;
+        final amount = num.tryParse(raw['shippingAmount']?.toString() ?? '');
+        final quotedCurrency = raw['senderCurrency']?.toString().trim();
+        if (amount == null ||
+            quotedCurrency == null ||
+            quotedCurrency.isEmpty) {
+          return null;
+        }
+        return MapEntry(
+          trip.id,
+          _SenderPriceQuote(quotedCurrency.toUpperCase(), amount.toDouble()),
+        );
+      } catch (_) {
+        return null;
+      }
+    }));
+
+    if (!mounted) return;
+    setState(() {
+      _senderPrices = {
+        for (final entry in entries)
+          if (entry != null) entry.key: entry.value,
+      };
+    });
+  }
+
+  void _goBack(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final state = ref.watch(tripProvider);
+    final results = state.searchResults;
+
+    ref.listen<TripState>(tripProvider, (prev, next) {
+      if ((prev?.isSearching ?? false) &&
+          !next.isSearching &&
+          next.searchResults.isNotEmpty) {
+        _scoresFetched = false;
+        _senderPricesFetched = false;
+        _senderPrices = {};
+        _fetchMatchScores(next.searchResults);
+        _fetchSenderPrices(next.searchResults);
+      }
+    });
+    final hasRequiredCities = widget.fromCity != null &&
+        widget.fromCity!.trim().isNotEmpty &&
+        widget.toCity != null &&
+        widget.toCity!.trim().isNotEmpty;
+
+    return Scaffold(
+      backgroundColor: AppPalette.of(context).pageBackground,
+      appBar: AppBar(
+        backgroundColor: AppPalette.of(context).pageBackground,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        leadingWidth: 108,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12, top: 8, bottom: 8),
+          child: TextButton.icon(
+            onPressed: () => _goBack(context),
+            icon: const Icon(Icons.arrow_back_rounded, size: 18),
+            label: Text(
+              l10n.goBack,
+              style: AppTextStyles.labelSm.copyWith(
+                color: AppPalette.of(context).primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              backgroundColor: AppPalette.of(context).primarySoft,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+          ),
+        ),
+        title: Text(
+          l10n.searchResultsTitle,
+          style: AppTextStyles.h3.copyWith(color: AppPalette.of(context).black),
+        ),
+      ),
+      body: Column(
+        children: [
+          // Search criteria summary
+          _SearchSummary(
+            fromCity: widget.fromCity,
+            toCity: widget.toCity,
+            date: widget.date,
+            onBack: () => _goBack(context),
+          ),
+
+          // Count header
+          if (!state.isSearching && hasRequiredCities)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  l10n.tripsFoundCount(results.length),
+                  style: AppTextStyles.labelMd
+                      .copyWith(color: AppPalette.of(context).black),
+                ),
+              ),
+            ),
+
+          // Results
+          Expanded(
+            child: !hasRequiredCities
+                ? _MissingCitiesState(
+                    onBack: () => _goBack(context),
+                  )
+                : state.isSearching
+                    ? const Center(child: AppLoading())
+                    : results.isEmpty
+                        ? _EmptyState(
+                            onRefresh: () =>
+                                ref.read(tripProvider.notifier).searchTrips(
+                                      from: widget.fromCity,
+                                      to: widget.toCity,
+                                      date: widget.date,
+                                    ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: () =>
+                                ref.read(tripProvider.notifier).searchTrips(
+                                      from: widget.fromCity,
+                                      to: widget.toCity,
+                                      date: widget.date,
+                                    ),
+                            child: ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: results.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (_, i) => _TripCard(
+                                trip: results[i],
+                                badge: _matchBadges[results[i].id],
+                                senderPrice: _senderPrices[results[i].id],
+                              ),
+                            ),
+                          ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sub-widgets ───────────────────────────────────────────────────────────────
+
+class _SearchSummary extends StatelessWidget {
+  const _SearchSummary(
+      {this.fromCity, this.toCity, this.date, required this.onBack});
+  final String? fromCity, toCity, date;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppPalette.of(context).gray100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.location_on_rounded,
+              size: 16, color: AppPalette.of(context).primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${fromCity ?? l10n.anyLabel} → ${toCity ?? l10n.anyLabel}',
+                  style: AppTextStyles.labelMd,
+                ),
+                if (date != null)
+                  Text(date!,
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppPalette.of(context).gray500)),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: onBack,
+            icon: const Icon(Icons.close_rounded, size: 18),
+            label: Text(
+              l10n.goBack,
+              style: AppTextStyles.labelSm
+                  .copyWith(color: AppPalette.of(context).gray500),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppPalette.of(context).gray500,
+              backgroundColor: AppPalette.of(context).gray50,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.onRefresh});
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off_rounded,
+              size: 56, color: AppPalette.of(context).gray300),
+          const SizedBox(height: 16),
+          Text(l10n.noTripsFound,
+              style: AppTextStyles.h3
+                  .copyWith(color: AppPalette.of(context).black)),
+          const SizedBox(height: 8),
+          Text(l10n.tryAdjustingSearch,
+              style: AppTextStyles.bodyMd
+                  .copyWith(color: AppPalette.of(context).gray500)),
+          const SizedBox(height: 24),
+          TextButton(
+            onPressed: onRefresh,
+            child: Text(l10n.searchAgain,
+                style: AppTextStyles.labelMd
+                    .copyWith(color: AppPalette.of(context).primary)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissingCitiesState extends StatelessWidget {
+  const _MissingCitiesState({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.place_outlined,
+                size: 56, color: AppPalette.of(context).gray300),
+            const SizedBox(height: 16),
+            Text(
+              l10n.selectBothCitiesFirst,
+              style: AppTextStyles.h3
+                  .copyWith(color: AppPalette.of(context).black),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.searchRequiresCities,
+              style: AppTextStyles.bodyMd
+                  .copyWith(color: AppPalette.of(context).gray500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: onBack,
+              child: Text(
+                l10n.goBack,
+                style: AppTextStyles.labelMd
+                    .copyWith(color: AppPalette.of(context).primary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TripCard extends ConsumerWidget {
+  const _TripCard({required this.trip, this.badge, this.senderPrice});
+  final TripModel trip;
+  final String? badge;
+  final _SenderPriceQuote? senderPrice;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> startShipment() async {
+      final user = ref.read(authProvider).user;
+      if (!context.mounted) return;
+      if (user == null) {
+        showAuthRequiredModal(context);
+        return;
+      }
+      context.push('/request-shipment/${trip.id}', extra: trip);
+    }
+
+    final card = TripTicketCard(
+      trip: trip,
+      onTap: startShipment,
+      actionLabel: 'Send package',
+      // null while the authoritative per-kg quote is in flight — TripTicketCard
+      // shows a shimmer placeholder rather than any estimate, so the sender
+      // only ever sees the one real, backend-computed price.
+      authoritativeSenderPrice: senderPrice == null
+          ? null
+          : '${senderPrice!.currency} ${senderPrice!.amount.toStringAsFixed(2)}/kg',
+    );
+
+    if (badge == null) return card;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        card,
+        Positioned(
+          top: 10,
+          right: 10,
+          child: _MatchBadge(badge: badge!),
+        ),
+      ],
+    );
+  }
+}
+
+class _SenderPriceQuote {
+  const _SenderPriceQuote(this.currency, this.amount);
+
+  final String currency;
+  final double amount;
+}
+
+class _MatchBadge extends StatelessWidget {
+  const _MatchBadge({required this.badge});
+  final String badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    final Color textColor;
+    final IconData icon;
+
+    switch (badge) {
+      case 'Top Match':
+        color = const Color(0xFFF59E0B);
+        textColor = const Color(0xFF78350F);
+        icon = Icons.workspace_premium_rounded;
+      case 'Good Fit':
+        color = const Color(0xFF3B82F6);
+        textColor = Colors.white;
+        icon = Icons.thumb_up_rounded;
+      default:
+        color = const Color(0xFF9CA3AF);
+        textColor = Colors.white;
+        icon = Icons.check_circle_outline_rounded;
+    }
+
+    return AnimatedOpacity(
+      opacity: 1,
+      duration: const Duration(milliseconds: 400),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.4),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: textColor),
+            const SizedBox(width: 4),
+            Text(
+              badge,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

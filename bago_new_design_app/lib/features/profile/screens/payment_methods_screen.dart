@@ -1,0 +1,145 @@
+import '../../../core/theme/app_palette.dart';
+import 'package:flutter/material.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+
+class PaymentMethodsScreen extends StatelessWidget {
+  const PaymentMethodsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppPalette.of(context).pageBackground,
+      appBar: AppBar(
+        backgroundColor: AppPalette.of(context).pageBackground,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'Payment Methods',
+          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: const [
+          _PaymentMethodNotice(),
+          SizedBox(height: 18),
+          _SecurityNote(),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentMethodNotice extends StatelessWidget {
+  const _PaymentMethodNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppPalette.of(context).border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: AppPalette.of(context).primarySoft,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(
+              Icons.credit_card_rounded,
+              color: AppPalette.of(context).primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Cards are saved during checkout',
+            style: AppTextStyles.h2.copyWith(
+              color: AppPalette.of(context).black,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Bago uses Flutterwave for secure checkout. When you pay by card, Apple Pay, bank transfer, or mobile money, Flutterwave securely handles and stores the payment details. Bago never receives raw card numbers.',
+            style: AppTextStyles.bodyMd.copyWith(
+              color: AppPalette.of(context).gray600,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppPalette.of(context).gray50,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 26,
+                  color: AppPalette.of(context).primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Use secure checkout to pay by card, Apple Pay, bank transfer, or mobile money.',
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: AppPalette.of(context).gray600,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityNote extends StatelessWidget {
+  const _SecurityNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).primarySoft,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.lock_outline_rounded,
+            size: 18,
+            color: AppPalette.of(context).primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Payment details are processed by Flutterwave. Bago stores only safe payment references for support, refunds, and shipment tracking.',
+              style: AppTextStyles.bodySm.copyWith(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

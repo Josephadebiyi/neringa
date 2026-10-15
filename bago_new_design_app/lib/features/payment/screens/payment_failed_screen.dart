@@ -1,0 +1,198 @@
+import '../../../core/theme/app_palette.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../services/shipment_checkout_service.dart';
+
+class PaymentFailedScreen extends StatelessWidget {
+  const PaymentFailedScreen({super.key, this.extra});
+  final Map<String, dynamic>? extra;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final rawError = extra?['lastPaymentError']?.toString();
+    final error = _friendlyError(l10n, rawError);
+    return Scaffold(
+      backgroundColor: AppPalette.of(context).pageBackground,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: const BoxDecoration(
+                    color: AppColors.errorLight, shape: BoxShape.circle),
+                child: const Icon(Icons.close_rounded,
+                    color: AppColors.error, size: 52),
+              ),
+              const SizedBox(height: 24),
+              Text(l10n.paymentFailedTitle,
+                  style: AppTextStyles.h1, textAlign: TextAlign.center),
+              const SizedBox(height: 10),
+              Text(
+                error,
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: AppPalette.of(context).gray700,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              AppButton(
+                  label: l10n.continuePayment,
+                  onPressed: () => context.go('/payment')),
+              const SizedBox(height: 12),
+              AppButton(
+                label: l10n.deleteDraft,
+                variant: AppButtonVariant.outline,
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Discard draft?'),
+                      content: const Text(
+                          'This will remove your saved shipment draft. You\'ll need to start over.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Keep'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style:
+                              TextButton.styleFrom(foregroundColor: Colors.red),
+                          child: const Text('Discard'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true) return;
+                  await ShipmentCheckoutService.instance.clearDraft();
+                  if (!context.mounted) return;
+                  context.go('/activity');
+                },
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => context.go('/activity'),
+                child: Text(
+                  l10n.backToMyShipments,
+                  style: AppTextStyles.labelMd.copyWith(
+                    color: AppPalette.of(context).gray500,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _friendlyError(AppLocalizations l10n, String? rawError) {
+    final raw = rawError?.trim();
+    if (raw == null || raw.isEmpty) {
+      return l10n.paymentNotCompleted;
+    }
+
+    final normalized = raw.toLowerCase();
+    if (_looksLikeDiagnosticLeak(normalized)) {
+      return l10n.paymentCouldNotCompleteGeneric;
+    }
+    if (normalized.contains('country of residence') ||
+        normalized.contains('residence currency') ||
+        normalized.contains('currency mismatch')) {
+      return 'Your payment currency does not match your country of residence. Update it in Profile → Currency and try again.';
+    }
+    if (normalized.contains('identity verification') ||
+        normalized.contains('kyc')) {
+      return 'Complete identity verification before making this payment.';
+    }
+    if (normalized.contains('not enabled') && normalized.contains('payment')) {
+      return 'This currency is not enabled on Bago’s payment account yet. Please contact support.';
+    }
+    if (normalized.contains('could not authorize')) {
+      return 'Flutterwave could not authorize this payment. Try another available payment method.';
+    }
+    if (normalized.contains('insufficient_funds')) {
+      return l10n.insufficientFundsMessage;
+    }
+    if (normalized.contains('card_declined') ||
+        normalized.contains('generic_decline')) {
+      return l10n.cardDeclinedMessage;
+    }
+    if (normalized.contains('incorrect_cvc') ||
+        normalized.contains('invalid_cvc')) {
+      return l10n.incorrectCvcMessage;
+    }
+    if (normalized.contains('expired_card')) {
+      return l10n.expiredCardMessage;
+    }
+    if (normalized.contains('incorrect_number') ||
+        normalized.contains('invalid_number')) {
+      return l10n.incorrectNumberMessage;
+    }
+    if (normalized.contains('authentication_required') ||
+        normalized.contains('three_d_secure') ||
+        normalized.contains('3d secure') ||
+        normalized.contains('requires_action')) {
+      return l10n.bankVerificationMessage;
+    }
+    if (normalized.contains('processing_error')) {
+      return l10n.processingErrorMessage;
+    }
+    if (normalized.contains('canceled') || normalized.contains('cancelled')) {
+      return l10n.paymentCancelledMessage;
+    }
+    if (normalized.contains('internal server') ||
+        normalized.contains('vite') ||
+        normalized.contains('publishable key') ||
+        normalized.contains('secret key') ||
+        normalized.contains('api key') ||
+        normalized.contains('server error') ||
+        normalized.contains('exception') ||
+        normalized.contains('500') ||
+        normalized.contains('503')) {
+      return l10n.paymentCouldNotCompleteGeneric;
+    }
+
+    return l10n.paymentCouldNotCompleteGeneric;
+  }
+
+  bool _looksLikeDiagnosticLeak(String normalized) {
+    final blocked = [
+      'merchant=',
+      'merchant.',
+      'client_secret',
+      'clientsecret',
+      'payment_intent',
+      'paymentintent',
+      'pi_',
+      'pk_live',
+      'pk_test',
+      'sk_live',
+      'sk_test',
+      'publishablekey',
+      'secretkey',
+      'stripeerrorcode',
+      'declinecode',
+      'country=',
+      'currency=',
+      'amount=',
+      'code=',
+      'stacktrace',
+      'trace:',
+    ];
+    return blocked.any(normalized.contains);
+  }
+}

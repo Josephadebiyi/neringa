@@ -1,0 +1,251 @@
+import '../../../core/utils/json_parser.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
+
+class ChatShipmentSummary {
+  const ChatShipmentSummary({
+    required this.requestId,
+    this.status,
+    this.packageTitle,
+    this.routeLabel,
+    this.trackingNumber,
+  });
+
+  final String requestId;
+  final String? status;
+  final String? packageTitle;
+  final String? routeLabel;
+  final String? trackingNumber;
+
+  bool get isClosed => ['completed', 'cancelled', 'canceled', 'rejected']
+      .contains(status?.toLowerCase());
+
+  String get summary => [
+        if ((packageTitle ?? '').trim().isNotEmpty) packageTitle!.trim(),
+        if ((routeLabel ?? '').trim().isNotEmpty) routeLabel!.trim(),
+      ].join(' • ');
+
+  factory ChatShipmentSummary.fromRequest(Map<String, dynamic> request) {
+    final package = request['package'] as Map<String, dynamic>?;
+    final fromCity = package?['fromCity']?.toString().trim() ?? '';
+    final toCity = package?['toCity']?.toString().trim() ?? '';
+    final routeLabel =
+        [fromCity, toCity].where((part) => part.isNotEmpty).join(' → ');
+    return ChatShipmentSummary(
+      requestId: request['_id']?.toString() ??
+          request['id']?.toString() ??
+          request['requestId']?.toString() ??
+          '',
+      status: request['status']?.toString(),
+      packageTitle:
+          package?['description']?.toString() ?? package?['title']?.toString(),
+      routeLabel: routeLabel.isEmpty ? null : routeLabel,
+      trackingNumber: request['trackingNumber']?.toString(),
+    );
+  }
+}
+
+class ConversationModel {
+  final String id;
+  final String otherUserId;
+  final String otherUserName;
+  final String? otherUserAvatar;
+  final String? lastMessage;
+  final String? lastMessageTime;
+  final int unreadCount;
+  final String createdAt;
+  final String? requestId;
+  final String? requestStatus;
+  final String? tripId;
+  final String? packageTitle;
+  final String? routeLabel;
+  final String? trackingNumber;
+  final List<ChatShipmentSummary> activeShipments;
+  final bool currentUserIsSender;
+  final bool chatLocked;
+  final String? chatLockReason;
+
+  const ConversationModel({
+    required this.id,
+    required this.otherUserId,
+    required this.otherUserName,
+    this.otherUserAvatar,
+    this.lastMessage,
+    this.lastMessageTime,
+    required this.unreadCount,
+    required this.createdAt,
+    this.requestId,
+    this.requestStatus,
+    this.tripId,
+    this.packageTitle,
+    this.routeLabel,
+    this.trackingNumber,
+    this.activeShipments = const [],
+    this.currentUserIsSender = false,
+    this.chatLocked = false,
+    this.chatLockReason,
+  });
+
+  bool get isClosed =>
+      chatLocked ||
+      ['completed', 'cancelled', 'rejected'].contains(
+        requestStatus?.toLowerCase(),
+      );
+
+  ConversationModel copyWith({
+    String? id,
+    String? otherUserId,
+    String? otherUserName,
+    String? otherUserAvatar,
+    String? lastMessage,
+    String? lastMessageTime,
+    int? unreadCount,
+    String? createdAt,
+    String? requestId,
+    String? requestStatus,
+    String? tripId,
+    String? packageTitle,
+    String? routeLabel,
+    String? trackingNumber,
+    List<ChatShipmentSummary>? activeShipments,
+    bool? currentUserIsSender,
+    bool? chatLocked,
+    String? chatLockReason,
+  }) {
+    return ConversationModel(
+      id: id ?? this.id,
+      otherUserId: otherUserId ?? this.otherUserId,
+      otherUserName: otherUserName ?? this.otherUserName,
+      otherUserAvatar: otherUserAvatar ?? this.otherUserAvatar,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      unreadCount: unreadCount ?? this.unreadCount,
+      createdAt: createdAt ?? this.createdAt,
+      requestId: requestId ?? this.requestId,
+      requestStatus: requestStatus ?? this.requestStatus,
+      tripId: tripId ?? this.tripId,
+      packageTitle: packageTitle ?? this.packageTitle,
+      routeLabel: routeLabel ?? this.routeLabel,
+      trackingNumber: trackingNumber ?? this.trackingNumber,
+      activeShipments: activeShipments ?? this.activeShipments,
+      currentUserIsSender: currentUserIsSender ?? this.currentUserIsSender,
+      chatLocked: chatLocked ?? this.chatLocked,
+      chatLockReason: chatLockReason ?? this.chatLockReason,
+    );
+  }
+
+  String get initials {
+    final parts = otherUserName.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    if (parts.isNotEmpty && parts[0].isNotEmpty) {
+      return parts[0][0].toUpperCase();
+    }
+    return '?';
+  }
+
+  factory ConversationModel.fromJson(
+      Map<String, dynamic> json, String currentUserId) {
+    final sender = json['sender'] as Map<String, dynamic>?;
+    final traveler = json['traveler'] as Map<String, dynamic>?;
+    final request = json['request'] as Map<String, dynamic>?;
+
+    final senderId = sender?['_id']?.toString() ??
+        sender?['id']?.toString() ??
+        json['senderId']?.toString() ??
+        '';
+    final travelerId = traveler?['_id']?.toString() ??
+        traveler?['id']?.toString() ??
+        json['travelerId']?.toString() ??
+        '';
+    final isSender = senderId == currentUserId;
+    final other = isSender ? traveler : sender;
+    final otherId = isSender ? travelerId : senderId;
+    final otherName = other != null
+        ? _displayName(other)
+        : json['otherUserName']?.toString() ??
+            json['participantName']?.toString() ??
+            'User';
+    final otherAvatar = other != null
+        ? AvatarUrlParser.fromJson(other)
+        : AvatarUrlParser.normalize(
+            json['otherUserAvatar'] ??
+                json['other_user_avatar'] ??
+                json['participantAvatar'] ??
+                json['participant_avatar'],
+          );
+    final package = request?['package'] as Map<String, dynamic>?;
+    final activeRequestsRaw =
+        json['activeRequests'] ?? json['active_requests'] ?? const [];
+    final activeShipments = activeRequestsRaw is List
+        ? activeRequestsRaw
+            .whereType<Map>()
+            .map((e) =>
+                ChatShipmentSummary.fromRequest(Map<String, dynamic>.from(e)))
+            .where((item) => item.requestId.trim().isNotEmpty)
+            .where((item) => !item.isClosed)
+            .toList()
+        : <ChatShipmentSummary>[];
+    final fromCity = package?['fromCity']?.toString().trim() ?? '';
+    final toCity = package?['toCity']?.toString().trim() ?? '';
+    final routeLabel =
+        [fromCity, toCity].where((part) => part.isNotEmpty).join(' → ');
+
+    final rawLastMsg = json['lastMessage'];
+    final lastMsg = rawLastMsg is Map<String, dynamic>
+        ? rawLastMsg
+        : json['latestMessage'] as Map<String, dynamic>?;
+
+    return ConversationModel(
+      id: JsonParser.parseId(json),
+      otherUserId: otherId,
+      otherUserName: otherName,
+      otherUserAvatar: otherAvatar,
+      lastMessage: lastMsg?['content']?.toString() ??
+          lastMsg?['text']?.toString() ??
+          (rawLastMsg is String ? rawLastMsg : null) ??
+          json['message']?.toString() ??
+          json['last_message']?.toString(),
+      lastMessageTime: lastMsg?['createdAt']?.toString() ??
+          lastMsg?['timestamp']?.toString() ??
+          json['lastMessageTime']?.toString() ??
+          json['updatedAt']?.toString() ??
+          json['updated_at']?.toString(),
+      unreadCount:
+          JsonParser.parseInt(json, 'unreadCount', altKey: 'unread_count'),
+      createdAt: json['createdAt']?.toString() ??
+          json['updatedAt']?.toString() ??
+          json['updated_at']?.toString() ??
+          '',
+      requestId: request?['_id']?.toString() ??
+          request?['id']?.toString() ??
+          json['requestId']?.toString(),
+      requestStatus:
+          request?['status']?.toString() ?? json['requestStatus']?.toString(),
+      tripId: request?['trip']?['_id']?.toString() ??
+          request?['trip']?.toString() ??
+          json['tripId']?.toString(),
+      packageTitle: package?['description']?.toString() ??
+          package?['title']?.toString() ??
+          json['packageTitle']?.toString(),
+      routeLabel: routeLabel.isEmpty ? null : routeLabel,
+      trackingNumber: request?['trackingNumber']?.toString() ??
+          json['trackingNumber']?.toString(),
+      activeShipments: activeShipments,
+      currentUserIsSender: isSender,
+      chatLocked: json['chatLocked'] == true || json['chat_locked'] == true,
+      chatLockReason: json['chatLockReason']?.toString() ??
+          json['chat_lock_reason']?.toString(),
+    );
+  }
+
+  static String _displayName(Map<String, dynamic> user) {
+    final explicit = user['name']?.toString().trim() ?? '';
+    if (explicit.isNotEmpty) return explicit;
+    final fullName = user['full_name']?.toString().trim() ??
+        user['fullName']?.toString().trim() ??
+        '';
+    if (fullName.isNotEmpty) return fullName;
+    final composed = JsonParser.parseFullName(user).trim();
+    if (composed.isNotEmpty) return composed;
+    return user['email']?.toString() ?? 'User';
+  }
+}

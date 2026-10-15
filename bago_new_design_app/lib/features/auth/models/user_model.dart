@@ -1,0 +1,484 @@
+import 'dart:convert';
+
+import '../../../core/utils/json_parser.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
+import '../../../shared/utils/status_formatter.dart';
+
+class UserModel {
+  final String id;
+  final String email;
+  final String fullName;
+  final String? phone;
+  final String? country;
+  final String? dateOfBirth;
+  final String? profilePicture;
+  final String role; // 'sender' | 'carrier'
+  final bool isVerified;
+  final bool emailVerified;
+  final bool phoneVerified;
+  // KYC statuses: not_started | pending | approved | rejected | expired | manual_review
+  final String? kycStatus;
+
+  /// Set by the backend after a self-deleted account is reactivated on
+  /// sign-in. The app routes the user back through the identity/KYC flow
+  /// until they re-confirm their details.
+  final bool needsFreshDetails;
+  final double walletBalance;
+  final double escrowBalance;
+  final double? walletDisplayBalance;
+  final double? escrowDisplayBalance;
+  final String currency;
+  final String preferredCurrency;
+  final String preferredLanguage;
+  final String walletCurrency;
+  final String? walletDisplayCurrency;
+  final String? bio;
+  final double rating;
+  final int ratingCount;
+  final bool biometricEnabled;
+  final bool acceptedTerms;
+  final bool bankAccountLinked;
+  final String? stripeConnectAccountId;
+  final bool stripeVerified;
+  final String? payoutCurrency;
+  final String? payoutProvider;
+  final String? payoutMethod;
+  final String? payoutStatus;
+  final String? payoutMethodStatus;
+  final Map<String, dynamic>? payoutAccount;
+  final String? signupMethod; // 'email' | 'google' | 'apple'
+  final DateTime? termsAcceptedAt;
+  final String? earningCurrency;
+  final bool earningCurrencyLocked;
+  final String accountType; // 'individual' | 'company'
+  final String? companyName;
+  // Set when this session is a business staff sub-account rather than the
+  // business owner itself — staffPermissions gates what the sub-account can
+  // do in the UI (the backend enforces the same permissions server-side).
+  final bool isStaffSession;
+  final List<String> staffPermissions;
+  final String? staffId;
+  final String? staffFullName;
+
+  const UserModel({
+    required this.id,
+    required this.email,
+    required this.fullName,
+    this.phone,
+    this.country,
+    this.dateOfBirth,
+    this.profilePicture,
+    this.role = 'sender',
+    this.isVerified = false,
+    this.emailVerified = false,
+    this.phoneVerified = false,
+    this.kycStatus,
+    this.needsFreshDetails = false,
+    this.walletBalance = 0.0,
+    this.escrowBalance = 0.0,
+    this.walletDisplayBalance,
+    this.escrowDisplayBalance,
+    this.currency = '',
+    this.preferredCurrency = '',
+    this.preferredLanguage = 'en',
+    this.walletCurrency = '',
+    this.walletDisplayCurrency,
+    this.bio,
+    this.rating = 0.0,
+    this.ratingCount = 0,
+    this.biometricEnabled = false,
+    this.acceptedTerms = false,
+    this.bankAccountLinked = false,
+    this.stripeConnectAccountId,
+    this.stripeVerified = false,
+    this.payoutCurrency,
+    this.payoutProvider,
+    this.payoutMethod,
+    this.payoutStatus,
+    this.payoutMethodStatus,
+    this.payoutAccount,
+    this.signupMethod,
+    this.termsAcceptedAt,
+    this.earningCurrency,
+    this.earningCurrencyLocked = false,
+    this.accountType = 'individual',
+    this.companyName,
+    this.isStaffSession = false,
+    this.staffPermissions = const [],
+    this.staffId,
+    this.staffFullName,
+  });
+
+  bool get isCompany => accountType == 'company';
+
+  /// Owner sessions (and non-company accounts) have full access; a staff
+  /// session is limited to its granted permissions.
+  bool hasPermission(String permission) =>
+      !isStaffSession || staffPermissions.contains(permission);
+
+  bool get canManageDeliveries => hasPermission('deliveries.manage');
+  bool get canViewAccounts => hasPermission('accounts.view');
+  bool get canWithdrawFunds => hasPermission('accounts.withdraw');
+  bool get canManageChats => hasPermission('chats.manage');
+
+  String get firstName {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    return parts.isNotEmpty ? parts.first : '';
+  }
+
+  String get lastName {
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.length <= 1) return '';
+    return parts.sublist(1).join(' ');
+  }
+
+  /// Display name: staff member's own name when acting as staff, company
+  /// name for companies, first name for individuals.
+  String get displayName {
+    if (isStaffSession && staffFullName?.isNotEmpty == true) {
+      return staffFullName!;
+    }
+    return isCompany
+        ? (companyName?.isNotEmpty == true ? companyName! : fullName)
+        : fullName.split(' ').first.isNotEmpty
+            ? fullName.split(' ').first
+            : fullName;
+  }
+
+  bool get isCarrier => _normalizeRole(role) == 'carrier';
+  bool get isSender => _normalizeRole(role) == 'sender';
+  bool get isKycApproved => hasPassedKyc;
+  bool get isGoogleUser => signupMethod == 'google';
+  bool get isAppleUser => signupMethod == 'apple';
+  bool get isSocialSignup =>
+      signupMethod == 'google' || signupMethod == 'apple';
+
+  bool get hasPassedKyc {
+    final normalized = kycStatus?.trim().toLowerCase() ?? '';
+    return normalized == 'approved' ||
+        normalized == 'verified' ||
+        normalized == 'completed';
+  }
+
+  /// Whether this sender can create a shipment — phone + KYC required.
+  bool get canSendShipment => phoneVerified && hasPassedKyc;
+
+  /// Whether this traveler can post a trip.
+  bool get canPostTrip => hasPassedKyc;
+
+  /// Whether this user can withdraw funds.
+  bool get canWithdraw => hasPassedKyc;
+
+  String get kycDisplayStatus {
+    final label = formatFrontendStatus(kycStatus);
+    return label == 'Pending' ? 'Pending Review' : label;
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? fullName,
+    String? phone,
+    String? country,
+    String? dateOfBirth,
+    String? profilePicture,
+    String? role,
+    bool? isVerified,
+    bool? emailVerified,
+    bool? phoneVerified,
+    String? kycStatus,
+    bool? needsFreshDetails,
+    double? walletBalance,
+    double? escrowBalance,
+    double? walletDisplayBalance,
+    double? escrowDisplayBalance,
+    String? currency,
+    String? preferredCurrency,
+    String? preferredLanguage,
+    String? walletDisplayCurrency,
+    String? bio,
+    double? rating,
+    int? ratingCount,
+    bool? biometricEnabled,
+    bool? acceptedTerms,
+    bool? bankAccountLinked,
+    String? stripeConnectAccountId,
+    bool? stripeVerified,
+    String? payoutCurrency,
+    String? payoutProvider,
+    String? payoutMethod,
+    String? payoutStatus,
+    String? payoutMethodStatus,
+    Map<String, dynamic>? payoutAccount,
+    String? signupMethod,
+    DateTime? termsAcceptedAt,
+    String? walletCurrency,
+    String? earningCurrency,
+    bool? earningCurrencyLocked,
+    String? accountType,
+    String? companyName,
+    bool? isStaffSession,
+    List<String>? staffPermissions,
+    String? staffId,
+    String? staffFullName,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      fullName: fullName ?? this.fullName,
+      phone: phone ?? this.phone,
+      country: country ?? this.country,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      profilePicture: profilePicture ?? this.profilePicture,
+      role: _normalizeRole(role ?? this.role),
+      isVerified: isVerified ?? this.isVerified,
+      emailVerified: emailVerified ?? this.emailVerified,
+      phoneVerified: phoneVerified ?? this.phoneVerified,
+      kycStatus: kycStatus ?? this.kycStatus,
+      needsFreshDetails: needsFreshDetails ?? this.needsFreshDetails,
+      walletBalance: walletBalance ?? this.walletBalance,
+      escrowBalance: escrowBalance ?? this.escrowBalance,
+      walletDisplayBalance: walletDisplayBalance ?? this.walletDisplayBalance,
+      escrowDisplayBalance: escrowDisplayBalance ?? this.escrowDisplayBalance,
+      currency: currency ?? this.currency,
+      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
+      walletCurrency: walletCurrency ?? this.walletCurrency,
+      walletDisplayCurrency:
+          walletDisplayCurrency ?? this.walletDisplayCurrency,
+      bio: bio ?? this.bio,
+      rating: rating ?? this.rating,
+      ratingCount: ratingCount ?? this.ratingCount,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      acceptedTerms: acceptedTerms ?? this.acceptedTerms,
+      bankAccountLinked: bankAccountLinked ?? this.bankAccountLinked,
+      stripeConnectAccountId:
+          stripeConnectAccountId ?? this.stripeConnectAccountId,
+      stripeVerified: stripeVerified ?? this.stripeVerified,
+      payoutCurrency: payoutCurrency ?? this.payoutCurrency,
+      payoutProvider: payoutProvider ?? this.payoutProvider,
+      payoutMethod: payoutMethod ?? this.payoutMethod,
+      payoutStatus: payoutStatus ?? this.payoutStatus,
+      payoutMethodStatus: payoutMethodStatus ?? this.payoutMethodStatus,
+      payoutAccount: payoutAccount ?? this.payoutAccount,
+      signupMethod: signupMethod ?? this.signupMethod,
+      termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
+      earningCurrency: earningCurrency ?? this.earningCurrency,
+      earningCurrencyLocked:
+          earningCurrencyLocked ?? this.earningCurrencyLocked,
+      accountType: accountType ?? this.accountType,
+      companyName: companyName ?? this.companyName,
+      isStaffSession: isStaffSession ?? this.isStaffSession,
+      staffPermissions: staffPermissions ?? this.staffPermissions,
+      staffId: staffId ?? this.staffId,
+      staffFullName: staffFullName ?? this.staffFullName,
+    );
+  }
+
+  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
+        id: JsonParser.parseId(json),
+        email: json['email']?.toString() ?? '',
+        fullName: json['full_name']?.toString() ??
+            json['fullName']?.toString() ??
+            JsonParser.parseFullName(json),
+        phone: json['phone']?.toString(),
+        country: json['country']?.toString(),
+        dateOfBirth: json['dateOfBirth']?.toString() ??
+            json['dob']?.toString() ??
+            json['date_of_birth']?.toString(),
+        profilePicture: _profileImageFrom(json),
+        role: _normalizeRole(json['role']?.toString() ?? 'sender'),
+        isVerified: json['is_verified'] == true || json['isVerified'] == true,
+        emailVerified:
+            json['emailVerified'] == true || json['email_verified'] == true,
+        phoneVerified:
+            json['phoneVerified'] == true || json['phone_verified'] == true,
+        kycStatus:
+            json['kyc_status']?.toString() ?? json['kycStatus']?.toString(),
+        needsFreshDetails: json['needs_fresh_details'] == true ||
+            json['needsFreshDetails'] == true,
+        walletBalance: JsonParser.parseDoubleFirst(
+            json, ['wallet_balance', 'walletBalance']),
+        escrowBalance: JsonParser.parseDoubleFirst(
+            json, ['escrow_balance', 'escrowBalance']),
+        walletDisplayBalance: _optionalDoubleFirst(json, [
+          'wallet_display_balance',
+          'walletDisplayBalance',
+          'available_display_balance',
+          'availableDisplayBalance',
+          'display_balance',
+          'displayBalance',
+        ]),
+        escrowDisplayBalance: _optionalDoubleFirst(json, [
+          'escrow_display_balance',
+          'escrowDisplayBalance',
+          'display_escrow_balance',
+          'displayEscrowBalance',
+        ]),
+        currency: json['currency']?.toString() ??
+            json['preferredCurrency']?.toString() ??
+            json['preferred_currency']?.toString() ??
+            '',
+        walletCurrency: json['walletCurrency']?.toString() ??
+            json['wallet_currency']?.toString() ??
+            json['currency']?.toString() ??
+            json['preferredCurrency']?.toString() ??
+            json['preferred_currency']?.toString() ??
+            '',
+        walletDisplayCurrency: json['walletDisplayCurrency']?.toString() ??
+            json['wallet_display_currency']?.toString() ??
+            json['displayCurrency']?.toString() ??
+            json['display_currency']?.toString(),
+        bio: json['bio']?.toString(),
+        rating: JsonParser.parseDouble(json, 'rating'),
+        ratingCount:
+            JsonParser.parseInt(json, 'rating_count', altKey: 'ratingCount'),
+        acceptedTerms:
+            json['accepted_terms'] == true || json['acceptedTerms'] == true,
+        bankAccountLinked: json['bank_account_linked'] == true ||
+            json['bankAccountLinked'] == true,
+        stripeConnectAccountId: json['stripeConnectAccountId']?.toString() ??
+            json['stripe_connect_account_id']?.toString(),
+        stripeVerified:
+            json['stripeVerified'] == true || json['stripe_verified'] == true,
+        payoutCurrency: json['payoutCurrency']?.toString() ??
+            json['payout_currency']?.toString(),
+        payoutProvider: json['payoutProvider']?.toString() ??
+            json['payout_provider']?.toString(),
+        payoutMethod: json['payoutMethod']?.toString() ??
+            json['payout_method']?.toString(),
+        payoutStatus: json['payoutStatus']?.toString() ??
+            json['payout_status']?.toString(),
+        payoutMethodStatus: json['payoutMethodStatus']?.toString() ??
+            json['payout_method_status']?.toString(),
+        payoutAccount:
+            _optionalMap(json['payoutAccount'] ?? json['payout_account']),
+        signupMethod: json['signupMethod']?.toString() ??
+            json['signup_method']?.toString(),
+        preferredCurrency: json['preferredCurrency']?.toString() ??
+            json['preferred_currency']?.toString() ??
+            json['currency']?.toString() ??
+            '',
+        preferredLanguage: json['preferredLanguage']?.toString() ??
+            json['preferred_language']?.toString() ??
+            'en',
+        termsAcceptedAt: json['termsAcceptedAt'] != null
+            ? DateTime.tryParse(json['termsAcceptedAt'].toString())
+            : null,
+        earningCurrency: json['earningCurrency']?.toString() ??
+            json['earning_currency']?.toString(),
+        earningCurrencyLocked: json['earningCurrencyLocked'] == true ||
+            json['earning_currency_locked'] == true,
+        accountType: json['accountType']?.toString() ??
+            json['account_type']?.toString() ??
+            'individual',
+        companyName:
+            json['companyName']?.toString() ?? json['company_name']?.toString(),
+        isStaffSession:
+            json['isStaffSession'] == true || json['is_staff_session'] == true,
+        staffPermissions:
+            _stringList(json['staffPermissions'] ?? json['staff_permissions']),
+        staffId: json['staffId']?.toString() ?? json['staff_id']?.toString(),
+        staffFullName: json['staffFullName']?.toString() ??
+            json['staff_full_name']?.toString(),
+      );
+
+  static List<String> _stringList(dynamic value) {
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return const [];
+  }
+
+  static Map<String, dynamic>? _optionalMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'email': email,
+        'full_name': fullName,
+        'phone': phone,
+        'country': country,
+        'dateOfBirth': dateOfBirth,
+        'profile_picture': profilePicture,
+        'role': _normalizeRole(role),
+        'is_verified': isVerified,
+        'emailVerified': emailVerified,
+        'phoneVerified': phoneVerified,
+        'kyc_status': kycStatus,
+        'needs_fresh_details': needsFreshDetails,
+        'wallet_balance': walletBalance,
+        'escrow_balance': escrowBalance,
+        'wallet_display_balance': walletDisplayBalance,
+        'escrow_display_balance': escrowDisplayBalance,
+        'currency': currency,
+        'wallet_currency': walletCurrency,
+        'wallet_display_currency': walletDisplayCurrency,
+        'preferredCurrency':
+            preferredCurrency.isNotEmpty ? preferredCurrency : currency,
+        'preferredLanguage': preferredLanguage,
+        'bio': bio,
+        'rating': rating,
+        'rating_count': ratingCount,
+        'stripeConnectAccountId': stripeConnectAccountId,
+        'stripeVerified': stripeVerified,
+        'payout_currency': payoutCurrency,
+        'payout_provider': payoutProvider,
+        'payout_method': payoutMethod,
+        'payout_status': payoutStatus,
+        'payout_method_status': payoutMethodStatus,
+        'payout_account': payoutAccount,
+        'signupMethod': signupMethod,
+        'earning_currency': earningCurrency,
+        'earning_currency_locked': earningCurrencyLocked,
+        'accountType': accountType,
+        'companyName': companyName,
+        'is_staff_session': isStaffSession,
+        'staff_permissions': staffPermissions,
+        'staff_id': staffId,
+        'staff_full_name': staffFullName,
+      };
+
+  String toJsonString() => jsonEncode(toJson());
+
+  factory UserModel.fromJsonString(String jsonString) =>
+      UserModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+
+  static String _normalizeRole(String rawRole) {
+    switch (rawRole.trim().toLowerCase()) {
+      case 'carrier':
+      case 'traveler':
+      case 'traveller':
+        return 'carrier';
+      default:
+        return 'sender';
+    }
+  }
+
+  static double? _optionalDoubleFirst(
+      Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final v = json[key];
+      if (v == null) continue;
+      if (v is num) return v.toDouble();
+      final parsed = double.tryParse(v.toString());
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  static String? _profileImageFrom(Map<String, dynamic> json) {
+    return AvatarUrlParser.fromJson(json);
+  }
+}
