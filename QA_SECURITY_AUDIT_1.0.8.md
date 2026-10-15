@@ -17,7 +17,7 @@ Date: 2026-10-15. Scope: new Flutter app, checkout/escrow, KYC and administrator
 
 ## Validation
 
-- Backend: 161 tests passed across 29 files.
+- Backend: 162 tests passed across 29 files.
 - Flutter: 42 tests passed. Includes simulated native card success/decline/cancel, Apple Pay amount/cancel, paid-intent recovery, booking retries, currency and interface checks.
 - Administrator production build passed after proof and dependency changes.
 - Flutter analysis: no errors; 13 warnings and 68 informational findings remain (unused fields/elements, unnecessary assertions, async-context/style/deprecation notices). Analysis is not clean.

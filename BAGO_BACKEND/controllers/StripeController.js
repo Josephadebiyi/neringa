@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { checkTermsAccepted } from './SenderOnboardingController.js';
 import { completeStripeBooking } from '../services/stripeBookingCompletion.js';
 import { buildShipmentCheckoutPreview } from './CurrencyController.js';
 import { encodeStripeQuote, verifyStripeBookingIntent } from '../services/stripeCheckoutRules.js';
@@ -957,8 +958,11 @@ export async function createStripePaymentIntent(req, res) {
       if (req.body?.termsAccepted !== true) {
         return res.status(400).json({ success: false, message: 'Shipment terms must be accepted before payment.' });
       }
-      if (profile.phone_verified === false) {
+      if (profile.phone_verified !== true) {
         return res.status(403).json({ success: false, code: 'PHONE_NOT_VERIFIED', message: 'Please verify your mobile number before payment.' });
+      }
+      if (!await checkTermsAccepted(profile.id)) {
+        return res.status(403).json({success: false, code: 'TERMS_NOT_ACCEPTED', message: 'Please accept the shipment rules before payment.'});
       }
       const packageRow = await queryOne(
         `select id, category, package_weight, declared_value from public.packages where id = $1 and user_id = $2 limit 1`,
