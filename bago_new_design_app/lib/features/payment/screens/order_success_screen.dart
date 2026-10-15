@@ -24,7 +24,9 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
       if (!mounted) return;
       CelebrationNotificationService.showFlightSuccess(
         context,
-        title: 'Payment secured',
+        title: widget.extra?['paymentPending'] == true
+            ? 'Booking confirmation pending'
+            : 'Payment secured',
         message: widget.extra?['paymentPending'] == true
             ? 'Finish your booking using the existing payment.'
             : 'Your shipment request has started smoothly.',
@@ -42,14 +44,14 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
       backgroundColor: AppPalette.of(context).pageBackground,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 width: 100,
                 height: 100,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                     color: AppColors.successLight, shape: BoxShape.circle),
                 child: const Icon(Icons.check_rounded,
                     color: AppColors.success, size: 52),
@@ -64,7 +66,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
               const SizedBox(height: 10),
               Text(
                 paymentPending
-                    ? 'Your payment is secured, but the booking could not be completed yet. Retry below using the same payment. You will not be charged again.'
+                    ? 'Your payment reference is saved. We are confirming the payment and completing your shipment. Retry below using the same reference; no new payment will be started.'
                     : l10n.shipmentCreatedSentTraveler,
                 style: AppTextStyles.muted(AppTextStyles.bodyMd),
                 textAlign: TextAlign.center,

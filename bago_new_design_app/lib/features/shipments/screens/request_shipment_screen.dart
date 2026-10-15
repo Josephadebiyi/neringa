@@ -403,7 +403,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final trip = _currentTrip;
     if (trip == null) return null;
     final user = ref.read(authProvider).user;
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
     if (currency.isEmpty || weight <= 0) return null;
@@ -428,7 +428,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final trip = _currentTrip;
     if (trip == null || !mounted) return null;
     final user = ref.read(authProvider).user;
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
     final key = _currentPreviewKey();
@@ -518,7 +518,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final user = ref.read(authProvider).user;
 
     final weight = double.tryParse(_weightCtrl.text.trim());
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     final residence = CurrencyConversionHelper.countryByName(user?.country) ??
         CurrencyConversionHelper.countryByCode(user?.country);
 
@@ -606,7 +606,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     if (!mounted) return;
     final user = ref.read(authProvider).user;
     final weight = double.tryParse(_weightCtrl.text.trim());
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     if (weight == null || weight <= 0 || currency.isEmpty) return;
 
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
@@ -821,7 +821,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     }
 
     final trip = _currentTrip!;
-    final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+    final currency = UserCurrencyHelper.paymentCurrency(ref.watch(authProvider).user);
 
     if (currency.isEmpty) {
       return Scaffold(

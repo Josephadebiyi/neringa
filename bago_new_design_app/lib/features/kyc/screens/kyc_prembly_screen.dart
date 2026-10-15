@@ -61,6 +61,29 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _start() async {
     try {
+      if (ref.read(authProvider).user?.kycStatus == 'approved') {
+        await _finishWithStatus('approved');
+        return;
+      }
+      try {
+        final existing = await ApiService.instance.post(
+            ApiConstants.kycPremblySyncExisting,
+            data: {}).timeout(const Duration(seconds: 10));
+        final existingStatus =
+            existing.data?['kycStatus']?.toString().toLowerCase() ?? '';
+        final canStartNewSession =
+            existing.data?['canStartNewSession'] as bool? ?? true;
+        if (existingStatus == 'approved' ||
+            existingStatus == 'declined' ||
+            existingStatus == 'blocked_duplicate' ||
+            (existingStatus == 'pending' && !canStartNewSession)) {
+          await _finishWithStatus(existingStatus);
+          return;
+        }
+      } catch (_) {
+        // Non-fatal: if the preflight fails, let the SDK attempt continue.
+      }
+
       // Prembly's capture UI calls getUserMedia() the moment it mounts. On both
       // platforms the WebView's permission delegate can only *grant* camera/mic
       // if the app already holds the OS-level permission — so this has to finish
@@ -79,25 +102,6 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
               : 'Camera access is required to verify your identity. Please allow it and try again.';
         });
         return;
-      }
-
-      try {
-        final existing = await ApiService.instance.post(
-            ApiConstants.kycPremblySyncExisting,
-            data: {}).timeout(const Duration(seconds: 10));
-        final existingStatus =
-            existing.data?['kycStatus']?.toString().toLowerCase() ?? '';
-        final canStartNewSession =
-            existing.data?['canStartNewSession'] as bool? ?? true;
-        if (existingStatus == 'approved' ||
-            existingStatus == 'declined' ||
-            existingStatus == 'blocked_duplicate' ||
-            (existingStatus == 'pending' && !canStartNewSession)) {
-          await _finishWithStatus(existingStatus);
-          return;
-        }
-      } catch (_) {
-        // Non-fatal: if the preflight fails, let the SDK attempt continue.
       }
 
       // Create the Prembly session on the backend and open its hosted URL.
@@ -148,9 +152,9 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
     // Poll backend — Prembly webhook may arrive slightly after the SDK callback
     _syncResult(response);
     _pollTimer =
-        Timer.periodic(const Duration(seconds: 4), (_) => _syncResult());
-    // Safety: if still waiting after 3 min, treat as pending
-    _resultDeadlineTimer = Timer(const Duration(minutes: 3), () {
+        Timer.periodic(const Duration(seconds: 2), (_) => _syncResult());
+    // Keep the provider result authoritative without trapping the user in a long spinner.
+    _resultDeadlineTimer = Timer(const Duration(seconds: 30), () {
       _pollTimer?.cancel();
       if (mounted && _waitingForResult) _finishWithStatus('pending');
     });

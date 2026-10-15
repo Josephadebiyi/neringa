@@ -1,3 +1,4 @@
+import { verifyRecordedFlutterwavePayment } from '../services/flutterwaveVerificationRules.js';
 import crypto from 'crypto';
 import {
   isFlutterwaveConfigured,
@@ -202,12 +203,12 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       customerName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email,
       customerPhone: user.phone,
       meta: {
+        ...metadata,
         packageId,
         tripId,
         requestId,
         additionalKg,
         userId: user.id,
-        ...metadata,
         ...(authoritativePreview && {
           authoritativeAmount: authoritativePreview.totalAmount,
           travelerPayout: authoritativePreview.travelerPayout,
@@ -248,7 +249,7 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       amount: numericAmount,
       currency: normalizedCurrency,
       rawResponse: { packageId, tripId, requestId, additionalKg, authoritativePreview },
-    }).catch((e) => console.warn('Failed to record payment_intent:', e.message));
+    });
 
     return res.status(200).json({
       success: true,
@@ -268,7 +269,7 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
  * postgresRequestController.js's booking-paid verification branch — the
  * booking must never be trusted from the client redirect alone.
  */
-export async function verifyFlutterwaveTransactionServerSide(transactionReference) {
+export async function verifyFlutterwaveTransactionServerSide(transactionReference, expected = {}) {
   if (!isFlutterwaveConfigured()) {
     return { success: false, message: 'Payments are temporarily unavailable.' };
   }
@@ -277,6 +278,16 @@ export async function verifyFlutterwaveTransactionServerSide(transactionReferenc
   const verification = await verifyTransaction(transactionReference);
   if (!verification.success) {
     return { success: false, message: verification.message || 'Payment could not be verified.' };
+  }
+  if (expected.senderId) {
+    const payment = await queryOne(
+      `select user_id, amount, currency, raw_response from public.payments
+       where provider = 'flutterwave' and provider_reference = $1 limit 1`,
+      [verification.data.txRef],
+    );
+    if (!verifyRecordedFlutterwavePayment(payment, verification.data, expected)) {
+      return {success: false, message: 'Payment does not belong to this booking or does not match its amount.'};
+    }
   }
   await markPaymentVerified({
     provider: 'flutterwave',
@@ -291,7 +302,7 @@ export const verifyFlutterwavePayment = async (req, res, next) => {
   try {
     if (!requireConfigured(res)) return;
     const { txId } = req.params;
-    const result = await verifyFlutterwaveTransactionServerSide(txId);
+    const result = await verifyFlutterwaveTransactionServerSide(txId, {senderId: req.user.id});
     if (!result.success) {
       return res.status(402).json({ success: false, message: result.message });
     }

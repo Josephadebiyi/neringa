@@ -1,4 +1,7 @@
 import crypto from 'crypto';
+import { completeStripeBooking } from '../services/stripeBookingCompletion.js';
+import { buildShipmentCheckoutPreview } from './CurrencyController.js';
+import { encodeStripeQuote, verifyStripeBookingIntent } from '../services/stripeCheckoutRules.js';
 import Stripe from 'stripe';
 
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
@@ -8,7 +11,9 @@ import { getClientIP, getLocationFromIP } from '../services/ipGeolocation.js';
 import { sendWithdrawalProcessedEmail, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+// Created lazily: the Stripe SDK throws on an empty key, and this module is
+// imported at server boot even when Stripe is not configured.
+let stripe = null;
 const PLATFORM_FEE_PERCENT = Number(process.env.STRIPE_PLATFORM_FEE_PERCENT || 10) / 100;
 
 function requireStripe() {
@@ -17,6 +22,7 @@ function requireStripe() {
     error.statusCode = 503;
     throw error;
   }
+  if (!stripe) stripe = new Stripe(process.env.STRIPE_SECRET_KEY.trim());
   return stripe;
 }
 
@@ -651,11 +657,13 @@ export async function stripeConnectWebhook(req, res) {
       event.type === 'payment_intent.payment_failed' ||
       event.type === 'payment_intent.processing'
     ) {
-      const paymentIntent = event.data.object;
+      // Retrieve current state so a late processing event cannot downgrade a
+      // payment that has already succeeded.
+      const paymentIntent = await requireStripe().paymentIntents.retrieve(event.data.object.id);
       const status =
-        event.type === 'payment_intent.succeeded'
+        paymentIntent.status === 'succeeded'
           ? 'succeeded'
-          : event.type === 'payment_intent.processing'
+          : paymentIntent.status === 'processing'
             ? 'processing'
             : 'failed';
       await query(
@@ -708,6 +716,10 @@ export async function stripeConnectWebhook(req, res) {
       ).catch((err) => {
         console.error('Stripe webhook shipment update failed:', err.message);
       });
+      if (status === 'succeeded' && paymentIntent.metadata?.bago_quote) {
+        const { RequestPackage } = await import('./postgresRequestController.js');
+        await completeStripeBooking(paymentIntent, RequestPackage);
+      }
     }
 
     await query(
@@ -924,8 +936,9 @@ export async function createStripePaymentIntent(req, res) {
     const profile = await getProfile(userIdFromReq(req));
     if (!profile) return res.status(404).json({ success: false, message: 'User not found.' });
 
-    const amount = toMinorAmount(req.body?.amount);
+    let amount = toMinorAmount(req.body?.amount);
     const currency = normalizeCurrency(req.body?.currency || profile.wallet_currency);
+    let checkoutQuote = null;
     const shipmentId = req.body?.shipmentId || req.body?.deliveryId || null;
     const packageId = req.body?.packageId || null;
     const tripId = req.body?.tripId || null;
@@ -934,6 +947,9 @@ export async function createStripePaymentIntent(req, res) {
     const paymentMethodType = req.body?.paymentMethodType || 'card';
     if (amount <= 0) return res.status(400).json({ success: false, message: 'Amount must be greater than zero.' });
 
+    if (!packageId || !tripId || !travelerId) {
+      return res.status(400).json({success: false, message: 'Package, trip, and traveler are required before payment.'});
+    }
     if (packageId || tripId || travelerId) {
       if (!packageId || !tripId || !travelerId) {
         return res.status(400).json({ success: false, message: 'Package, trip, and traveler are required before payment.' });
@@ -945,7 +961,7 @@ export async function createStripePaymentIntent(req, res) {
         return res.status(403).json({ success: false, code: 'PHONE_NOT_VERIFIED', message: 'Please verify your mobile number before payment.' });
       }
       const packageRow = await queryOne(
-        `select id, category from public.packages where id = $1 and user_id = $2 limit 1`,
+        `select id, category, package_weight, declared_value from public.packages where id = $1 and user_id = $2 limit 1`,
         [packageId, profile.id],
       );
       if (!packageRow) {
@@ -971,6 +987,43 @@ export async function createStripePaymentIntent(req, res) {
       if (!tripRow) {
         return res.status(404).json({ success: false, message: 'Trip not found or not owned by traveler.' });
       }
+    }
+
+    // Recover a settled/in-flight payment before recalculating FX or making a
+    // new intent. The app may have closed after Stripe accepted the payment.
+    const prior = await queryOne(`select stripe_payment_intent_id from public.payments
+      where user_id = $1 and provider = 'stripe' and stripe_payment_intent_id is not null
+        and raw_response->'paymentIntent'->'metadata'->>'packageId' = $2
+        and raw_response->'paymentIntent'->'metadata'->>'tripId' = $3
+      order by created_at desc limit 1`, [profile.id, packageId, tripId]);
+    if (prior?.stripe_payment_intent_id) {
+      const previous = await requireStripe().paymentIntents.retrieve(prior.stripe_payment_intent_id);
+      if (['succeeded', 'processing'].includes(previous.status)
+          && previous.metadata?.senderId === profile.id
+          && previous.metadata?.packageId === packageId
+          && previous.metadata?.tripId === tripId
+          && previous.metadata?.travelerId === travelerId) {
+        return res.json({success: true, clientSecret: previous.client_secret,
+          paymentIntentId: previous.id, paymentStatus: previous.status, recovered: true});
+      }
+    }
+
+    if (packageId) {
+      const residenceCurrency = String(profile.preferred_currency || profile.earning_currency || profile.wallet_currency || '').toUpperCase();
+      if (currency.toUpperCase() !== residenceCurrency) {
+        return res.status(409).json({success: false, code: 'PAYMENT_CURRENCY_MISMATCH',
+          message: 'Refresh checkout to pay in your saved local currency.'});
+      }
+      const pkg = await queryOne('select package_weight, declared_value from public.packages where id = $1 and user_id = $2', [packageId, profile.id]);
+      checkoutQuote = await buildShipmentCheckoutPreview({tripId, weight: pkg.package_weight,
+        senderCurrency: currency.toUpperCase(), declaredValue: pkg.declared_value || 0,
+        insurance: req.body?.insurance === true});
+      const authoritativeAmount = toMinorAmount(checkoutQuote.totalAmount);
+      if (authoritativeAmount !== amount) {
+        return res.status(409).json({success: false, code: 'CHECKOUT_PRICE_CHANGED',
+          message: 'The checkout price changed. Refresh the price summary before paying.', preview: checkoutQuote});
+      }
+      amount = authoritativeAmount;
     }
 
     const customerId = await ensureStripeCustomer(profile);
@@ -1000,6 +1053,8 @@ export async function createStripePaymentIntent(req, res) {
         tripId: tripId || '',
         travelerId: travelerId || '',
         paymentMethodType: paymentMethodTypes?.[0] || 'card',
+        ...(checkoutQuote && {bago_quote: encodeStripeQuote(checkoutQuote),
+          bago_commission: String(checkoutQuote.platformFee), insurance: String(req.body?.insurance === true)}),
       },
     };
     if (paymentMethodTypes) {
@@ -1016,13 +1071,15 @@ export async function createStripePaymentIntent(req, res) {
       params.off_session = false;
     }
 
-    const paymentIntent = await requireStripe().paymentIntents.create(params);
+    const intentKey = crypto.createHash('sha256').update(JSON.stringify(params)).digest('hex');
+    const paymentIntent = await requireStripe().paymentIntents.create(params,
+      {idempotencyKey: `bago-checkout-${intentKey}`});
     if (shipmentId) {
       await query(
         `
           update public.shipment_requests
           set stripe_payment_intent_id = $2,
-              payment_status = 'paid_escrow',
+              payment_status = 'pending',
               payment_info = coalesce(payment_info, '{}'::jsonb) || $3::jsonb,
               updated_at = timezone('utc', now())
           where id = $1 and sender_id = $4
@@ -1046,11 +1103,13 @@ export async function createStripePaymentIntent(req, res) {
       `
         insert into public.payments (
           user_id, shipment_id, provider, payment_method, stripe_payment_intent_id,
-          amount, currency, status, raw_response
+          amount, currency, status, raw_response, commission_amount, traveler_amount
         )
-        values ($1,$2,'stripe',$3,$4,$5,$6,$7,$8)
+        values ($1,$2,'stripe',$3,$4,$5,$6,$7,$8,$9,$10)
         on conflict (stripe_payment_intent_id) do update
         set status = excluded.status,
+            commission_amount = excluded.commission_amount,
+            traveler_amount = excluded.traveler_amount,
             raw_response = public.payments.raw_response || excluded.raw_response,
             updated_at = timezone('utc', now())
       `,
@@ -1062,7 +1121,9 @@ export async function createStripePaymentIntent(req, res) {
         amount / 100,
         currency.toUpperCase(),
         paymentIntent.status,
-        { paymentIntent },
+        { paymentIntent, checkoutQuote },
+        checkoutQuote?.platformFee || 0,
+        checkoutQuote?.convertedTravelerPayout || 0,
       ],
     );
 
@@ -1070,6 +1131,8 @@ export async function createStripePaymentIntent(req, res) {
       success: true,
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
+      paymentStatus: paymentIntent.status,
+      checkoutPreview: checkoutQuote,
       customerId,
       ephemeralKeySecret: ephemeralKey.secret,
       paymentMethodEligibility,
@@ -1695,4 +1758,38 @@ export async function createStripePayout(req, res) {
     }
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
+}
+
+// Enable in-app card and Apple Pay checkout when matching Stripe keys exist.
+// STRIPE_CHECKOUT_ENABLED=false remains an explicit operator kill switch.
+export function isStripeCheckoutEnabled() {
+  const secret = String(process.env.STRIPE_SECRET_KEY || '').trim();
+  const publishable = String(process.env.STRIPE_PUBLISHABLE_KEY || '').trim();
+  const secretMode = /^(?:sk|rk)_(live|test)_/.exec(secret)?.[1];
+  const publishableMode = /^pk_(live|test)_/.exec(publishable)?.[1];
+  return String(process.env.STRIPE_CHECKOUT_ENABLED ?? 'true').trim().toLowerCase() !== 'false'
+    && Boolean(secretMode) && secretMode === publishableMode
+    && String(process.env.STRIPE_WEBHOOK_SECRET || '').trim().startsWith('whsec_');
+}
+
+export function getStripeCheckoutConfig(_req, res) {
+  if (!isStripeCheckoutEnabled()) {
+    return res.status(410).json({ success: false, enabled: false, message: 'Card checkout is not available.' });
+  }
+  return res.json({
+    success: true,
+    enabled: true,
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY.trim(),
+    merchantIdentifier: process.env.STRIPE_MERCHANT_IDENTIFIER || 'merchant.com.deracali.boltexponativewind',
+    merchantCountryCode: process.env.STRIPE_MERCHANT_COUNTRY || 'GB',
+  });
+}
+
+// Server-side check a booking must pass before it is trusted as paid via
+// Stripe — mirrors verifyFlutterwaveTransactionServerSide.
+export async function verifyStripePaymentIntentServerSide(paymentIntentId, expected = {}) {
+  if (!isStripeCheckoutEnabled()) return {success: false, message: 'Card checkout is not available.'};
+  if (!/^pi_[A-Za-z0-9]+$/.test(String(paymentIntentId || ''))) return {success: false, message: 'Invalid payment reference.'};
+  const intent = await requireStripe().paymentIntents.retrieve(paymentIntentId);
+  return verifyStripeBookingIntent(intent, expected);
 }

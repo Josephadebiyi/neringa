@@ -785,7 +785,7 @@ export const premblyComplete = async (req, res) => {
   // tab before the async webhook lands.
   const verificationRef = verificationRefFromPayload(payload);
 
-  if (verificationRef) {
+  if (verificationRef) setImmediate(async () => {
     try {
       const userId = await findPremblyUserIdFromSession(verificationRef);
       if (userId) {
@@ -796,7 +796,7 @@ export const premblyComplete = async (req, res) => {
     } catch (err) {
       console.error('premblyComplete sync error:', err?.message || err);
     }
-  }
+  });
 
   const frontendUrl = process.env.FRONTEND_URL || process.env.WEBAPP_URL || 'https://sendwithbago.com';
   const payloadJson = JSON.stringify(payload).replace(/</g, '\\u003c');
@@ -955,164 +955,41 @@ export const premblyWebhook = async (req, res) => {
 export const syncPremblyResult = async (req, res) => {
   try {
     const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ success: false, message: 'Not authenticated' });
-
-    // Check current stored status first
+    if (!userId) return res.status(401).json({success: false, message: 'Not authenticated'});
     const existing = await queryOne(
-      `SELECT kyc_status AS "kycStatus", kyc_verified_data AS "kycVerifiedData" FROM public.profiles WHERE id = $1`,
-      [userId],
-    );
-    const currentStatus = existing?.kycStatus || 'not_started';
+      `SELECT kyc_status AS "kycStatus", kyc_verified_data AS "kycVerifiedData" FROM public.profiles WHERE id = $1`, [userId]);
+    if (!existing) return res.status(404).json({success: false, message: 'User not found'});
+    const currentStatus = existing.kycStatus || 'not_started';
     if (['approved', 'blocked_duplicate'].includes(currentStatus)) {
-      return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
+      return res.json({success: true, kycStatus: currentStatus, source: 'db'});
     }
-
-    const callbackPayload = callbackPayloadFromBody(req.body);
-    const clientFootprint = clientFootprintFromRequest(req);
-    const callbackRef = verificationRefFromPayload(callbackPayload);
-    const callbackSessionId = sessionIdFromPayload(callbackPayload);
-    const callbackStatus = normalizePremblyStatus(callbackPayload);
-    const hasCallbackPayload = Object.keys(callbackPayload || {}).length > 0;
-    const callbackError = callbackPayload?.error || callbackPayload?.message;
-    const callbackLookupRef = callbackRef || callbackSessionId;
-    const callbackPayloadWithFootprint = {
-      ...callbackPayload,
-      clientFootprint,
-    };
-
-    // The inline SDK reports script/configuration failures through the same
-    // callback used for completed verification. They are startup failures,
-    // not KYC submissions; returning pending makes the released onboarding
-    // client close the verifier and route straight back home.
-    if (callbackError && !callbackRef && !callbackSessionId) {
-      return res.json({
-        success: false,
-        kycStatus: 'not_started',
-        source: 'sdk_start_error',
-        message: String(callbackError).slice(0, 200),
-      });
-    }
-
-    const verificationRef =
-      existing?.kycVerifiedData?.verificationRef ||
-      existing?.kycVerifiedData?.premblyRef ||
-      existing?.kycVerifiedData?.referenceId ||
-      existing?.kycVerifiedData?.sessionId ||
-      existing?.kycVerifiedData?.session_id ||
-      req.body?.verificationRef ||
-      callbackLookupRef ||
-      '';
-
-    // checker-widget session_id (Prembly's UUID) may differ from our verificationRef UUID
-    const checkerWidgetSessionId =
-      existing?.kycVerifiedData?.sessionId ||
-      existing?.kycVerifiedData?.session_id ||
-      callbackSessionId ||
-      '';
-
-    if (callbackStatus !== 'unknown') {
-      const result = await applyPremblyResult(userId, callbackStatus, callbackPayloadWithFootprint, { referenceId: verificationRef, notify: true });
-      if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)) {
-        return res.json({ success: true, kycStatus: result.status, source: 'sdk_callback' });
+    const session = await activePremblySessionForUser(userId);
+    const stored = existing.kycVerifiedData || {};
+    // Only references stored for this authenticated user may be checked. Client
+    // callback status, user_ref and verificationRef are never authoritative.
+    const reference = session?.sessionId || session?.premblyRef || session?.verificationRef ||
+      stored.sessionId || stored.session_id || stored.verificationRef || stored.premblyRef || stored.referenceId;
+    if (!reference) return res.json({success: true, kycStatus: 'not_started', source: 'no_server_session'});
+    await ensurePremblyWebhookEventTable();
+    const refs = [...new Set([reference, session?.verificationRef, stored.verificationRef].filter(Boolean))];
+    const event = await queryOne(
+      `SELECT id, raw_payload AS "rawPayload" FROM public.prembly_webhook_events
+       WHERE (reference_id = ANY($1::text[]) OR session_id = ANY($1::text[]))
+         AND (user_id = $2::uuid OR user_id IS NULL)
+       ORDER BY created_at DESC LIMIT 1`, [refs, userId]);
+    if (event?.rawPayload) {
+      const status = normalizePremblyStatus(event.rawPayload);
+      if (['approved', 'declined'].includes(status)) {
+        const result = await applyPremblyResult(userId, status, event.rawPayload, {referenceId: reference, notify: true});
+        return res.json({success: true, kycStatus: result.status, source: 'signed_webhook'});
       }
     }
-
-    if (callbackLookupRef && !existing?.kycVerifiedData?.verificationRef && !existing?.kycVerifiedData?.premblyRef) {
-      await query(
-        `UPDATE public.profiles
-         SET kyc_provider = 'prembly',
-             kyc_status = CASE WHEN kyc_status IN ('approved','blocked_duplicate','declined') THEN kyc_status ELSE 'pending' END,
-             kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
-               'provider', 'prembly',
-               'verificationRef', $2::text,
-               'premblyRef', $2::text,
-               'referenceId', $2::text,
-               'sessionId', NULLIF($3::text, ''),
-               'session_id', NULLIF($3::text, ''),
-               'userRef', $4::text,
-               'payload', $5::jsonb,
-               'clientFootprint', $6::jsonb,
-               'syncedAt', timezone('utc', now())
-             ),
-             updated_at = NOW()
-         WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
-        [
-          userId,
-          callbackLookupRef,
-          callbackSessionId,
-          req.body?.userRef || callbackPayload?.user_ref || callbackPayload?.userRef || userId,
-          callbackPayloadWithFootprint,
-          clientFootprint,
-        ],
-      ).catch(() => {});
-    }
-
-    if (!verificationRef && !['approved', 'blocked_duplicate', 'declined'].includes(currentStatus)) {
-      await query(
-        `UPDATE public.profiles
-         SET kyc_provider = 'prembly',
-             kyc_status = 'pending',
-             kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || jsonb_build_object(
-               'provider', 'prembly',
-               'userRef', $2,
-               'userId', $2,
-               'payload', $3,
-               'clientFootprint', $5::jsonb,
-               'lastSyncNote', $4,
-               'syncedAt', timezone('utc', now())
-             ),
-             updated_at = NOW()
-         WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate', 'declined')`,
-        [
-          userId,
-          userId,
-          hasCallbackPayload ? callbackPayloadWithFootprint : {},
-          callbackError ? String(callbackError).slice(0, 200) : 'prembly_sync_without_reference',
-          clientFootprint,
-        ],
-      ).catch(() => {});
-      return res.json({ success: true, kycStatus: 'pending', source: callbackError ? 'sdk_callback_error' : 'db_no_reference' });
-    }
-
-    if (!verificationRef || !isPremblyConfigured()) {
-      return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
-    }
-
-    // Fetch result from Prembly — try identitypass first, then checker-widget
-    try {
-      let responseData;
-      let source = 'prembly_api';
-      try {
-        const premblyRes = await axios.get(
-          `${PREMBLY_BASE}/verification`,
-          { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
-        );
-        responseData = premblyRes.data;
-      } catch (identitypassErr) {
-        if (identitypassErr?.response?.status !== 404) throw identitypassErr;
-        // Checker-widget session — look up via backend.prembly.com using Prembly's session_id
-        const lookupId = checkerWidgetSessionId || verificationRef;
-        const checkerSessionBase = PREMBLY_SDK_SESSION_URL.replace(/\/initiate\/?$/, '');
-        const checkerRes = await axios.get(
-          `${checkerSessionBase}/${encodeURIComponent(lookupId)}/`,
-          { headers: premblyHeaders(), timeout: 12000 },
-        );
-        responseData = checkerRes.data;
-        source = 'checker_widget_api';
-      }
-      const status = normalizePremblyStatus(responseData);
-      if (status !== 'unknown') {
-        const result = await applyPremblyResult(userId, status, responseData, { referenceId: verificationRef, notify: true });
-        return res.json({ success: true, kycStatus: result.status, source });
-      }
-    } catch (apiErr) {
-      console.log('Prembly sync API call failed (webhook fallback active):', apiErr.message);
-    }
-
-    return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
+    const result = await syncPremblyReferenceForUser(userId, reference, {notify: true});
+    return res.json({success: true, kycStatus: result.success ? result.status : currentStatus,
+      source: result.source || 'provider_pending'});
   } catch (err) {
-    console.error('syncPremblyResult error:', err);
-    return res.status(500).json({ success: false, message: 'Failed to sync result' });
+    console.error('syncPremblyResult error:', err.message);
+    return res.status(503).json({success: false, message: 'Verification status is temporarily unavailable. Please retry.'});
   }
 };
 

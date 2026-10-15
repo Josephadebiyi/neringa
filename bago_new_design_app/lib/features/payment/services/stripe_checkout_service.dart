@@ -97,6 +97,7 @@ class StripeCheckoutService {
         'tripId': draft['tripId'],
         'travelerId': draft['travelerId'],
         'termsAccepted': true,
+        'insurance': draft['insurance'] == true,
       });
       final data = res.data is Map ? Map<String, dynamic>.from(res.data) : {};
       if ((data['clientSecret']?.toString() ?? '').isEmpty) {
@@ -119,6 +120,13 @@ class StripeCheckoutService {
     await _ensureSdk(config);
     final intent = await _createIntent(draft);
     final clientSecret = intent['clientSecret'].toString();
+    // Idempotent retries can return an intent that was paid before the app lost
+    // its connection. Reuse that reference without opening a second payment UI.
+    if (intent['paymentStatus'] == 'succeeded' ||
+        intent['paymentStatus'] == 'processing') {
+      return StripePaymentOutcome(
+          paymentIntentId: intent['paymentIntentId'].toString());
+    }
 
     await Stripe.instance.initPaymentSheet(
       paymentSheetParameters: SetupPaymentSheetParameters(
@@ -159,6 +167,14 @@ class StripeCheckoutService {
     await _ensureSdk(config);
     final intent = await _createIntent(draft);
     final clientSecret = intent['clientSecret'].toString();
+    // Idempotent retries can return an intent that was paid before the app lost
+    // its connection. Reuse that reference without opening a second payment UI.
+    if (intent['paymentStatus'] == 'succeeded' ||
+        intent['paymentStatus'] == 'processing') {
+      return StripePaymentOutcome(
+          paymentIntentId: intent['paymentIntentId'].toString());
+    }
+
     final amount = (draft['totalAmount'] is num)
         ? (draft['totalAmount'] as num).toDouble()
         : double.tryParse('${draft['totalAmount']}') ?? 0;

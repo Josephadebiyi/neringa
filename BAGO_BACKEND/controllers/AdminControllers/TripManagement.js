@@ -542,3 +542,72 @@ export const deleteTripBatch = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Sniff the real file type from its first bytes. Cloudinary 'raw' uploads (how
+// PDF trip proofs are stored) have no extension in the URL and are served as
+// application/octet-stream, so neither the URL nor the response header can be
+// trusted to name the downloaded file.
+function sniffDocumentType(buffer) {
+  const b = buffer;
+  if (b.length >= 4 && b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return { mime: 'application/pdf', ext: 'pdf' };
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { mime: 'image/jpeg', ext: 'jpg' };
+  if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { mime: 'image/png', ext: 'png' };
+  if (b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return { mime: 'image/webp', ext: 'webp' };
+  if (b.length >= 12 && b.toString('ascii', 4, 8) === 'ftyp') {
+    const brand = b.toString('ascii', 8, 12);
+    if (/hei|hev|mif/i.test(brand)) return { mime: 'image/heic', ext: 'heic' };
+  }
+  return null;
+}
+
+// Streams a trip's proof document through the backend so the admin download is
+// always the real file with the correct type and extension, instead of the
+// browser fetching Cloudinary directly (which saved an error page / unnamed
+// blob as a "broken" file).
+export const downloadTripProof = async (req, res) => {
+  try {
+    const row = await queryOne(
+      `select travel_document_url from public.trips where id = $1`,
+      [req.params.id],
+    );
+    const stored = String(row?.travel_document_url || '').trim();
+    if (!stored) {
+      return res.status(404).json({ success: false, message: 'No proof uploaded for this trip.' });
+    }
+
+    let buffer;
+    if (stored.startsWith('data:')) {
+      const comma = stored.indexOf(',');
+      buffer = Buffer.from(stored.slice(comma + 1), 'base64');
+    } else {
+      const raw = stored.startsWith('http') ? stored : `https://${stored}`;
+      const candidates = [...new Set([getViewableDocumentUrl(raw), raw].filter(Boolean))];
+      for (const url of candidates) {
+        const upstream = new URL(url);
+        if (upstream.protocol !== 'https:' || !['res.cloudinary.com', 'api.cloudinary.com'].includes(upstream.hostname)) continue;
+        const response = await fetch(url, {signal: AbortSignal.timeout(15000), redirect: 'error'}).catch(() => null);
+        if (response?.ok) {
+          if (Number(response.headers?.get('content-length') || 0) > 15 * 1024 * 1024) continue;
+          const file = Buffer.from(await response.arrayBuffer());
+          if (file.length > 15 * 1024 * 1024 || !sniffDocumentType(file)) continue;
+          buffer = file;
+          break;
+        }
+      }
+      if (!buffer) {
+        return res.status(502).json({ success: false, message: 'The proof file could not be retrieved from storage.' });
+      }
+    }
+
+    const type = sniffDocumentType(buffer);
+    if (!type) return res.status(422).json({success: false, message: 'This proof is not a readable PDF or image. Please request a new upload.'});
+    res.setHeader('Content-Type', type.mime);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `${req.query?.preview === '1' ? 'inline' : 'attachment'}; filename="travel-proof-${req.params.id}.${type.ext}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    return res.status(200).send(buffer);
+  } catch (error) {
+    console.error('downloadTripProof error:', error);
+    return res.status(500).json({ success: false, message: 'Could not download the proof file.' });
+  }
+};

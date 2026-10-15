@@ -33,6 +33,7 @@ import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { buildTripCapacitySnapshot, syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { verifyFlutterwaveTransactionServerSide } from './FlutterwaveController.js';
+import { isStripeCheckoutEnabled, verifyStripePaymentIntentServerSide } from './StripeController.js';
 import { refundPaidShipmentRequest } from '../services/shipmentRefundService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { getAppSettings } from './AdminControllers/setting.js';
@@ -393,6 +394,18 @@ async function applyPaidAdditionalKg({
 }
 
 export async function RequestPackage(req, res) {
+  const reference = req.body?.paymentReference;
+  if (String(req.body?.paymentProvider || '').toLowerCase() === 'stripe' && /^pi_[A-Za-z0-9]+$/.test(String(reference || ''))) {
+    return withTransaction(async client => {
+      // Serialize webhook and app finalization for the same captured payment.
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [reference]);
+      return handlePackageRequest(req, res);
+    });
+  }
+  return handlePackageRequest(req, res);
+}
+
+async function handlePackageRequest(req, res) {
   try {
     const {
       travelerId,
@@ -419,8 +432,12 @@ export async function RequestPackage(req, res) {
       bagoNetRevenue,
     } = req.body;
 
+    if (paymentReference && !['stripe', 'flutterwave'].includes(String(paymentProvider || 'flutterwave').toLowerCase())) {
+      return res.status(400).json({success: false, code: 'UNSUPPORTED_PAYMENT_PROVIDER', message: 'Unsupported payment provider.'});
+    }
     const senderId = req.user.id || req.user._id;
     let verifiedPaymentStatus = paymentStatus;
+    let stripeQuote = null;
     let requestAmount = Number(amount);
     let requestCurrency = currency || 'USD';
 
@@ -565,15 +582,29 @@ export async function RequestPackage(req, res) {
       // client redirect alone. Flutterwave is the sole active provider.
       const provider = (paymentProvider || 'flutterwave').toLowerCase();
       if (provider === 'stripe') {
-        return res.status(410).json({ message: 'This payment method is disabled. Please restart checkout.', success: false });
+        if (!isStripeCheckoutEnabled()) {
+          return res.status(410).json({ message: 'This payment method is disabled. Please restart checkout.', success: false });
+        }
+        const verification = await verifyStripePaymentIntentServerSide(paymentReference, { senderId, packageId, tripId, travelerId });
+        if (!verification.success) {
+          return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
+        }
+        if (Math.abs(verification.data.amount - requestAmount) > 0.011) {
+          return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
+        }
+        if (verification.data.currency !== String(requestCurrency || '').toUpperCase()) {
+          return res.status(402).json({ message: 'Verified payment currency does not match the agreed currency.', success: false });
+        }
+        stripeQuote = verification.data.quote;
+        verifiedPaymentStatus = 'succeeded';
       } else if (provider === 'flutterwave') {
-        const verification = await verifyFlutterwaveTransactionServerSide(paymentReference);
+        const verification = await verifyFlutterwaveTransactionServerSide(paymentReference, {senderId, packageId, tripId});
         if (!verification.success) {
           return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
         }
         const verifiedAmount = Number(verification.data?.amount || 0);
         const agreedAmount = requestAmount;
-        if (verifiedAmount < agreedAmount * 0.98) { // 2% tolerance for rounding
+        if (Math.abs(verifiedAmount - agreedAmount) > .011) {
           return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
         }
         if (String(verification.data?.currency || '').toUpperCase() !== String(requestCurrency || '').toUpperCase()) {
@@ -639,16 +670,16 @@ export async function RequestPackage(req, res) {
           amount: requestAmount,
           currency: requestCurrency,
           imageUrl: typeof image === 'string' ? image : null,
-          insurance: insurance === 'yes' || insurance === true,
-          insuranceCost: (insurance === 'yes' || insurance === true)
+          insurance: stripeQuote ? stripeQuote.insuranceAmount > 0 : insurance === 'yes' || insurance === true,
+          insuranceCost: stripeQuote ? stripeQuote.insuranceAmount : (insurance === 'yes' || insurance === true)
             ? (await getRouteProtectionFee({
                 fromCountry: tripDoc.fromCountry,
                 toCountry: tripDoc.toCountry,
                 currency: requestCurrency,
               })).amount
             : 0,
-          estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
-          estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : null,
+          estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : tripDoc.departureDate ? new Date(tripDoc.departureDate) : null,
+          estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : tripDoc.arrivalDate ? new Date(tripDoc.arrivalDate) : null,
           termsAccepted: true,
           paymentInfo: paymentReference
             ? {
@@ -658,12 +689,12 @@ export async function RequestPackage(req, res) {
                 requestId: paymentReference,
               }
             : {},
-          travelerPayout: Number(travelerPayout) || null,
-          platformCommission: Number(platformCommission) || null,
-          processingFee: Number(processingFee) || null,
-          fxBuffer: Number(fxBuffer) || null,
-          senderShippingFee: Number(senderShippingFee) || requestAmount,
-          bagoNetRevenue: Number(bagoNetRevenue) || null,
+          travelerPayout: stripeQuote?.travelerPayout ?? (Number(travelerPayout) || null),
+          platformCommission: stripeQuote?.platformFee ?? (Number(platformCommission) || null),
+          processingFee: stripeQuote?.processingFee ?? (Number(processingFee) || null),
+          fxBuffer: stripeQuote?.fxBuffer ?? (Number(fxBuffer) || null),
+          senderShippingFee: stripeQuote?.shippingAmount ?? (Number(senderShippingFee) || requestAmount),
+          bagoNetRevenue: stripeQuote?.bagoNetRevenue ?? (Number(bagoNetRevenue) || null),
         });
 
     if (paymentReference) {
@@ -768,6 +799,8 @@ export async function RequestPackage(req, res) {
           provider: paymentProvider || 'flutterwave',
           error: escrowError.message,
         });
+        return res.status(202).json({success: true, paymentPending: true,
+          message: 'Your payment is secured. Shipment finalization is awaiting confirmation.'});
       }
 
       await applyReferralShipmentReward({

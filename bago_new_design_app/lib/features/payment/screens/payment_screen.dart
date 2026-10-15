@@ -17,6 +17,7 @@ import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../services/payment_service.dart';
 import '../services/paid_booking_service.dart';
+import '../services/checkout_cost_breakdown.dart';
 import '../services/shipment_checkout_service.dart';
 import '../services/stripe_checkout_service.dart';
 import '../../shipments/services/shipment_service.dart';
@@ -187,6 +188,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
             paymentProvider: provider,
             message: draft['message']?.toString(),
             travelerPayout: _asDouble(draft['travelerPayout']),
+            platformCommission: CheckoutCostBreakdown(draft).commission,
+            processingFee: CheckoutCostBreakdown(draft).value('processingFee'),
+            fxBuffer: CheckoutCostBreakdown(draft).value('fxBuffer'),
+            senderShippingFee: _asDouble(draft['shippingAmount']),
+            bagoNetRevenue:
+                CheckoutCostBreakdown(draft).value('bagoNetRevenue'),
           );
           if (request == null || request['paymentPending'] == true) {
             throw StateError('Booking is awaiting confirmation.');
@@ -446,6 +453,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     }
 
+    final breakdown = CheckoutCostBreakdown(draft);
     final currency = _asString(draft['currency'], 'USD');
     final totalAmount = _asDouble(draft['totalAmount']);
     final shippingAmount = _asDouble(draft['shippingAmount']);
@@ -541,7 +549,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
           // ── Amount summary ──────────────────────────────────────────────
           const SizedBox(height: 24),
-          _SummaryRow(label: l10n.shippingFee, value: money(shippingAmount)),
+          if (breakdown.available) ...[
+            _SummaryRow(label: 'Delivery', value: money(breakdown.delivery)),
+            const SizedBox(height: 12),
+            _SummaryRow(
+                label: 'Bago commission', value: money(breakdown.commission)),
+            if (breakdown.otherFees.abs() >= .005) ...[
+              const SizedBox(height: 12),
+              _SummaryRow(
+                  label: 'Payment and conversion fees',
+                  value: money(breakdown.otherFees)),
+            ],
+          ] else
+            _SummaryRow(label: l10n.shippingFee, value: money(shippingAmount)),
           const SizedBox(height: 12),
           _SummaryRow(label: l10n.insurance, value: money(insuranceAmount)),
           const SizedBox(height: 14),
@@ -552,6 +572,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
             value: money(totalAmount),
             emphasize: true,
           ),
+          const SizedBox(height: 12),
+          Text('Charged in $currency', style: AppTextStyles.bodySm),
+          if (breakdown.conversion != null) ...[
+            const SizedBox(height: 6),
+            Text(
+                '${breakdown.estimatedRate ? 'Estimated rate: ' : 'Exchange rate: '}${breakdown.conversion}',
+                style: AppTextStyles.muted(AppTextStyles.bodySm)),
+          ],
           const SizedBox(height: 28),
 
           // ── Pay button ───────────────────────────────────────────────────
@@ -661,14 +689,15 @@ class _ApplePayMark extends StatelessWidget {
         color: AppPalette.of(context).black,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.apple_rounded, color: AppColors.white, size: 16),
-          SizedBox(width: 1),
+          Icon(Icons.apple_rounded,
+              color: AppPalette.of(context).white, size: 16),
+          const SizedBox(width: 1),
           Text('Pay',
               style: TextStyle(
-                  color: AppColors.white,
+                  color: AppPalette.of(context).white,
                   fontSize: 12,
                   fontWeight: FontWeight.w700)),
         ],

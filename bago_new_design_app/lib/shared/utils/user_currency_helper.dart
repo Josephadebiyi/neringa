@@ -21,6 +21,12 @@ class UserCurrencyHelper {
     return DeviceCurrencyHelper.resolve();
   }
 
+  /// Matches the backend's saved residence currency used for payment quotes.
+  static String paymentCurrency(UserModel? user) {
+    final preferred = user?.preferredCurrency.trim() ?? '';
+    return preferred.isNotEmpty ? preferred.toUpperCase() : resolve(user);
+  }
+
   static String walletDisplayCurrency(UserModel? user) {
     final display = user?.walletDisplayCurrency?.trim() ?? '';
     if (display.isNotEmpty) return display.toUpperCase();
