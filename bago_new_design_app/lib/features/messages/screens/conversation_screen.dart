@@ -1,0 +1,1673 @@
+import '../../../core/theme/app_palette.dart';
+import 'dart:async';
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../core/utils/model_enums.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../features/auth/providers/auth_provider.dart';
+import '../../../shared/widgets/app_loading.dart';
+import '../../../shared/widgets/app_snackbar.dart';
+import '../models/conversation_model.dart';
+import '../models/message_model.dart';
+import '../providers/message_provider.dart';
+import '../services/message_service.dart';
+import '../../payment/services/shipment_checkout_service.dart';
+import '../../shipments/services/shipment_service.dart';
+
+class ConversationScreen extends ConsumerStatefulWidget {
+  const ConversationScreen({super.key, required this.conversationId});
+  final String conversationId;
+
+  @override
+  ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
+}
+
+class _ConversationScreenState extends ConsumerState<ConversationScreen> {
+  late final TextEditingController _msgCtrl;
+  late final ScrollController _scrollCtrl;
+  late final MessageNotifier _messageNotifier;
+  final ImagePicker _imagePicker = ImagePicker();
+
+  bool _isAtBottom = true;
+  int _unseenCount = 0; // new messages while user scrolled up
+
+  DateTime _lastSendTime = DateTime(1970);
+  static const _sendCooldown = Duration(milliseconds: 500);
+
+  // Typing broadcast debounce
+  Timer? _typingDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _msgCtrl = TextEditingController();
+    _scrollCtrl = ScrollController();
+    _messageNotifier = ref.read(messageProvider.notifier);
+    _scrollCtrl.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _messageNotifier.loadMessages(widget.conversationId);
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageNotifier.detachSocketListener();
+    _typingDebounce?.cancel();
+    _msgCtrl.dispose();
+    _scrollCtrl.removeListener(_onScroll);
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    final pos = _scrollCtrl.position;
+    final atBottom = pos.pixels >= pos.maxScrollExtent - 80;
+    if (atBottom && _unseenCount > 0) {
+      setState(() => _unseenCount = 0);
+    }
+    if (atBottom != _isAtBottom) {
+      setState(() => _isAtBottom = atBottom);
+    }
+
+    // Load more when scrolled to the very top
+    if (pos.pixels <= 80) {
+      ref.read(messageProvider.notifier).loadMoreMessages();
+    }
+  }
+
+  void _scrollToBottom({bool animated = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollCtrl.hasClients) return;
+      if (animated) {
+        _scrollCtrl.animateTo(
+          _scrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(messageProvider);
+    final currentUser = ref.watch(authProvider).user;
+    final currentUserId = currentUser?.id ?? '';
+    final currentUserName = (currentUser?.fullName.trim().isNotEmpty ?? false)
+        ? currentUser!.fullName.trim()
+        : (currentUser?.email ?? 'You');
+
+    // React to new messages
+    ref.listen<MessageState>(messageProvider, (previous, next) {
+      if (previous != null && next.messages.length > previous.messages.length) {
+        if (_isAtBottom) {
+          _scrollToBottom();
+        } else {
+          // User is scrolled up — show badge
+          final newCount = next.messages.length - previous.messages.length;
+          setState(() => _unseenCount += newCount);
+        }
+      }
+    });
+
+    final conv = state.conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+    final otherName = conv?.otherUserName ?? '';
+    final otherAvatar = conv?.otherUserAvatar;
+    final initials = conv?.initials ?? '?';
+    final isClosed = conv?.isClosed == true;
+    final requestStatus = conv?.requestStatus?.toLowerCase() ?? '';
+    final activeShipments = _activeShipmentsForConversation(conv);
+
+    return DecoratedBox(
+      // Soft lavender → pale-blue wash behind the conversation.
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppPalette.of(context).pageTint,
+            const Color(0xFFEFF5FB),
+            AppPalette.of(context).pageBackground
+          ],
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          leadingWidth: 64,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: _RoundHeaderButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              onTap: () =>
+                  context.canPop() ? context.pop() : context.go('/messages'),
+            ),
+          ),
+          title: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: AppPalette.of(context).primarySoft,
+                child: otherAvatar != null
+                    ? ClipOval(
+                        child: CachedNetworkImage(
+                          imageUrl: otherAvatar,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => _ConversationAvatarFallback(
+                            initials: initials,
+                          ),
+                          errorWidget: (_, __, ___) =>
+                              _ConversationAvatarFallback(
+                            initials: initials,
+                          ),
+                        ),
+                      )
+                    : _ConversationAvatarFallback(
+                        initials: initials,
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(otherName,
+                        style: AppTextStyles.h5,
+                        overflow: TextOverflow.ellipsis),
+                    if (state.isOtherTyping)
+                      Text(
+                        'typing…',
+                        style: AppTextStyles.captionBold
+                            .copyWith(color: AppColors.primary),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: _RoundHeaderButton(
+                icon: Icons.more_vert_rounded,
+                onTap: () =>
+                    _showConversationActions(context, conv, currentUserName),
+              ),
+            ),
+          ],
+        ),
+        body: state.isLoading && state.messages.isEmpty
+            ? const Center(child: AppLoading())
+            : Stack(
+                children: [
+                  Column(
+                    children: [
+                      if (activeShipments.isNotEmpty && conv != null)
+                        _ActiveShipmentSlider(
+                          shipments: activeShipments,
+                          currentUserIsSender: conv.currentUserIsSender,
+                          onOpen: (shipment) => context
+                              .push('/shipment-request/${shipment.requestId}'),
+                          onAddKg: (shipment) => _showAddKgSheet(
+                            conv,
+                            requestId: shipment.requestId,
+                            trackingNumber: shipment.trackingNumber,
+                          ),
+                        ),
+                      if (isClosed)
+                        _ClosedChatBanner(
+                          status: requestStatus.isEmpty
+                              ? 'completed'
+                              : requestStatus,
+                          onContactSupport: () =>
+                              context.push('/profile/support'),
+                          onReportShipment: conv?.requestId == null
+                              ? null
+                              : () => _reportShipment(
+                                    conversation: conv!,
+                                    currentUserName: currentUserName,
+                                  ),
+                        ),
+                      Expanded(
+                        child: _MessageList(
+                          messages: state.messages,
+                          currentUserId: currentUserId,
+                          scrollController: _scrollCtrl,
+                          isOtherTyping: state.isOtherTyping,
+                          otherAvatar: otherAvatar,
+                          otherInitials: initials,
+                        ),
+                      ),
+                      _MessageInput(
+                        controller: _msgCtrl,
+                        isLoading: state.isSending,
+                        enabled: !isClosed,
+                        onAttach: _pickAndSendImage,
+                        onTyping: _onTyping,
+                        onSend: () =>
+                            _handleSend(context, isClosed, currentUserId),
+                      ),
+                    ],
+                  ),
+
+                  // Scroll-to-bottom FAB with unseen badge
+                  if (!_isAtBottom)
+                    Positioned(
+                      right: 16,
+                      bottom: 80,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _unseenCount = 0);
+                          _scrollToBottom();
+                        },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppPalette.of(context)
+                                    .black
+                                    .withValues(alpha: 0.18),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              const Icon(Icons.keyboard_arrow_down_rounded,
+                                  color: AppColors.white, size: 26),
+                              if (_unseenCount > 0)
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.error,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '$_unseenCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  List<ChatShipmentSummary> _activeShipmentsForConversation(
+      ConversationModel? conversation) {
+    if (conversation == null) return [];
+    final active = conversation.activeShipments
+        .where((shipment) => !shipment.isClosed)
+        .where((shipment) => shipment.summary.trim().isNotEmpty)
+        .toList();
+    if (active.isNotEmpty) return active;
+
+    final fallback = ChatShipmentSummary(
+      requestId: conversation.requestId ?? '',
+      status: conversation.requestStatus,
+      packageTitle: conversation.packageTitle,
+      routeLabel: conversation.routeLabel,
+      trackingNumber: conversation.trackingNumber,
+    );
+    if (fallback.requestId.trim().isEmpty ||
+        fallback.summary.trim().isEmpty ||
+        fallback.isClosed) {
+      return [];
+    }
+    return [fallback];
+  }
+
+  void _onTyping() {
+    _typingDebounce?.cancel();
+    _typingDebounce = Timer(const Duration(milliseconds: 400), () {
+      ref.read(messageProvider.notifier).sendTypingIndicator();
+    });
+  }
+
+  Future<void> _handleSend(
+      BuildContext context, bool isClosed, String currentUserId) async {
+    if (DateTime.now().difference(_lastSendTime) < _sendCooldown) return;
+    _lastSendTime = DateTime.now();
+
+    if (isClosed) {
+      AppSnackBar.show(
+        context,
+        message:
+            'This shipment chat is closed. Please contact support or open a dispute if needed.',
+        type: SnackBarType.info,
+      );
+      return;
+    }
+    final content = _msgCtrl.text.trim();
+    if (content.isEmpty) return;
+    _msgCtrl.clear();
+    try {
+      await ref.read(messageProvider.notifier).sendMessage(content);
+    } catch (e) {
+      if (!context.mounted) return;
+      AppSnackBar.show(context,
+          message: e.toString(), type: SnackBarType.error);
+    }
+  }
+
+  Future<void> _pickAndSendImage() async {
+    final xFile = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (xFile == null || !mounted) return;
+    if (DateTime.now().difference(_lastSendTime) < _sendCooldown) return;
+    _lastSendTime = DateTime.now();
+
+    try {
+      final caption = _msgCtrl.text.trim();
+      _msgCtrl.clear();
+      await ref
+          .read(messageProvider.notifier)
+          .sendMessage(caption, imageFile: File(xFile.path));
+    } catch (e) {
+      if (!mounted) return;
+      AppSnackBar.show(context,
+          message: e.toString(), type: SnackBarType.error);
+    }
+  }
+
+  Future<void> _reportShipment({
+    required ConversationModel conversation,
+    required String currentUserName,
+  }) async {
+    try {
+      const reason = 'Shipment issue reported from the in-app closed chat.';
+      final chatSummary = _buildChatSummary(
+        conversation: conversation,
+        currentUserName: currentUserName,
+      );
+      await MessageService.instance.reportShipment(
+        requestId: conversation.requestId!,
+        reason: reason,
+        conversationId: conversation.id,
+        requestStatus: conversation.requestStatus,
+        reporterName: currentUserName,
+        otherUserName: conversation.otherUserName,
+        chatSummary: chatSummary,
+      );
+      if (mounted) {
+        AppSnackBar.show(
+          context,
+          message:
+              'Shipment reported. Support can now review the chat history.',
+          type: SnackBarType.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+      }
+    }
+  }
+
+  Future<void> _showAddKgSheet(
+    ConversationModel conversation, {
+    required String requestId,
+    String? trackingNumber,
+  }) async {
+    final kgController = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppPalette.of(context).white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              22,
+              18,
+              22,
+              MediaQuery.of(sheetContext).viewInsets.bottom + 22,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Add more kg',
+                  style: AppTextStyles.h2.copyWith(
+                    color: AppPalette.of(context).black,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This adds weight to the active shipment in this chat. Receiver details stay the same.',
+                  style: AppTextStyles.bodySm.copyWith(
+                    color: AppPalette.of(context).gray500,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  controller: kgController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Additional weight',
+                    suffixText: 'kg',
+                    filled: true,
+                    fillColor: AppPalette.of(context).gray50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide:
+                          BorderSide(color: AppPalette.of(context).border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide:
+                          BorderSide(color: AppPalette.of(context).border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: const BorderSide(
+                          color: AppColors.primary, width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final kg = double.tryParse(kgController.text.trim()) ?? 0;
+                      if (kg <= 0) {
+                        AppSnackBar.show(
+                          sheetContext,
+                          message: 'Enter the additional kg.',
+                          type: SnackBarType.error,
+                        );
+                        return;
+                      }
+                      Navigator.pop(sheetContext);
+                      try {
+                        final request =
+                            await ShipmentService.instance.getRequestDetails(
+                          requestId.trim(),
+                        );
+                        final existingWeight = request.packageWeight ?? 0;
+                        final pricePerKg = existingWeight > 0
+                            ? request.agreedPrice / existingWeight
+                            : 0.0;
+                        final estimatedShipping = pricePerKg > 0
+                            ? double.parse((kg * pricePerKg).toStringAsFixed(2))
+                            : 0.0;
+                        final draft = {
+                          'type': 'additional_kg',
+                          'additionalKg': kg,
+                          'additionalRequestId': request.id,
+                          'packageId': request.packageId,
+                          'tripId': request.tripId,
+                          'travelerId': request.carrierId,
+                          'currency': request.currency.isNotEmpty
+                              ? request.currency
+                              : 'USD',
+                          'shippingAmount': estimatedShipping,
+                          'insuranceAmount': 0.0,
+                          'totalAmount': estimatedShipping,
+                          'insurance': false,
+                          'fromLocation':
+                              request.fromLocation ?? conversation.routeLabel,
+                          'toLocation': request.toLocation,
+                          'message':
+                              'Additional ${kg.toStringAsFixed(kg.truncateToDouble() == kg ? 0 : 1)}kg for shipment ${trackingNumber ?? request.id}',
+                          'expiresAt': DateTime.now()
+                              .add(ShipmentCheckoutService.draftLifetime)
+                              .toIso8601String(),
+                        };
+                        await ShipmentCheckoutService.instance.saveDraft(draft);
+                        if (!mounted) return;
+                        context.push('/payment', extra: draft);
+                      } catch (_) {
+                        if (!mounted) return;
+                        AppSnackBar.show(
+                          context,
+                          message:
+                              'Could not load shipment details. Please try again.',
+                          type: SnackBarType.error,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: Text(
+                      'Send kg request',
+                      style: AppTextStyles.buttonLg.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    kgController.dispose();
+  }
+
+  String _buildChatSummary({
+    required ConversationModel conversation,
+    required String currentUserName,
+  }) {
+    final messages = ref.read(messageProvider).messages;
+    final otherName = conversation.otherUserName.trim().isNotEmpty
+        ? conversation.otherUserName.trim()
+        : 'Other party';
+    final currentUserId = ref.read(authProvider).user?.id ?? '';
+    final recent = messages.take(12).map((msg) {
+      final speaker =
+          msg.senderId == currentUserId ? currentUserName : otherName;
+      return '[${msg.timeLabel.isNotEmpty ? msg.timeLabel : msg.createdAt}] $speaker: ${msg.content}';
+    }).toList();
+
+    final isClosed = conversation.isClosed == true;
+    return [
+      isClosed
+          ? 'Shipment dispute opened from a completed shipment chat.'
+          : 'Shipment issue reported from an active shipment chat.',
+      'Request ID: ${conversation.requestId ?? 'unknown'}',
+      if ((conversation.tripId ?? '').isNotEmpty)
+        'Trip ID: ${conversation.tripId}',
+      if ((conversation.requestStatus ?? '').isNotEmpty)
+        'Request status: ${conversation.requestStatus}',
+      'Reporter: $currentUserName',
+      'Counterparty: $otherName',
+      '',
+      'Recent chat history:',
+      ...recent,
+    ].join('\n');
+  }
+
+  void _showConversationActions(
+    BuildContext context,
+    ConversationModel? conv,
+    String currentUserName,
+  ) {
+    final isClosed = conv?.isClosed == true;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppPalette.of(context).white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.support_agent_rounded,
+                    color: AppPalette.of(context).primary),
+                title: const Text('Contact support'),
+                subtitle: Text(isClosed
+                    ? 'Get help with a completed shipment'
+                    : 'Get help with this shipment'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.push('/profile/support');
+                },
+              ),
+              if (conv?.requestId != null)
+                ListTile(
+                  leading:
+                      const Icon(Icons.flag_outlined, color: AppColors.error),
+                  title: const Text('Report shipment'),
+                  subtitle: Text(isClosed
+                      ? 'Open a dispute for this request'
+                      : 'Report an issue with this shipment'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _reportShipment(
+                      conversation: conv!,
+                      currentUserName: currentUserName,
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationAvatarFallback extends StatelessWidget {
+  const _ConversationAvatarFallback({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = initials.trim();
+    if (value.isEmpty || value == '?') {
+      return Center(
+        child: Icon(
+          Icons.person_rounded,
+          color: AppPalette.of(context).primary,
+          size: 18,
+        ),
+      );
+    }
+    return Center(
+      child: Text(
+        value,
+        style: AppTextStyles.labelMd.copyWith(color: AppColors.primary),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Message list with date separators and typing indicator
+// ---------------------------------------------------------------------------
+class _MessageList extends StatelessWidget {
+  const _MessageList({
+    required this.messages,
+    required this.currentUserId,
+    required this.scrollController,
+    required this.isOtherTyping,
+    this.otherAvatar,
+    this.otherInitials = '?',
+  });
+
+  final List<MessageModel> messages;
+  final String currentUserId;
+  final ScrollController scrollController;
+  final bool isOtherTyping;
+  final String? otherAvatar;
+  final String otherInitials;
+
+  @override
+  Widget build(BuildContext context) {
+    // Build items list: inject date separators
+    final items = <_ListItem>[];
+    DateTime? prevDate;
+    for (final msg in messages) {
+      final date = _messageDate(msg.createdAt);
+      if (date != null && (prevDate == null || !_sameDay(prevDate, date))) {
+        items.add(_DateSeparatorItem(date));
+        prevDate = date;
+      }
+      items.add(_MessageItem(msg));
+    }
+    if (isOtherTyping) items.add(const _TypingItem());
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: items.length,
+      itemBuilder: (_, i) {
+        final item = items[i];
+        if (item is _DateSeparatorItem) return _DateSeparator(date: item.date);
+        if (item is _TypingItem) return const _TypingBubble();
+        final msg = (item as _MessageItem).msg;
+        final isMe = msg.senderId == currentUserId;
+        final bubble = _MessageBubble(msg: msg, isMe: isMe);
+        if (isMe) return bubble;
+        // Their messages carry a small avatar, like a chat assistant thread.
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10, right: 8),
+              child: CircleAvatar(
+                radius: 15,
+                backgroundColor: AppPalette.of(context).white,
+                child: (otherAvatar ?? '').trim().isNotEmpty
+                    ? ClipOval(
+                        child: CachedNetworkImage(
+                          imageUrl: otherAvatar!,
+                          placeholder: (_, __) => _ConversationAvatarFallback(
+                              initials: otherInitials),
+                          width: 30,
+                          height: 30,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              _ConversationAvatarFallback(
+                                  initials: otherInitials),
+                        ),
+                      )
+                    : _ConversationAvatarFallback(initials: otherInitials),
+              ),
+            ),
+            Flexible(child: bubble),
+          ],
+        );
+      },
+    );
+  }
+
+  static DateTime? _messageDate(String raw) {
+    try {
+      return DateTime.parse(raw).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+class _ActiveShipmentSlider extends StatefulWidget {
+  const _ActiveShipmentSlider({
+    required this.shipments,
+    required this.currentUserIsSender,
+    required this.onOpen,
+    required this.onAddKg,
+  });
+
+  final List<ChatShipmentSummary> shipments;
+  final bool currentUserIsSender;
+  final ValueChanged<ChatShipmentSummary> onOpen;
+  final ValueChanged<ChatShipmentSummary> onAddKg;
+
+  @override
+  State<_ActiveShipmentSlider> createState() => _ActiveShipmentSliderState();
+}
+
+class _ActiveShipmentSliderState extends State<_ActiveShipmentSlider> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shipments = widget.shipments;
+    if (shipments.length == 1) {
+      final shipment = shipments.first;
+      return _ActiveShipmentChatCard(
+        summary: shipment.summary,
+        trackingNumber: shipment.trackingNumber,
+        requestId: shipment.requestId,
+        isClosed: shipment.isClosed,
+        onOpen: () => widget.onOpen(shipment),
+        onAddKg: widget.currentUserIsSender && !shipment.isClosed
+            ? () => widget.onAddKg(shipment)
+            : null,
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 184,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: shipments.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (context, index) {
+              final shipment = shipments[index];
+              return _ActiveShipmentChatCard(
+                summary: shipment.summary,
+                trackingNumber: shipment.trackingNumber,
+                requestId: shipment.requestId,
+                isClosed: shipment.isClosed,
+                onOpen: () => widget.onOpen(shipment),
+                onAddKg: widget.currentUserIsSender && !shipment.isClosed
+                    ? () => widget.onAddKg(shipment)
+                    : null,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(shipments.length, (dotIndex) {
+            final selected = dotIndex == _index;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: selected ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.primary
+                    : AppPalette.of(context).gray300,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActiveShipmentChatCard extends StatelessWidget {
+  const _ActiveShipmentChatCard({
+    required this.summary,
+    required this.trackingNumber,
+    required this.requestId,
+    required this.isClosed,
+    required this.onOpen,
+    required this.onAddKg,
+  });
+
+  final String summary;
+  final String? trackingNumber;
+  final String? requestId;
+  final bool isClosed;
+  final VoidCallback? onOpen;
+  final VoidCallback? onAddKg;
+
+  @override
+  Widget build(BuildContext context) {
+    final tracking = (trackingNumber ?? '').trim();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.16)),
+        boxShadow: [
+          BoxShadow(
+            color: AppPalette.of(context).black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppPalette.of(context).primarySoft,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        Icons.inventory_2_outlined,
+                        color: AppPalette.of(context).primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Active shipment',
+                            style: AppTextStyles.captionBold.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            summary,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.labelMd.copyWith(
+                              color: AppPalette.of(context).black,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          if (tracking.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Text(
+                                'Tracking: $tracking',
+                                style: AppTextStyles.captionBold.copyWith(
+                                  color: AppPalette.of(context).gray500,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppPalette.of(context).gray400,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onOpen,
+                        icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                        label: const Text('View'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(
+                            color: AppColors.primary.withValues(alpha: 0.25),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (onAddKg != null) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: onAddKg,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Add kg'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: isClosed
+                                ? AppPalette.of(context).gray300
+                                : AppColors.primary,
+                            foregroundColor: AppColors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// List item types
+// ---------------------------------------------------------------------------
+abstract class _ListItem {
+  const _ListItem();
+}
+
+class _MessageItem extends _ListItem {
+  const _MessageItem(this.msg);
+  final MessageModel msg;
+}
+
+class _DateSeparatorItem extends _ListItem {
+  const _DateSeparatorItem(this.date);
+  final DateTime date;
+}
+
+class _TypingItem extends _ListItem {
+  const _TypingItem();
+}
+
+// ---------------------------------------------------------------------------
+// Date separator
+// ---------------------------------------------------------------------------
+class _DateSeparator extends StatelessWidget {
+  const _DateSeparator({required this.date});
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: AppPalette.of(context).gray200)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              _label(),
+              style: AppTextStyles.captionBold
+                  .copyWith(color: AppPalette.of(context).gray400),
+            ),
+          ),
+          Expanded(child: Divider(color: AppPalette.of(context).gray200)),
+        ],
+      ),
+    );
+  }
+
+  String _label() {
+    final now = DateTime.now();
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      return 'Today';
+    }
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (date.year == yesterday.year &&
+        date.month == yesterday.month &&
+        date.day == yesterday.day) {
+      return 'Yesterday';
+    }
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Typing bubble
+// ---------------------------------------------------------------------------
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppPalette.of(context).white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(16),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppPalette.of(context).black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) => _Dot(delay: i * 200)),
+        ),
+      ),
+    );
+  }
+}
+
+class _Dot extends StatefulWidget {
+  const _Dot({required this.delay});
+  final int delay;
+
+  @override
+  State<_Dot> createState() => _DotState();
+}
+
+class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _anim = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _c, curve: Curves.easeInOut),
+    );
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _c.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        width: 7,
+        height: 7,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: AppPalette.of(context).gray400.withValues(alpha: _anim.value),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Message bubble
+// ---------------------------------------------------------------------------
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.msg, required this.isMe});
+  final MessageModel msg;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    if (msg.isShipmentRequest) {
+      return _ShipmentRequestMessageCard(msg: msg, isMe: isMe);
+    }
+
+    final isImageMessage = msg.type == MessageType.image &&
+        (msg.fileUrl?.trim().isNotEmpty ?? false);
+    final isOptimistic = msg.id.startsWith('opt_');
+
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isMe ? null : AppColors.white,
+          gradient: isMe
+              ? const LinearGradient(
+                  colors: [AppColors.primaryLight, AppColors.primary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(isMe ? 20 : 6),
+            bottomRight: Radius.circular(isMe ? 6 : 20),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: isMe ? 0.18 : 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (isImageMessage)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: CachedNetworkImage(
+                  imageUrl: msg.fileUrl!,
+                  width: 220,
+                  height: 220,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    width: 220,
+                    height: 220,
+                    color: isMe
+                        ? AppColors.white.withValues(alpha: 0.18)
+                        : AppPalette.of(context).gray100,
+                    child: const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    width: 220,
+                    height: 140,
+                    color: isMe
+                        ? AppColors.white.withValues(alpha: 0.12)
+                        : AppPalette.of(context).gray100,
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Image unavailable',
+                      style: AppTextStyles.bodySm.copyWith(
+                        color: isMe
+                            ? AppColors.white
+                            : AppPalette.of(context).gray500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (isImageMessage &&
+                msg.content.trim().isNotEmpty &&
+                msg.content.trim().toLowerCase() != 'image')
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  msg.content,
+                  style: AppTextStyles.bodyMd.copyWith(
+                      color: isMe
+                          ? AppColors.white
+                          : AppPalette.of(context).gray900),
+                ),
+              ),
+            if (!isImageMessage)
+              Text(
+                msg.content,
+                style: AppTextStyles.bodyMd.copyWith(
+                    color: isMe
+                        ? AppColors.white
+                        : AppPalette.of(context).gray900),
+              ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  msg.timeLabel,
+                  style: AppTextStyles.caption.copyWith(
+                    color: isMe
+                        ? AppColors.white.withValues(alpha: 0.7)
+                        : AppPalette.of(context).gray400,
+                    fontSize: 10,
+                  ),
+                ),
+                if (isMe) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    isOptimistic
+                        ? Icons.access_time_rounded
+                        : Icons.done_all_rounded,
+                    size: 12,
+                    color: isOptimistic
+                        ? AppColors.white.withValues(alpha: 0.5)
+                        : (msg.isRead
+                            ? Colors.lightBlueAccent
+                            : AppColors.white.withValues(alpha: 0.7)),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShipmentRequestMessageCard extends StatelessWidget {
+  const _ShipmentRequestMessageCard({required this.msg, required this.isMe});
+
+  final MessageModel msg;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final requestId = msg.shipmentRequestId ?? '';
+    final category = msg.shipmentPackageCategory?.trim() ?? '';
+    final description = msg.shipmentPackageDescription?.trim() ?? '';
+    final weight = msg.shipmentPackageWeight?.trim() ?? '';
+    final detailParts = [
+      if (category.isNotEmpty) category,
+      if (description.isNotEmpty) description,
+      if (weight.isNotEmpty && weight != 'null') '${weight}kg',
+    ];
+
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: requestId.isEmpty
+            ? null
+            : () => context.push('/shipment-request/$requestId'),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppPalette.of(context).white,
+            borderRadius: BorderRadius.circular(18),
+            border:
+                Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+            boxShadow: [
+              BoxShadow(
+                color: AppPalette.of(context).black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppPalette.of(context).primarySoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.inventory_2_outlined,
+                      color: AppPalette.of(context).primary,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'New shipment',
+                      style: AppTextStyles.labelMd.copyWith(
+                        color: AppPalette.of(context).black,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppPalette.of(context).gray400,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                detailParts.isEmpty ? msg.content : detailParts.join(' · '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppPalette.of(context).gray600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View shipment details',
+                    style: AppTextStyles.labelSm.copyWith(
+                      color: AppPalette.of(context).primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    msg.timeLabel,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppPalette.of(context).gray400,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Message input
+// ---------------------------------------------------------------------------
+class _MessageInput extends StatelessWidget {
+  const _MessageInput({
+    required this.controller,
+    required this.onSend,
+    required this.onAttach,
+    required this.onTyping,
+    this.enabled = true,
+    this.isLoading = false,
+  });
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final Future<void> Function() onAttach;
+  final VoidCallback onTyping;
+  final bool isLoading;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+          12, 6, 12, MediaQuery.of(context).padding.bottom + 10),
+      padding: const EdgeInsets.fromLTRB(6, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.attach_file_rounded,
+                color: AppPalette.of(context).gray500),
+            onPressed: (isLoading || !enabled) ? null : onAttach,
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              enabled: enabled && !isLoading,
+              onChanged: (_) => onTyping(),
+              style: AppTextStyles.bodyMd,
+              decoration: InputDecoration(
+                hintText: 'Type a message...',
+                filled: true,
+                fillColor: AppPalette.of(context).pageBackground,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              maxLines: 4,
+              minLines: 1,
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: (isLoading || !enabled) ? null : onSend,
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: isLoading ? AppPalette.of(context).gray300 : null,
+                gradient: isLoading
+                    ? null
+                    : const LinearGradient(
+                        colors: [AppColors.primaryLight, AppColors.primary],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                shape: BoxShape.circle,
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(AppColors.white),
+                      ),
+                    )
+                  : const Icon(Icons.send_rounded,
+                      color: AppColors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Closed chat banner
+// ---------------------------------------------------------------------------
+class _ClosedChatBanner extends StatelessWidget {
+  const _ClosedChatBanner({
+    required this.status,
+    required this.onContactSupport,
+    required this.onReportShipment,
+  });
+
+  final String status;
+  final VoidCallback onContactSupport;
+  final VoidCallback? onReportShipment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).primarySoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Chat closed',
+            style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Shipment $status. Need help? Contact support or report an issue.',
+            style: AppTextStyles.bodySm
+                .copyWith(color: AppPalette.of(context).gray600, height: 1.3),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: onContactSupport,
+                  style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      textStyle: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: const Text('Contact support'),
+                ),
+              ),
+              if (onReportShipment != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextButton(
+                    onPressed: onReportShipment,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                    ),
+                    child: const Text('Report issue'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundHeaderButton extends StatelessWidget {
+  const _RoundHeaderButton({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: AppPalette.of(context).white.withValues(alpha: 0.85),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 42,
+            height: 42,
+            child: Icon(icon, size: 18, color: AppPalette.of(context).black),
+          ),
+        ),
+      ),
+    );
+  }
+}

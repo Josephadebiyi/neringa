@@ -1,0 +1,873 @@
+import '../../../core/theme/app_palette.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_loading.dart';
+import '../../../shared/widgets/app_snackbar.dart';
+import '../../../shared/widgets/full_screen_image_viewer.dart';
+import '../../../shared/widgets/journey_map_widget.dart';
+import '../../../core/utils/model_enums.dart';
+import '../../auth/models/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../models/package_model.dart';
+import '../services/bago_shipping_pdf_service.dart';
+import '../services/shipment_service.dart';
+
+class ShipmentDetailsScreen extends ConsumerStatefulWidget {
+  const ShipmentDetailsScreen(
+      {super.key, required this.shipmentId, this.preloadedPackage});
+  final String shipmentId;
+  final PackageModel? preloadedPackage;
+
+  @override
+  ConsumerState<ShipmentDetailsScreen> createState() =>
+      _ShipmentDetailsScreenState();
+}
+
+class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
+  late Future<PackageModel> _future;
+  bool _hasReviewed = false;
+  bool _confirmingReceived = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.preloadedPackage != null
+        ? Future.value(widget.preloadedPackage!)
+        : ShipmentService.instance.getPackageDetails(widget.shipmentId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      backgroundColor: AppPalette.of(context).pageBackground,
+      appBar: AppBar(
+        backgroundColor: AppPalette.of(context).pageBackground,
+        elevation: 0,
+        title: Text(l10n.shipmentDetailsTitle,
+            style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: FutureBuilder<PackageModel>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: AppLoading());
+          }
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: AppColors.error, size: 48),
+                    const SizedBox(height: 16),
+                    Text(l10n.couldNotLoadShipment, style: AppTextStyles.h3),
+                    const SizedBox(height: 8),
+                    Text(snap.error.toString(),
+                        style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 24),
+                    AppButton(
+                      label: l10n.retry,
+                      onPressed: () => setState(() {
+                        _future = ShipmentService.instance
+                            .getPackageDetails(widget.shipmentId);
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          final currentUser = ref.watch(authProvider).user;
+          final pkg = snap.data!;
+          final isSender = currentUser?.id == pkg.senderId;
+          return _ShipmentBody(
+            package: pkg,
+            isSender: isSender,
+            onDownloadPdf: () => _showPdfOptions(pkg, currentUser),
+            canLeaveFeedback: !_hasReviewed &&
+                pkg.isCompletedBySender &&
+                pkg.requestId.isNotEmpty,
+            onLeaveFeedback: () => _showReviewSheet(pkg, currentUser),
+            canConfirmReceived: isSender && pkg.awaitingSenderConfirmation,
+            confirmingReceived: _confirmingReceived,
+            onConfirmReceived: () => _confirmReceived(pkg.requestId),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showPdfOptions(
+      PackageModel shipment, UserModel? currentUser) async {
+    final l10n = AppLocalizations.of(context);
+    final requestId = shipment.requestId.trim();
+    final filename = BagoShippingPdfService.fileNameForRequest(
+      trackingNumber: shipment.trackingNumber,
+      requestId: requestId.isNotEmpty ? requestId : shipment.id,
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppPalette.of(context).white,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppPalette.of(context).gray200,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(l10n.shippingPdfTitle,
+                    style:
+                        AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.shippingPdfDescription,
+                  style: AppTextStyles.bodySm.copyWith(
+                      color: AppPalette.of(context).gray500, height: 1.4),
+                ),
+                const SizedBox(height: 18),
+                AppButton(
+                  label: l10n.previewPrint,
+                  onPressed: () async {
+                    Navigator.of(sheetContext).pop();
+                    try {
+                      if (requestId.isNotEmpty) {
+                        final bytes = await ShipmentService.instance
+                            .downloadRequestPdf(requestId);
+                        await BagoShippingPdfService.previewBytes(
+                          bytes: Uint8List.fromList(bytes),
+                          filename: filename,
+                        );
+                      } else {
+                        await BagoShippingPdfService.preview(
+                          shipment: shipment,
+                          sender: currentUser,
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        AppSnackBar.show(context,
+                            message: e.toString(), type: SnackBarType.error);
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                AppButton(
+                  label: l10n.shareSavePdf,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: () async {
+                    Navigator.of(sheetContext).pop();
+                    try {
+                      if (requestId.isNotEmpty) {
+                        final bytes = await ShipmentService.instance
+                            .downloadRequestPdf(requestId);
+                        await BagoShippingPdfService.shareBytes(
+                          bytes: Uint8List.fromList(bytes),
+                          filename: filename,
+                        );
+                      } else {
+                        await BagoShippingPdfService.share(
+                          shipment: shipment,
+                          sender: currentUser,
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        AppSnackBar.show(context,
+                            message: e.toString(), type: SnackBarType.error);
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showReviewSheet(
+      PackageModel shipment, UserModel? currentUser) async {
+    final l10n = AppLocalizations.of(context);
+    final commentCtrl = TextEditingController();
+    double rating = 5;
+    bool submitting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> submit() async {
+              if (submitting) return;
+              setSheetState(() => submitting = true);
+              try {
+                await ShipmentService.instance.leaveShipmentReview(
+                  requestId: shipment.requestId,
+                  rating: rating,
+                  comment: commentCtrl.text,
+                  reviewerRole: currentUser == null
+                      ? null
+                      : (currentUser.id == shipment.senderId
+                          ? 'sender'
+                          : (shipment.travelerId != null &&
+                                  currentUser.id == shipment.travelerId
+                              ? 'traveler'
+                              : null)),
+                  targetRole: currentUser == null
+                      ? null
+                      : (currentUser.id == shipment.senderId
+                          ? 'traveler'
+                          : 'sender'),
+                  requestStatus: shipment.status.apiValue,
+                  reporterName: currentUser?.fullName,
+                  otherUserName: shipment.travelerName ?? shipment.senderName,
+                );
+                if (!mounted || !sheetContext.mounted) return;
+                setState(() => _hasReviewed = true);
+                AppSnackBar.show(
+                  context,
+                  message: l10n.feedbackSubmittedSuccessfully,
+                  type: SnackBarType.success,
+                );
+                if (Navigator.of(sheetContext).canPop()) {
+                  Navigator.of(sheetContext).pop();
+                }
+              } catch (e) {
+                if (mounted && sheetContext.mounted) {
+                  AppSnackBar.show(
+                    context,
+                    message: e.toString(),
+                    type: SnackBarType.error,
+                  );
+                }
+              } finally {
+                if (sheetContext.mounted) {
+                  setSheetState(() => submitting = false);
+                }
+              }
+            }
+
+            return SafeArea(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppPalette.of(context).white,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 14,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppPalette.of(context).gray200,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.leaveFeedback,
+                      style: AppTextStyles.h3
+                          .copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.rateTravelerNote,
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppPalette.of(context).gray500),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(5, (index) {
+                        final starValue = index + 1;
+                        final selected = starValue <= rating.round();
+                        return IconButton(
+                          onPressed: () => setSheetState(
+                              () => rating = starValue.toDouble()),
+                          icon: Icon(
+                            selected
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: selected
+                                ? AppColors.primary
+                                : AppPalette.of(context).gray300,
+                            size: 32,
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: commentCtrl,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: l10n.shareYourExperience,
+                        filled: true,
+                        fillColor: AppPalette.of(context).gray50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AppButton(
+                      label: l10n.submitFeedback,
+                      isLoading: submitting,
+                      onPressed: submit,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    commentCtrl.dispose();
+  }
+
+  Future<void> _confirmReceived(String requestId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm delivery?'),
+        content: const Text(
+          'Confirming receipt will release payment to the traveler. Only do this once you have the package.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Confirm')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _confirmingReceived = true);
+    try {
+      await ShipmentService.instance.confirmReceived(requestId);
+      if (!mounted) return;
+      AppSnackBar.show(context,
+          message: 'Delivery confirmed! Payment released to traveler.',
+          type: SnackBarType.success);
+      setState(() {
+        _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
+      });
+      ref.read(authProvider.notifier).refreshProfile();
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.show(context,
+            message: e.toString(), type: SnackBarType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _confirmingReceived = false);
+    }
+  }
+}
+
+class _ShipmentBody extends StatelessWidget {
+  const _ShipmentBody({
+    required this.package,
+    required this.isSender,
+    required this.onDownloadPdf,
+    required this.canLeaveFeedback,
+    required this.onLeaveFeedback,
+    required this.canConfirmReceived,
+    required this.confirmingReceived,
+    required this.onConfirmReceived,
+  });
+  final PackageModel package;
+  final bool isSender;
+  final VoidCallback onDownloadPdf;
+  final bool canLeaveFeedback;
+  final VoidCallback onLeaveFeedback;
+  final bool canConfirmReceived;
+  final bool confirmingReceived;
+  final VoidCallback onConfirmReceived;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final statusColor = switch (package.status) {
+      PackageStatus.delivered => AppColors.success,
+      PackageStatus.inTransit => AppColors.primary,
+      PackageStatus.matched => AppColors.accentAmber,
+      PackageStatus.cancelled => AppColors.error,
+      _ => AppPalette.of(context).gray500,
+    };
+    final displayAmount =
+        package.amountForRole(isSender ? 'sender' : 'traveler');
+    final priceLabel = isSender ? 'Total paid' : 'Your earning';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header card
+          _Card(
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                      color: AppPalette.of(context).primarySoft,
+                      borderRadius: BorderRadius.circular(14)),
+                  child: Icon(Icons.inventory_2_outlined,
+                      color: AppPalette.of(context).primary, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            package.title.isNotEmpty
+                                ? package.title
+                                : package.category,
+                            style: AppTextStyles.h4
+                                .copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
+                        Text(package.category,
+                            style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                      ]),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(package.statusLabel,
+                      style: AppTextStyles.labelSm.copyWith(
+                          color: statusColor, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Route
+          _Card(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _Label(l10n.route),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _Label(l10n.fromLabel),
+                          const SizedBox(height: 4),
+                          Text(package.fromCity,
+                              style: AppTextStyles.h4
+                                  .copyWith(fontWeight: FontWeight.w800)),
+                          Text(package.fromCountry,
+                              style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                        ]),
+                  ),
+                  Icon(Icons.arrow_forward_rounded,
+                      color: AppPalette.of(context).primary, size: 20),
+                  Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _Label(l10n.toLabel),
+                          const SizedBox(height: 4),
+                          Text(package.toCity,
+                              style: AppTextStyles.h4
+                                  .copyWith(fontWeight: FontWeight.w800)),
+                          Text(package.toCountry,
+                              style: AppTextStyles.muted(AppTextStyles.bodySm)),
+                        ]),
+                  ),
+                ],
+              ),
+            ]),
+          ),
+          const SizedBox(height: 14),
+
+          // Journey map
+          JourneyMapWidget(
+            fromCity: package.fromCity,
+            fromCountry: package.fromCountry,
+            toCity: package.toCity,
+            toCountry: package.toCountry,
+            status: package.rawStatus,
+            departureDate: package.estimatedDeparture != null
+                ? DateTime.tryParse(package.estimatedDeparture!)?.toLocal()
+                : null,
+            arrivalDate: package.estimatedArrival != null
+                ? DateTime.tryParse(package.estimatedArrival!)?.toLocal()
+                : null,
+          ),
+          const SizedBox(height: 14),
+
+          // Package details
+          _Card(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _Label(l10n.packageDetailsTitle),
+              const SizedBox(height: 14),
+              _Row(l10n.weightLabel, '${package.weight} kg'),
+              _Row(l10n.declaredValueLabel,
+                  '${package.currency} ${package.value.toStringAsFixed(2)}'),
+              _Row(l10n.insurance,
+                  package.insurance ? l10n.yesLabel : l10n.noLabel),
+              if (package.insurance && package.insuranceCost > 0)
+                _Row('Insurance cost',
+                    '${package.currency.isNotEmpty ? package.currency : ''} ${package.insuranceCost.toStringAsFixed(2)}'),
+              if (package.insurance)
+                _Row('Policy status', _insuranceStatusLabel(package)),
+              if (package.description.isNotEmpty)
+                _Row(l10n.descriptionLabel, package.description),
+              if (package.senderName?.isNotEmpty == true)
+                _Row(l10n.senderLabel, package.senderName!),
+              if (package.travelerName?.isNotEmpty == true)
+                _Row(l10n.travelerLabel, package.travelerName!),
+              if (package.paymentStatus?.isNotEmpty == true)
+                _Row(l10n.paymentLabel, package.paymentStatus!),
+              if (package.createdAt.trim().isNotEmpty)
+                _Row('Created', _formatDateTime(package.createdAt)),
+              if (package.updatedAt.trim().isNotEmpty)
+                _Row('Last updated', _formatDateTime(package.updatedAt)),
+              if (package.pickupDate != null)
+                _Row(l10n.pickupDateLabel, package.pickupDate!),
+              if (package.deliveryDate != null)
+                _Row(l10n.deliveryDateLabel, package.deliveryDate!),
+              if (package.estimatedDeparture?.isNotEmpty == true)
+                _Row(l10n.estimatedDepartureLabel, package.estimatedDeparture!),
+              if (package.estimatedArrival?.isNotEmpty == true)
+                _Row(l10n.estimatedArrivalLabel, package.estimatedArrival!),
+            ]),
+          ),
+          const SizedBox(height: 14),
+
+          // Package Images
+          if (package.images.isNotEmpty) ...[
+            _Card(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Label(l10n.itemImagesLabel),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 140,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: package.images.length,
+                        itemBuilder: (context, index) => Padding(
+                          padding: EdgeInsets.only(
+                              right:
+                                  index < package.images.length - 1 ? 12 : 0),
+                          child: TappableImage(
+                            url: package.images[index],
+                            width: 120,
+                            height: 140,
+                            borderRadius: BorderRadius.circular(12),
+                            placeholder: Container(
+                              width: 120,
+                              decoration: BoxDecoration(
+                                color: AppPalette.of(context).backgroundOff,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(Icons.image_not_supported_rounded,
+                                  color: AppPalette.of(context).gray500),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ]),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Addresses
+          _Card(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _Label(l10n.addressesTitle),
+              const SizedBox(height: 14),
+              _Row(l10n.pickupLabel, package.pickupAddress),
+              _Row(l10n.deliveryLabel, package.deliveryAddress),
+            ]),
+          ),
+
+          // Receiver
+          if (package.receiverName?.isNotEmpty == true ||
+              package.receiverPhone?.isNotEmpty == true ||
+              package.receiverEmail?.isNotEmpty == true) ...[
+            const SizedBox(height: 14),
+            _Card(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Label(l10n.receiverInfo),
+                    const SizedBox(height: 14),
+                    if (package.receiverName?.isNotEmpty == true)
+                      _Row(l10n.nameLabel, package.receiverName!),
+                    if (package.receiverPhone?.isNotEmpty == true)
+                      _Row(l10n.phoneLabel, package.receiverPhone!),
+                    if (package.receiverEmail?.isNotEmpty == true)
+                      _Row(l10n.emailLabel, package.receiverEmail!),
+                  ]),
+            ),
+          ],
+
+          // Tracking
+          if (package.trackingNumber != null) ...[
+            const SizedBox(height: 14),
+            _Card(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Label(l10n.trackingNumberTitle),
+                    const SizedBox(height: 14),
+                    Row(children: [
+                      Expanded(
+                        child: Text(package.trackingNumber!,
+                            style: AppTextStyles.labelMd.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5)),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(
+                              ClipboardData(text: package.trackingNumber!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.copiedToClipboard)),
+                          );
+                        },
+                        child: Icon(Icons.copy_rounded,
+                            size: 18, color: AppPalette.of(context).primary),
+                      ),
+                    ]),
+                  ]),
+            ),
+          ],
+
+          // Price
+          const SizedBox(height: 14),
+          _Card(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(priceLabel,
+                    style: AppTextStyles.labelMd
+                        .copyWith(fontWeight: FontWeight.w700)),
+                Text('${package.currency} ${displayAmount.toStringAsFixed(2)}',
+                    style: AppTextStyles.h3.copyWith(
+                        color: AppColors.primary, fontWeight: FontWeight.w900)),
+              ],
+            ),
+          ),
+          if (canConfirmReceived) ...[
+            const SizedBox(height: 14),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _Label('Confirm delivery'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The traveler has marked this package as delivered. Please confirm you\'ve received it to release the payment.',
+                    style: AppTextStyles.muted(AppTextStyles.bodySm),
+                  ),
+                  const SizedBox(height: 12),
+                  AppButton(
+                    label: 'I Received My Package',
+                    isLoading: confirmingReceived,
+                    onPressed: onConfirmReceived,
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (canLeaveFeedback) ...[
+            const SizedBox(height: 14),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Label(l10n.leaveFeedback),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.feedbackCardDescription,
+                    style: AppTextStyles.muted(AppTextStyles.bodySm),
+                  ),
+                  const SizedBox(height: 12),
+                  AppButton(
+                    label: l10n.leaveFeedback,
+                    onPressed: onLeaveFeedback,
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: package.requestId.isEmpty ? null : onDownloadPdf,
+              icon: const Icon(Icons.picture_as_pdf_rounded),
+              label: Text(l10n.downloadPdf),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                foregroundColor: AppColors.primary,
+                side: BorderSide(color: AppPalette.of(context).primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  const _Card({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+            color: AppPalette.of(context).white,
+            borderRadius: BorderRadius.circular(20)),
+        child: child,
+      );
+}
+
+class _Label extends StatelessWidget {
+  const _Label(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text.toUpperCase(),
+        style: AppTextStyles.labelXs.copyWith(
+            color: AppPalette.of(context).gray400,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1),
+      );
+}
+
+class _Row extends StatelessWidget {
+  const _Row(this.label, this.value);
+  final String label, value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+                width: 110,
+                child: Text(label,
+                    style: AppTextStyles.muted(AppTextStyles.bodySm))),
+            Expanded(
+              child: Text(value,
+                  style: AppTextStyles.bodySm.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.of(context).black)),
+            ),
+          ],
+        ),
+      );
+}
+
+String _formatDateTime(String raw) {
+  try {
+    final dt = DateTime.parse(raw).toLocal();
+    final now = DateTime.now();
+    final date =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day
+            ? 'Today'
+            : '${dt.day}/${dt.month}/${dt.year}';
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '$date $hh:$mm';
+  } catch (_) {
+    return raw.length > 16 ? raw.substring(0, 16) : raw;
+  }
+}
+
+String _insuranceStatusLabel(PackageModel package) {
+  final status = package.insuranceStatus.toLowerCase().trim();
+  if ((package.insurancePolicyId ?? '').trim().isNotEmpty ||
+      status == 'active' ||
+      status == 'policy.issued' ||
+      status == 'policy.activated') {
+    return 'Active - covered';
+  }
+  if (status == 'failed') return 'Protection failed - contact support';
+  if (status == 'cancelled' || status == 'canceled') return 'Cancelled';
+  return 'Protection being activated';
+}

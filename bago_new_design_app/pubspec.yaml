@@ -1,0 +1,170 @@
+name: bago_app
+description: Bago - P2P International Logistics Platform
+publish_to: 'none'
+version: 1.0.8+119
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # Universal Links / App Links (shared trip links opening straight into the app)
+  app_links: ^6.3.3
+  share_plus: ^10.1.4
+
+  # HTTP client
+  socket_io_client: ^3.1.4
+  dio: ^5.8.0
+
+  # Secure storage
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.3.3
+
+  # Google Sign-In
+  google_sign_in: ^6.2.2
+
+  # Sign in with Apple (required by App Store Guideline 4.8)
+  sign_in_with_apple: ^6.1.0
+
+
+  # Supabase
+  supabase_flutter: ^2.9.1
+
+  # Biometric auth
+  local_auth: ^2.3.0
+
+  # Location
+  geolocator: ^13.0.2
+
+  # Image picker (camera + gallery)
+  image_picker: ^1.1.2
+
+  # File picker (PDF + documents)
+  file_picker: ^11.0.2
+
+  # Fonts (Plus Jakarta Sans via google_fonts)
+  google_fonts: ^6.2.1
+
+  # SVG support
+  flutter_svg: ^2.0.14
+
+  # Cached network images
+  cached_network_image: ^3.4.1
+
+  # Skeleton loading
+  shimmer: ^3.0.0
+
+  # Animations
+  flutter_animate: ^4.5.2
+
+  # PDF generation / sharing
+  pdf: ^3.11.3
+  printing: ^5.13.4
+  
+  # Native splash control
+  flutter_native_splash: ^2.4.4
+
+  # WebView (for KYC)
+  # Native Dojah KYC SDK (local patched copy — fixes SDKInitViewController early-resolve bug)
+  dojah_kyc_sdk_flutter:
+    path: packages/dojah_kyc_sdk_flutter
+
+  webview_flutter: ^4.13.0
+  # Platform implementations — imported directly in kyc_prembly_screen.dart so
+  # the Prembly capture WebView can enable inline autoplay of the camera
+  # preview (iOS) and drop the media user-gesture requirement (Android).
+  webview_flutter_android: ^4.10.15
+  webview_flutter_wkwebview: ^3.25.1
+
+  # ASWebAuthenticationSession (iOS) / Chrome Custom Tabs (Android) — required
+  # for Flutterwave checkout so Apple Pay actually works. Apple Pay does not
+  # function inside a plain embedded WKWebView (confirmed in Flutterwave's own
+  # docs), only in a real Safari context.
+  flutter_web_auth_2: ^4.1.0
+
+  # In-app card entry (PaymentSheet) + Apple Pay for Stripe-supported
+  # currencies. Only used when the backend enables Stripe checkout.
+  flutter_stripe: ^11.4.0
+
+  # Runtime permission requests (camera + microphone for Prembly KYC WebView)
+  permission_handler: ^11.3.1
+
+  # URL launcher
+  url_launcher: ^6.3.1
+
+  # Internationalisation / date formatting + localisation
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
+
+  # OTP input
+  pinput: ^5.0.1
+
+  # Country picker (signup)
+  country_picker: ^2.0.26
+
+  # Firebase (push notifications)
+  firebase_core: ^3.13.1
+  firebase_messaging: ^15.2.5
+
+  # Icons
+  cupertino_icons: ^1.0.8
+
+  # Maps & journey simulation
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  audioplayers: ^6.7.1
+  prembly_identity_kyc: ^0.0.1
+
+# Keep iOS cache storage on the platform-channel implementation while the
+# current Flutter SDK cannot resolve objective_c native assets on simulator.
+dependency_overrides:
+  path_provider_foundation: 2.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  intl_utils: ^2.8.7
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: true
+  image_path: assets/images/splash-icon.png
+  remove_alpha_ios: true
+  adaptive_icon_background: "#5C4BFD"
+  adaptive_icon_foreground: assets/images/splash-icon.png
+
+flutter_native_splash:
+  color: "#5C4BFD"
+  color_dark: "#5C4BFD"
+  image: assets/images/bago-logo-white.png
+  image_dark: assets/images/bago-logo-white.png
+  ios_content_mode: scaleAspectFit
+  fullscreen: true
+  android: true
+  ios: true
+  web: false
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+    - assets/images/flags/
+    - assets/images/wallet/
+    - assets/audio/
+    - assets/icons/
+    - assets/pay/

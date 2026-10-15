@@ -1,0 +1,449 @@
+import '../../../core/utils/json_parser.dart';
+import '../../../core/utils/model_enums.dart';
+
+class PackageModel {
+  final String id;
+  final String requestId;
+  final String? packageId;
+  final String title;
+  final String description;
+  final double weight;
+  final String category;
+  final double value;
+  final String fromCountry;
+  final String fromCity;
+  final String toCountry;
+  final String toCity;
+  final String pickupAddress;
+  final String deliveryAddress;
+  final String? pickupDate;
+  final String? deliveryDate;
+  final PackageStatus status;
+  final String? trackingNumber;
+  final List<String> images;
+  final String senderId;
+  final String? travelerId;
+  final double price;
+  final double senderTotalAmount;
+  final double travelerPayout;
+  final bool insurance;
+  final double insuranceCost;
+  final String? insurancePolicyId;
+  final String insuranceStatus;
+  final String? insuranceError;
+  final String createdAt;
+  final String updatedAt;
+  final String? receiverName;
+  final String? receiverPhone;
+  final String? receiverEmail;
+  final String currency;
+  final String? senderName;
+  final String? travelerName;
+  final String? paymentMethod;
+  final String? paymentStatus;
+  final String? estimatedDeparture;
+  final String? estimatedArrival;
+  final bool senderReceived;
+  final String rawStatus;
+
+  const PackageModel({
+    required this.id,
+    required this.requestId,
+    this.packageId,
+    required this.title,
+    required this.description,
+    required this.weight,
+    required this.category,
+    required this.value,
+    required this.fromCountry,
+    required this.fromCity,
+    required this.toCountry,
+    required this.toCity,
+    required this.pickupAddress,
+    required this.deliveryAddress,
+    this.pickupDate,
+    this.deliveryDate,
+    required this.status,
+    this.trackingNumber,
+    required this.images,
+    required this.senderId,
+    this.travelerId,
+    required this.price,
+    this.senderTotalAmount = 0.0,
+    this.travelerPayout = 0.0,
+    required this.insurance,
+    this.insuranceCost = 0.0,
+    this.insurancePolicyId,
+    this.insuranceStatus = 'not_selected',
+    this.insuranceError,
+    required this.createdAt,
+    required this.updatedAt,
+    this.receiverName,
+    this.receiverPhone,
+    this.receiverEmail,
+    this.currency = '',
+    this.senderName,
+    this.travelerName,
+    this.paymentMethod,
+    this.paymentStatus,
+    this.estimatedDeparture,
+    this.estimatedArrival,
+    this.senderReceived = false,
+    this.rawStatus = '',
+  });
+
+  bool get isActive => status.isActive;
+  String get statusLabel => status.label;
+  double get senderDisplayAmount =>
+      senderTotalAmount > 0 ? senderTotalAmount : price;
+  double get travelerDisplayAmount => travelerPayout > 0 ? travelerPayout : 0.0;
+  double amountForRole(String? role) {
+    final normalizedRole = role?.toLowerCase().trim();
+    if (normalizedRole == 'traveler' || normalizedRole == 'carrier') {
+      return travelerDisplayAmount;
+    }
+    return senderDisplayAmount;
+  }
+
+  bool get awaitingSenderConfirmation =>
+      (rawStatus.toLowerCase() == 'delivered' ||
+          rawStatus.toLowerCase() == 'delivering' ||
+          rawStatus.toLowerCase() == 'completed' ||
+          rawStatus.toLowerCase() == 'awaiting_sender_confirmation') &&
+      !senderReceived;
+  bool get isCompletedBySender => senderReceived;
+
+  factory PackageModel.fromJson(Map<String, dynamic> json) => PackageModel(
+        id: JsonParser.parseId(json),
+        requestId: _firstString([json['requestId'], JsonParser.parseId(json)]),
+        packageId: _optionalString(_firstString([
+          _mapValue(json['package'], '_id'),
+          _mapValue(json['package'], 'id'),
+          json['packageId'],
+        ])),
+        title: _firstString([
+          json['title'],
+          json['name'],
+          json['category'],
+          _mapValue(json['package'], 'title'),
+          _mapValue(json['package'], 'name'),
+          _mapValue(json['package'], 'category'),
+          _mapValue(json['package'], 'description'),
+        ]),
+        description: _firstString([
+          json['description'],
+          _mapValue(json['package'], 'description'),
+        ]),
+        weight: _firstDouble([
+          json['weight'],
+          json['packageWeight'],
+          _mapValue(json['package'], 'packageWeight'),
+          _mapValue(json['package'], 'weight'),
+        ]),
+        category: _firstString([
+          json['category'],
+          _mapValue(json['package'], 'category'),
+        ]),
+        value: _firstDouble([
+          json['value'],
+          json['declaredValue'],
+          _mapValue(json['package'], 'value'),
+        ]),
+        fromCountry: _firstString([
+          json['fromCountry'],
+          json['originCountry'],
+          _mapValue(json['package'], 'fromCountry'),
+          _mapValue(json['trip'], 'fromCountry'),
+        ]),
+        fromCity: _firstString([
+          json['fromCity'],
+          json['fromLocation'],
+          json['originCity'],
+          _mapValue(json['package'], 'fromCity'),
+          _mapValue(json['trip'], 'fromLocation'),
+        ]),
+        toCountry: _firstString([
+          json['toCountry'],
+          json['destinationCountry'],
+          _mapValue(json['package'], 'toCountry'),
+          _mapValue(json['trip'], 'toCountry'),
+        ]),
+        toCity: _firstString([
+          json['toCity'],
+          json['toLocation'],
+          json['destinationCity'],
+          _mapValue(json['package'], 'toCity'),
+          _mapValue(json['trip'], 'toLocation'),
+        ]),
+        pickupAddress: _firstString([
+          json['pickupAddress'],
+          _mapValue(json['package'], 'pickupAddress'),
+          _mapValue(json['package'], 'fromCity'),
+          _mapValue(json['package'], 'fromCountry'),
+        ]),
+        deliveryAddress: _firstString([
+          json['deliveryAddress'],
+          _mapValue(json['package'], 'deliveryAddress'),
+          _mapValue(json['package'], 'toCity'),
+          _mapValue(json['package'], 'toCountry'),
+        ]),
+        pickupDate: json['pickupDate']?.toString(),
+        deliveryDate: json['deliveryDate']?.toString(),
+        status: _statusFromRequest(json['status']?.toString()),
+        rawStatus: json['status']?.toString() ?? '',
+        trackingNumber: json['trackingNumber']?.toString(),
+        images: (json['images'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [],
+        senderId: _firstString([
+          json['senderId'],
+          _mapValue(json['sender'], '_id'),
+          _mapValue(json['sender'], 'id'),
+          _mapValue(json['package'], 'userId'),
+        ]),
+        travelerId: _firstString([
+          json['travelerId'],
+          _mapValue(json['traveler'], '_id'),
+          _mapValue(json['traveler'], 'id'),
+        ]),
+        price: _firstDouble([
+          json['senderTotalAmount'],
+          json['sender_total_amount'],
+          json['senderShippingFee'],
+          json['sender_shipping_fee'],
+          json['price'],
+          json['amount'],
+          _mapValue(json['package'], 'pricePerKg'),
+        ]),
+        senderTotalAmount: _firstDouble([
+          json['senderTotalAmount'],
+          json['sender_total_amount'],
+          json['senderShippingFee'],
+          json['sender_shipping_fee'],
+          json['amount'],
+          json['price'],
+        ]),
+        travelerPayout: _firstDouble([
+          json['travelerPayout'],
+          json['traveler_payout'],
+          json['travelerEarningAmount'],
+          json['traveler_earning_amount'],
+          json['travelerEarnings'],
+          json['traveler_earnings'],
+          json['shipmentAmount'],
+          json['shipment_amount'],
+          _calculatedTravelerPayout(json),
+        ]),
+        insurance: json['insurance'] == true,
+        insuranceCost: (json['insuranceCost'] as num?)?.toDouble() ??
+            (json['insurance_cost'] as num?)?.toDouble() ??
+            0.0,
+        insurancePolicyId: json['insurance_policy_id']?.toString() ??
+            json['insurancePolicyId']?.toString(),
+        insuranceStatus: (json['insuranceStatus'] ??
+                json['insurance_status'] ??
+                (json['insurance_policy_id'] != null ||
+                        json['insurancePolicyId'] != null
+                    ? 'active'
+                    : json['insurance'] == true
+                        ? 'pending_purchase'
+                        : 'not_selected'))
+            .toString(),
+        insuranceError:
+            (json['insuranceError'] ?? json['insurance_error'])?.toString(),
+        createdAt: _firstString([
+          json['createdAt'],
+          _mapValue(json['dates'], 'created'),
+        ]),
+        updatedAt: json['updatedAt']?.toString() ?? '',
+        receiverName: _firstString([
+          json['receiverName'],
+          json['receiver_name'],
+          _mapValue(json['package'], 'receiverName'),
+          _mapValue(json['package'], 'receiver_name'),
+          _mapValue(json['recipient_details'], 'receiver_name'),
+          _mapValue(json['recipientDetails'], 'receiverName'),
+          _mapValue(_mapValueRaw(json['package'], 'recipient_details'),
+              'receiver_name'),
+          _mapValue(_mapValueRaw(json['package'], 'recipientDetails'),
+              'receiverName'),
+        ]),
+        receiverPhone: _firstString([
+          json['receiverPhone'],
+          json['receiver_phone'],
+          _mapValue(json['package'], 'receiverPhone'),
+          _mapValue(json['package'], 'receiver_phone'),
+          _mapValue(json['recipient_details'], 'receiver_phone'),
+          _mapValue(json['recipientDetails'], 'receiverPhone'),
+          _mapValue(_mapValueRaw(json['package'], 'recipient_details'),
+              'receiver_phone'),
+          _mapValue(_mapValueRaw(json['package'], 'recipientDetails'),
+              'receiverPhone'),
+        ]),
+        receiverEmail: _firstString([
+          json['receiverEmail'],
+          json['receiver_email'],
+          _mapValue(json['package'], 'receiverEmail'),
+          _mapValue(json['package'], 'receiver_email'),
+          _mapValue(json['recipient_details'], 'receiver_email'),
+          _mapValue(json['recipientDetails'], 'receiverEmail'),
+          _mapValue(_mapValueRaw(json['package'], 'recipient_details'),
+              'receiver_email'),
+          _mapValue(_mapValueRaw(json['package'], 'recipientDetails'),
+              'receiverEmail'),
+        ]),
+        currency: json['currency']?.toString() ??
+            json['preferredCurrency']?.toString() ??
+            _mapValue(json['package'], 'currency') ??
+            '',
+        senderName: _displayName(json['sender']),
+        travelerName: _displayName(json['traveler']),
+        paymentMethod: _firstString([
+          _mapValue(json['payment'], 'method'),
+          _mapValue(json['paymentInfo'], 'method'),
+        ]),
+        paymentStatus: _firstString([
+          _mapValue(json['payment'], 'status'),
+          _mapValue(json['paymentInfo'], 'status'),
+        ]),
+        estimatedDeparture: json['estimatedDeparture']?.toString() ??
+            _mapValue(json['dates'], 'estimatedDeparture'),
+        estimatedArrival: json['estimatedArrival']?.toString() ??
+            _mapValue(json['dates'], 'estimatedArrival'),
+        senderReceived:
+            json['senderReceived'] == true || json['sender_received'] == true,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'requestId': requestId,
+        'packageId': packageId,
+        'title': title,
+        'description': description,
+        'weight': weight,
+        'category': category,
+        'value': value,
+        'fromCountry': fromCountry,
+        'fromCity': fromCity,
+        'toCountry': toCountry,
+        'toCity': toCity,
+        'pickupAddress': pickupAddress,
+        'deliveryAddress': deliveryAddress,
+        'pickupDate': pickupDate,
+        'deliveryDate': deliveryDate,
+        'status': status.apiValue,
+        'trackingNumber': trackingNumber,
+        'images': images,
+        'senderId': senderId,
+        'travelerId': travelerId,
+        'price': price,
+        'senderTotalAmount': senderTotalAmount,
+        'travelerPayout': travelerPayout,
+        'insurance': insurance,
+        'insuranceStatus': insuranceStatus,
+        'insuranceError': insuranceError,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+        'receiverName': receiverName,
+        'receiverPhone': receiverPhone,
+        'receiverEmail': receiverEmail,
+        'currency': currency,
+        'senderName': senderName,
+        'travelerName': travelerName,
+        'paymentMethod': paymentMethod,
+        'paymentStatus': paymentStatus,
+        'estimatedDeparture': estimatedDeparture,
+        'estimatedArrival': estimatedArrival,
+        'senderReceived': senderReceived,
+        'rawStatus': rawStatus,
+      };
+
+  static String _firstString(List<dynamic> values) {
+    for (final value in values) {
+      if (value == null) continue;
+      final text = value.toString().trim();
+      if (text.isNotEmpty && text != 'null') return text;
+    }
+    return '';
+  }
+
+  static double _calculatedTravelerPayout(Map<String, dynamic> json) {
+    final weight = _firstDouble([
+      json['weight'],
+      json['packageWeight'],
+      json['package_weight'],
+      _mapValue(json['package'], 'packageWeight'),
+      _mapValue(json['package'], 'package_weight'),
+      _mapValue(json['package'], 'weight'),
+    ]);
+    final pricePerKg = _firstDouble([
+      json['pricePerKg'],
+      json['price_per_kg'],
+      _mapValue(json['trip'], 'pricePerKg'),
+      _mapValue(json['trip'], 'price_per_kg'),
+    ]);
+    if (weight <= 0 || pricePerKg <= 0) return 0.0;
+    return weight * pricePerKg;
+  }
+
+  static String? _optionalString(String value) {
+    return value.isEmpty ? null : value;
+  }
+
+  static double _firstDouble(List<dynamic> values) {
+    for (final value in values) {
+      if (value == null) continue;
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse(value.toString());
+      if (parsed != null) return parsed;
+    }
+    return 0.0;
+  }
+
+  static String? _mapValue(dynamic value, String key) {
+    if (value is Map<String, dynamic>) {
+      return value[key]?.toString();
+    }
+    return null;
+  }
+
+  static dynamic _mapValueRaw(dynamic value, String key) {
+    if (value is Map<String, dynamic>) {
+      return value[key];
+    }
+    return null;
+  }
+
+  static String _displayName(dynamic value) {
+    if (value is Map<String, dynamic>) {
+      final full = JsonParser.parseFullName(value).trim();
+      if (full.isNotEmpty) return full;
+      final email = value['email']?.toString().trim() ?? '';
+      if (email.isNotEmpty) return email;
+    }
+    return '';
+  }
+
+  static PackageStatus _statusFromRequest(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'draft':
+        return PackageStatus.draft;
+      case 'accepted':
+        return PackageStatus.matched;
+      case 'intransit':
+      case 'delivering':
+        return PackageStatus.inTransit;
+      case 'completed':
+      case 'delivered':
+      case 'awaiting_sender_confirmation':
+        return PackageStatus.delivered;
+      case 'cancelled':
+      case 'rejected':
+        return PackageStatus.cancelled;
+      case 'pending':
+      default:
+        return PackageStatus.pending;
+    }
+  }
+}

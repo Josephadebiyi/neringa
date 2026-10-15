@@ -1,0 +1,2188 @@
+import '../../../shared/widgets/country_flag.dart';
+import '../../../core/theme/app_palette.dart';
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_text_styles.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_loading.dart';
+import '../../../shared/widgets/app_snackbar.dart';
+import '../../../shared/widgets/app_text_field.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../shared/services/api_service.dart';
+import '../../../shared/utils/country_currency_helper.dart';
+import '../../../shared/utils/trip_price_formatter.dart';
+import '../../../shared/utils/user_currency_helper.dart';
+import '../../../shared/utils/name_formatter.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../kyc/widgets/kyc_verification_required_dialog.dart';
+import '../../payment/services/shipment_checkout_service.dart';
+import '../../trips/models/trip_model.dart';
+import '../../trips/services/trip_service.dart';
+import '../services/shipment_service.dart';
+import 'shipment_terms_screen.dart';
+
+class _ItemDeclarationPanel extends StatelessWidget {
+  const _ItemDeclarationPanel({
+    required this.factorySealed,
+    required this.personalSealed,
+    required this.wrapped,
+    required this.travellerMayInspect,
+    required this.hasBatteries,
+    required this.hasLiquids,
+    required this.fragile,
+    required this.hasPrescriptionMedicine,
+    required this.receiptProvided,
+    required this.productLabelProvided,
+    required this.barcodeProvided,
+    required this.onChanged,
+  });
+
+  final bool factorySealed, personalSealed, wrapped, travellerMayInspect;
+  final bool hasBatteries, hasLiquids, fragile, hasPrescriptionMedicine;
+  final bool receiptProvided, productLabelProvided, barcodeProvided;
+  final void Function(String key, bool value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget check(String key, String title, bool value) => CheckboxListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          value: value,
+          title: Text(title, style: AppTextStyles.bodySm),
+          onChanged: (next) => onChanged(key, next == true),
+        );
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppPalette.of(context).gray100),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('PACKAGE DECLARATION',
+            style: AppTextStyles.labelSm.copyWith(fontWeight: FontWeight.w900)),
+        check('factory', 'Factory sealed', factorySealed),
+        check('personal', 'Personal sealed box or bag', personalSealed),
+        check('wrapped', 'Wrapped, taped or covered', wrapped),
+        check('inspect', 'Traveller is allowed to open and inspect',
+            travellerMayInspect),
+        check('battery', 'Contains batteries', hasBatteries),
+        check('liquid', 'Contains liquids', hasLiquids),
+        check('fragile', 'Contains fragile items', fragile),
+        check('medicine', 'Contains prescription medicine',
+            hasPrescriptionMedicine),
+        if (factorySealed) ...[
+          const Divider(),
+          Text('Factory-sealed evidence',
+              style:
+                  AppTextStyles.labelSm.copyWith(fontWeight: FontWeight.w800)),
+          check('receipt', 'Receipt available', receiptProvided),
+          check('label', 'Product label visible', productLabelProvided),
+          check('barcode', 'Barcode visible', barcodeProvided),
+        ],
+        Text(
+          'Wrapped or sealed packages are not rejected, but they must be inspected before collection.',
+          style: AppTextStyles.caption
+              .copyWith(color: AppPalette.of(context).gray500),
+        ),
+      ]),
+    );
+  }
+}
+
+class _CheckoutPreview {
+  const _CheckoutPreview({
+    required this.currency,
+    required this.provider,
+    required this.travelerPayout,
+    required this.baseShippingAmount,
+    required this.shippingAmount,
+    required this.insuranceAmount,
+    required this.totalAmount,
+    required this.insuranceBaseAmount,
+    required this.insuranceBaseCurrency,
+    required this.raw,
+  });
+
+  final String currency;
+  final String provider;
+  final double travelerPayout;
+  final double baseShippingAmount;
+  final double shippingAmount;
+  final double insuranceAmount;
+  final double totalAmount;
+  final double insuranceBaseAmount;
+  final String insuranceBaseCurrency;
+  final Map<String, dynamic> raw;
+
+  factory _CheckoutPreview.fromJson(Map<String, dynamic> json) {
+    double readDouble(String key) {
+      final value = json[key];
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    return _CheckoutPreview(
+      currency: json['senderCurrency']?.toString() ??
+          json['senderPaymentCurrency']?.toString() ??
+          'USD',
+      provider: json['paymentProcessor']?.toString() ?? 'flutterwave',
+      travelerPayout: readDouble('travelerPayout'),
+      baseShippingAmount: readDouble('baseShippingAmount'),
+      shippingAmount: readDouble('shippingAmount'),
+      insuranceAmount: readDouble('insuranceAmount'),
+      totalAmount: readDouble('totalAmount'),
+      insuranceBaseAmount: readDouble('insuranceBaseAmount'),
+      insuranceBaseCurrency:
+          json['insuranceBaseCurrency']?.toString().toUpperCase() ?? '',
+      raw: json,
+    );
+  }
+}
+
+class RequestShipmentScreen extends ConsumerStatefulWidget {
+  const RequestShipmentScreen(
+      {super.key, required this.tripId, this.initialTrip, this.preFilledData});
+  final String tripId;
+  final TripModel? initialTrip;
+  final Map<String, dynamic>? preFilledData;
+
+  @override
+  ConsumerState<RequestShipmentScreen> createState() =>
+      _RequestShipmentScreenState();
+}
+
+class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
+  final _formScrollController = ScrollController();
+  final _weightCtrl = TextEditingController();
+  final _itemValueCtrl = TextEditingController();
+  final _receiverNameCtrl = TextEditingController();
+  final _receiverPhoneCtrl = TextEditingController();
+  final _deliveryAddressCtrl = TextEditingController();
+  final _messageCtrl = TextEditingController();
+  final _picker = ImagePicker();
+
+  File? _itemImage;
+  bool _insurance = false;
+  bool _isSubmitting = false;
+  bool _isPreviewLoading = false;
+  TripModel? _currentTrip;
+  String? _loadError;
+  String? _previewError;
+  String? _previewKey;
+  Timer? _previewDebounce;
+  _CheckoutPreview? _checkoutPreview;
+  String _category = 'Documents';
+  final Set<String> _selectedContents = {};
+  bool _factorySealed = false;
+  bool _personalSealed = false;
+  bool _wrapped = false;
+  bool _travellerMayInspect = true;
+  bool _hasBatteries = false;
+  bool _hasLiquids = false;
+  bool _fragile = false;
+  bool _hasPrescriptionMedicine = false;
+  bool _receiptProvided = false;
+  bool _productLabelProvided = false;
+  bool _barcodeProvided = false;
+  CountryCurrencyData _receiverPhoneCountry =
+      CurrencyConversionHelper.countryByCode('US')!;
+
+  void _applyDestinationCountry(TripModel trip) {
+    final country = CurrencyConversionHelper.countryByName(trip.toCountry) ??
+        CurrencyConversionHelper.countryByCode(trip.toCountry);
+    if (country != null && mounted) {
+      setState(() => _receiverPhoneCountry = country);
+    }
+  }
+
+  static final _itemCatalog = <String, List<String>>{
+    'Fashion': [
+      'Clothes',
+      'Shoes',
+      'Jackets',
+      'Bags',
+      'Hats',
+      'Belts',
+      'Sunglasses',
+      'Wallets'
+    ],
+    'Electronics': [
+      'Phones',
+      'Tablets',
+      'Laptops',
+      'Smartwatches',
+      'Cameras',
+      'Headphones',
+      'Chargers',
+      'Power banks',
+      'Gaming consoles',
+      'Computer accessories'
+    ],
+    'Home': [
+      'Kitchen utensils',
+      'Plates',
+      'Cups',
+      'Decorations',
+      'Bedding',
+      'Towels',
+      'Curtains'
+    ],
+    'Books': ['Books', 'Documents', 'Magazines', 'Stationery', 'Notebooks'],
+    'Baby Items': [
+      'Baby clothes',
+      'Toys',
+      'Baby bottles',
+      'Diapers',
+      'Strollers',
+      'Baby carriers'
+    ],
+    'Beauty': ['Makeup', 'Skincare', 'Shampoo', 'Soap', 'Hair products'],
+    'Sports': ['Jerseys', 'Sports shoes', 'Balls', 'Fitness accessories'],
+    'Gifts': ['Souvenirs', 'Greeting cards', 'Gift boxes'],
+    'Food': [
+      'Chocolate',
+      'Coffee',
+      'Tea',
+      'Biscuits',
+      'Candy',
+      'Dry packaged food',
+      'Factory sealed snacks'
+    ],
+  };
+
+  Future<void> _showContentsPicker() async {
+    final working = Set<String>.from(_selectedContents);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * .82,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
+                  child: Row(children: [
+                    Expanded(
+                        child: Text('What is inside?',
+                            style: AppTextStyles.h3
+                                .copyWith(fontWeight: FontWeight.w900))),
+                    TextButton(
+                      onPressed: working.isEmpty
+                          ? null
+                          : () {
+                              setState(() {
+                                _selectedContents
+                                  ..clear()
+                                  ..addAll(working);
+                                _category = _itemCatalog.entries
+                                    .firstWhere(
+                                        (entry) =>
+                                            entry.value.contains(working.first),
+                                        orElse: () =>
+                                            const MapEntry('Other', []))
+                                    .key;
+                              });
+                              Navigator.pop(sheetContext);
+                            },
+                      child: Text('Done (${working.length})'),
+                    ),
+                  ]),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: _itemCatalog.entries
+                        .expand((entry) => [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(20, 18, 20, 4),
+                                child: Text(entry.key.toUpperCase(),
+                                    style: AppTextStyles.labelSm.copyWith(
+                                        color: AppPalette.of(context).gray500,
+                                        fontWeight: FontWeight.w900)),
+                              ),
+                              ...entry.value.map((item) => CheckboxListTile(
+                                    value: working.contains(item),
+                                    title: Text(item),
+                                    onChanged: (checked) => setSheetState(() =>
+                                        checked == true
+                                            ? working.add(item)
+                                            : working.remove(item)),
+                                  )),
+                            ])
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTrip = widget.initialTrip;
+    if (_currentTrip != null) {
+      _applyDestinationCountry(_currentTrip!);
+      _scheduleCheckoutPreview();
+    } else {
+      _loadTrip();
+    }
+
+    final d = widget.preFilledData;
+    if (d != null) {
+      if (d['weight'] != null) {
+        final w = d['weight'] as double;
+        _weightCtrl.text = w == w.truncateToDouble()
+            ? w.toInt().toString()
+            : w.toStringAsFixed(2);
+      }
+      if (d['category'] != null) {
+        _category = d['category'] as String;
+        _selectedContents.add(_category);
+      }
+      if (d['photo'] != null) _itemImage = d['photo'] as File;
+      if (d['description'] != null && (d['description'] as String).isNotEmpty) {
+        _messageCtrl.text = d['description'] as String;
+      }
+      if (d['declaredValue'] != null) {
+        final v = d['declaredValue'] as double;
+        _itemValueCtrl.text = v == v.truncateToDouble()
+            ? v.toInt().toString()
+            : v.toStringAsFixed(2);
+      }
+    }
+    _weightCtrl.addListener(_scheduleCheckoutPreview);
+    _itemValueCtrl.addListener(_scheduleCheckoutPreview);
+    _scheduleCheckoutPreview();
+  }
+
+  @override
+  void dispose() {
+    _previewDebounce?.cancel();
+    _weightCtrl.dispose();
+    _itemValueCtrl.dispose();
+    _receiverNameCtrl.dispose();
+    _receiverPhoneCtrl.dispose();
+    _deliveryAddressCtrl.dispose();
+    _messageCtrl.dispose();
+    _formScrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTrip() async {
+    try {
+      final trip = await TripService.instance.getTripById(widget.tripId);
+      if (mounted) {
+        setState(() {
+          _currentTrip = trip;
+          _loadError = null;
+        });
+        _applyDestinationCountry(trip);
+        _scheduleCheckoutPreview();
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadError = e.toString());
+    }
+  }
+
+  String? _currentPreviewKey() {
+    final trip = _currentTrip;
+    if (trip == null) return null;
+    final user = ref.read(authProvider).user;
+    final currency = UserCurrencyHelper.resolve(user);
+    final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
+    final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
+    if (currency.isEmpty || weight <= 0) return null;
+    return [
+      trip.id,
+      currency,
+      weight.toStringAsFixed(3),
+      declaredValue.toStringAsFixed(2),
+      _insurance ? '1' : '0',
+    ].join('|');
+  }
+
+  void _scheduleCheckoutPreview() {
+    _previewDebounce?.cancel();
+    _previewDebounce = Timer(const Duration(milliseconds: 350), () {
+      _refreshCheckoutPreview();
+    });
+  }
+
+  Future<_CheckoutPreview?> _refreshCheckoutPreview(
+      {bool force = false}) async {
+    final trip = _currentTrip;
+    if (trip == null || !mounted) return null;
+    final user = ref.read(authProvider).user;
+    final currency = UserCurrencyHelper.resolve(user);
+    final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
+    final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
+    final key = _currentPreviewKey();
+    if (key == null) {
+      setState(() {
+        _checkoutPreview = null;
+        _previewKey = null;
+        _previewError = null;
+        _isPreviewLoading = false;
+      });
+      return null;
+    }
+    if (!force && key == _previewKey && _checkoutPreview != null) {
+      return _checkoutPreview;
+    }
+
+    setState(() {
+      _isPreviewLoading = true;
+      _previewError = null;
+    });
+    try {
+      final response = await ApiService.instance.post<Map<String, dynamic>>(
+        ApiConstants.shipmentCheckoutPreview,
+        data: {
+          'tripId': trip.id,
+          'weight': weight,
+          'senderCurrency': currency,
+          'declaredValue': declaredValue,
+          'insurance': _insurance,
+        },
+      ).timeout(const Duration(seconds: 8));
+      final data = response.data ?? {};
+      final previewRaw = data['preview'];
+      if (previewRaw is! Map) {
+        throw StateError('Checkout preview was not returned.');
+      }
+      final preview =
+          _CheckoutPreview.fromJson(Map<String, dynamic>.from(previewRaw));
+      if (!mounted) return preview;
+      if (_currentPreviewKey() != key) {
+        return force ? null : _checkoutPreview;
+      }
+      setState(() {
+        _checkoutPreview = preview;
+        _previewKey = key;
+        _previewError = null;
+        _isPreviewLoading = false;
+      });
+      return preview;
+    } catch (error) {
+      if (!mounted) return null;
+      final message = error is DioException
+          ? ApiService.parseError(error)
+          : error.toString();
+      setState(() {
+        _previewError = message.replaceFirst('Exception: ', '');
+        _isPreviewLoading = false;
+      });
+      return null;
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final file =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (file == null || !mounted) return;
+    setState(() => _itemImage = File(file.path));
+  }
+
+  Future<void> _showReceiverCountryPicker() async {
+    final selected = await showModalBottomSheet<CountryCurrencyData>(
+      context: context,
+      backgroundColor: AppPalette.of(context).white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _CountryPickerSheet(),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _receiverPhoneCountry = selected);
+  }
+
+  Future<void> _continueToPayment(TripModel trip) async {
+    if (!mounted) return;
+
+    final user = ref.read(authProvider).user;
+
+    final weight = double.tryParse(_weightCtrl.text.trim());
+    final currency = UserCurrencyHelper.resolve(user);
+    final residence = CurrencyConversionHelper.countryByName(user?.country) ??
+        CurrencyConversionHelper.countryByCode(user?.country);
+
+    if (residence == null ||
+        CurrencyConversionHelper.paymentCurrencyForCountry(residence) !=
+            currency) {
+      AppSnackBar.show(context,
+          message:
+              'Set your country of residence before paying. Your payment currency is assigned from that country.',
+          type: SnackBarType.info);
+      await context.push('/profile/currency');
+      return;
+    }
+
+    if (weight == null || weight <= 0) {
+      AppSnackBar.show(context,
+          message: 'Enter a valid shipment weight.', type: SnackBarType.error);
+      return;
+    }
+    if (currency.isEmpty) {
+      AppSnackBar.show(context,
+          message:
+              'Please set your preferred currency in profile settings before continuing.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (_receiverNameCtrl.text.trim().isEmpty ||
+        _receiverPhoneCtrl.text.trim().isEmpty ||
+        _deliveryAddressCtrl.text.trim().isEmpty) {
+      AppSnackBar.show(context,
+          message: 'Please fill in all receiver details.',
+          type: SnackBarType.error);
+      return;
+    }
+    final phoneDigits =
+        _receiverPhoneCtrl.text.trim().replaceAll(RegExp(r'\D'), '');
+    if (phoneDigits.length < 5 || phoneDigits.length > 15) {
+      AppSnackBar.show(context,
+          message: 'Enter a valid phone number (5–15 digits, numbers only).',
+          type: SnackBarType.error);
+      return;
+    }
+    if (_selectedContents.isEmpty && widget.preFilledData == null) {
+      AppSnackBar.show(context,
+          message: 'Select every item contained in the package.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (!_travellerMayInspect) {
+      AppSnackBar.show(context,
+          message: 'The traveller must be allowed to inspect the package.',
+          type: SnackBarType.error);
+      return;
+    }
+    if (_itemImage == null && widget.preFilledData == null) {
+      AppSnackBar.show(context,
+          message: 'Add an item image before continuing.',
+          type: SnackBarType.error);
+      return;
+    }
+
+    // Show terms agreement after validation. When accepted, continue directly
+    // into payment instead of popping back to this page first.
+    if (user?.termsAcceptedAt == null) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => ShipmentTermsScreen(
+            onAccepted: () => _createPaymentDraftAndNavigate(
+              trip,
+              replaceStack: true,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    await _createPaymentDraftAndNavigate(trip);
+  }
+
+  Future<void> _createPaymentDraftAndNavigate(
+    TripModel trip, {
+    bool replaceStack = false,
+  }) async {
+    if (!mounted) return;
+    final user = ref.read(authProvider).user;
+    final weight = double.tryParse(_weightCtrl.text.trim());
+    final currency = UserCurrencyHelper.resolve(user);
+    if (weight == null || weight <= 0 || currency.isEmpty) return;
+
+    final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
+    final receiverName = _receiverNameCtrl.text.trim();
+    final receiverPhone =
+        '${_receiverPhoneCountry.dialCode}${_receiverPhoneCtrl.text.trim()}';
+    final deliveryAddress = _deliveryAddressCtrl.text.trim();
+
+    setState(() => _isSubmitting = true);
+    try {
+      final preview = await _refreshCheckoutPreview();
+      if (preview == null) {
+        if (mounted) {
+          AppSnackBar.show(
+            context,
+            message: _previewError ??
+                'Checkout price could not be calculated. Please try again.',
+            type: SnackBarType.error,
+          );
+        }
+        return;
+      }
+
+      // Reuse the existing draft package for the same shipment while its
+      // 20-minute checkout window is still valid.
+      final existingDraft = await ShipmentCheckoutService.instance.loadDraft();
+      final reusableDraft = _isReusableDraftForCurrentShipment(
+        existingDraft,
+        trip,
+        weight: weight,
+        receiverName: receiverName,
+        receiverPhone: receiverPhone,
+        deliveryAddress: deliveryAddress,
+      )
+          ? existingDraft
+          : null;
+      final reusePackageId = reusableDraft?['packageId'].toString();
+      final expiresAt = reusableDraft?['expiresAt']?.toString() ??
+          DateTime.now()
+              .add(ShipmentCheckoutService.draftLifetime)
+              .toIso8601String();
+
+      final package = reusePackageId != null
+          ? null
+          : await ShipmentService.instance.createPackage(
+              category: _category,
+              size: 'medium',
+              weight: weight,
+              value: declaredValue,
+              fromCountry: trip.fromCountry,
+              fromCity: trip.fromLocation,
+              toCountry: trip.toCountry,
+              toCity: trip.toLocation,
+              pickupAddress: trip.fromLocation,
+              deliveryAddress: deliveryAddress,
+              receiverName: receiverName,
+              receiverPhone: receiverPhone,
+              receiverEmail: '',
+              description: _messageCtrl.text.trim(),
+              images: _itemImage != null ? [_itemImage!] : [],
+              insurance: _insurance,
+              currency: currency,
+              contents: _selectedContents.toList(),
+              declaration: {
+                'factorySealed': _factorySealed,
+                'personalSealed': _personalSealed,
+                'wrapped': _wrapped,
+                'travellerMayInspect': _travellerMayInspect,
+                'refusesInspection': !_travellerMayInspect,
+                'hasBatteries': _hasBatteries,
+                'hasLiquids': _hasLiquids,
+                'fragile': _fragile,
+                'hasPrescriptionMedicine': _hasPrescriptionMedicine,
+                'receiptProvided': _receiptProvided,
+                'productLabelProvided': _productLabelProvided,
+                'barcodeProvided': _barcodeProvided,
+              },
+            );
+
+      final draft = <String, dynamic>{
+        'tripId': trip.id,
+        'travelerId': trip.userId,
+        'packageId': reusePackageId ?? package!.id,
+        'currency': preview.currency,
+        'provider': preview.provider,
+        'tripCurrency': trip.currency,
+        'travelerPayout': preview.travelerPayout,
+        'baseShippingAmount': preview.baseShippingAmount,
+        'shippingAmount': preview.shippingAmount,
+        'insuranceAmount': preview.insuranceAmount,
+        'totalAmount': preview.totalAmount,
+        'checkoutPreview': preview.raw,
+        'insurance': _insurance,
+        'weight': weight,
+        'receiverName': receiverName,
+        'receiverPhone': receiverPhone,
+        'deliveryAddress': deliveryAddress,
+        'fromLocation': trip.fromLocation,
+        'toLocation': trip.toLocation,
+        'carrierName': trip.carrierName,
+        'category': _category,
+        'message': _messageCtrl.text.trim(),
+        'customerEmail': user?.email ?? '',
+        'estimatedDeparture': trip.departureDate,
+        'estimatedArrival': trip.arrivalDate,
+        'expiresAt': expiresAt,
+        'requestSent': false,
+      };
+
+      await ShipmentCheckoutService.instance.saveDraft(draft);
+      if (!mounted) return;
+      if (replaceStack) {
+        context.go('/payment', extra: draft);
+      } else {
+        context.push('/payment', extra: draft);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      if (_isKycRequiredError(e)) {
+        await KycVerificationRequiredDialog.show(
+          context,
+          kycStatus: ref.read(authProvider).user?.kycStatus,
+        );
+        return;
+      }
+      AppSnackBar.show(context,
+          message: e.toString(), type: SnackBarType.error);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  bool _isKycRequiredError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('identity verification') ||
+        message.contains('kyc') ||
+        message.contains('verification_required');
+  }
+
+  bool _isReusableDraftForCurrentShipment(
+    Map<String, dynamic>? draft,
+    TripModel trip, {
+    required double weight,
+    required String receiverName,
+    required String receiverPhone,
+    required String deliveryAddress,
+  }) {
+    if (draft == null ||
+        ShipmentCheckoutService.instance.isExpired(draft) ||
+        draft['tripId']?.toString() != trip.id ||
+        (draft['packageId']?.toString().isNotEmpty ?? false) == false) {
+      return false;
+    }
+
+    return _sameNumber(draft['weight'], weight) &&
+        _sameText(draft['receiverName'], receiverName) &&
+        _sameText(draft['receiverPhone'], receiverPhone) &&
+        _sameText(draft['deliveryAddress'], deliveryAddress) &&
+        _sameText(draft['category'], _category) &&
+        _sameText(draft['message'], _messageCtrl.text.trim());
+  }
+
+  bool _sameText(dynamic stored, String current) =>
+      (stored?.toString().trim() ?? '') == current.trim();
+
+  bool _sameNumber(dynamic stored, double current) {
+    final storedNumber = stored is num
+        ? stored.toDouble()
+        : double.tryParse(stored?.toString() ?? '');
+    if (storedNumber == null) return false;
+    return (storedNumber - current).abs() < 0.001;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_currentTrip == null && _loadError == null) {
+      return Scaffold(
+        backgroundColor: AppPalette.of(context).pageBackground,
+        appBar: _buildAppBar(),
+        body: const Center(child: AppLoading()),
+      );
+    }
+
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: AppPalette.of(context).pageBackground,
+        appBar: _buildAppBar(),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline_rounded,
+                    size: 48, color: AppPalette.of(context).gray400),
+                const SizedBox(height: 16),
+                Text(_loadError!,
+                    style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                AppButton(
+                    label: 'Try again',
+                    onPressed: () {
+                      setState(() => _loadError = null);
+                      _loadTrip();
+                    }),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final trip = _currentTrip!;
+    final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+
+    if (currency.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppPalette.of(context).pageBackground,
+        appBar: _buildAppBar(),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                      color: AppPalette.of(context).primarySoft,
+                      shape: BoxShape.circle),
+                  child: Icon(Icons.account_balance_wallet_outlined,
+                      color: AppPalette.of(context).primary, size: 30),
+                ),
+                const SizedBox(height: 20),
+                Text('Currency Not Set',
+                    style:
+                        AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(
+                    'Please set your preferred currency in profile settings before requesting shipping.',
+                    style: AppTextStyles.muted(AppTextStyles.bodyMd),
+                    textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final preview = _checkoutPreview;
+    final previewCurrency = preview?.currency ?? currency;
+    return Scaffold(
+      backgroundColor: AppPalette.of(context).pageBackground,
+      appBar: _buildAppBar(),
+      body: SingleChildScrollView(
+        key: const PageStorageKey('request-shipment-form'),
+        controller: _formScrollController,
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Traveler card ──────────────────────────────────────────
+            _TravelerHeroCard(
+              trip: trip,
+              userCurrency: currency,
+              preview: preview,
+              weight: double.tryParse(_weightCtrl.text.trim()) ?? 0,
+            ),
+            const SizedBox(height: 20),
+
+            // ── Route ─────────────────────────────────────────────────
+            _RouteCard(trip: trip, onChangeRoute: () => context.go('/home')),
+            const SizedBox(height: 24),
+
+            // ── Shipment details ──────────────────────────────────────
+            const _SectionHeader(
+                title: 'Shipment Details', icon: Icons.inventory_2_outlined),
+            const SizedBox(height: 14),
+
+            if (widget.preFilledData != null)
+              _PrefilledItemCard(
+                  data: widget.preFilledData!, currency: currency)
+            else ...[
+              Row(children: [
+                Expanded(
+                    child: _WeightField(
+                        controller: _weightCtrl,
+                        onChanged: () => setState(() {}))),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: _ValueField(
+                        controller: _itemValueCtrl, currency: currency)),
+              ]),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _showContentsPicker,
+                icon: const Icon(Icons.playlist_add_check_rounded),
+                label: Text(_selectedContents.isEmpty
+                    ? 'Select everything inside'
+                    : '${_selectedContents.length} item types selected'),
+              ),
+              if (_selectedContents.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: _selectedContents
+                      .map((item) => InputChip(
+                            label: Text(item),
+                            onDeleted: () =>
+                                setState(() => _selectedContents.remove(item)),
+                          ))
+                      .toList(),
+                ),
+              ],
+              const SizedBox(height: 16),
+              _ItemDeclarationPanel(
+                factorySealed: _factorySealed,
+                personalSealed: _personalSealed,
+                wrapped: _wrapped,
+                travellerMayInspect: _travellerMayInspect,
+                hasBatteries: _hasBatteries,
+                hasLiquids: _hasLiquids,
+                fragile: _fragile,
+                hasPrescriptionMedicine: _hasPrescriptionMedicine,
+                receiptProvided: _receiptProvided,
+                productLabelProvided: _productLabelProvided,
+                barcodeProvided: _barcodeProvided,
+                onChanged: (key, value) => setState(() {
+                  switch (key) {
+                    case 'factory':
+                      _factorySealed = value;
+                    case 'personal':
+                      _personalSealed = value;
+                    case 'wrapped':
+                      _wrapped = value;
+                    case 'inspect':
+                      _travellerMayInspect = value;
+                    case 'battery':
+                      _hasBatteries = value;
+                    case 'liquid':
+                      _hasLiquids = value;
+                    case 'fragile':
+                      _fragile = value;
+                    case 'medicine':
+                      _hasPrescriptionMedicine = value;
+                    case 'receipt':
+                      _receiptProvided = value;
+                    case 'label':
+                      _productLabelProvided = value;
+                    case 'barcode':
+                      _barcodeProvided = value;
+                  }
+                }),
+              ),
+              const SizedBox(height: 16),
+              _ImagePickerTile(image: _itemImage, onTap: _pickImage),
+            ],
+            const SizedBox(height: 24),
+
+            // ── Receiver details ──────────────────────────────────────
+            const _SectionHeader(
+                title: 'Receiver Details', icon: Icons.person_outline_rounded),
+            const SizedBox(height: 14),
+            AppTextField(
+                controller: _receiverNameCtrl,
+                label: 'Full name',
+                hint: 'Who receives this?'),
+            const SizedBox(height: 12),
+            _PhoneRow(
+              controller: _receiverPhoneCtrl,
+              country: _receiverPhoneCountry,
+              onPickCountry: _showReceiverCountryPicker,
+            ),
+            const SizedBox(height: 12),
+            AppTextField(
+              controller: _deliveryAddressCtrl,
+              label: 'Delivery address',
+              hint: 'Drop-off address',
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            AppTextField(
+              controller: _messageCtrl,
+              label: 'Note to traveler',
+              hint: 'Optional handling instructions…',
+              maxLines: 3,
+            ),
+            const SizedBox(height: 24),
+
+            // ── Insurance ─────────────────────────────────────────────
+            _InsuranceTile(
+              enabled: _insurance,
+              currency: previewCurrency,
+              insuranceBaseAmount: preview?.insuranceBaseAmount,
+              insuranceBaseCurrency: preview?.insuranceBaseCurrency,
+              onToggle: (v) {
+                setState(() => _insurance = v);
+                _scheduleCheckoutPreview();
+              },
+            ),
+            const SizedBox(height: 20),
+
+            // ── Price summary ─────────────────────────────────────────
+            _PriceSummaryCard(
+              currency: previewCurrency,
+              shippingAmount: preview?.shippingAmount,
+              insuranceAmount: preview?.insuranceAmount,
+              totalAmount: preview?.totalAmount,
+              insuranceBaseAmount: preview?.insuranceBaseAmount,
+              insuranceBaseCurrency: preview?.insuranceBaseCurrency,
+              isLoading: _isPreviewLoading,
+              error: _previewError,
+            ),
+            const SizedBox(height: 28),
+
+            // ── CTA ───────────────────────────────────────────────────
+            AppButton(
+              label: 'Continue to Payment',
+              isLoading: _isSubmitting,
+              onPressed: _isSubmitting ? null : () => _continueToPayment(trip),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: AppPalette.of(context).pageBackground,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: true,
+      leading: IconButton(
+        onPressed: () => context.pop(),
+        icon: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F6FB),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(Icons.arrow_back_ios_new_rounded,
+              size: 16, color: AppPalette.of(context).black),
+        ),
+      ),
+      title: Text('Request Shipment',
+          style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+// ── Traveler hero card ────────────────────────────────────────────────────────
+
+class _TravelerHeroCard extends StatelessWidget {
+  const _TravelerHeroCard({
+    required this.trip,
+    required this.userCurrency,
+    required this.preview,
+    required this.weight,
+  });
+  final TripModel trip;
+  final String userCurrency;
+  final _CheckoutPreview? preview;
+  final double weight;
+
+  @override
+  Widget build(BuildContext context) {
+    final authoritativePricePerKg =
+        preview != null && weight > 0 ? preview!.shippingAmount / weight : null;
+    final priceDisplay = authoritativePricePerKg == null
+        ? formatTripPriceForViewer(trip, userCurrency)
+        : TripPriceDisplay(
+            primary:
+                '${preview!.currency} ${authoritativePricePerKg.toStringAsFixed(2)}/kg',
+            usesViewerCurrency: true,
+          );
+    final name =
+        NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Traveler');
+    final rating = trip.averageRating ?? 0;
+    final initials = name.isNotEmpty ? name[0].toUpperCase() : 'T';
+    final meanIcon = _meanIcon(trip.travelMeans);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF5C4BFD), Color(0xFF7C6FFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Avatar
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: AppPalette.of(context).white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: trip.carrierAvatar?.trim().isNotEmpty == true
+                    ? Image.network(
+                        trip.carrierAvatar!.trim(),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _TravelerAvatarInitials(initials: initials),
+                      )
+                    : _TravelerAvatarInitials(initials: initials),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        )),
+                    const SizedBox(height: 4),
+                    Wrap(spacing: 10, runSpacing: 4, children: [
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.star_rounded,
+                            size: 14, color: Color(0xFFFFD700)),
+                        const SizedBox(width: 4),
+                        Text(
+                          rating > 0 ? rating.toStringAsFixed(1) : 'No ratings',
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ]),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.verified_rounded,
+                            size: 14, color: Colors.white70),
+                        const SizedBox(width: 4),
+                        Text(
+                          trip.completedTripCount > 0
+                              ? '${trip.completedTripCount} completed ${trip.completedTripCount == 1 ? 'trip' : 'trips'}'
+                              : 'New traveler',
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ]),
+                    ]),
+                  ],
+                ),
+              ),
+              // Travel means badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppPalette.of(context).white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(meanIcon, size: 14, color: Colors.white),
+                  const SizedBox(width: 5),
+                  Text(
+                    trip.travelMeans.substring(0, 1).toUpperCase() +
+                        trip.travelMeans.substring(1),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.15),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatChip(
+                icon: Icons.scale_rounded,
+                label: '${trip.availableKg.toStringAsFixed(1)} kg free',
+              ),
+              _StatChip(
+                icon: Icons.payments_outlined,
+                label: priceDisplay.primary,
+              ),
+              if (priceDisplay.secondary != null)
+                _StatChip(label: priceDisplay.secondary!),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _meanIcon(String means) {
+    switch (means.toLowerCase()) {
+      case 'flight':
+        return Icons.flight_rounded;
+      case 'bus':
+        return Icons.directions_bus_rounded;
+      case 'train':
+        return Icons.train_rounded;
+      case 'car':
+        return Icons.directions_car_rounded;
+      case 'ship':
+        return Icons.directions_boat_rounded;
+      default:
+        return Icons.luggage_rounded;
+    }
+  }
+}
+
+class _TravelerAvatarInitials extends StatelessWidget {
+  const _TravelerAvatarInitials({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({this.icon, required this.label});
+  final IconData? icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (icon != null) ...[
+          Icon(icon, size: 13, color: Colors.white70),
+          const SizedBox(width: 5),
+        ],
+        Flexible(
+          child: Text(label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              )),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Route card ────────────────────────────────────────────────────────────────
+
+class _RouteCard extends StatelessWidget {
+  const _RouteCard({required this.trip, required this.onChangeRoute});
+  final TripModel trip;
+  final VoidCallback onChangeRoute;
+
+  String _formatDate(String raw) {
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
+      return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EAED)),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.route_rounded,
+                  size: 18, color: AppPalette.of(context).primary),
+              const SizedBox(width: 8),
+              Text('Route',
+                  style: AppTextStyles.labelMd.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.of(context).black)),
+              const Spacer(),
+              GestureDetector(
+                onTap: onChangeRoute,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppPalette.of(context).primarySoft,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('Change',
+                      style: AppTextStyles.labelSm.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      )),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _RouteStop(
+                  label: 'From',
+                  city: trip.fromLocation,
+                  country: trip.fromCountry,
+                  isOrigin: true,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Column(children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppPalette.of(context).primarySoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.arrow_forward_rounded,
+                        size: 16, color: AppPalette.of(context).primary),
+                  ),
+                ]),
+              ),
+              Expanded(
+                child: _RouteStop(
+                  label: 'To',
+                  city: trip.toLocation,
+                  country: trip.toCountry,
+                  isOrigin: false,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 1,
+            color: const Color(0xFFEEEFF1),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.calendar_today_outlined,
+                  size: 14, color: AppPalette.of(context).gray400),
+              const SizedBox(width: 6),
+              Text(
+                'Departs ${_formatDate(trip.departureDate)}',
+                style: AppTextStyles.bodySm.copyWith(
+                    color: AppPalette.of(context).gray500,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteStop extends StatelessWidget {
+  const _RouteStop(
+      {required this.label,
+      required this.city,
+      required this.country,
+      required this.isOrigin});
+  final String label;
+  final String city;
+  final String country;
+  final bool isOrigin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8EAED)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isOrigin ? AppColors.primary : AppColors.success,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(label,
+                style: AppTextStyles.labelXs.copyWith(
+                    color: AppPalette.of(context).gray400,
+                    fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 4),
+          Text(city,
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          Text(country,
+              style: AppTextStyles.bodySm
+                  .copyWith(color: AppPalette.of(context).gray500)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Section header ────────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.icon});
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+            color: AppPalette.of(context).primarySoft,
+            borderRadius: BorderRadius.circular(9)),
+        child: Icon(icon, size: 16, color: AppPalette.of(context).primary),
+      ),
+      const SizedBox(width: 10),
+      Text(title,
+          style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
+    ]);
+  }
+}
+
+// ── Weight field ──────────────────────────────────────────────────────────────
+
+class _WeightField extends StatelessWidget {
+  const _WeightField({required this.controller, required this.onChanged});
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EAED)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(Icons.scale_rounded,
+              size: 20, color: AppPalette.of(context).gray400),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: (_) => onChanged(),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: '0.0',
+                hintStyle: AppTextStyles.labelMd
+                    .copyWith(color: AppPalette.of(context).gray300),
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppPalette.of(context).primarySoft,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text('kg',
+                style: AppTextStyles.labelSm.copyWith(
+                  color: AppPalette.of(context).primary,
+                  fontWeight: FontWeight.w800,
+                )),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Value field ───────────────────────────────────────────────────────────────
+
+class _ValueField extends StatelessWidget {
+  const _ValueField({required this.controller, required this.currency});
+  final TextEditingController controller;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EAED)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(children: [
+        const SizedBox(width: 4),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              hintText: 'Value',
+              hintStyle: AppTextStyles.labelMd
+                  .copyWith(color: AppPalette.of(context).gray300),
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F0F0),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            CurrencyConversionHelper.symbolForCurrency(
+                currency.isEmpty ? 'USD' : currency),
+            style: AppTextStyles.labelSm.copyWith(
+                color: AppPalette.of(context).gray500,
+                fontWeight: FontWeight.w800),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Image picker ──────────────────────────────────────────────────────────────
+
+class _ImagePickerTile extends StatelessWidget {
+  const _ImagePickerTile({required this.image, required this.onTap});
+  final File? image;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppPalette.of(context).white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: image != null ? AppColors.primary : const Color(0xFFE8EAED),
+            width: image != null ? 1.5 : 1,
+          ),
+        ),
+        child: image != null
+            ? Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Image.file(image!,
+                        height: 160, width: double.infinity, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child:
+                          const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.edit_rounded, size: 13, color: Colors.white),
+                        SizedBox(width: 5),
+                        Text('Change',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
+                  ),
+                ],
+              )
+            : Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                          color: AppPalette.of(context).primarySoft,
+                          shape: BoxShape.circle),
+                      child: Icon(Icons.add_a_photo_rounded,
+                          color: AppPalette.of(context).primary, size: 24),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Add item photo',
+                        style: AppTextStyles.labelMd
+                            .copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text('A clear photo helps the traveler identify your item',
+                        style: AppTextStyles.bodySm
+                            .copyWith(color: AppPalette.of(context).gray400),
+                        textAlign: TextAlign.center),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+// ── Pre-filled item card (from wizard) ────────────────────────────────────────
+
+class _PrefilledItemCard extends StatelessWidget {
+  const _PrefilledItemCard({required this.data, required this.currency});
+  final Map<String, dynamic> data;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryName = data['categoryName'] as String? ??
+        data['category'] as String? ??
+        'Item';
+    final weight = data['weight'] as double? ?? 0.0;
+    final declaredValue = data['declaredValue'] as double?;
+    final description = data['description'] as String? ?? '';
+    final photo = data['photo'] as File?;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.3), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: AppPalette.of(context).primarySoft,
+                  borderRadius: BorderRadius.circular(12)),
+              child: Icon(Icons.inventory_2_rounded,
+                  color: AppPalette.of(context).primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(categoryName,
+                      style: AppTextStyles.labelMd
+                          .copyWith(fontWeight: FontWeight.w800)),
+                  Text(
+                    '${weight == weight.truncateToDouble() ? weight.toInt() : weight.toStringAsFixed(1)} kg',
+                    style: AppTextStyles.muted(AppTextStyles.bodySm),
+                  ),
+                ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                  color: AppPalette.of(context).primarySoft,
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text('From wizard',
+                  style: AppTextStyles.labelXs.copyWith(
+                      color: AppColors.primary, fontWeight: FontWeight.w700)),
+            ),
+            if (declaredValue != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                    color: AppPalette.of(context).gray100,
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                    'Value: $currency ${declaredValue.toStringAsFixed(0)}',
+                    style: AppTextStyles.labelXs
+                        .copyWith(color: AppPalette.of(context).gray500)),
+              ),
+            ],
+          ]),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: AppPalette.of(context).border),
+            const SizedBox(height: 10),
+            Text(description, style: AppTextStyles.muted(AppTextStyles.bodySm)),
+          ],
+          if (photo != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(photo,
+                  height: 120, width: double.infinity, fit: BoxFit.cover),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Phone row ─────────────────────────────────────────────────────────────────
+
+class _PhoneRow extends StatelessWidget {
+  const _PhoneRow(
+      {required this.controller,
+      required this.country,
+      required this.onPickCountry});
+  final TextEditingController controller;
+  final CountryCurrencyData country;
+  final VoidCallback onPickCountry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            'Phone number',
+            style: AppTextStyles.labelSm.copyWith(
+              color: AppPalette.of(context).gray600,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F7F8),
+            border:
+                Border.all(color: AppPalette.of(context).border, width: 1.5),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onPickCountry,
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(14),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CountryFlag(code: country.code),
+                        const SizedBox(width: 7),
+                        Text(
+                          country.dialCode,
+                          style: AppTextStyles.bodyMd.copyWith(
+                            color: AppPalette.of(context).black,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AppPalette.of(context).gray400,
+                          size: 18,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                  width: 1, height: 28, color: AppPalette.of(context).gray200),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.phone,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: AppPalette.of(context).black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '800 000 0000',
+                    hintStyle: AppTextStyles.bodyMd
+                        .copyWith(color: AppPalette.of(context).gray400),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Insurance tile ────────────────────────────────────────────────────────────
+
+class _InsuranceTile extends StatelessWidget {
+  const _InsuranceTile({
+    required this.enabled,
+    required this.currency,
+    required this.onToggle,
+    this.insuranceBaseAmount,
+    this.insuranceBaseCurrency,
+  });
+  final bool enabled;
+  final String currency;
+  final double? insuranceBaseAmount;
+  final String? insuranceBaseCurrency;
+  final ValueChanged<bool> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: enabled ? AppPalette.of(context).primarySoft : AppColors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: enabled
+              ? AppColors.primary.withValues(alpha: 0.4)
+              : const Color(0xFFE8EAED),
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Row(children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: enabled ? AppColors.primary : const Color(0xFFF4F6FB),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(Icons.shield_outlined,
+              color: enabled ? Colors.white : AppPalette.of(context).gray400,
+              size: 22),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Protect my item',
+              style:
+                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 3),
+          Text(
+            insuranceBaseAmount != null && insuranceBaseAmount! > 0
+                ? '${insuranceBaseCurrency ?? currency} ${insuranceBaseAmount!.toStringAsFixed(insuranceBaseAmount! % 1 == 0 ? 0 : 2)} fixed — covered in transit'
+                : 'Fixed protection — covered in transit',
+            style: AppTextStyles.bodySm
+                .copyWith(color: AppPalette.of(context).gray500),
+          ),
+        ])),
+        Switch(
+          value: enabled,
+          onChanged: onToggle,
+          activeThumbColor: AppColors.primary,
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Price summary card ────────────────────────────────────────────────────────
+
+class _PriceSummaryCard extends StatelessWidget {
+  const _PriceSummaryCard({
+    required this.currency,
+    required this.shippingAmount,
+    required this.insuranceAmount,
+    required this.totalAmount,
+    required this.isLoading,
+    this.error,
+    this.insuranceBaseAmount,
+    this.insuranceBaseCurrency,
+  });
+  final String currency;
+  final double? shippingAmount;
+  final double? insuranceAmount;
+  final double? totalAmount;
+  final double? insuranceBaseAmount;
+  final String? insuranceBaseCurrency;
+  final bool isLoading;
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    // Deliberately no client-side estimate here — a sender should only ever
+    // see the one real, backend-computed total, never a number that might
+    // change a moment later once the authoritative quote loads.
+    final hasAmounts = shippingAmount != null &&
+        insuranceAmount != null &&
+        totalAmount != null &&
+        error == null;
+    final displayShipping = hasAmounts ? shippingAmount! : null;
+    final displayInsurance = hasAmounts ? insuranceAmount! : 0.0;
+    final displayTotal = hasAmounts ? totalAmount! : null;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EAED)),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(children: [
+        if (isLoading) ...[
+          Row(children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Calculating checkout total...',
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppPalette.of(context).gray500,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ]),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+          ),
+        ],
+        if (error != null) ...[
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.info_outline_rounded,
+                size: 18, color: AppColors.warning),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                error!,
+                style: AppTextStyles.bodySm.copyWith(
+                  color: AppPalette.of(context).gray600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ]),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+          ),
+        ],
+        _Row(
+            label: 'Shipping fee',
+            value: hasAmounts
+                ? '$currency ${displayShipping!.toStringAsFixed(2)}'
+                : '--'),
+        const SizedBox(height: 12),
+        _Row(
+            label: insuranceBaseAmount != null && insuranceBaseAmount! > 0
+                ? 'Item protection (${insuranceBaseCurrency ?? currency} ${insuranceBaseAmount!.toStringAsFixed(insuranceBaseAmount! % 1 == 0 ? 0 : 2)} fixed)'
+                : 'Item protection',
+            value: hasAmounts
+                ? '$currency ${displayInsurance.toStringAsFixed(2)}'
+                : '--'),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+        ),
+        Row(children: [
+          Expanded(
+              child: Text('Total',
+                  style: AppTextStyles.labelLg
+                      .copyWith(fontWeight: FontWeight.w900))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppPalette.of(context).primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              hasAmounts
+                  ? '$currency ${displayTotal!.toStringAsFixed(2)}'
+                  : '--',
+              style: AppTextStyles.labelLg.copyWith(
+                color: AppPalette.of(context).primary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(
+          child: Text(label,
+              style: AppTextStyles.bodyMd.copyWith(
+                  color: AppPalette.of(context).gray500,
+                  fontWeight: FontWeight.w600))),
+      Text(value,
+          style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
+    ]);
+  }
+}
+
+// ── Country picker sheet (all countries with search) ──────────────────────────
+
+class _CountryPickerSheet extends StatefulWidget {
+  @override
+  State<_CountryPickerSheet> createState() => _CountryPickerSheetState();
+}
+
+class _CountryPickerSheetState extends State<_CountryPickerSheet> {
+  final _search = TextEditingController();
+  List<CountryCurrencyData> _filtered = CurrencyConversionHelper.allCountries;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onSearch(String query) {
+    final q = query.trim().toLowerCase();
+    setState(() {
+      _filtered = q.isEmpty
+          ? CurrencyConversionHelper.allCountries
+          : CurrencyConversionHelper.allCountries
+              .where((c) =>
+                  c.name.toLowerCase().contains(q) ||
+                  c.dialCode.contains(q) ||
+                  c.code.toLowerCase().contains(q))
+              .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, scrollController) => SafeArea(
+        child: Column(children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppPalette.of(context).gray200,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: TextField(
+              controller: _search,
+              onChanged: _onSearch,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search country or dial code…',
+                prefixIcon:
+                    Icon(Icons.search, color: AppPalette.of(context).gray400),
+                filled: true,
+                fillColor: const Color(0xFFF7F7F8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              controller: scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              itemCount: _filtered.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: AppPalette.of(context).border),
+              itemBuilder: (_, index) {
+                final country = _filtered[index];
+                return ListTile(
+                  leading: CountryFlag(code: country.code),
+                  title: Text(country.name,
+                      style: AppTextStyles.labelMd
+                          .copyWith(fontWeight: FontWeight.w700)),
+                  subtitle: Text(country.dialCode,
+                      style: AppTextStyles.bodySm
+                          .copyWith(color: AppPalette.of(context).gray500)),
+                  onTap: () => Navigator.of(context).pop(country),
+                );
+              },
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}

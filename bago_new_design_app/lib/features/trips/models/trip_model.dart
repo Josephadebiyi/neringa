@@ -1,0 +1,341 @@
+import '../../../core/utils/json_parser.dart';
+import '../../../shared/utils/avatar_url_parser.dart';
+import '../../../shared/utils/status_formatter.dart';
+
+class TripModel {
+  final String id;
+  final String? tripNumber;
+  final String userId;
+  final String fromCountry;
+  final String fromLocation;
+  final String toCountry;
+  final String toLocation;
+  final String departureDate;
+  final String? arrivalDate;
+  final double totalKg;
+  final double availableKg;
+  final double soldKg;
+  final double reservedKg;
+  final double pricePerKg;
+  final String status;
+  final String travelMeans;
+  final String currency;
+  final String? landmark;
+  final String? travelDocument;
+  final double? averageRating;
+  final String createdAt;
+  final String updatedAt;
+  final String? carrierName;
+  final String? carrierAvatar;
+  final String? carrierBio;
+  final double? escrowBalance;
+  final int activeShipmentCount;
+  final String bookingStatusSummary;
+  final double grossSales;
+  final double commissionAmount;
+  final double travelerEarnings;
+  final double payoutAmount;
+  final String payoutStatus;
+  final int completedTripCount;
+
+  /// A business's standing named per-kg service (e.g. "Express") rather than
+  /// a real traveler trip — not tied to a route/date, capacity is unbounded.
+  final bool isBusinessService;
+  final String? serviceName;
+
+  const TripModel({
+    required this.id,
+    this.tripNumber,
+    required this.userId,
+    required this.fromCountry,
+    required this.fromLocation,
+    required this.toCountry,
+    required this.toLocation,
+    required this.departureDate,
+    this.arrivalDate,
+    required this.totalKg,
+    required this.availableKg,
+    required this.soldKg,
+    required this.reservedKg,
+    required this.pricePerKg,
+    required this.status,
+    required this.travelMeans,
+    required this.currency,
+    this.landmark,
+    this.travelDocument,
+    this.averageRating,
+    required this.createdAt,
+    required this.updatedAt,
+    this.carrierName,
+    this.carrierAvatar,
+    this.carrierBio,
+    this.escrowBalance,
+    this.activeShipmentCount = 0,
+    this.bookingStatusSummary = 'No active bookings',
+    this.grossSales = 0,
+    this.commissionAmount = 0,
+    this.travelerEarnings = 0,
+    this.payoutAmount = 0,
+    this.payoutStatus = 'pending',
+    this.completedTripCount = 0,
+    this.isBusinessService = false,
+    this.serviceName,
+  });
+
+  bool get isActive =>
+      [
+        'pending',
+        'pending_admin_review',
+        'verified',
+        'active',
+        'upcoming',
+      ].contains(status.toLowerCase()) &&
+      !isHistorical;
+
+  bool get isHistorical {
+    final normalized = status.toLowerCase();
+    if ([
+      'completed',
+      'cancelled',
+      'canceled',
+      'declined',
+      'expired',
+      'history',
+    ].contains(normalized)) {
+      return true;
+    }
+
+    final endDate = DateTime.tryParse(
+      (arrivalDate?.trim().isNotEmpty == true ? arrivalDate : departureDate) ??
+          '',
+    )?.toLocal();
+    if (endDate == null) return false;
+    final today = DateTime.now();
+    final endDay = DateTime(endDate.year, endDate.month, endDate.day);
+    final currentDay = DateTime(today.year, today.month, today.day);
+    return endDay.isBefore(currentDay);
+  }
+
+  String get displayTripNumber {
+    final raw = tripNumber?.trim() ?? '';
+    if (raw.isEmpty || RegExp(r'^0+$').hasMatch(raw)) return '';
+    final numeric = int.tryParse(raw);
+    if (numeric == null || numeric <= 0) return raw;
+    return numeric.toString().padLeft(4, '0');
+  }
+
+  String get statusLabel => formatTripStatusLabel(status);
+  double get remainingKg => availableKg;
+  bool get isPubliclyVisible =>
+      ['active', 'verified', 'approved', 'live']
+          .contains(status.toLowerCase()) &&
+      availableKg > 0;
+
+  TripModel copyWith({
+    String? id,
+    String? tripNumber,
+    String? userId,
+    String? fromCountry,
+    String? fromLocation,
+    String? toCountry,
+    String? toLocation,
+    String? departureDate,
+    String? arrivalDate,
+    double? totalKg,
+    double? availableKg,
+    double? soldKg,
+    double? reservedKg,
+    double? pricePerKg,
+    String? status,
+    String? travelMeans,
+    String? currency,
+    String? landmark,
+    String? travelDocument,
+    double? averageRating,
+    String? createdAt,
+    String? updatedAt,
+    String? carrierName,
+    String? carrierAvatar,
+    String? carrierBio,
+    double? escrowBalance,
+    int? activeShipmentCount,
+    String? bookingStatusSummary,
+    double? grossSales,
+    double? commissionAmount,
+    double? travelerEarnings,
+    double? payoutAmount,
+    String? payoutStatus,
+    int? completedTripCount,
+    bool? isBusinessService,
+    String? serviceName,
+  }) {
+    return TripModel(
+      id: id ?? this.id,
+      tripNumber: tripNumber ?? this.tripNumber,
+      userId: userId ?? this.userId,
+      fromCountry: fromCountry ?? this.fromCountry,
+      fromLocation: fromLocation ?? this.fromLocation,
+      toCountry: toCountry ?? this.toCountry,
+      toLocation: toLocation ?? this.toLocation,
+      departureDate: departureDate ?? this.departureDate,
+      arrivalDate: arrivalDate ?? this.arrivalDate,
+      totalKg: totalKg ?? this.totalKg,
+      availableKg: availableKg ?? this.availableKg,
+      soldKg: soldKg ?? this.soldKg,
+      reservedKg: reservedKg ?? this.reservedKg,
+      pricePerKg: pricePerKg ?? this.pricePerKg,
+      status: status ?? this.status,
+      travelMeans: travelMeans ?? this.travelMeans,
+      currency: currency ?? this.currency,
+      landmark: landmark ?? this.landmark,
+      travelDocument: travelDocument ?? this.travelDocument,
+      averageRating: averageRating ?? this.averageRating,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      carrierName: carrierName ?? this.carrierName,
+      carrierAvatar: carrierAvatar ?? this.carrierAvatar,
+      carrierBio: carrierBio ?? this.carrierBio,
+      escrowBalance: escrowBalance ?? this.escrowBalance,
+      activeShipmentCount: activeShipmentCount ?? this.activeShipmentCount,
+      bookingStatusSummary: bookingStatusSummary ?? this.bookingStatusSummary,
+      grossSales: grossSales ?? this.grossSales,
+      commissionAmount: commissionAmount ?? this.commissionAmount,
+      travelerEarnings: travelerEarnings ?? this.travelerEarnings,
+      payoutAmount: payoutAmount ?? this.payoutAmount,
+      payoutStatus: payoutStatus ?? this.payoutStatus,
+      completedTripCount: completedTripCount ?? this.completedTripCount,
+      isBusinessService: isBusinessService ?? this.isBusinessService,
+      serviceName: serviceName ?? this.serviceName,
+    );
+  }
+
+  factory TripModel.fromJson(Map<String, dynamic> json) {
+    final user = json['user'] as Map<String, dynamic>?;
+    return TripModel(
+      id: JsonParser.parseId(json),
+      tripNumber: json['tripNumber']?.toString() ??
+          json['trip_number']?.toString() ??
+          json['tripReference']?.toString() ??
+          json['trip_reference']?.toString(),
+      userId: JsonParser.parseStr(
+        json,
+        'userId',
+        altKey: 'user_id',
+        fallback: user?['_id']?.toString() ?? user?['id']?.toString() ?? '',
+      ),
+      fromCountry: json['fromCountry']?.toString() ?? '',
+      fromLocation:
+          JsonParser.parseStr(json, 'fromLocation', altKey: 'fromCity'),
+      toCountry: json['toCountry']?.toString() ?? '',
+      toLocation: JsonParser.parseStr(json, 'toLocation', altKey: 'toCity'),
+      departureDate:
+          JsonParser.parseStr(json, 'departureDate', altKey: 'departure_date'),
+      arrivalDate: json['arrivalDate']?.toString(),
+      totalKg: JsonParser.parseDoubleFirst(
+          json, ['totalKg', 'total_kg', 'availableKg', 'capacity']),
+      availableKg: JsonParser.parseDoubleFirst(
+          json, ['availableKg', 'remainingKg', 'remaining_kg', 'capacity']),
+      soldKg: JsonParser.parseDoubleFirst(json, ['soldKg', 'sold_kg']),
+      reservedKg:
+          JsonParser.parseDoubleFirst(json, ['reservedKg', 'reserved_kg']),
+      pricePerKg:
+          JsonParser.parseDoubleFirst(json, ['pricePerKg', 'price_per_kg']),
+      status: json['status']?.toString() ?? 'pending_admin_review',
+      travelMeans: JsonParser.parseStr(json, 'travelMeans',
+          altKey: 'travel_means', fallback: 'Flight'),
+      currency: json['currency']?.toString() ??
+          json['preferredCurrency']?.toString() ??
+          json['preferred_currency']?.toString() ??
+          '',
+      landmark: json['landmark']?.toString(),
+      travelDocument: json['travelDocument']?.toString(),
+      averageRating: JsonParser.parseDouble(json, 'averageRating') == 0.0
+          ? null
+          : JsonParser.parseDouble(json, 'averageRating'),
+      createdAt: json['createdAt']?.toString() ?? '',
+      updatedAt: json['updatedAt']?.toString() ?? '',
+      carrierName: user != null
+          ? JsonParser.parseFullName(user)
+          : json['carrierName']?.toString(),
+      carrierAvatar: user != null
+          ? AvatarUrlParser.fromJson(user)
+          : AvatarUrlParser.normalize(
+              json['carrierAvatar'] ?? json['carrier_avatar'],
+            ),
+      carrierBio: user?['bio']?.toString() ?? json['carrierBio']?.toString(),
+      escrowBalance: JsonParser.parseDouble(json, 'escrowBalance') == 0.0
+          ? null
+          : JsonParser.parseDouble(json, 'escrowBalance'),
+      activeShipmentCount: JsonParser.parseInt(json, 'activeShipmentCount'),
+      bookingStatusSummary: JsonParser.parseStr(
+        json,
+        'bookingStatusSummary',
+        altKey: 'booking_status_summary',
+        fallback: 'No active bookings',
+      ),
+      grossSales:
+          JsonParser.parseDoubleFirst(json, ['grossSales', 'gross_sales']),
+      commissionAmount: JsonParser.parseDoubleFirst(
+          json, ['commissionAmount', 'commission_amount']),
+      travelerEarnings: JsonParser.parseDoubleFirst(
+          json, ['travelerEarnings', 'traveler_earnings']),
+      payoutAmount: JsonParser.parseDoubleFirst(json, [
+        'payoutAmount',
+        'payout_amount',
+        'travelerEarnings',
+        'traveler_earnings'
+      ]),
+      payoutStatus: JsonParser.parseStr(
+        json,
+        'payoutStatus',
+        altKey: 'payout_status',
+        fallback: 'pending',
+      ),
+      completedTripCount: JsonParser.parseInt(
+        json,
+        'completedTripCount',
+        altKey: 'completed_trip_count',
+      ),
+      isBusinessService: json['isBusinessService'] == true ||
+          json['is_business_service'] == true,
+      serviceName:
+          json['serviceName']?.toString() ?? json['service_name']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'tripNumber': tripNumber,
+        'userId': userId,
+        'isBusinessService': isBusinessService,
+        'serviceName': serviceName,
+        'fromCountry': fromCountry,
+        'fromLocation': fromLocation,
+        'toCountry': toCountry,
+        'toLocation': toLocation,
+        'departureDate': departureDate,
+        'arrivalDate': arrivalDate,
+        'totalKg': totalKg,
+        'availableKg': availableKg,
+        'soldKg': soldKg,
+        'reservedKg': reservedKg,
+        'pricePerKg': pricePerKg,
+        'status': status,
+        'travelMeans': travelMeans,
+        'currency': currency,
+        'landmark': landmark,
+        'travelDocument': travelDocument,
+        'averageRating': averageRating,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+        'escrowBalance': escrowBalance,
+        'activeShipmentCount': activeShipmentCount,
+        'bookingStatusSummary': bookingStatusSummary,
+        'grossSales': grossSales,
+        'commissionAmount': commissionAmount,
+        'travelerEarnings': travelerEarnings,
+        'payoutAmount': payoutAmount,
+        'payoutStatus': payoutStatus,
+        'completedTripCount': completedTripCount,
+      };
+}

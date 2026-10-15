@@ -1,0 +1,70 @@
+import '../../../shared/services/api_service.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../shared/utils/status_formatter.dart';
+
+// ---------------------------------------------------------------------------
+// KYC Service – Handle verification status checks and navigation
+// ---------------------------------------------------------------------------
+
+class KycService {
+  KycService._();
+  static final KycService instance = KycService._();
+
+  /// Checks current KYC verification status from backend
+  /// Returns: 'approved', 'pending', 'not_started', 'declined', 'failed_verification', 'blocked_duplicate', etc.
+  Future<String?> getKycStatus() async {
+    try {
+      final response = await ApiService.instance.get(ApiConstants.kycStatus);
+      final data = response.data;
+      if (data is Map) {
+        final payload = data['data'];
+        if (payload is Map) {
+          return payload['kycStatus']?.toString() ??
+              payload['kyc_status']?.toString() ??
+              payload['status']?.toString();
+        }
+        return data['kycStatus']?.toString() ??
+            data['kyc_status']?.toString() ??
+            data['status']?.toString();
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Checks if user has passed KYC verification
+  Future<bool> isKycApproved() async {
+    final status = await getKycStatus();
+    return status == 'approved' ||
+        status == 'verified' ||
+        status == 'completed';
+  }
+
+  /// Check if response is a KYC verification required error
+  static bool isVerificationRequired(dynamic response) {
+    if (response is Map<String, dynamic>) {
+      return response['code'] == 'VERIFICATION_REQUIRED' ||
+          response['error']?.toString().contains('verification') == true;
+    }
+    return false;
+  }
+
+  /// Check if DioException is a KYC verification required error
+  static bool isVerificationRequiredError(dynamic error) {
+    if (error is Exception &&
+        error.toString().contains('VERIFICATION_REQUIRED')) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Get KYC status string for display
+  static String getStatusLabel(String? status) {
+    final label = formatFrontendStatus(status);
+    if (label == 'Verified') return 'Verified';
+    if (label == 'Pending') return 'Verification Pending';
+    if (label == 'Rejected') return 'Verification Not Approved';
+    return label;
+  }
+}
