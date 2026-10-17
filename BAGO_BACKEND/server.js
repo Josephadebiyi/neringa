@@ -64,6 +64,13 @@ app.use((_req, res, next) => {
   const sendJson = res.json.bind(res);
   res.json = (payload) => {
     if (res.statusCode >= 500) {
+      const insuranceFailures = {
+        INSURANCE_ACTIVATION_FAILED: 'Your insurance details were saved, but insurance activation failed. Please contact support with your shipment tracking number.',
+        INSURANCE_DETAILS_SAVE_FAILED: 'Your insurance details could not be saved or verified. Please try again or contact support with your shipment tracking number.',
+      };
+      if (Object.hasOwn(insuranceFailures, payload?.code || '')) {
+        return sendJson({success: false, code: payload.code, detailsSaved: payload.detailsSaved === true, message: insuranceFailures[payload.code]});
+      }
       return sendJson({
         success: false,
         message: 'Something went wrong. Please try again.',

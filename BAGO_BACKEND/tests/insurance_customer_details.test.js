@@ -39,3 +39,16 @@ it('blocks retrying legacy pending applications that already contain a submitted
   const res = response(); await completeInsuranceDetails(request(), res);
   expect(res.code).toBe(409); expect(m.buy).not.toHaveBeenCalled();
 });
+
+it('distinguishes a failed activation after the customer details were saved', async () => {
+  m.buy.mockRejectedValueOnce(new Error('Provider refused the application'));
+  const res = response(); await completeInsuranceDetails(request(), res);
+  expect(res.code).toBe(502);
+  expect(res.data).toMatchObject({code: 'INSURANCE_ACTIVATION_FAILED', detailsSaved: true});
+});
+it('distinguishes a database failure before gender was saved', async () => {
+  m.query.mockRejectedValueOnce(new Error('Database write failed'));
+  const res = response(); await completeInsuranceDetails(request(), res);
+  expect(res.data).toMatchObject({code: 'INSURANCE_DETAILS_SAVE_FAILED', detailsSaved: false});
+  expect(m.buy).not.toHaveBeenCalled();
+});

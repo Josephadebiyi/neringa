@@ -3,6 +3,8 @@ import { getShipmentRequestById } from '../lib/postgres/shipping.js';
 import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
 
 export async function completeInsuranceDetails(req, res) {
+  let stage = 'load_shipment';
+  let detailsSaved = false;
   try {
     const request = await getShipmentRequestById(req.params.requestId);
     if (!request) return res.status(404).json({success: false, message: 'Shipment not found.'});
@@ -15,17 +17,32 @@ export async function completeInsuranceDetails(req, res) {
     if (req.body?.gender !== undefined) {
       const value = String(req.body.gender).trim().toLowerCase();
       if (!['male', 'female'].includes(value)) return res.status(400).json({success: false, message: 'Select a valid gender for the insurance application.'});
+      stage = 'save_customer_details';
       const updated = await query(`update public.shipment_requests
         set insurance_policy_data = coalesce(insurance_policy_data, '{}'::jsonb) || jsonb_build_object('customerDetails', jsonb_build_object('gender', $3::text)),
             updated_at = timezone('utc', now())
         where id = $1 and sender_id = $2 and nullif(insurance_policy_id, '') is null
           and insurance_policy_data->>'submittedAt' is null returning id`, [request.id, userId, value === 'male' ? 'Male' : 'Female']);
       if (!updated.rows.length) return res.status(409).json({success: false, message: 'Insurance is already being activated. Refresh the shipment.'});
+      detailsSaved = true;
     }
+    stage = 'reload_customer_details';
     const refreshed = await getShipmentRequestById(request.id);
+    stage = 'activate_policy';
     await purchaseMyCoverPolicy(refreshed);
+    stage = 'refresh_policy_status';
     return res.json({success: true, data: await getShipmentRequestById(request.id)});
   } catch (error) {
-    return res.status(error.code === 'INSURANCE_CUSTOMER_DETAILS_REQUIRED' ? 422 : 502).json({success: false, code: error.code, missingFields: error.missingFields, message: error.message});
+    console.error('Insurance customer details failed:', {
+      requestId: req.params.requestId, stage, detailsSaved,
+      code: error.code || null, message: error.message,
+    });
+    if (error.code === 'INSURANCE_CUSTOMER_DETAILS_REQUIRED') {
+      return res.status(422).json({success: false, code: error.code, missingFields: error.missingFields, detailsSaved, message: error.message});
+    }
+    return res.status(502).json({success: false,
+      code: detailsSaved ? 'INSURANCE_ACTIVATION_FAILED' : 'INSURANCE_DETAILS_SAVE_FAILED',
+      detailsSaved,
+    });
   }
 }
