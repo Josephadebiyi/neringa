@@ -862,8 +862,11 @@ export async function sendTripDeclinedEmail(userEmail, userName, trip, reason = 
 /**
  * Send email to traveler when they receive a new shipping request
  */
-export async function sendNewRequestToTravelerEmail(travelerEmail, travelerName, senderName, packageDetails, trip) {
-  if (!resend) return false;
+export async function sendNewRequestToTravelerEmail(travelerEmail, travelerName, senderName, packageDetails, trip, requestId = null) {
+  if (!resend) {
+    console.warn('Trip-owner email not sent: RESEND_API_KEY is not configured.');
+    return false;
+  }
 
   try {
     const content = `
@@ -888,12 +891,16 @@ export async function sendNewRequestToTravelerEmail(travelerEmail, travelerName,
       </p>
     `;
 
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: 'Bago Requests <no-reply@sendwithbago.com>',
       to: travelerEmail,
       subject: '📦 New Shipping Request for Your Trip!',
-      html: generateEmailTemplate('New Shipping Request', content, 'View Request', `${FRONTEND_URL}/dashboard`),
-    });
+      html: generateEmailTemplate('New Shipping Request', content, 'View Request', `${FRONTEND_URL}/dashboard?tab=deliveries${requestId ? `&requestId=${encodeURIComponent(requestId)}` : ''}`),
+    }, requestId ? { idempotencyKey: `shipment-request/${requestId}` } : undefined);
+    if (result.error || !result.data?.id) {
+      console.error('Trip-owner email rejected by provider:', result.error?.message || 'No message ID returned');
+      return false;
+    }
 
     console.log(`✅ Sent new request notification email to ${travelerEmail}`);
     return true;

@@ -1,4 +1,5 @@
-import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail } from '../services/emailNotifications.js';
+import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
+import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail } from '../services/emailNotifications.js';
 import { generateShippingLabelPDF } from '../services/pdfGenerator.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
@@ -826,19 +827,19 @@ async function handlePackageRequest(req, res) {
           });
           await sendPushNotification(newRequest.travelerId, '📦 New Shipping Request!', `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`);
         }
-        if (newRequest?.traveler?.email) {
-          await sendNewRequestToTravelerEmail(
-            newRequest.traveler.email,
-            newRequest.travelerName || 'Traveler',
-            newRequest.senderName || 'Sender',
-            `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
-            tripDoc,
-          );
-        }
       }
     } catch (notifError) {
       console.error('Failed to notify traveler:', notifError);
     }
+
+    // An earlier escrow failure can leave a request that has never emailed
+    // its owner. Keep email independent of socket, in-app and push failures.
+    await notifyTripOwnerByEmail({
+      request: newRequest,
+      owner: travelerProfile,
+      packageDetails: `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
+      trip: tripDoc,
+    }).catch((error) => console.error('Trip-owner request email failed:', error.message));
 
     return res.status(existingRequest ? 200 : 201).json({
       success: true,
