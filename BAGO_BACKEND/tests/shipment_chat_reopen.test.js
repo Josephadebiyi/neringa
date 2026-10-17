@@ -35,6 +35,16 @@ it('does not reopen chats when all shipments really are closed', async () => {
   m.one.mockResolvedValue({id: 'chat', request_id: 'old-request', request_status: 'completed', active_requests: []});
   expect((await getConversationById('chat')).request.status).toBe('completed');
 });
-it('still blocks starting transit before mandatory inspection', async () => {
-  await expect(updateShipmentRequestStatus({requestId: 'new-request', travelerId: 'traveler', status: 'intransit'})).rejects.toMatchObject({code: 'INSPECTION_REQUIRED'});
+it('allows the traveler to start transit without inspection photos or approvals', async () => {
+  await expect(updateShipmentRequestStatus({requestId: 'new-request', travelerId: 'traveler', status: 'intransit'})).resolves.toBeTruthy();
+  const update = m.query.mock.calls.find(([sql]) => sql.includes('set status = $2'));
+  expect(update[1][1]).toBe('intransit');
+});
+it('still prevents someone other than the traveler from updating status', async () => {
+  await expect(updateShipmentRequestStatus({requestId: 'new-request', travelerId: 'stranger', status: 'intransit'})).rejects.toMatchObject({code: 'UNAUTHORIZED'});
+});
+it('marking delivered still waits for sender confirmation rather than completing the shipment', async () => {
+  await updateShipmentRequestStatus({requestId: 'new-request', travelerId: 'traveler', status: 'delivered'});
+  const update = m.query.mock.calls.find(([sql]) => sql.includes('set status = $2'));
+  expect(update[1][1]).toBe('delivering');
 });

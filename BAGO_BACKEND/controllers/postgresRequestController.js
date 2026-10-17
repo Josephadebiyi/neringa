@@ -1018,7 +1018,7 @@ export async function updateRequestStatus(req, res) {
           : statusLabel === 'rejected' ? 'Request Declined'
           : statusLabel === 'awaiting_sender_confirmation' ? 'Confirm delivery'
           : `Shipment ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`;
-        const pushBody = statusLabel === 'accepted_awaiting_inspection' ? `${travelerName} accepted your request. The package must be inspected at pickup before the trip can start.`
+        const pushBody = statusLabel === 'accepted_awaiting_inspection' ? `${travelerName} accepted your request. You can now coordinate pickup and delivery in your chat.`
           : statusLabel === 'rejected' ? `${travelerName} declined your shipment request.`
           : statusLabel === 'awaiting_sender_confirmation' ? senderStatusMessage
           : `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`;

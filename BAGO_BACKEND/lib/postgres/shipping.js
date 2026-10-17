@@ -1194,25 +1194,6 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
     let normalizedStatus = (status === 'completed' || status === 'delivered') ? 'delivering' : status;
     if (normalizedStatus === 'accepted') normalizedStatus = 'accepted_awaiting_inspection';
 
-    if (normalizedStatus === 'intransit') {
-      const inspection = request.inspection_data || {};
-      const senderPhotos = Array.isArray(inspection.senderPhotos) ? inspection.senderPhotos : [];
-      const travelerPhotos = Array.isArray(inspection.travelerPhotos) ? inspection.travelerPhotos : [];
-      if (
-        request.status !== 'approved_for_trip' ||
-        senderPhotos.length < 2 ||
-        travelerPhotos.length < 2 ||
-        inspection.inspectionConfirmed !== true ||
-        inspection.safetyConfirmed !== true ||
-        inspection.responsibilityAccepted !== true ||
-        inspection.rejected === true
-      ) {
-        const error = new Error('Package inspection must be completed and approved before the trip can start');
-        error.code = 'INSPECTION_REQUIRED';
-        throw error;
-      }
-    }
-
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
     if (['package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
       movementTracking = [

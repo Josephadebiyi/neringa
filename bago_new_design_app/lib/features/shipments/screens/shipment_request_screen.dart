@@ -1194,7 +1194,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
     if (current == 'accepted' ||
         current == 'accepted_awaiting_inspection' ||
         current == 'inspection_in_progress') {
-      return 'inspection';
+      return widget.isBusinessAccount ? 'package_received' : 'intransit';
     }
     if (current == 'approved_for_trip' || current == 'inspection_completed') {
       return widget.isBusinessAccount ? 'package_received' : 'intransit';
