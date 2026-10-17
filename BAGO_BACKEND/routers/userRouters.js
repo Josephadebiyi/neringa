@@ -1,3 +1,4 @@
+import { completeInsuranceDetails } from '../controllers/InsuranceCustomerController.js';
 import express from 'express';
 import { requireBusinessPermission } from '../middleware/businessAuthorization.js';
 import {
@@ -213,6 +214,7 @@ userRouter.post('/kyc/prembly/sync-existing', isAuthenticated, syncExistingPremb
 userRouter.get('/kyc/prembly/complete', premblyComplete); // redirect target after Prembly finishes
 userRouter.get('/kyc/status', isAuthenticated, getKycStatus);
 userRouter.get('/insurance/mycover/webhook', (_req, res) => res.status(200).json({ success: true })); // URL verification by MyCover.ai
+userRouter.post('/request/:requestId/insurance-details', isAuthenticated, requireKycVerification, completeInsuranceDetails);
 userRouter.post('/insurance/mycover/webhook', myCoverWebhook); // event delivery by MyCover.ai servers
 userRouter.post('/kyc/manual-submit', isAuthenticated, submitManualKyc);
 userRouter.get('/kyc/manual-status', isAuthenticated, getManualKycStatus);
