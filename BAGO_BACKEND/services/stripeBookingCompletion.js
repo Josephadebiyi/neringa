@@ -18,6 +18,7 @@ export async function completeStripeBooking(intent, requestPackage) {
   await requestPackage({user: {id: metadata.senderId}, app: {get: () => null}, body: {
     packageId: metadata.packageId, tripId: metadata.tripId, travelerId: metadata.travelerId,
     amount: quote.totalAmount, currency: quote.senderCurrency,
+    ...(metadata.additionalRequestId && {requestId: metadata.additionalRequestId, additionalKg: Number(metadata.additionalKg)}),
     insurance: quote.insuranceAmount > 0, insuranceCost: quote.insuranceAmount,
     termsAccepted: true, paymentProvider: 'stripe', paymentReference: intent.id,
   }}, response);

@@ -248,6 +248,8 @@ class PaymentService {
     required String tripId,
     required double amount,
     required String currency,
+    String? additionalRequestId,
+    double? additionalKg,
     bool insurance = false,
     double insuranceCost = 0,
   }) async {
@@ -259,6 +261,8 @@ class PaymentService {
           'currency': currency,
           'packageId': packageId,
           'tripId': tripId,
+          if (additionalRequestId != null) 'requestId': additionalRequestId,
+          if (additionalKg != null) 'additionalKg': additionalKg,
           'platform': 'mobile',
           'metadata': {
             'insurance': insurance,

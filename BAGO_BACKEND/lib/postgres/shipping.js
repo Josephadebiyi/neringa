@@ -975,10 +975,12 @@ export async function createConversationForRequest(requestId, senderId, traveler
               updated_at = timezone('utc', now()),
               unread_count_traveler = unread_count_traveler + 1,
               deleted_by_sender = false,
-              deleted_by_traveler = false
+              deleted_by_traveler = false,
+              request_id = $3,
+              trip_id = $4
           where id = $1
         `,
-        [conversationId, systemText],
+        [conversationId, systemText, requestId, tripId],
       );
       return conversationId;
     }
@@ -1268,7 +1270,7 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       },
     });
 
-    if (normalizedStatus === 'accepted') {
+    if (normalizedStatus === 'accepted_awaiting_inspection') {
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
       const handoverPin = String(randomInt(1000, 10000));
       await client.query(

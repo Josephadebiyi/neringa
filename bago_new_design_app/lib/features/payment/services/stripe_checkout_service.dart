@@ -96,6 +96,10 @@ class StripeCheckoutService {
         'packageId': draft['packageId'],
         'tripId': draft['tripId'],
         'travelerId': draft['travelerId'],
+        if (draft['additionalRequestId'] != null)
+          'requestId': draft['additionalRequestId'],
+        if (draft['additionalKg'] != null)
+          'additionalKg': draft['additionalKg'],
         'termsAccepted': true,
         'insurance': draft['insurance'] == true,
       });

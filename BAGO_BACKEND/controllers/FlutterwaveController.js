@@ -1,3 +1,4 @@
+import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
 import { verifyRecordedFlutterwavePayment } from '../services/flutterwaveVerificationRules.js';
 import crypto from 'crypto';
 import {
@@ -156,6 +157,12 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
     }
 
     let authoritativePreview = null;
+    if (requestId) {
+      authoritativePreview = await buildAdditionalWeightQuote({requestId, senderId: user.id, additionalKg, currency: normalizedCurrency});
+      numericAmount = authoritativePreview.totalAmount;
+      if (Math.abs(requestedAmount - numericAmount) > .011) return res.status(409).json({success: false, code: 'CHECKOUT_PRICE_CHANGED', message: 'Refresh the additional weight quote before paying.', preview: authoritativePreview});
+    }
+
     if (!requestId && packageId && tripId) {
       const packageRow = await queryOne(
         `select package_weight, declared_value
@@ -248,7 +255,7 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       userId: user.id,
       amount: numericAmount,
       currency: normalizedCurrency,
-      rawResponse: { packageId, tripId, requestId, additionalKg, authoritativePreview },
+      rawResponse: { packageId: authoritativePreview?.packageId || packageId, tripId: authoritativePreview?.tripId || tripId, requestId, additionalKg, authoritativePreview },
     });
 
     return res.status(200).json({

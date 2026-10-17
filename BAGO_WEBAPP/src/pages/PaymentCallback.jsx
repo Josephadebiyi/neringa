@@ -59,6 +59,12 @@ export default function PaymentCallback() {
                 res = await api.post('/api/bago/RequestPackage', {
                     requestId: pending.requestId,
                     additionalKg: pending.additionalKg,
+                    packageId: pending.packageId,
+                    tripId: pending.tripId,
+                    travelerId: pending.travelerId,
+                    amount: pending.amount,
+                    currency: pending.currency,
+                    termsAccepted: true,
                     paymentReference: transactionId,
                     paymentProvider: 'flutterwave',
                 });

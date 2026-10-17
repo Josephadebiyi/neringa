@@ -36,5 +36,5 @@ export function verifyStripeBookingIntent(intent, expected = {}) {
     return {success: false, message: 'Payment amount or currency could not be verified.'};
   }
   return {success: true, data: {amount: intent.amount_received / 100,
-    currency: quote.senderCurrency, status: intent.status, quote}};
+    currency: quote.senderCurrency, status: intent.status, quote, additionalRequestId: intent.metadata?.additionalRequestId || null, additionalKg: Number(intent.metadata?.additionalKg || 0)}};
 }

@@ -34,6 +34,7 @@ export default function PaymentCheckout() {
     const [redirecting, setRedirecting] = useState(false);
     const [loading, setLoading] = useState(true);
     const [authorizationUrl, setAuthorizationUrl] = useState('');
+    const [quotedCheckout, setQuotedCheckout] = useState(null);
 
     const checkout = useMemo(() => ({
         packageId:          params.get('packageId')          || '',
@@ -65,11 +66,17 @@ export default function PaymentCheckout() {
 
         async function boot() {
             try {
+                const authoritative = isAddKgMode
+                    ? (await api.post('/api/checkout/additional-weight-preview', {requestId: checkout.requestId, additionalKg: checkout.additionalKg})).data.preview
+                    : null;
+                const paymentCheckout = authoritative ? {...checkout, packageId: authoritative.packageId, tripId: authoritative.tripId,
+                    travelerId: authoritative.travelerId, amount: authoritative.totalAmount, currency: authoritative.senderCurrency, weightQuote: authoritative} : checkout;
+                if (alive) setQuotedCheckout(paymentCheckout);
                 const initBody = isAddKgMode ? {
                     requestId:    checkout.requestId,
                     additionalKg: checkout.additionalKg,
-                    amount:       checkout.amount,
-                    currency:     checkout.currency,
+                    amount:       paymentCheckout.amount,
+                    currency:     paymentCheckout.currency,
                 } : {
                     packageId: checkout.packageId,
                     tripId:    checkout.tripId,
@@ -92,7 +99,7 @@ export default function PaymentCheckout() {
                 // once Flutterwave redirects back — the return URL only carries the
                 // transaction reference, not the full checkout context.
                 sessionStorage.setItem(CHECKOUT_STASH_KEY, JSON.stringify({
-                    ...checkout,
+                    ...paymentCheckout,
                     isAddKgMode,
                     reference,
                 }));
@@ -108,7 +115,7 @@ export default function PaymentCheckout() {
 
         boot();
         return () => { alive = false; };
-    }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.requestId, checkout.additionalKg, checkout.amount, checkout.currency, isAddKgMode]);
+    }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.requestId, checkout.additionalKg, (quotedCheckout || checkout).amount, (quotedCheckout || checkout).currency, isAddKgMode]);
 
     const goToFlutterwave = () => {
         if (!authorizationUrl) return;
@@ -178,26 +185,27 @@ export default function PaymentCheckout() {
                                 <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Additional Weight</p>
                                 <p className="text-base font-black text-[#012126]">+{checkout.additionalKg} KG</p>
                                 <p className="text-[9px] text-gray-400 font-bold mt-0.5">Added to existing shipment</p>
+                                {quotedCheckout?.weightQuote && <p className="text-xs text-gray-600 mt-2">Trip rate: {quotedCheckout.weightQuote.travelerCurrency} {quotedCheckout.weightQuote.travelerPricePerKg}/kg. Standard fees and any currency conversion are included in the total below.</p>}
                             </div>
                         )}
                         <p className="text-xs font-black uppercase tracking-widest text-gray-400">Order total</p>
                         <p className="mt-2 text-3xl font-black text-[#012126]">
-                            {checkout.currency} {checkout.amount.toFixed(2)}
+                            {(quotedCheckout || checkout).currency} {(quotedCheckout || checkout).amount.toFixed(2)}
                         </p>
 
                         {!isAddKgMode && checkout.insurance && checkout.insuranceCost > 0 && (
                             <div className="mt-3 space-y-2 text-xs font-bold text-gray-500">
                                 <div className="flex justify-between">
                                     <span>Shipment</span>
-                                    <span>{checkout.currency} {(checkout.amount - checkout.insuranceCost).toFixed(2)}</span>
+                                    <span>{(quotedCheckout || checkout).currency} {((quotedCheckout || checkout).amount - checkout.insuranceCost).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Insurance</span>
-                                    <span>{checkout.currency} {checkout.insuranceCost.toFixed(2)}</span>
+                                    <span>{(quotedCheckout || checkout).currency} {checkout.insuranceCost.toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-gray-100 pt-2 flex justify-between font-black text-[#012126]">
                                     <span>Total</span>
-                                    <span>{checkout.currency} {checkout.amount.toFixed(2)}</span>
+                                    <span>{(quotedCheckout || checkout).currency} {(quotedCheckout || checkout).amount.toFixed(2)}</span>
                                 </div>
                             </div>
                         )}

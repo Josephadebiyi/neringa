@@ -2,6 +2,7 @@ import {beforeEach, afterEach, describe, expect, it, vi} from 'vitest';
 const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn()}));
 vi.mock('../lib/postgres/db.js', () => ({query: m.query, queryOne: m.queryOne, withTransaction: vi.fn()}));
 vi.mock('../controllers/SenderOnboardingController.js', () => ({checkTermsAccepted: vi.fn().mockResolvedValue(true)}));
+vi.mock('../lib/postgres/tripCapacity.js', () => ({buildTripCapacitySnapshot: vi.fn().mockResolvedValue({availableKg: 20})}));
 vi.mock('../controllers/CurrencyController.js', () => ({buildShipmentCheckoutPreview: m.quote}));
 vi.mock('../services/resendClient.js', () => ({resend: null}));
 vi.mock('../services/ipGeolocation.js', () => ({getClientIP: () => '127.0.0.1', getLocationFromIP: vi.fn().mockResolvedValue(null)}));
@@ -109,4 +110,20 @@ describe('Stripe webhook payment ownership', () => {
     const response = await webhook();
     expect(response.code).toBe(500);
   });
+});
+
+it('additional weight creates its own intent using the trip quote, not an original captured payment', async () => {
+  m.queryOne.mockImplementation(async sql => {
+    if (sql.includes('select p.*')) return {id: 'sender', preferred_currency: 'EUR', phone_verified: true, stripe_customer_id: 'cus_test'};
+    if (sql.includes('select sr.*')) return {id: 'request', package_id: 'pkg', trip_id: 'trip', currency: 'EUR', status: 'accepted_awaiting_inspection', package_weight: 2};
+    if (sql.includes('select stripe_payment_intent_id')) return {stripe_payment_intent_id: 'pi_original'};
+    return {id: 'pkg', package_weight: 2, declared_value: 50};
+  });
+  m.quote.mockResolvedValue({...quote, tripId: 'trip', travelerId: 'traveler'});
+  const request = req(); request.body.requestId = 'request'; request.body.additionalKg = 3;
+  const response = res(); await createStripePaymentIntent(request, response);
+  expect(response.code).toBe(200);
+  expect(m.retrieve).not.toHaveBeenCalled();
+  expect(m.quote).toHaveBeenCalledWith(expect.objectContaining({weight: 3, insurance: false}));
+  expect(m.create.mock.calls[0][0].metadata).toMatchObject({additionalRequestId: 'request', additionalKg: '3', baseWeight: '2'});
 });

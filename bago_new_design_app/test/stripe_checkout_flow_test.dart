@@ -11,6 +11,7 @@ void main() {
   final calls = <MethodCall>[];
   var intentStatus = 'requires_payment_method';
   String? failure;
+  Map<String, dynamic>? intentBody;
   final draft = <String, dynamic>{
     'totalAmount': 112.8,
     'currency': 'EUR',
@@ -35,6 +36,7 @@ void main() {
           'merchantCountryCode': 'GB'
         }));
       } else {
+        intentBody = Map<String, dynamic>.from(options.data);
         expect(options.data['amount'], 112.8);
         expect(options.data['currency'], 'EUR');
         expect(options.data['insurance'], isTrue);
@@ -77,6 +79,17 @@ void main() {
       .instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, null));
 
+  test(
+      'additional weight keeps its existing shipment and quantity in the payment request',
+      () async {
+    await StripeCheckoutService.instance.payWithCard({
+      ...draft,
+      'additionalRequestId': 'existing-request',
+      'additionalKg': 3,
+    });
+    expect(intentBody?['requestId'], 'existing-request');
+    expect(intentBody?['additionalKg'], 3);
+  });
   test(
       'successful native card returns the payment reference for shipment creation',
       () async {

@@ -1,3 +1,4 @@
+import { getConversationById } from '../lib/postgres/messaging.js';
 import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
 import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail } from '../services/emailNotifications.js';
 import { generateShippingLabelPDF } from '../services/pdfGenerator.js';
@@ -260,11 +261,12 @@ export async function mergePaidDuplicateRequest({
   return updatedRequestId ? getShipmentRequestById(updatedRequestId) : null;
 }
 
-async function applyPaidAdditionalKg({
+export async function applyPaidAdditionalKg({
   requestId,
   senderId,
   additionalKg,
   additionalAmount,
+  quote,
   currency,
   paymentReference,
   paymentProvider,
@@ -272,11 +274,10 @@ async function applyPaidAdditionalKg({
   const updatedRequestId = await withTransaction(async (client) => {
     const requestResult = await client.query(
       `
-        select id, traveler_id, package_id, trip_id, payment_info, amount, currency, tracking_number
+        select id, traveler_id, package_id, trip_id, payment_info, amount, currency, tracking_number, status
         from public.shipment_requests
         where id = $1
           and sender_id = $2
-          and status in ('pending', 'accepted')
           and fast_payout_released_at is null
         for update
       `,
@@ -285,6 +286,14 @@ async function applyPaidAdditionalKg({
     const request = requestResult.rows[0];
     if (!request) return null;
 
+    const info = request.payment_info || {};
+    if (info.requestId === paymentReference || (info.payments || []).some(p => p.requestId === paymentReference)) return request.id;
+    if (!['pending', 'accepted', 'accepted_awaiting_inspection', 'inspection_in_progress', 'inspection_completed', 'approved_for_trip'].includes(request.status)) throw new Error('Additional weight can only be purchased before the trip starts.');
+    if (!quote || Math.abs(Number(quote.totalAmount) - Number(additionalAmount)) > .011) throw new Error('Verified additional weight quote is required.');
+    const claim = await client.query(`insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
+      values ($1, 'payment_confirmed', $2, $3, $4) on conflict (provider, event_type, provider_reference) do nothing returning id`,
+      [paymentProvider || 'flutterwave', paymentReference, request.id, {additionalKg}]);
+    if (claim.rowCount === 0) throw new Error('This payment has already been used.');
     const parsedKg = Number(additionalKg || 0);
     if (!Number.isFinite(parsedKg) || parsedKg <= 0) {
       throw new Error('Additional kg must be greater than 0.');
@@ -322,10 +331,16 @@ async function applyPaidAdditionalKg({
         set amount = $2,
             currency = $3,
             payment_info = $4,
+            traveler_payout = coalesce(traveler_payout, 0) + $5,
+            platform_commission = coalesce(platform_commission, 0) + $6,
+            processing_fee = coalesce(processing_fee, 0) + $7,
+            fx_buffer = coalesce(fx_buffer, 0) + $8,
+            sender_shipping_fee = coalesce(sender_shipping_fee, 0) + $9,
+            bago_net_revenue = coalesce(bago_net_revenue, 0) + $10,
             updated_at = timezone('utc', now())
         where id = $1
       `,
-      [request.id, nextAmount, nextCurrency, paymentInfo],
+      [request.id, nextAmount, nextCurrency, paymentInfo, quote.travelerPayout, quote.platformFee, quote.processingFee, quote.fxBuffer, quote.shippingAmount, quote.bagoNetRevenue],
     );
 
     await recordOperationalEvent(client, {
@@ -358,9 +373,11 @@ async function applyPaidAdditionalKg({
     const wallet = walletResult.rows[0];
     if (wallet && rawAmount > 0) {
       const walletCurrency = String(wallet.currency || 'USD').toUpperCase();
-      const escrowAmount = nextCurrency !== walletCurrency
-        ? await convertCurrency(rawAmount, nextCurrency, walletCurrency)
-        : rawAmount;
+      const payoutCurrency = quote.travelerCurrency;
+      const payoutAmount = Number(quote.travelerPayout);
+      const escrowAmount = payoutCurrency !== walletCurrency
+        ? await convertCurrency(payoutAmount, payoutCurrency, walletCurrency)
+        : payoutAmount;
       await client.query(
         `update public.wallet_accounts set escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
         [request.traveler_id, escrowAmount],
@@ -439,6 +456,7 @@ async function handlePackageRequest(req, res) {
     const senderId = req.user.id || req.user._id;
     let verifiedPaymentStatus = paymentStatus;
     let stripeQuote = null;
+    let additionalQuote = null;
     let requestAmount = Number(amount);
     let requestCurrency = currency || 'USD';
 
@@ -596,12 +614,23 @@ async function handlePackageRequest(req, res) {
         if (verification.data.currency !== String(requestCurrency || '').toUpperCase()) {
           return res.status(402).json({ message: 'Verified payment currency does not match the agreed currency.', success: false });
         }
+        if (String(verification.data.additionalRequestId || '') !== String(requestId || '') || Number(verification.data.additionalKg || 0) !== Number(additionalKg || 0)) {
+          return res.status(402).json({success: false, message: 'Payment does not match the additional weight request.'});
+        }
         stripeQuote = verification.data.quote;
+        if (requestId) additionalQuote = stripeQuote;
         verifiedPaymentStatus = 'succeeded';
       } else if (provider === 'flutterwave') {
         const verification = await verifyFlutterwaveTransactionServerSide(paymentReference, {senderId, packageId, tripId});
         if (!verification.success) {
           return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
+        }
+        if (requestId) {
+          const recorded = await queryOne("select raw_response from public.payments where provider = 'flutterwave' and provider_reference = $1 and user_id = $2", [verification.data.txRef, senderId]);
+          additionalQuote = recorded?.raw_response?.authoritativePreview;
+          if (!additionalQuote || additionalQuote.requestId !== requestId || Number(additionalQuote.additionalKg) !== Number(additionalKg)) {
+            return res.status(402).json({success: false, message: 'Payment does not match the additional weight request.'});
+          }
         }
         const verifiedAmount = Number(verification.data?.amount || 0);
         const agreedAmount = requestAmount;
@@ -620,6 +649,7 @@ async function handlePackageRequest(req, res) {
         senderId,
         additionalKg,
         additionalAmount: requestAmount,
+        quote: additionalQuote,
         currency: requestCurrency,
         paymentReference,
         paymentProvider: paymentProvider || 'flutterwave',
@@ -945,6 +975,16 @@ export async function updateRequestStatus(req, res) {
       if (updatedRequest?.tripId) {
         const updatedTrip = await getTripById(updatedRequest.tripId);
         emitTripUpdate(req, updatedTrip, [updatedRequest.travelerId, updatedRequest.senderId]);
+      }
+
+      if (['accepted', 'accepted_awaiting_inspection'].includes(status) && updatedRequest.conversationId) {
+        const io = req.app?.get('io');
+        if (io) {
+          for (const participantId of [updatedRequest.senderId, updatedRequest.travelerId].filter(Boolean)) {
+            const conversation = await getConversationById(updatedRequest.conversationId, participantId);
+            if (conversation) io.to(String(participantId)).emit('update_conversation', conversation);
+          }
+        }
       }
 
       const statusLabel = rawStatus === 'delivered'

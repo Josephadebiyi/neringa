@@ -53,3 +53,14 @@ describe('Stripe server-side booking verification', () => {
     expect(book).not.toHaveBeenCalled();
   });
 });
+
+it('additional-weight webhook finalizes the existing shipment with the paid quantity', async () => {
+  const intent = paid();
+  intent.metadata = {...intent.metadata, additionalRequestId: 'existing-request', additionalKg: '3'};
+  const book = vi.fn(async (req, res) => {
+    expect(req.body).toMatchObject({requestId: 'existing-request', additionalKg: 3});
+    res.json({success: true});
+  });
+  await completeStripeBooking(intent, book);
+  expect(book).toHaveBeenCalledTimes(1);
+});

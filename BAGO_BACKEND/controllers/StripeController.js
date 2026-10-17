@@ -1,3 +1,4 @@
+import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
 import crypto from 'crypto';
 import { checkTermsAccepted } from './SenderOnboardingController.js';
 import { completeStripeBooking } from '../services/stripeBookingCompletion.js';
@@ -949,6 +950,9 @@ export async function createStripePaymentIntent(req, res) {
     const currency = normalizeCurrency(req.body?.currency || profile.wallet_currency);
     let checkoutQuote = null;
     const shipmentId = req.body?.shipmentId || req.body?.deliveryId || null;
+    const additionalRequestId = req.body?.requestId || null;
+    const additionalKg = Number(req.body?.additionalKg || 0);
+    const additionalQuote = additionalRequestId ? await buildAdditionalWeightQuote({requestId: additionalRequestId, senderId: profile.id, additionalKg, currency}) : null;
     const packageId = req.body?.packageId || null;
     const tripId = req.body?.tripId || null;
     const travelerId = req.body?.travelerId || null;
@@ -1007,8 +1011,9 @@ export async function createStripePaymentIntent(req, res) {
       where user_id = $1 and provider = 'stripe' and stripe_payment_intent_id is not null
         and raw_response->'paymentIntent'->'metadata'->>'packageId' = $2
         and raw_response->'paymentIntent'->'metadata'->>'tripId' = $3
+        and coalesce(raw_response->'paymentIntent'->'metadata'->>'additionalRequestId', '') = ''
       order by created_at desc limit 1`, [profile.id, packageId, tripId]);
-    if (prior?.stripe_payment_intent_id) {
+    if (!additionalRequestId && prior?.stripe_payment_intent_id) {
       const previous = await requireStripe().paymentIntents.retrieve(prior.stripe_payment_intent_id);
       if (['succeeded', 'processing'].includes(previous.status)
           && previous.metadata?.senderId === profile.id
@@ -1027,7 +1032,10 @@ export async function createStripePaymentIntent(req, res) {
           message: 'Refresh checkout to pay in your saved local currency.'});
       }
       const pkg = await queryOne('select package_weight, declared_value from public.packages where id = $1 and user_id = $2', [packageId, profile.id]);
-      checkoutQuote = await buildShipmentCheckoutPreview({tripId, weight: pkg.package_weight,
+      if (additionalQuote && (additionalQuote.packageId !== packageId || additionalQuote.tripId !== tripId || additionalQuote.travelerId !== travelerId)) {
+        return res.status(409).json({success: false, message: 'Additional weight does not belong to this shipment.'});
+      }
+      checkoutQuote = additionalQuote || await buildShipmentCheckoutPreview({tripId, weight: pkg.package_weight,
         senderCurrency: currency.toUpperCase(), declaredValue: pkg.declared_value || 0,
         insurance: req.body?.insurance === true});
       const authoritativeAmount = toMinorAmount(checkoutQuote.totalAmount);
@@ -1065,6 +1073,7 @@ export async function createStripePaymentIntent(req, res) {
         tripId: tripId || '',
         travelerId: travelerId || '',
         paymentMethodType: paymentMethodTypes?.[0] || 'card',
+        ...(additionalQuote && {additionalRequestId, additionalKg: String(additionalKg), baseWeight: String(additionalQuote.baseWeight)}),
         ...(checkoutQuote && {bago_quote: encodeStripeQuote(checkoutQuote),
           bago_commission: String(checkoutQuote.platformFee), insurance: String(req.body?.insurance === true)}),
       },

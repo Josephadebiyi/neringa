@@ -1,3 +1,4 @@
+import { previewAdditionalWeight } from './services/additionalWeightQuote.js';
 import { createStripePaymentIntent, getStripeCheckoutConfig, isStripeCheckoutEnabled, stripeConnectWebhook } from './controllers/StripeController.js';
 import express from 'express';
 import cors from 'cors';
@@ -843,11 +844,11 @@ schema('/api/payouts/flutterwave/withdraw', {
   max: { amount: 20, currency: 3, otp: 12 },
 });
 schema('/api/payments/create-intent', {
-  allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted', 'insurance'],
+  allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted', 'insurance', 'requestId', 'additionalKg'],
   required: ['amount', 'currency'],
-  strings: ['currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId'],
+  strings: ['requestId', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId'],
   booleans: ['termsAccepted', 'insurance'],
-  stringOrNumbers: ['amount'],
+  stringOrNumbers: ['amount', 'additionalKg'],
   max: { amount: 20, currency: 3, countryCode: 2, shipmentId: 80, deliveryId: 80, paymentMethodId: 120, paymentMethodType: 20, packageId: 80, tripId: 80, travelerId: 80 },
 });
 schema('/api/payments/bizum-checkout', {
@@ -1052,6 +1053,7 @@ app.post('/api/currency/quote', getPaymentQuote);
 // Pricing contains no account-private data. Keeping this public lets search
 // results use the exact same live FX and fee calculation as checkout.
 app.post('/api/checkout/shipment-preview', previewShipmentCheckout);
+app.post('/api/checkout/additional-weight-preview', isAuthenticated, previewAdditionalWeight);
 
 // ✅ Flutterwave — sole active payment/payout provider. Endpoint paths match
 // what the mobile (api_constants.dart) and web (PaymentCheckout.jsx/Earnings.jsx/

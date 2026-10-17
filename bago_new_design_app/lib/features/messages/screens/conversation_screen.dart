@@ -1,3 +1,4 @@
+import '../../../shared/services/api_service.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 import 'dart:io';
@@ -536,14 +537,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             await ShipmentService.instance.getRequestDetails(
                           requestId.trim(),
                         );
-                        final existingWeight = request.packageWeight ?? 0;
-                        final pricePerKg = existingWeight > 0
-                            ? request.agreedPrice / existingWeight
-                            : 0.0;
-                        final estimatedShipping = pricePerKg > 0
-                            ? double.parse((kg * pricePerKg).toStringAsFixed(2))
-                            : 0.0;
+                        final response = await ApiService.instance.post(
+                          '/api/checkout/additional-weight-preview',
+                          data: {'requestId': request.id, 'additionalKg': kg},
+                        );
+                        final quote =
+                            Map<String, dynamic>.from(response.data['preview']);
                         final draft = {
+                          ...quote,
                           'type': 'additional_kg',
                           'additionalKg': kg,
                           'additionalRequestId': request.id,
@@ -553,9 +554,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           'currency': request.currency.isNotEmpty
                               ? request.currency
                               : 'USD',
-                          'shippingAmount': estimatedShipping,
+                          'shippingAmount': quote['shippingAmount'],
                           'insuranceAmount': 0.0,
-                          'totalAmount': estimatedShipping,
+                          'totalAmount': quote['totalAmount'],
                           'insurance': false,
                           'fromLocation':
                               request.fromLocation ?? conversation.routeLabel,

@@ -198,6 +198,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
             estimatedArrival: draft['estimatedArrival']?.toString(),
             paymentReference: reference,
             paymentProvider: provider,
+            additionalRequestId: draft['additionalRequestId']?.toString(),
+            additionalKg: draft['additionalKg'] == null
+                ? null
+                : _asDouble(draft['additionalKg']),
             message: draft['message']?.toString(),
             travelerPayout: _asDouble(draft['travelerPayout']),
             platformCommission: CheckoutCostBreakdown(draft).commission,
@@ -286,6 +290,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         currency: currency,
         insurance: insurance,
         insuranceCost: insuranceCost,
+        additionalRequestId: draft['additionalRequestId']?.toString(),
+        additionalKg: draft['additionalKg'] == null
+            ? null
+            : _asDouble(draft['additionalKg']),
       );
 
       if (!mounted) return;
