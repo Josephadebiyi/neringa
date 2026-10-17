@@ -1,3 +1,4 @@
+import { ensureTrackingNumber } from '../../services/trackingNumber.js';
 import { query, queryOne } from '../../lib/postgres/db.js';
 import { sendPushNotification } from '../../services/pushNotificationService.js';
 import { getShipmentRequestById, setExternalTracking } from '../../lib/postgres/shipping.js';
@@ -75,9 +76,6 @@ const STATUS_LABELS = {
   cancelled: 'Cancelled',
 };
 
-function buildTrackingNumber() {
-  return `BAGO-${String(Date.now()).toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
 
 function normalizeMovementTracking(value) {
   return Array.isArray(value) ? value : [];
@@ -769,7 +767,7 @@ export const updateRequest = async (req, res, next) => {
 
     if (status) {
       if ((status === 'accepted' || status === 'intransit') && !nextTrackingNumber) {
-        nextTrackingNumber = buildTrackingNumber();
+        nextTrackingNumber = await ensureTrackingNumber(id);
       }
 
       if (['accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed'].includes(status)) {

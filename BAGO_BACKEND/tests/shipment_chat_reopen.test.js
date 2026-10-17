@@ -11,6 +11,7 @@ const request = {id: 'new-request', status: 'pending', sender_id: 'sender', trav
 beforeEach(() => {
   vi.clearAllMocks();
   m.query.mockImplementation(async sql => {
+    if (sql.includes('select tracking_number from public.shipment_requests')) return {rows: [request]};
     if (sql.includes('from public.shipment_requests sr')) return {rows: [request]};
     if (sql.includes('from public.conversations')) return {rows: [{id: 'old-chat'}]};
     return {rows: []};

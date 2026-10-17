@@ -1,3 +1,4 @@
+import { ensureTrackingNumber } from '../../services/trackingNumber.js';
 import { randomInt } from 'crypto';
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
@@ -1209,7 +1210,7 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
 
     let trackingNumber = request.tracking_number;
     if ((status === 'accepted' || status === 'intransit') && !trackingNumber) {
-      trackingNumber = `BAGO-${String(Date.now( )).toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      trackingNumber = await ensureTrackingNumber(requestId, client);
     }
 
     await client.query(
