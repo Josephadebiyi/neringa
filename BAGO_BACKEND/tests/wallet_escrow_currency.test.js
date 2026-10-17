@@ -9,6 +9,7 @@ let walletCurrency;
 beforeEach(() => {
   vi.clearAllMocks(); walletCurrency = 'EUR'; m.convert.mockResolvedValue(92);
   m.query.mockImplementation(async sql => {
+    if (sql.includes('left join public.trips') && !/for update of sr\b/i.test(sql)) throw new Error('FOR UPDATE cannot be applied to the nullable side of an outer join');
     if (sql.includes('from public.shipment_requests sr')) return {rows: [{id: 'request', sender_id: 'sender', traveler_id: 'traveler', trip_id: 'trip', amount: 175000, currency: 'NGN', trip_currency: 'USD', traveler_payout: 100, insurance_cost: 0, platform_commission: 22500, processing_fee: 2500, fx_buffer: 0}]};
     if (sql.includes('insert into public.payment_events')) return {rows: [{id: 1}]};
     if (sql.includes('select id, currency from public.wallet_accounts')) return {rows: [{id: 'wallet', currency: walletCurrency}]};

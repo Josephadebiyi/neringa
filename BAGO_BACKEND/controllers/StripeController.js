@@ -667,39 +667,47 @@ export async function stripeConnectWebhook(req, res) {
           : paymentIntent.status === 'processing'
             ? 'processing'
             : 'failed';
-      await query(
-        `
-          insert into public.payments (
-            user_id, shipment_id, provider, payment_method, stripe_payment_intent_id,
-            amount, currency, status, raw_response
-          )
-          values (
-            null,
-            null,
-            'stripe',
-            coalesce($5, 'stripe'),
-            $1,
-            $2,
-            $3,
-            $4,
-            $6
-          )
-          on conflict (stripe_payment_intent_id) do update
-          set status = excluded.status,
-              raw_response = public.payments.raw_response || excluded.raw_response,
-              updated_at = timezone('utc', now())
-        `,
-        [
-          paymentIntent.id,
-          (paymentIntent.amount || 0) / 100,
-          String(paymentIntent.currency || '').toUpperCase(),
-          status,
-          paymentIntent.metadata?.paymentMethodType || paymentIntent.payment_method_types?.[0],
-          { webhookEventId: event.id, paymentIntent },
-        ],
-      ).catch((err) => {
-        console.error('Stripe webhook payment upsert failed:', err.message);
-      });
+      // The insert is validated before ON CONFLICT runs, so even updates
+      // need a non-null owner. Older intents can recover it from our ledger.
+      const paymentOwnerId = paymentIntent.metadata?.senderId ||
+        (await queryOne('select user_id from public.payments where stripe_payment_intent_id = $1', [paymentIntent.id]))?.user_id;
+      if (!paymentOwnerId && paymentIntent.metadata?.bago_quote) {
+        throw new Error('Stripe booking payment has no recorded owner.');
+      }
+      if (paymentOwnerId) {
+        await query(
+          `
+            insert into public.payments (
+              user_id, shipment_id, provider, payment_method, stripe_payment_intent_id,
+              amount, currency, status, raw_response
+            )
+            values (
+              $7,
+              null,
+              'stripe',
+              coalesce($5, 'stripe'),
+              $1,
+              $2,
+              $3,
+              $4,
+              $6
+            )
+            on conflict (stripe_payment_intent_id) do update
+            set status = excluded.status,
+                raw_response = public.payments.raw_response || excluded.raw_response,
+                updated_at = timezone('utc', now())
+          `,
+          [
+            paymentIntent.id,
+            (paymentIntent.amount || 0) / 100,
+            String(paymentIntent.currency || '').toUpperCase(),
+            status,
+            paymentIntent.metadata?.paymentMethodType || paymentIntent.payment_method_types?.[0],
+            { webhookEventId: event.id, paymentIntent },
+            paymentOwnerId,
+          ],
+        );
+      }
 
       await query(
         `

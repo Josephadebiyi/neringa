@@ -625,7 +625,7 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
         from public.shipment_requests sr
         join public.packages p on p.id = sr.package_id
         left join public.trips t on t.id = sr.trip_id
-        where sr.id = $1 for update
+        where sr.id = $1 for update of sr
       `,
       [requestId],
     );

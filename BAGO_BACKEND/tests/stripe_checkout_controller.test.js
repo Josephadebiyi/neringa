@@ -74,3 +74,39 @@ describe('Stripe card and Apple Pay initialization', () => {
     expect(response.code).toBe(400); expect(m.retrieve).not.toHaveBeenCalled();
   });
 });
+
+describe('Stripe webhook payment ownership', () => {
+  async function webhook(metadata = {senderId: 'sender'}) {
+    m.signature.mockReturnValue({id: 'evt_processing', type: 'payment_intent.processing', data: {object: {id: 'pi_mock'}}});
+    m.retrieve.mockResolvedValue({id: 'pi_mock', status: 'processing', amount: 11280, currency: 'eur', metadata});
+    const response = res();
+    await stripeConnectWebhook({headers: {'stripe-signature': 'signed'}, rawBody: Buffer.from('{}')}, response);
+    return response;
+  }
+  it('supplies a non-null owner even when the payment already exists', async () => {
+    m.query.mockImplementation(async (sql, params) => {
+      if (sql.includes('insert into public.payments')) {
+        if (!sql.includes('$7') || !params[6]) throw new Error('user_id violates not-null constraint');
+      }
+      return {rows: []};
+    });
+    const response = await webhook();
+    expect(response.code).toBe(200);
+    const paymentWrite = m.query.mock.calls.find(([sql]) => sql.includes('insert into public.payments'));
+    expect(paymentWrite[1][6]).toBe('sender');
+  });
+  it('recovers the ledger owner for older intents without sender metadata', async () => {
+    m.queryOne.mockResolvedValue({user_id: 'recorded-sender'});
+    const response = await webhook({});
+    expect(response.code).toBe(200);
+    expect(m.query.mock.calls.find(([sql]) => sql.includes('insert into public.payments'))[1][6]).toBe('recorded-sender');
+  });
+  it('returns an error for a failed payment write so Stripe retries delivery', async () => {
+    m.query.mockImplementation(async sql => {
+      if (sql.includes('insert into public.payments')) throw new Error('Database unavailable');
+      return {rows: []};
+    });
+    const response = await webhook();
+    expect(response.code).toBe(500);
+  });
+});
