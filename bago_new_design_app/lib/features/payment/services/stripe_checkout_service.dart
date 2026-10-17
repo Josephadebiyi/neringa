@@ -44,8 +44,8 @@ class StripeCheckoutService {
   bool supportsCurrency(String currency) =>
       !flutterwaveOnlyCurrencies.contains(currency.toUpperCase());
 
-  /// Null when Stripe checkout is switched off on the backend — callers then
-  /// fall back to Flutterwave only, exactly like the current app.
+  /// Null when Stripe checkout is unavailable. International checkout must
+  /// stay blocked rather than fall back to a different payment provider.
   Future<StripeCheckoutConfig?> loadConfig() async {
     if (_config != null) return _config;
     try {

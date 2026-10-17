@@ -77,11 +77,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isLoadingDraft = false;
       });
       if (draft != null) {
-        // Flutterwave's hosted checkout needs no client-side priming (unlike
-        // PayPal's config/eligibility fetch) — ready as soon as the draft loads.
-        if (mounted) setState(() => _isSdkReady = true);
-        if (PaidBookingService.canResume(draft)) return;
-        _loadStripeOptions(_asString(draft['currency'], 'USD'));
+        if (PaidBookingService.canResume(draft)) {
+          setState(() => _isSdkReady = true);
+          return;
+        }
+        await _loadStripeOptions(_asString(draft['currency'], 'USD'));
         // Fire compliance check in background — never blocks checkout
         _fetchCompliance(draft);
       }
@@ -104,16 +104,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _stripeAvailable = true;
         _applePayAvailable = true;
         _method = _PayMethod.applePay;
+        _isSdkReady = true;
       });
       return;
     }
     final stripe = StripeCheckoutService.instance;
-    if (!stripe.supportsCurrency(currency)) return;
+    if (!stripe.supportsCurrency(currency)) {
+      if (mounted) setState(() => _isSdkReady = true);
+      return;
+    }
     final config = await stripe.loadConfig();
-    if (config == null || !mounted) return;
+    if (!mounted) return;
+    if (config == null) {
+      setState(() {
+        _initError =
+            'International card payments are temporarily unavailable. Please try again later.';
+      });
+      return;
+    }
     final applePay = await stripe.isApplePayAvailable();
     if (!mounted) return;
     setState(() {
+      _isSdkReady = true;
       _stripeAvailable = true;
       _applePayAvailable = applePay;
       _method = applePay ? _PayMethod.applePay : _PayMethod.card;
@@ -121,7 +133,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _pay() {
-    if (_isProcessing) return;
+    if (_isProcessing || !_isSdkReady || _initError != null) return;
     if (_draft != null && PaidBookingService.canResume(_draft!)) {
       _finalizePaidBooking(_draft!['paidProvider'].toString(),
           _draft!['paidReference'].toString());
@@ -514,8 +526,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(child: AppLoading()),
               )
-            // African currencies (and any currency while card checkout is
-            // off) skip the method list: one Pay button opens Flutterwave.
+            // Local currencies use Flutterwave. International checkout waits
+            // for Stripe and stays blocked if its configuration is unavailable.
             else if (_isSdkReady && _stripeAvailable) ...[
               if (_applePayAvailable)
                 _MethodTile(
