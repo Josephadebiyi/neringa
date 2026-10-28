@@ -46,6 +46,30 @@ export default function PaymentCallback() {
         completePayment(transactionId);
     }, []);
 
+    // Back to the same checkout when we still know what was being paid for.
+    const retryCheckout = () => {
+        try {
+            const pending = JSON.parse(sessionStorage.getItem(CHECKOUT_STASH_KEY) || 'null');
+            if (pending?.isAddKgMode && pending.requestId) {
+                navigate(`/checkout/payment?${new URLSearchParams({
+                    requestId: pending.requestId, additionalKg: String(pending.additionalKg),
+                    amount: String(pending.amount), currency: pending.currency,
+                }).toString()}`);
+                return;
+            }
+            if (pending?.packageId && pending.tripId && pending.travelerId) {
+                navigate(`/checkout/payment?${new URLSearchParams({
+                    packageId: pending.packageId, tripId: pending.tripId, travelerId: pending.travelerId,
+                    amount: String(pending.amount), currency: pending.currency,
+                    insurance: String(pending.insurance === true), insuranceCost: String(pending.insuranceCost || 0),
+                    estimatedDeparture: pending.estimatedDeparture || '',
+                }).toString()}`);
+                return;
+            }
+        } catch (_) {}
+        navigate('/send-package');
+    };
+
     const readStash = () => {
         const raw = sessionStorage.getItem(CHECKOUT_STASH_KEY);
         if (!raw) {
@@ -193,7 +217,7 @@ export default function PaymentCallback() {
                         <h1 className="text-2xl font-black text-gray-900 mb-2">Payment Error</h1>
                         <p className="text-gray-500 text-sm mb-6">{message}</p>
                         <button
-                            onClick={() => navigate('/send-package')}
+                            onClick={retryCheckout}
                             className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#4838B5] transition-all"
                         >
                             Try Again

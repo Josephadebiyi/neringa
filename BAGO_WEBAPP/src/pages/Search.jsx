@@ -16,6 +16,7 @@ import {
     ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
+import { getUserPaymentCurrency } from '../utils/userCurrency';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../api';
 import AsyncCreatableSelect from 'react-select/async-creatable';
@@ -378,7 +379,9 @@ export default function Search() {
 
     useEffect(() => {
         let cancelled = false;
-        const senderCurrency = normalizeCurrency(currency, 'USD');
+        // Signed-in senders see the price they will be charged: their profile's
+        // payment currency, the same one checkout and the app use.
+        const senderCurrency = normalizeCurrency(user ? getUserPaymentCurrency(user, currency) : currency, 'USD');
         if (!trips.length) {
             setAuthoritativeRates({});
             return undefined;
@@ -407,7 +410,7 @@ export default function Search() {
         });
 
         return () => { cancelled = true; };
-    }, [trips, currency]);
+    }, [trips, currency, user?.preferredCurrency, user?.preferred_currency]);
 
     const fetchTrips = async () => {
         setLoading(true);

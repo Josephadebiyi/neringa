@@ -148,6 +148,18 @@ export default function PaymentCheckout() {
                 setAuthorizationUrl(url);
             } catch (err) {
                 if (!alive) return;
+                // Exchange rates moved past the allowed drift since the price was
+                // shown: reload checkout once with the fresh total and say so.
+                const data = err?.response?.data;
+                const freshTotal = Number(data?.preview?.totalAmount);
+                if (data?.code === 'CHECKOUT_PRICE_CHANGED' && freshTotal > 0 && params.get('repriced') !== '1') {
+                    const next = new URLSearchParams(params);
+                    next.set('amount', freshTotal.toFixed(2));
+                    if (checkout.insurance) next.set('insuranceCost', String(Number(data.preview.insuranceAmount || 0)));
+                    next.set('repriced', '1');
+                    navigate(`/checkout/payment?${next.toString()}`, { replace: true });
+                    return;
+                }
                 setError(checkoutErrorMessage(err));
             } finally {
                 if (alive) setLoading(false);
@@ -188,6 +200,12 @@ export default function PaymentCheckout() {
                                         : 'Card, Apple Pay, bank transfer & mobile money — choose your method on the next page.'}
                                 </p>
                             </div>
+
+                            {params.get('repriced') === '1' && !error && (
+                                <div className="mb-4 rounded-[14px] border border-amber-100 bg-amber-50 p-4 text-xs font-bold text-amber-700">
+                                    The price was updated because exchange rates changed. Check the new total before paying.
+                                </div>
+                            )}
 
                             {/* Error */}
                             {error && (

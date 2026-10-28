@@ -8,7 +8,7 @@ import { acceptQuotedAmount } from '../services/checkoutPriceDrift.js';
 import Stripe from 'stripe';
 
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
-import { getShipmentRequestById } from '../lib/postgres/shipping.js';
+import { getShipmentRequestById, rememberPackageCheckout } from '../lib/postgres/shipping.js';
 import { resend } from '../services/resendClient.js';
 import { getClientIP, getLocationFromIP } from '../services/ipGeolocation.js';
 import { sendWithdrawalProcessedEmail, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
@@ -1030,6 +1030,15 @@ async function quoteStripeBooking(req, profile, booking) {
   return {checkoutQuote, amount: toMinorAmount(checkoutQuote.totalAmount)};
 }
 
+function rememberStripeCheckout(req, profile, booking, checkoutQuote) {
+  if (booking.additionalRequestId) return Promise.resolve();
+  return rememberPackageCheckout(booking.packageId, profile.id, {
+    tripId: booking.tripId, travelerId: booking.travelerId,
+    amount: checkoutQuote.totalAmount, currency: booking.currency,
+    insurance: req.body?.insurance === true, insuranceCost: checkoutQuote.insuranceAmount,
+  });
+}
+
 // Metadata the booking check and webhook read back off the PaymentIntent.
 function stripeBookingMetadata(req, profile, booking, checkoutQuote, paymentMethodType) {
   const {shipmentId, packageId, tripId, travelerId, additionalRequestId, additionalKg, additionalQuote} = booking;
@@ -1146,6 +1155,7 @@ export async function createStripePaymentIntent(req, res) {
     const priced = await quoteStripeBooking(req, profile, booking);
     if (priced.error) return res.status(priced.error.status).json(priced.error.body);
     const {checkoutQuote, amount} = priced;
+    await rememberStripeCheckout(req, profile, booking, checkoutQuote);
 
     const customerId = await ensureStripeCustomer(profile);
     const ephemeralKey = await createEphemeralKey(customerId);
@@ -1296,6 +1306,7 @@ async function createStripeHostedCheckout(req, res, method) {
     const priced = await quoteStripeBooking(req, profile, booking);
     if (priced.error) return res.status(priced.error.status).json(priced.error.body);
     const { checkoutQuote, amount } = priced;
+    await rememberStripeCheckout(req, profile, booking, checkoutQuote);
 
     const customerId = await ensureStripeCustomer(profile);
     const mobile = req.body?.platform === 'mobile';
