@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
-import { cacheWallet, getCachedWallet, getUserPayoutCurrency } from '../../utils/userCurrency';
-import { convertWallet } from '../../utils/currencyConversion';
+import { cacheWallet, getCachedWallet, getUserAccountCurrency, getUserPayoutCurrency } from '../../utils/userCurrency';
+import { convertCurrencyAmount, convertWallet } from '../../utils/currencyConversion';
 
 const CURRENCY_SYMBOLS = { USD:'$', EUR:'€', GBP:'£', NGN:'₦', GHS:'₵', KES:'KSh', ZAR:'R' };
 // Approximate exchange rates vs USD for minimum calculation
@@ -113,6 +113,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [history, setHistory]         = useState(() => cachedWallet?.history || []);
     const [allTimeTotals, setTotals]    = useState({ received: 0, expenses: 0 });
     const [walletApiCurrency, setWalletApiCurrency] = useState(null);
+    const [settlementCurrency, setSettlementCurrency] = useState(null);
     const [loadingWallet, setLoading]   = useState(false);
 
     const [amount, setAmount]         = useState('');
@@ -123,7 +124,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     const [otpCode, setOtpCode]       = useState('');
     const [otpDestination, setOtpDestination] = useState('');
 
-    const walletCurrency = getUserPayoutCurrency(user, currency || walletApiCurrency || 'USD');
+    const walletCurrency = getUserAccountCurrency(user, currency || walletApiCurrency || 'USD');
     const sym             = getSymbol(walletCurrency);
     const minimum         = getMinimum(walletCurrency);
 
@@ -133,6 +134,12 @@ export default function Earnings({ user, checkAuthStatus }) {
 
     useEffect(() => {
         let alive = true;
+        setSettlementCurrency(null);
+        const cached = getCachedWallet(user);
+        setBalance(cached?.balance ?? null);
+        setEscrow(cached?.escrow ?? 0);
+        setHistory(cached?.history || []);
+        setTotals({ received: cached?.allTimeReceived ?? 0, expenses: cached?.allTimeExpenses ?? 0 });
         setLoading(true);
         api.get('/api/bago/getWallet').then(async res => {
             if (!alive) return;
@@ -155,10 +162,11 @@ export default function Earnings({ user, checkAuthStatus }) {
                 history: Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []),
                 allTimeReceived: firstNumber(d.allTimeReceived, root.allTimeReceived),
                 allTimeExpenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
-                currency: d.currency || root.currency || walletCurrency,
+                currency: d.currency || root.currency || user?.walletCurrency || user?.wallet_currency || walletCurrency,
             };
             const confirmedWallet = await convertWallet(rawWallet, walletCurrency);
             if (!alive) return;
+            setSettlementCurrency(rawWallet.currency);
             setBalance(confirmedWallet.balance);
             setEscrow(confirmedWallet.escrow);
             setHistory(confirmedWallet.history);
@@ -172,7 +180,7 @@ export default function Earnings({ user, checkAuthStatus }) {
             // Keep the earnings page usable if wallet history is temporarily unavailable.
         }).finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
-    }, []);
+    }, [user?._id, user?.id, walletCurrency]);
 
     const incomeTypes  = new Set(['earning','signup_bonus','admin_settlement','credit','release','deposit','escrow_release']);
     const expenseTypes = new Set(['withdrawal','withdraw','payout']);
@@ -213,7 +221,7 @@ export default function Earnings({ user, checkAuthStatus }) {
     const amountNum = Number(amount) || 0;
     const belowMin   = amountNum > 0 && amountNum < minimum;
     const aboveBal   = balance !== null && amountNum > balance;
-    const canSubmit  = balance !== null && hasPayoutMethod && !submitting && amountNum >= minimum && !aboveBal;
+    const canSubmit  = balance !== null && settlementCurrency !== null && hasPayoutMethod && !submitting && amountNum >= minimum && !aboveBal;
 
     const handleWithdraw = async (e) => {
         e?.preventDefault();
@@ -240,10 +248,12 @@ export default function Earnings({ user, checkAuthStatus }) {
         setSubmitting(true);
         setStatus({ type:'', msg:'' });
         try {
-            // One bank-withdrawal endpoint supports every wallet currency.
+            // The input is in account currency; the API debits the wallet's
+            // settlement currency, which can differ from both display and bank.
+            const settlementAmount = await convertCurrencyAmount(amountNum, walletCurrency, settlementCurrency);
             const res = await api.post('/api/payouts/flutterwave/withdraw', {
-                amount: amountNum,
-                currency: walletCurrency,
+                amount: Math.round(settlementAmount * 100) / 100,
+                currency: settlementCurrency,
                 otp,
                 description: 'Withdrawal via Bank Transfer',
             });
@@ -252,8 +262,11 @@ export default function Earnings({ user, checkAuthStatus }) {
                 setAmount('');
                 setOtpCode('');
                 setShowModal(false);
-                const nextBalance = firstNumber(res.data?.balance, res.data?.newBalance);
-                setBalance(nextBalance || Math.max(0, balance - amountNum));
+                const rawBalance = res.data?.balance ?? res.data?.newBalance;
+                const nextBalance = rawBalance == null
+                    ? Math.max(0, balance - amountNum)
+                    : Number(rawBalance) / (settlementAmount / amountNum);
+                setBalance(nextBalance);
                 if (checkAuthStatus) checkAuthStatus();
             }
         } catch (err) {
@@ -296,7 +309,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                         </span>
                     </div>
                     <p className="font-['Manrope'] text-xl font-extrabold">Bank transfer</p>
-                    <p className="text-xs text-white/55 mt-1">{walletCurrency} · {hasPayoutMethod ? 'Funds sent after approval' : 'Link a bank account to withdraw'}</p>
+                    <p className="text-xs text-white/55 mt-1">{getUserPayoutCurrency(user)} · {hasPayoutMethod ? 'Funds sent after approval' : 'Link a bank account to withdraw'}</p>
                     <button
                         onClick={() => navigate('/dashboard?tab=settings')}
                         className="mt-auto self-start h-10 px-5 rounded-full bg-white text-[#171B22] text-[13px] font-semibold hover:bg-white/90 transition-colors"

@@ -140,6 +140,9 @@ class StripeCheckoutService {
               light: PaymentSheetPrimaryButtonThemeColors(
                 background: AppColors.primary,
               ),
+              dark: PaymentSheetPrimaryButtonThemeColors(
+                background: AppColors.primary,
+              ),
             ),
           ),
         ),

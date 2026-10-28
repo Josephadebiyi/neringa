@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { cacheWallet, getCachedWallet, getUserPayoutCurrency } from '../../utils/userCurrency';
+import { cacheWallet, getCachedWallet, getUserAccountCurrency } from '../../utils/userCurrency';
 import { convertWallet } from '../../utils/currencyConversion';
 
 const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
@@ -196,7 +196,7 @@ function StatusPill({ status, onDark = false, selected = false }) {
 export default function Overview({ user, kycStatus, handleStartKyc, userStats }) {
     const navigate = useNavigate();
 
-    const profileCurrency = getUserPayoutCurrency(user);
+    const profileCurrency = getUserAccountCurrency(user);
     const cachedWallet = getCachedWallet(user);
 
     const [walletData, setWalletData] = useState({
@@ -221,6 +221,8 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
 
     useEffect(() => {
         let mounted = true;
+        const cached = getCachedWallet(user);
+        setWalletData({ balance: null, escrow: 0, history: [], allTimeReceived: 0, ...cached, currency: profileCurrency });
         setLoadingWallet(true);
         api.get('/api/bago/getWallet')
             .then(async res => {
@@ -244,7 +246,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
                     history: Array.isArray(d.history) ? d.history : (Array.isArray(d.transactions) ? d.transactions : []),
                     allTimeReceived: firstNumber(d.allTimeReceived, root.allTimeReceived),
                     allTimeExpenses: firstNumber(d.allTimeExpenses, root.allTimeExpenses),
-                    currency: d.currency || root.currency || profileCurrency,
+                    currency: d.currency || root.currency || user?.walletCurrency || user?.wallet_currency || profileCurrency,
                 };
                 const confirmedWallet = await convertWallet(rawWallet, profileCurrency);
                 if (!mounted) return;
@@ -256,7 +258,7 @@ export default function Overview({ user, kycStatus, handleStartKyc, userStats })
             })
             .finally(() => { if (mounted) setLoadingWallet(false); });
         return () => { mounted = false; };
-    }, [profileCurrency]);
+    }, [user?._id, user?.id, profileCurrency]);
 
     const chartData = (() => {
         const today = new Date();

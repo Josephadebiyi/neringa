@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { getUserPayoutCurrency } from '../utils/userCurrency';
+import { getUserAccountCurrency } from '../utils/userCurrency';
 import {
     MapPin,
     Calendar,
@@ -123,7 +123,7 @@ export default function PostTrip() {
     });
     const [showCurrencyModal, setShowCurrencyModal] = useState(false);
     const [selectedCurrency, setSelectedCurrency] = useState('');
-    const activeCurrency = getUserPayoutCurrency(user, selectedCurrency || '');
+    const activeCurrency = getUserAccountCurrency(user, selectedCurrency || '');
     const isBusinessAccount = user?.accountType === 'company' || user?.account_type === 'company';
     const [documentPreview, setDocumentPreview] = useState(null);
     const [postedCount, setPostedCount] = useState(1);

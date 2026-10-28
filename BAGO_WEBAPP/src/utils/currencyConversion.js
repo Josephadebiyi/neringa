@@ -32,8 +32,6 @@ export async function convertCurrencyAmount(amount, fromCurrency, toCurrency) {
 export async function convertWallet(wallet, targetCurrency) {
     const sourceCurrency = String(wallet.currency || targetCurrency || 'USD').toUpperCase();
     const target = String(targetCurrency || sourceCurrency).toUpperCase();
-    if (sourceCurrency === target) return { ...wallet, currency: target };
-
     const [balance, escrow, allTimeReceived, allTimeExpenses] = await Promise.all([
         convertCurrencyAmount(wallet.balance, sourceCurrency, target),
         convertCurrencyAmount(wallet.escrow, sourceCurrency, target),

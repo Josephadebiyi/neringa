@@ -1,12 +1,12 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import api, { clearAuthSession, setSessionExpiredHandler } from './api';
-import { getUserPayoutCurrency } from './utils/userCurrency';
+import { getUserAccountCurrency } from './utils/userCurrency';
 
 const AuthContext = createContext({});
 
 const persistUserCurrency = (userData) => {
-    const currency = getUserPayoutCurrency(userData, '');
+    const currency = getUserAccountCurrency(userData, '');
     if (currency) {
         localStorage.setItem('baggo_currency', currency);
         window.dispatchEvent(new CustomEvent('bago:currency', { detail: currency }));

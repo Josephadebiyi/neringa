@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
-import { getUserPayoutCurrency } from '../utils/userCurrency';
+import { getUserAccountCurrency } from '../utils/userCurrency';
 import api from '../api';
 
 const LanguageContext = createContext();
@@ -1453,12 +1453,13 @@ export function LanguageProvider({ children }) {
         return () => window.removeEventListener('bago:currency', syncCurrency);
     }, []);
 
+    const accountCurrency = getUserAccountCurrency(user, '');
     useEffect(() => {
-        const normalized = getUserPayoutCurrency(user, '');
+        const normalized = accountCurrency;
         if (normalized) {
             setCurrency(current => current === normalized ? current : normalized);
         }
-    }, [user?.payoutAccount?.currency, user?.payout_account?.currency, user?.payoutCurrency, user?.payout_currency, user?.walletCurrency, user?.wallet_currency, user?.earningCurrency, user?.preferredCurrency, user?.preferred_currency, user?.currency]);
+    }, [accountCurrency]);
 
     useEffect(() => {
         localStorage.setItem('baggo_language', currentLanguage);
@@ -1484,20 +1485,21 @@ export function LanguageProvider({ children }) {
     }, [currency]);
 
     useEffect(() => {
-        if (_hadStoredCurrency) return;
+        if (_hadStoredCurrency || accountCurrency) return;
+        let cancelled = false;
         const detectFromIp = async () => {
             try {
                 // Use our own backend — avoids ipapi.co rate limits and works for all regions
                 const response = await fetch('/api/bago/detect-location');
                 const data = await response.json();
-                if (data.currency && currencies.some(item => item.code === data.currency.toUpperCase())) {
+                if (!cancelled && data.currency && currencies.some(item => item.code === data.currency.toUpperCase())) {
                     setCurrency(data.currency.toUpperCase());
                 }
             } catch (e) {}
         };
         detectFromIp();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        return () => { cancelled = true; };
+    }, [accountCurrency]);
 
     const t = (key) => {
         const value = translations[currentLanguage]?.[key] || translations.en[key];

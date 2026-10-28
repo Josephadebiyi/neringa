@@ -3,6 +3,7 @@ import api from '../../api';
 import { User, Mail, Shield, Camera, Check, RefreshCw, Landmark, CheckCircle, ShieldCheck, AlertCircle, ChevronDown, Search } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNavigate } from 'react-router-dom';
+import { getUserAccountCurrency } from '../../utils/userCurrency';
 
 // Displays a date of birth with the exact year hidden — shows the month, day,
 // and only the century (first two digits of the year), e.g. "Mar 15, 19**"
@@ -225,7 +226,8 @@ export default function Settings({ user, checkAuthStatus }) {
     const [newEmail, setNewEmail] = useState('');
     const [showEmailOtp, setShowEmailOtp] = useState(false);
     const [emailOtp, setEmailOtp] = useState('');
-    const [preferredCurrency, setPreferredCurrency] = useState(user?.earningCurrency || user?.preferredCurrency || '');
+    const accountCurrency = getUserAccountCurrency(user, '');
+    const [preferredCurrency, setPreferredCurrency] = useState(accountCurrency);
     const [residenceCountry, setResidenceCountry] = useState(user?.country || '');
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -256,14 +258,14 @@ export default function Settings({ user, checkAuthStatus }) {
     const [phoneSuccess, setPhoneSuccess] = useState(false);
 
     useEffect(() => {
-        if (user?.earningCurrency || user?.preferredCurrency) {
-            setPreferredCurrency(user.earningCurrency || user.preferredCurrency);
+        if (accountCurrency) {
+            setPreferredCurrency(accountCurrency);
         }
         if (user?.phone) {
             setPhone(user.phone);
         }
         setBio(user?.bio || '');
-    }, [user?._id, user?.preferredCurrency, user?.phone, user?.bio]);
+    }, [user?._id, accountCurrency, user?.phone, user?.bio]);
 
     useEffect(() => {
         setPayoutCurrency(linkedPayoutCurrency);

@@ -4,7 +4,7 @@ import 'react-phone-input-2/lib/style.css';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { getUserPayoutCurrency } from '../utils/userCurrency';
+import { getUserAccountCurrency } from '../utils/userCurrency';
 import {
     Package,
     ChevronLeft,
@@ -155,7 +155,7 @@ export default function SendPackage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [currency, setCurrency] = useState(() => getUserPayoutCurrency(user));
+    const [currency, setCurrency] = useState(() => getUserAccountCurrency(user));
     const [kycStatus, setKycStatus] = useState(user?.kycStatus || 'not_started');
     const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
     const [checkoutPreview, setCheckoutPreview] = useState(null);
@@ -224,7 +224,7 @@ export default function SendPackage() {
     const fetchPricing = async ({ silent = false } = {}) => {
         const weight = parseFloat(formData.packageWeight);
         const declaredValue = parseFloat(formData.packageValue) || 0;
-        const senderCurrency = getUserPayoutCurrency(user, currency);
+        const senderCurrency = getUserAccountCurrency(user, currency);
         const tripId = tripIdFrom(selectedTrip);
         if (!tripId || !Number.isFinite(weight) || weight <= 0) {
             setCheckoutPreview(null);
