@@ -144,6 +144,8 @@ class ApiConstants {
   static const String stripePaymentMethods = '/api/payments/methods';
   static const String stripeCreateIntent = '/api/payments/create-intent';
   static const String stripeBizumCheckout = '/api/payments/bizum-checkout';
+  static const String stripeBizumEligibility =
+      '/api/payments/bizum-eligibility';
   static const String shipmentCheckoutPreview =
       '/api/checkout/shipment-preview';
   // Flutterwave — the only active payment provider.

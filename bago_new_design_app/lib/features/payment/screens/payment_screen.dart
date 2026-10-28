@@ -22,7 +22,7 @@ import '../services/shipment_checkout_service.dart';
 import '../services/stripe_checkout_service.dart';
 import '../../shipments/services/shipment_service.dart';
 
-enum _PayMethod { applePay, card, local }
+enum _PayMethod { applePay, card, bizum, local }
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key, this.extra});
@@ -52,6 +52,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // the currency isn't a Flutterwave-only African currency).
   bool _stripeAvailable = false;
   bool _applePayAvailable = false;
+  bool _bizumAvailable = false;
   _PayMethod _method = _PayMethod.local;
 
   @override
@@ -123,11 +124,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
     final applePay = await stripe.isApplePayAvailable();
+    final bizum = await stripe.isBizumAvailable(currency);
     if (!mounted) return;
     setState(() {
       _isSdkReady = true;
       _stripeAvailable = true;
       _applePayAvailable = applePay;
+      _bizumAvailable = bizum;
       _method = applePay ? _PayMethod.applePay : _PayMethod.card;
     });
   }
@@ -143,6 +146,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       case _PayMethod.applePay:
       case _PayMethod.card:
         _startStripeCheckout(_method);
+      case _PayMethod.bizum:
+        _startBizumCheckout();
       case _PayMethod.local:
         _startFlutterwaveCheckout();
     }
@@ -165,6 +170,51 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (e.error.code == FailureCode.Canceled) return;
       _failWithDraft('stripe',
           e.error.localizedMessage ?? e.error.message ?? 'Payment failed.');
+      return;
+    } catch (e) {
+      if (mounted) setState(() => _isProcessing = false);
+      _failWithDraft('stripe', e.toString().replaceFirst('Exception: ', ''));
+      return;
+    }
+
+    await _finalizePaidBooking('stripe', paymentIntentId!);
+  }
+
+  // ── Bizum (Stripe hosted checkout, Spanish residents paying in EUR) ──────
+  Future<void> _startBizumCheckout() async {
+    if (_isProcessing || _draft == null) return;
+    setState(() => _isProcessing = true);
+    final stripe = StripeCheckoutService.instance;
+    String? paymentIntentId;
+    try {
+      final start = await stripe.startBizum(_draft!);
+      paymentIntentId = start.paidIntentId;
+      if (paymentIntentId == null) {
+        final callbackUrl = await FlutterWebAuth2.authenticate(
+          url: start.url,
+          callbackUrlScheme: _flutterwaveCallbackScheme,
+        );
+        final params = Uri.tryParse(callbackUrl)?.queryParameters ?? {};
+        if (params['status'] != 'success') {
+          if (mounted) setState(() => _isProcessing = false);
+          _failWithDraft('stripe', 'Payment was cancelled.');
+          return;
+        }
+        final session = await stripe.bizumSession(params['session_id'] ?? '');
+        if (session.paymentIntentId.isEmpty ||
+            !const ['succeeded', 'processing'].contains(session.status)) {
+          if (mounted) setState(() => _isProcessing = false);
+          _failWithDraft('stripe', 'Bizum could not confirm this payment.');
+          return;
+        }
+        paymentIntentId = session.paymentIntentId;
+      }
+    } on PlatformException catch (e) {
+      if (mounted) setState(() => _isProcessing = false);
+      // User closed the browser sheet without paying — not an error.
+      if (e.code != 'CANCELED') {
+        _failWithDraft('stripe', 'Payment could not be completed.');
+      }
       return;
     } catch (e) {
       if (mounted) setState(() => _isProcessing = false);
@@ -553,6 +603,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   selected: _method == _PayMethod.card,
                   onTap: () => setState(() => _method = _PayMethod.card),
                 ),
+              if (_bizumAvailable)
+                _MethodTile(
+                  leading: const _BizumMark(),
+                  title: 'Bizum',
+                  subtitle: 'Pay from your Spanish bank app',
+                  selected: _method == _PayMethod.bizum,
+                  onTap: () => setState(() => _method = _PayMethod.bizum),
+                ),
             ],
           ],
 
@@ -694,6 +752,26 @@ class _CardBrandsMark extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BizumMark extends StatelessWidget {
+  const _BizumMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF05C3C7),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text('bizum',
+          style: TextStyle(
+              color: AppPalette.of(context).white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700)),
     );
   }
 }

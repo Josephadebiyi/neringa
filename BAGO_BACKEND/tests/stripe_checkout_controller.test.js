@@ -1,5 +1,5 @@
 import {beforeEach, afterEach, describe, expect, it, vi} from 'vitest';
-const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn()}));
+const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn(), session: vi.fn()}));
 vi.mock('../lib/postgres/db.js', () => ({query: m.query, queryOne: m.queryOne, withTransaction: vi.fn()}));
 vi.mock('../controllers/SenderOnboardingController.js', () => ({checkTermsAccepted: vi.fn().mockResolvedValue(true)}));
 vi.mock('../lib/postgres/tripCapacity.js', () => ({buildTripCapacitySnapshot: vi.fn().mockResolvedValue({availableKg: 20})}));
@@ -11,8 +11,9 @@ vi.mock('stripe', () => ({default: class Stripe {
   paymentIntents = {create: m.create, retrieve: m.retrieve};
   ephemeralKeys = {create: async () => ({secret: 'test_ephemeral'})};
   webhooks = {constructEvent: m.signature};
+  checkout = {sessions: {create: m.session}};
 }}));
-import {createStripePaymentIntent, isStripeCheckoutEnabled, stripeConnectWebhook} from '../controllers/StripeController.js';
+import {bizumReturnPage, createBizumCheckoutSession, createStripePaymentIntent, getBizumEligibility, isStripeCheckoutEnabled, stripeConnectWebhook} from '../controllers/StripeController.js';
 const quote = {travelerCurrency: 'USD', senderCurrency: 'EUR', travelerPayout: 100,
   convertedTravelerPayout: 92, platformFee: 13.8, processingFee: 2, fxBuffer: 0,
   shippingAmount: 107.8, insuranceAmount: 5, totalAmount: 112.8, bagoNetRevenue: 15.8, exchangeRate: .92};
@@ -146,4 +147,62 @@ it('additional weight creates its own intent using the trip quote, not an origin
   expect(m.retrieve).not.toHaveBeenCalled();
   expect(m.quote).toHaveBeenCalledWith(expect.objectContaining({weight: 3, insurance: false}));
   expect(m.create.mock.calls[0][0].metadata).toMatchObject({additionalRequestId: 'request', additionalKg: '3', baseWeight: '2'});
+});
+
+describe('Bizum checkout for Spanish residents', () => {
+  const spanishSender = {id: 'sender', country: 'ES', preferred_currency: 'EUR', stripe_customer_id: 'cus_test'};
+  beforeEach(() => {
+    const fallback = m.queryOne.getMockImplementation();
+    m.queryOne.mockImplementation(async sql => sql.includes('select p.*') ? spanishSender : fallback(sql));
+    m.session.mockResolvedValue({id: 'cs_test_1', url: 'https://checkout.stripe.com/c/pay/cs_test_1'});
+  });
+
+  it('opens a Bizum session priced from the server quote with booking metadata', async () => {
+    const response = res(); await createBizumCheckoutSession({...req(), body: {...req().body, platform: 'mobile'}}, response);
+    expect(response.code).toBe(200);
+    expect(response.data.url).toBe('https://checkout.stripe.com/c/pay/cs_test_1');
+    const params = m.session.mock.calls[0][0];
+    expect(params.payment_method_types).toEqual(['bizum']);
+    expect(params.line_items[0].price_data).toMatchObject({currency: 'eur', unit_amount: 11280});
+    expect(params.payment_intent_data.metadata).toMatchObject({senderId: 'sender', packageId: 'pkg', tripId: 'trip', travelerId: 'traveler', paymentMethodType: 'bizum'});
+    expect(JSON.parse(params.payment_intent_data.metadata.bago_quote).ta).toBe(112.8);
+    expect(params.success_url).toContain('platform=mobile');
+  });
+
+  it('refuses users who do not live in Spain', async () => {
+    const fallback = m.queryOne.getMockImplementation();
+    m.queryOne.mockImplementation(async sql => sql.includes('select p.*') ? {...spanishSender, country: 'FR'} : fallback(sql));
+    const response = res(); await createBizumCheckoutSession(req(), response);
+    expect(response.code).toBe(403); expect(response.data.code).toBe('BIZUM_COUNTRY'); expect(m.session).not.toHaveBeenCalled();
+  });
+
+  it('refuses non-EUR payments', async () => {
+    const response = res(); await createBizumCheckoutSession({...req(), body: {...req().body, currency: 'GBP'}}, response);
+    expect(response.code).toBe(400); expect(m.session).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale price like card checkout does', async () => {
+    const response = res(); await createBizumCheckoutSession(req(99), response);
+    expect(response.code).toBe(409); expect(response.data.code).toBe('CHECKOUT_PRICE_CHANGED'); expect(m.session).not.toHaveBeenCalled();
+  });
+
+  it('can be switched off with STRIPE_BIZUM_ENABLED=false', async () => {
+    vi.stubEnv('STRIPE_BIZUM_ENABLED', 'false');
+    const response = res(); await createBizumCheckoutSession(req(), response);
+    expect(response.code).toBe(410); expect(m.session).not.toHaveBeenCalled();
+  });
+
+  it('tells the app when to show Bizum', async () => {
+    const spain = res(); await getBizumEligibility({user: {id: 'sender'}, query: {currency: 'EUR'}}, spain);
+    expect(spain.data.available).toBe(true);
+    const gbp = res(); await getBizumEligibility({user: {id: 'sender'}, query: {currency: 'GBP'}}, gbp);
+    expect(gbp.data.available).toBe(false);
+  });
+
+  it('sends mobile users back to the app after paying', () => {
+    let redirect;
+    const response = {redirect(code, url) { redirect = {code, url}; }};
+    bizumReturnPage('success')({query: {platform: 'mobile', session_id: 'cs_test_1'}}, response);
+    expect(redirect).toEqual({code: 302, url: 'com.deracali.boltexponativewind.payments://bizum?status=success&session_id=cs_test_1'});
+  });
 });

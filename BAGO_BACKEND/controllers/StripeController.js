@@ -946,112 +946,187 @@ export async function deleteSavedCard(req, res) {
   }
 }
 
+const reject = (status, body) => ({error: {status, body}});
+
+// Shared by card/Apple Pay intents and Bizum sessions: checks the booking the
+// payment is for. Returns its details, or {error} to send back as is.
+async function validateStripeBooking(req, profile) {
+  const amount = toMinorAmount(req.body?.amount);
+  const currency = normalizeCurrency(req.body?.currency || profile.wallet_currency);
+  const shipmentId = req.body?.shipmentId || req.body?.deliveryId || null;
+  const additionalRequestId = req.body?.requestId || null;
+  const additionalKg = Number(req.body?.additionalKg || 0);
+  const packageId = req.body?.packageId || null;
+  const tripId = req.body?.tripId || null;
+  const travelerId = req.body?.travelerId || null;
+  if (amount <= 0) return reject(400, { success: false, message: 'Amount must be greater than zero.' });
+  if (!packageId || !tripId || !travelerId) {
+    return reject(400, { success: false, message: 'Package, trip, and traveler are required before payment.' });
+  }
+  if (req.body?.termsAccepted !== true) {
+    return reject(400, { success: false, message: 'Shipment terms must be accepted before payment.' });
+  }
+  // Off by default: while SMS delivery is down, nobody can verify a phone,
+  // and checkout already requires KYC. Set REQUIRE_PHONE_FOR_CARD_CHECKOUT=true to restore.
+  if (requirePhoneForCardCheckout() && profile.phone_verified !== true) {
+    return reject(403, { success: false, code: 'PHONE_NOT_VERIFIED', message: 'Please verify your mobile number before payment.' });
+  }
+  if (!await checkTermsAccepted(profile.id)) {
+    return reject(403, { success: false, code: 'TERMS_NOT_ACCEPTED', message: 'Please accept the shipment rules before payment.' });
+  }
+  const packageRow = await queryOne(
+    `select id, category, package_weight, declared_value from public.packages where id = $1 and user_id = $2 limit 1`,
+    [packageId, profile.id],
+  );
+  if (!packageRow) {
+    return reject(404, { success: false, message: 'Package not found or not owned by sender.' });
+  }
+  if (packageRow.category) {
+    const category = await queryOne(
+      `select id, name, slug, risk_level from public.item_categories where slug = $1 and is_active = true limit 1`,
+      [packageRow.category],
+    ).catch(() => null);
+    if (category?.risk_level === 'prohibited') {
+      return reject(403, {
+        success: false,
+        code: 'PROHIBITED_ITEM',
+        message: `"${category.name}" is a prohibited item on Bago. Shipment cannot be created.`,
+      });
+    }
+  }
+  const tripRow = await queryOne(
+    `select id from public.trips where id = $1 and user_id = $2 limit 1`,
+    [tripId, travelerId],
+  );
+  if (!tripRow) {
+    return reject(404, { success: false, message: 'Trip not found or not owned by traveler.' });
+  }
+  const additionalQuote = additionalRequestId
+    ? await buildAdditionalWeightQuote({requestId: additionalRequestId, senderId: profile.id, additionalKg, currency})
+    : null;
+  return {amount, currency, shipmentId, additionalRequestId, additionalKg, additionalQuote, packageId, tripId, travelerId};
+}
+
+// Prices a validated booking from a fresh server quote, accepting small FX drift.
+async function quoteStripeBooking(req, profile, booking) {
+  const residenceCurrency = String(profile.preferred_currency || profile.earning_currency || profile.wallet_currency || '').toUpperCase();
+  if (residenceCurrency && booking.currency.toUpperCase() !== residenceCurrency) {
+    return reject(409, {success: false, code: 'PAYMENT_CURRENCY_MISMATCH',
+      message: 'Refresh checkout to pay in your saved local currency.'});
+  }
+  const {additionalQuote} = booking;
+  if (additionalQuote && (additionalQuote.packageId !== booking.packageId || additionalQuote.tripId !== booking.tripId || additionalQuote.travelerId !== booking.travelerId)) {
+    return reject(409, {success: false, message: 'Additional weight does not belong to this shipment.'});
+  }
+  const pkg = await queryOne('select package_weight, declared_value from public.packages where id = $1 and user_id = $2', [booking.packageId, profile.id]);
+  const freshQuote = additionalQuote || await buildShipmentCheckoutPreview({tripId: booking.tripId, weight: pkg.package_weight,
+    senderCurrency: booking.currency.toUpperCase(), declaredValue: pkg.declared_value || 0,
+    insurance: req.body?.insurance === true});
+  const checkoutQuote = acceptQuotedAmount(freshQuote, booking.amount / 100);
+  if (!checkoutQuote) {
+    return reject(409, {success: false, code: 'CHECKOUT_PRICE_CHANGED',
+      message: 'The checkout price changed. Refresh the price summary before paying.', preview: freshQuote});
+  }
+  return {checkoutQuote, amount: toMinorAmount(checkoutQuote.totalAmount)};
+}
+
+// Metadata the booking check and webhook read back off the PaymentIntent.
+function stripeBookingMetadata(req, profile, booking, checkoutQuote, paymentMethodType) {
+  const {shipmentId, packageId, tripId, travelerId, additionalRequestId, additionalKg, additionalQuote} = booking;
+  return {
+    shipmentId: shipmentId || '',
+    senderId: profile.id,
+    packageId: packageId || '',
+    tripId: tripId || '',
+    travelerId: travelerId || '',
+    paymentMethodType,
+    ...(additionalQuote && {additionalRequestId, additionalKg: String(additionalKg), baseWeight: String(additionalQuote.baseWeight)}),
+    ...(checkoutQuote && {bago_quote: encodeStripeQuote(checkoutQuote),
+      bago_commission: String(checkoutQuote.platformFee), insurance: String(req.body?.insurance === true)}),
+  };
+}
+
+// A booking already paid (or paying) through Stripe, by card or Bizum.
+async function findSettledStripePayment(profile, booking) {
+  if (booking.additionalRequestId) return null;
+  const prior = await queryOne(`select stripe_payment_intent_id from public.payments
+    where user_id = $1 and provider = 'stripe' and stripe_payment_intent_id is not null
+      and raw_response->'paymentIntent'->'metadata'->>'packageId' = $2
+      and raw_response->'paymentIntent'->'metadata'->>'tripId' = $3
+      and coalesce(raw_response->'paymentIntent'->'metadata'->>'additionalRequestId', '') = ''
+    order by created_at desc limit 1`, [profile.id, booking.packageId, booking.tripId]);
+  if (!prior?.stripe_payment_intent_id) return null;
+  const previous = await requireStripe().paymentIntents.retrieve(prior.stripe_payment_intent_id);
+  if (['succeeded', 'processing'].includes(previous.status)
+      && previous.metadata?.senderId === profile.id
+      && previous.metadata?.packageId === booking.packageId
+      && previous.metadata?.tripId === booking.tripId
+      && previous.metadata?.travelerId === booking.travelerId) {
+    return previous;
+  }
+  return null;
+}
+
+const SPAIN_COUNTRY_VALUES = new Set(['es', 'esp', 'spain', 'españa', 'espana']);
+
+export function isSpainResident(profile) {
+  return SPAIN_COUNTRY_VALUES.has(String(profile?.country || '').trim().toLowerCase());
+}
+
+export function isBizumCheckoutEnabled() {
+  return isStripeCheckoutEnabled()
+    && String(process.env.STRIPE_BIZUM_ENABLED ?? 'true').trim().toLowerCase() !== 'false';
+}
+
+// Bizum is offered to Spanish residents paying in EUR.
+export async function getBizumEligibility(req, res) {
+  try {
+    const profile = await getProfile(userIdFromReq(req));
+    const currency = normalizeCurrency(req.query?.currency || profile?.preferred_currency || 'EUR');
+    const available = Boolean(profile) && isBizumCheckoutEnabled() && currency === 'eur' && isSpainResident(profile);
+    return res.json({success: true, available});
+  } catch (error) {
+    console.error('getBizumEligibility failed:', error);
+    return res.json({success: true, available: false});
+  }
+}
+
+const BIZUM_APP_RETURN = 'com.deracali.boltexponativewind.payments://bizum';
+
+// Stripe Checkout needs an https return URL; mobile hops from here to the app.
+export function bizumReturnPage(status) {
+  return (req, res) => {
+    const sessionId = /^cs_[A-Za-z0-9_]+$/.test(String(req.query?.session_id || '')) ? req.query.session_id : '';
+    if (req.query?.platform === 'mobile') {
+      return res.redirect(302, `${BIZUM_APP_RETURN}?status=${status}&session_id=${encodeURIComponent(sessionId)}`);
+    }
+    const text = status === 'success' ? 'Payment complete. You can return to Bago.' : 'Payment cancelled. You can return to Bago.';
+    return res.type('html').send(`<!doctype html><html><body><p>${text}</p></body></html>`);
+  };
+}
+
 export async function createStripePaymentIntent(req, res) {
   try {
     const profile = await getProfile(userIdFromReq(req));
     if (!profile) return res.status(404).json({ success: false, message: 'User not found.' });
 
-    let amount = toMinorAmount(req.body?.amount);
-    const currency = normalizeCurrency(req.body?.currency || profile.wallet_currency);
-    let checkoutQuote = null;
-    const shipmentId = req.body?.shipmentId || req.body?.deliveryId || null;
-    const additionalRequestId = req.body?.requestId || null;
-    const additionalKg = Number(req.body?.additionalKg || 0);
-    const additionalQuote = additionalRequestId ? await buildAdditionalWeightQuote({requestId: additionalRequestId, senderId: profile.id, additionalKg, currency}) : null;
-    const packageId = req.body?.packageId || null;
-    const tripId = req.body?.tripId || null;
-    const travelerId = req.body?.travelerId || null;
+    const booking = await validateStripeBooking(req, profile);
+    if (booking.error) return res.status(booking.error.status).json(booking.error.body);
+    const {currency, shipmentId, additionalRequestId, additionalKg, additionalQuote, packageId, tripId, travelerId} = booking;
     const paymentMethodId = req.body?.paymentMethodId || null;
     const paymentMethodType = req.body?.paymentMethodType || 'card';
-    if (amount <= 0) return res.status(400).json({ success: false, message: 'Amount must be greater than zero.' });
-
-    if (!packageId || !tripId || !travelerId) {
-      return res.status(400).json({success: false, message: 'Package, trip, and traveler are required before payment.'});
-    }
-    if (packageId || tripId || travelerId) {
-      if (!packageId || !tripId || !travelerId) {
-        return res.status(400).json({ success: false, message: 'Package, trip, and traveler are required before payment.' });
-      }
-      if (req.body?.termsAccepted !== true) {
-        return res.status(400).json({ success: false, message: 'Shipment terms must be accepted before payment.' });
-      }
-      // Off by default: while SMS delivery is down, nobody can verify a phone,
-      // and checkout already requires KYC. Set REQUIRE_PHONE_FOR_CARD_CHECKOUT=true to restore.
-      if (requirePhoneForCardCheckout() && profile.phone_verified !== true) {
-        return res.status(403).json({ success: false, code: 'PHONE_NOT_VERIFIED', message: 'Please verify your mobile number before payment.' });
-      }
-      if (!await checkTermsAccepted(profile.id)) {
-        return res.status(403).json({success: false, code: 'TERMS_NOT_ACCEPTED', message: 'Please accept the shipment rules before payment.'});
-      }
-      const packageRow = await queryOne(
-        `select id, category, package_weight, declared_value from public.packages where id = $1 and user_id = $2 limit 1`,
-        [packageId, profile.id],
-      );
-      if (!packageRow) {
-        return res.status(404).json({ success: false, message: 'Package not found or not owned by sender.' });
-      }
-      if (packageRow.category) {
-        const category = await queryOne(
-          `select id, name, slug, risk_level from public.item_categories where slug = $1 and is_active = true limit 1`,
-          [packageRow.category],
-        ).catch(() => null);
-        if (category?.risk_level === 'prohibited') {
-          return res.status(403).json({
-            success: false,
-            code: 'PROHIBITED_ITEM',
-            message: `"${category.name}" is a prohibited item on Bago. Shipment cannot be created.`,
-          });
-        }
-      }
-      const tripRow = await queryOne(
-        `select id from public.trips where id = $1 and user_id = $2 limit 1`,
-        [tripId, travelerId],
-      );
-      if (!tripRow) {
-        return res.status(404).json({ success: false, message: 'Trip not found or not owned by traveler.' });
-      }
-    }
 
     // Recover a settled/in-flight payment before recalculating FX or making a
     // new intent. The app may have closed after Stripe accepted the payment.
-    const prior = await queryOne(`select stripe_payment_intent_id from public.payments
-      where user_id = $1 and provider = 'stripe' and stripe_payment_intent_id is not null
-        and raw_response->'paymentIntent'->'metadata'->>'packageId' = $2
-        and raw_response->'paymentIntent'->'metadata'->>'tripId' = $3
-        and coalesce(raw_response->'paymentIntent'->'metadata'->>'additionalRequestId', '') = ''
-      order by created_at desc limit 1`, [profile.id, packageId, tripId]);
-    if (!additionalRequestId && prior?.stripe_payment_intent_id) {
-      const previous = await requireStripe().paymentIntents.retrieve(prior.stripe_payment_intent_id);
-      if (['succeeded', 'processing'].includes(previous.status)
-          && previous.metadata?.senderId === profile.id
-          && previous.metadata?.packageId === packageId
-          && previous.metadata?.tripId === tripId
-          && previous.metadata?.travelerId === travelerId) {
-        return res.json({success: true, clientSecret: previous.client_secret,
-          paymentIntentId: previous.id, paymentStatus: previous.status, recovered: true});
-      }
+    const previous = await findSettledStripePayment(profile, booking);
+    if (previous) {
+      return res.json({success: true, clientSecret: previous.client_secret,
+        paymentIntentId: previous.id, paymentStatus: previous.status, recovered: true});
     }
 
-    if (packageId) {
-      const residenceCurrency = String(profile.preferred_currency || profile.earning_currency || profile.wallet_currency || '').toUpperCase();
-      if (residenceCurrency && currency.toUpperCase() !== residenceCurrency) {
-        return res.status(409).json({success: false, code: 'PAYMENT_CURRENCY_MISMATCH',
-          message: 'Refresh checkout to pay in your saved local currency.'});
-      }
-      const pkg = await queryOne('select package_weight, declared_value from public.packages where id = $1 and user_id = $2', [packageId, profile.id]);
-      if (additionalQuote && (additionalQuote.packageId !== packageId || additionalQuote.tripId !== tripId || additionalQuote.travelerId !== travelerId)) {
-        return res.status(409).json({success: false, message: 'Additional weight does not belong to this shipment.'});
-      }
-      const freshQuote = additionalQuote || await buildShipmentCheckoutPreview({tripId, weight: pkg.package_weight,
-        senderCurrency: currency.toUpperCase(), declaredValue: pkg.declared_value || 0,
-        insurance: req.body?.insurance === true});
-      checkoutQuote = acceptQuotedAmount(freshQuote, amount / 100);
-      if (!checkoutQuote) {
-        return res.status(409).json({success: false, code: 'CHECKOUT_PRICE_CHANGED',
-          message: 'The checkout price changed. Refresh the price summary before paying.', preview: freshQuote});
-      }
-      amount = toMinorAmount(checkoutQuote.totalAmount);
-    }
+    const priced = await quoteStripeBooking(req, profile, booking);
+    if (priced.error) return res.status(priced.error.status).json(priced.error.body);
+    const {checkoutQuote, amount} = priced;
 
     const customerId = await ensureStripeCustomer(profile);
     const ephemeralKey = await createEphemeralKey(customerId);
@@ -1073,17 +1148,7 @@ export async function createStripePaymentIntent(req, res) {
       amount,
       currency,
       customer: customerId,
-      metadata: {
-        shipmentId: shipmentId || '',
-        senderId: profile.id,
-        packageId: packageId || '',
-        tripId: tripId || '',
-        travelerId: travelerId || '',
-        paymentMethodType: paymentMethodTypes?.[0] || 'card',
-        ...(additionalQuote && {additionalRequestId, additionalKg: String(additionalKg), baseWeight: String(additionalQuote.baseWeight)}),
-        ...(checkoutQuote && {bago_quote: encodeStripeQuote(checkoutQuote),
-          bago_commission: String(checkoutQuote.platformFee), insurance: String(req.body?.insurance === true)}),
-      },
+      metadata: stripeBookingMetadata(req, profile, booking, checkoutQuote, paymentMethodTypes?.[0] || 'card'),
     };
     if (paymentMethodTypes) {
       params.payment_method_types = paymentMethodTypes;
@@ -1182,47 +1247,31 @@ export async function createBizumCheckoutSession(req, res) {
     if (!profile) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
-
-    const amount = toMinorAmount(req.body?.amount);
-    const currency = normalizeCurrency(req.body?.currency || 'EUR');
-    const packageId = req.body?.packageId || null;
-    const tripId = req.body?.tripId || null;
-    const travelerId = req.body?.travelerId || null;
-
-    if (amount <= 0) {
-      return res.status(400).json({ success: false, message: 'Amount must be greater than zero.' });
-    }
-    if (currency !== 'eur') {
-      return res.status(400).json({ success: false, message: 'Bizum is only available for EUR payments.' });
-    }
-    if (!packageId || !tripId || !travelerId) {
-      return res.status(400).json({ success: false, message: 'Package, trip, and traveler are required before payment.' });
-    }
-    if (req.body?.termsAccepted !== true) {
-      return res.status(400).json({ success: false, message: 'Shipment terms must be accepted before payment.' });
-    }
-    if (profile.phone_verified === false) {
-      return res.status(403).json({ success: false, code: 'PHONE_NOT_VERIFIED', message: 'Please verify your mobile number before payment.' });
+    if (!isBizumCheckoutEnabled()) {
+      return res.status(410).json({ success: false, message: 'Bizum is not available right now.' });
     }
 
-    const packageRow = await queryOne(
-      `select id, category from public.packages where id = $1 and user_id = $2 limit 1`,
-      [packageId, profile.id],
-    );
-    if (!packageRow) {
-      return res.status(404).json({ success: false, message: 'Package not found or not owned by sender.' });
+    const booking = await validateStripeBooking(req, profile);
+    if (booking.error) return res.status(booking.error.status).json(booking.error.body);
+    if (booking.currency !== 'eur') {
+      return res.status(400).json({ success: false, code: 'BIZUM_CURRENCY', message: 'Bizum is only available for EUR payments.' });
+    }
+    if (!isSpainResident(profile)) {
+      return res.status(403).json({ success: false, code: 'BIZUM_COUNTRY', message: 'Bizum is only available to users living in Spain.' });
     }
 
-    const tripRow = await queryOne(
-      `select id from public.trips where id = $1 and user_id = $2 limit 1`,
-      [tripId, travelerId],
-    );
-    if (!tripRow) {
-      return res.status(404).json({ success: false, message: 'Trip not found or not owned by traveler.' });
+    const previous = await findSettledStripePayment(profile, booking);
+    if (previous) {
+      return res.json({ success: true, recovered: true, paymentIntentId: previous.id, paymentStatus: previous.status });
     }
+
+    const priced = await quoteStripeBooking(req, profile, booking);
+    if (priced.error) return res.status(priced.error.status).json(priced.error.body);
+    const { checkoutQuote, amount } = priced;
 
     const customerId = await ensureStripeCustomer(profile);
-    const baseUrl = appUrl();
+    const returnBase = `${appUrl()}/api/payments`;
+    const platform = req.body?.platform === 'mobile' ? 'mobile' : 'web';
     const session = await requireStripe().checkout.sessions.create({
       mode: 'payment',
       customer: customerId,
@@ -1231,60 +1280,31 @@ export async function createBizumCheckoutSession(req, res) {
         {
           quantity: 1,
           price_data: {
-            currency,
+            currency: 'eur',
             unit_amount: amount,
             product_data: { name: 'Bago shipment payment' },
           },
         },
       ],
       payment_intent_data: {
-        metadata: {
-          senderId: profile.id,
-          packageId,
-          tripId,
-          travelerId,
-          paymentMethodType: 'bizum',
-        },
+        metadata: stripeBookingMetadata(req, profile, booking, checkoutQuote, 'bizum'),
       },
-      success_url: `${baseUrl}/api/payments/bizum-return?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/api/payments/bizum-cancel?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${returnBase}/bizum-return?platform=${platform}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${returnBase}/bizum-cancel?platform=${platform}&session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         senderId: profile.id,
-        packageId,
-        tripId,
-        travelerId,
+        packageId: booking.packageId,
+        tripId: booking.tripId,
+        travelerId: booking.travelerId,
       },
-      expand: ['payment_intent'],
     });
-
-    const paymentIntent = session.payment_intent;
-    await query(
-      `
-        insert into public.payments (
-          user_id, shipment_id, provider, payment_method, stripe_payment_intent_id,
-          amount, currency, status, raw_response
-        )
-        values ($1,null,'stripe','bizum',$2,$3,$4,$5,$6)
-        on conflict (stripe_payment_intent_id) do update
-        set status = excluded.status,
-            raw_response = public.payments.raw_response || excluded.raw_response,
-            updated_at = timezone('utc', now())
-      `,
-      [
-        profile.id,
-        paymentIntent?.id || session.id,
-        amount / 100,
-        currency.toUpperCase(),
-        paymentIntent?.status || session.payment_status || 'created',
-        { checkoutSessionId: session.id, paymentIntentId: paymentIntent?.id || null },
-      ],
-    );
 
     return res.json({
       success: true,
       url: session.url,
       sessionId: session.id,
-      paymentIntentId: paymentIntent?.id || '',
+      amount: amount / 100,
+      checkoutPreview: checkoutQuote,
     });
   } catch (error) {
     console.error('createBizumCheckoutSession failed:', error);
