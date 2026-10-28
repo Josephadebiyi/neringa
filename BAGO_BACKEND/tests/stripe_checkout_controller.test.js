@@ -37,8 +37,12 @@ describe('Stripe card and Apple Pay initialization', () => {
     expect(m.create).toHaveBeenCalledWith(expect.objectContaining({amount: 11280, currency: 'eur', metadata: expect.objectContaining({bago_commission: '13.8'})}), expect.objectContaining({idempotencyKey: expect.any(String)}));
     expect(response.data.paymentStatus).toBe('requires_payment_method');
   });
-  it('lets the payment sheet offer redirect wallets like Revolut Pay', async () => {
+  it('keeps redirect wallets out of the card sheet for app builds without a return URL', async () => {
     await createStripePaymentIntent(req(), res());
+    expect(m.create.mock.calls[0][0].automatic_payment_methods).toEqual({enabled: true, allow_redirects: 'never'});
+  });
+  it('offers redirect wallets like Revolut Pay to app builds that support them', async () => {
+    await createStripePaymentIntent({...req(), body: {...req().body, supportsRedirects: true}}, res());
     expect(m.create.mock.calls[0][0].automatic_payment_methods).toEqual({enabled: true, allow_redirects: 'always'});
   });
   it('blocks a price that omits commission before charging', async () => {
