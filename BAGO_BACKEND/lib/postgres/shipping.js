@@ -818,6 +818,54 @@ export async function createPackageRecord(data) {
   return normalizePackage(row);
 }
 
+// Remembers what a sender was paying for, so "Continue Payment" on an unpaid
+// draft can reopen the same checkout. Best effort: never blocks a payment.
+export async function rememberPackageCheckout(packageId, userId, context) {
+  if (!packageId || !userId || !context?.tripId || !context?.travelerId) return;
+  await query(
+    `update public.packages set checkout_context = $3::jsonb where id = $1 and user_id = $2`,
+    [packageId, userId, JSON.stringify({
+      tripId: String(context.tripId),
+      travelerId: String(context.travelerId),
+      amount: Number(context.amount || 0),
+      currency: String(context.currency || '').toUpperCase(),
+      insurance: context.insurance === true,
+      insuranceCost: Number(context.insuranceCost || 0),
+      savedAt: new Date().toISOString(),
+    })],
+  ).catch((error) => console.warn('Could not remember checkout for draft:', error.message));
+}
+
+// Web checkout URL that resumes a draft, or null when the draft never reached payment.
+export function draftResumeCheckout(row) {
+  const saved = row.checkout_context || null;
+  const flutterwaveMeta = row.flutterwave_raw_response || {};
+  const tripId = saved?.tripId || flutterwaveMeta.tripId || null;
+  const travelerId = saved?.travelerId || row.flutterwave_traveler_id || null;
+  if (!tripId || !travelerId) return null;
+  const amount = Number(saved?.amount || row.flutterwave_amount || 0);
+  const currency = String(saved?.currency || row.flutterwave_currency || row.currency || 'USD').toUpperCase();
+  if (!(amount > 0)) return null;
+  const insurance = saved ? saved.insurance === true : Number(flutterwaveMeta.authoritativePreview?.insuranceAmount || 0) > 0;
+  const insuranceCost = saved ? Number(saved.insuranceCost || 0) : Number(flutterwaveMeta.authoritativePreview?.insuranceAmount || 0);
+  return {
+    packageId: row.id,
+    tripId,
+    travelerId,
+    amount,
+    currency,
+    url: `/checkout/payment?${new URLSearchParams({
+      packageId: String(row.id),
+      tripId: String(tripId),
+      travelerId: String(travelerId),
+      amount: amount.toFixed(2),
+      currency,
+      insurance: String(insurance),
+      insuranceCost: String(insurance ? insuranceCost : 0),
+    }).toString()}`,
+  };
+}
+
 export async function deletePackageRecord(id, userId) {
   const deleted = await queryOne(
     `delete from public.packages where id = $1 and user_id = $2 returning id`,
@@ -1749,7 +1797,8 @@ export async function listRecentOrdersForUser(userId) {
               fp.provider_reference as flutterwave_reference,
               fp.raw_response as flutterwave_raw_response,
               fp.amount as flutterwave_amount,
-              fp.currency as flutterwave_currency
+              fp.currency as flutterwave_currency,
+              ft.user_id as flutterwave_traveler_id
        from public.packages p
        left join public.profiles pr on pr.id = p.user_id
        left join lateral (
@@ -1761,6 +1810,7 @@ export async function listRecentOrdersForUser(userId) {
          order by created_at desc
          limit 1
        ) fp on true
+       left join public.trips ft on ft.id::text = fp.raw_response ->> 'tripId'
        where p.user_id = $1
          and p.created_at >= timezone('utc', now()) - ($2::text || ' minutes')::interval
          and not exists (
@@ -1786,24 +1836,7 @@ export async function listRecentOrdersForUser(userId) {
 
   const drafts = draftsResult.rows.map((row) => {
     const pkg = normalizePackage(row);
-    const flutterwaveMeta = row.flutterwave_raw_response || {};
-    const flutterwaveCheckout = row.flutterwave_reference
-      ? {
-          provider: 'flutterwave',
-          packageId: row.id,
-          tripId: flutterwaveMeta.tripId || null,
-          travelerId: null,
-          amount: Number(row.flutterwave_amount || 0),
-          currency: row.flutterwave_currency || row.currency || 'USD',
-          reference: row.flutterwave_reference,
-          url: `/checkout/payment?${new URLSearchParams({
-            packageId: String(row.id),
-            ...(flutterwaveMeta.tripId ? { tripId: String(flutterwaveMeta.tripId) } : {}),
-            amount: String(Number(row.flutterwave_amount || 0).toFixed(2)),
-            currency: String(row.flutterwave_currency || row.currency || 'USD').toUpperCase(),
-          }).toString()}`,
-        }
-      : null;
+    const resumeCheckout = draftResumeCheckout(row);
     const paymentExpiresAt = new Date(new Date(row.created_at).getTime() + PAYMENT_DRAFT_TTL_MINUTES * 60 * 1000).toISOString();
     return {
       _id: row.id,
@@ -1831,7 +1864,7 @@ export async function listRecentOrdersForUser(userId) {
       status: 'draft',
       paymentStatus: 'pending_payment',
       paymentExpiresAt,
-      resumeCheckout: flutterwaveCheckout,
+      resumeCheckout,
       insurance: false, insuranceCost: 0, insurancePolicyId: null,
       paymentInfo: {},
       estimatedDeparture: null, estimatedArrival: null,

@@ -4,7 +4,7 @@ import 'react-phone-input-2/lib/style.css';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { getUserPayoutCurrency } from '../utils/userCurrency';
+import { getUserPaymentCurrency } from '../utils/userCurrency';
 import {
     Package,
     ChevronLeft,
@@ -169,9 +169,8 @@ export default function SendPackage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [currency, setCurrency] = useState(() => getUserPayoutCurrency(user));
+    const [currency, setCurrency] = useState(() => getUserPaymentCurrency(user));
     const [kycStatus, setKycStatus] = useState(user?.kycStatus || 'not_started');
-    const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
     const [checkoutPreview, setCheckoutPreview] = useState(null);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [previewError, setPreviewError] = useState('');
@@ -238,7 +237,7 @@ export default function SendPackage() {
     const fetchPricing = async ({ silent = false } = {}) => {
         const weight = parseFloat(formData.packageWeight);
         const declaredValue = parseFloat(formData.packageValue) || 0;
-        const senderCurrency = getUserPayoutCurrency(user, currency);
+        const senderCurrency = getUserPaymentCurrency(user, currency);
         const tripId = tripIdFrom(selectedTrip);
         if (!tripId || !Number.isFinite(weight) || weight <= 0) {
             setCheckoutPreview(null);
@@ -281,11 +280,9 @@ export default function SendPackage() {
             const res = await api.get('/api/bago/kyc/status');
             if (res.data.success) {
                 setKycStatus(res.data.kycStatus || user?.kycStatus || 'not_started');
-                setPhoneVerified(res.data.phoneVerified === true || user?.phoneVerified === true);
             }
         } catch (_) {
             setKycStatus(user?.kycStatus || 'not_started');
-            setPhoneVerified(user?.phoneVerified === true);
         }
     };
 
@@ -330,11 +327,6 @@ export default function SendPackage() {
         if (kycStatus !== 'approved' && user?.kycStatus !== 'approved') {
             setLoading(false);
             navigate('/verify', { state: { message: 'Please verify your identity to send a package.', from: '/send-package' } });
-            return;
-        }
-        if (!phoneVerified && user?.phoneVerified !== true) {
-            setLoading(false);
-            navigate('/dashboard?tab=settings', { state: { message: 'Please verify your phone number to send a package.' } });
             return;
         }
         if (!formData.packageImage) { setError('Please upload an image of the item.'); setLoading(false); return; }

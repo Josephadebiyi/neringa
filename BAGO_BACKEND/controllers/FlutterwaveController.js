@@ -1,5 +1,6 @@
 import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
 import { acceptQuotedAmount } from '../services/checkoutPriceDrift.js';
+import { rememberPackageCheckout } from '../lib/postgres/shipping.js';
 import { verifyRecordedFlutterwavePayment } from '../services/flutterwaveVerificationRules.js';
 import crypto from 'crypto';
 import {
@@ -192,6 +193,10 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
         });
       }
       numericAmount = authoritativePreview.totalAmount;
+      await rememberPackageCheckout(packageId, user.id, {
+        tripId, travelerId: freshPreview.travelerId, amount: numericAmount, currency: normalizedCurrency,
+        insurance: metadata?.insurance === true, insuranceCost: authoritativePreview.insuranceAmount,
+      });
     }
 
     const txRef = `BAGO-PAY-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
