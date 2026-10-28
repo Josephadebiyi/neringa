@@ -248,7 +248,8 @@ export default function Earnings({ user, checkAuthStatus }) {
                 description: 'Withdrawal via Bank Transfer',
             });
             if (res.data.success) {
-                setStatus({ type:'success', msg:'Withdrawal submitted successfully!' });
+                // EUR payouts are sent by the accounts team; say so instead of a generic success.
+                setStatus({ type:'success', msg: res.data.manual ? res.data.message : 'Withdrawal submitted successfully!' });
                 setAmount('');
                 setOtpCode('');
                 setShowModal(false);

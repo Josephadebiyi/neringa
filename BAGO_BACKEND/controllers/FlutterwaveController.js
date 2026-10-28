@@ -1,6 +1,10 @@
 import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
 import { acceptQuotedAmount } from '../services/checkoutPriceDrift.js';
 import { rememberPackageCheckout } from '../lib/postgres/shipping.js';
+import {
+  MANUAL_PAYOUT_PROVIDER, isManualPayoutCurrency, isValidBic, isValidIban, normalizeBic, normalizeIban,
+} from '../services/manualPayout.js';
+import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { verifyRecordedFlutterwavePayment } from '../services/flutterwaveVerificationRules.js';
 import crypto from 'crypto';
 import {
@@ -15,7 +19,7 @@ import {
   createTransferSender,
   verifyWebhookSignature,
 } from '../services/flutterwaveService.js';
-import { query as pgQuery, queryOne } from '../lib/postgres/db.js';
+import { query as pgQuery, queryOne, withTransaction } from '../lib/postgres/db.js';
 import {
   recordPaymentInitiated,
   markPaymentVerified,
@@ -28,7 +32,7 @@ import {
   getFlutterwavePaymentCurrencyForCountry,
   convertCurrency,
 } from '../services/currencyConverter.js';
-import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { generateOtpEmailHtml, sendWithdrawalAdminNotification, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
 import { resend } from '../services/resendClient.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 import { getBusinessRestrictionState, BUSINESS_MIN_PAYOUT_NGN } from '../services/businessRestrictionService.js';
@@ -420,23 +424,42 @@ export const resolveFlutterwaveAccount = async (req, res, next) => {
 
 export const connectFlutterwaveBeneficiary = async (req, res, next) => {
   try {
-    if (!requireConfigured(res)) return;
     const user = req.user;
     const {
-      accountNumber, bankCode, bankName, accountHolderName, iban, swiftBic, currency,
+      accountNumber, bankCode, bankName, accountHolderName, currency,
       addressLine1, addressLine2, city, state, postalCode, addressCountry,
     } = req.body || {};
+    let { iban, swiftBic } = req.body || {};
     const normalizedCurrency = CurrencyService.normalizeCurrency(currency || 'USD');
-    if (!SUPPORTED_BANK_PAYOUT_CURRENCIES.has(normalizedCurrency)) {
+    // Manual currencies (EUR by default) are paid by Bago's accounts team, so
+    // their bank details are only stored and never registered with Flutterwave.
+    const manualPayout = isManualPayoutCurrency(normalizedCurrency);
+    if (!manualPayout && !requireConfigured(res)) return;
+    if (!manualPayout && !SUPPORTED_BANK_PAYOUT_CURRENCIES.has(normalizedCurrency)) {
       return res.status(400).json({
         success: false,
         message: `${normalizedCurrency} is not supported for bank payouts.`,
       });
     }
+    if (manualPayout) {
+      iban = normalizeIban(iban);
+      swiftBic = normalizeBic(swiftBic);
+      if (!String(accountHolderName || '').trim() || !iban || !swiftBic) {
+        return res.status(400).json({ success: false, message: 'Account holder name, IBAN, and SWIFT/BIC are required.' });
+      }
+      if (!isValidIban(iban)) {
+        return res.status(400).json({ success: false, code: 'INVALID_IBAN', message: 'That IBAN is not valid. Check it and try again.' });
+      }
+      if (!isValidBic(swiftBic)) {
+        return res.status(400).json({ success: false, code: 'INVALID_BIC', message: 'That SWIFT/BIC code is not valid. It should be 8 or 11 characters.' });
+      }
+    }
     const isIban = Boolean(iban);
-    const needsOrchestration = ORCHESTRATED_TRANSFER_CURRENCIES.has(normalizedCurrency);
+    const needsOrchestration = !manualPayout && ORCHESTRATED_TRANSFER_CURRENCIES.has(normalizedCurrency);
 
-    if (isIban) {
+    if (manualPayout) {
+      // IBAN and BIC were validated above; no address is needed for a manual transfer.
+    } else if (isIban) {
       if (!accountHolderName || !iban || !swiftBic) {
         return res.status(400).json({ success: false, message: 'Account holder name, IBAN, and SWIFT/BIC are required.' });
       }
@@ -470,7 +493,7 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
              pending_payout_account = $4::jsonb,
              updated_at = timezone('utc', now())
          where id = $1`,
-        [user.id, hashPayoutOtp(otp), PAYOUT_ACCOUNT_OTP_MINUTES, JSON.stringify(req.body || {})],
+        [user.id, hashPayoutOtp(otp), PAYOUT_ACCOUNT_OTP_MINUTES, JSON.stringify({ ...(req.body || {}), ...(manualPayout && { iban, swiftBic }) })],
       );
       const language = ['en', 'de', 'fr', 'es', 'pt', 'it'].includes(profile.preferred_language)
         ? profile.preferred_language
@@ -566,6 +589,7 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
 
     const beneficiary = await saveBeneficiary({
       userId: user.id,
+      provider: manualPayout ? MANUAL_PAYOUT_PROVIDER : 'flutterwave',
       currency: normalizedCurrency,
       country: req.body.country || null,
       type: isIban ? 'iban' : 'bank',
@@ -582,16 +606,19 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
     await pgQuery(
       `
         update public.profiles
-        set payout_provider = 'flutterwave',
-            payout_method = 'flutterwave',
+        set payout_provider = $6,
+            payout_method = $7,
             payout_status = 'active',
             payout_method_status = 'connected',
             payout_currency = $2,
-            bank_details = jsonb_build_object('bankName', $3::text, 'accountNumber', $4::text, 'accountHolderName', $5::text),
+            bank_details = jsonb_strip_nulls(jsonb_build_object('bankName', $3::text, 'accountNumber', $4::text,
+              'accountHolderName', $5::text, 'iban', $8::text, 'swiftBic', $9::text)),
             updated_at = timezone('utc', now())
         where id = $1
       `,
-      [user.id, normalizedCurrency, bankName || null, accountNumber || iban || null, accountHolderName || null],
+      [user.id, normalizedCurrency, bankName || null, accountNumber || iban || null, accountHolderName || null,
+        manualPayout ? MANUAL_PAYOUT_PROVIDER : 'flutterwave', manualPayout ? 'bank_transfer' : 'flutterwave',
+        iban || null, swiftBic || null],
     );
     if (req.payoutAccountOtpVerified) {
       await pgQuery(
@@ -653,11 +680,67 @@ export const verifyFlutterwaveBankOtp = async (req, res) => {
   }
 };
 
+// Debits the wallet and queues a bank-transfer request for the admin
+// dashboard. Admins approve, send the transfer by hand, then mark it paid
+// (or reject it, which refunds the wallet).
+async function requestManualWithdrawal(res, { user, profile, beneficiary, withdrawalAmount, walletCurrency }) {
+  const reference = `BAGO-WD-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+  const payoutAccount = {
+    beneficiaryId: beneficiary.id,
+    accountHolderName: beneficiary.account_holder_name,
+    iban: beneficiary.iban,
+    swiftBic: beneficiary.swift_code,
+    bankName: beneficiary.bank_name,
+    country: beneficiary.country,
+  };
+  const recorded = await withTransaction(async (client) => {
+    const debit = await client.query(
+      `UPDATE public.wallet_accounts
+       SET available_balance = available_balance - $2, updated_at = NOW()
+       WHERE user_id = $1 AND currency = $3 AND available_balance >= $2
+       RETURNING available_balance`,
+      [user.id, withdrawalAmount, walletCurrency],
+    );
+    if (!debit.rows.length) return false;
+    await client.query(
+      `INSERT INTO public.wallet_transactions
+        (wallet_id, user_id, type, amount, currency, status, description, metadata)
+       VALUES ($1, $2, 'withdrawal', $3, $4, 'pending_admin_approval', $5, $6)`,
+      [profile.wallet_id, user.id, withdrawalAmount, walletCurrency, 'Bank transfer withdrawal', {
+        provider: MANUAL_PAYOUT_PROVIDER,
+        method: 'bank_transfer',
+        reference,
+        manualReviewRequired: true,
+        manualReviewReason: `${walletCurrency} bank transfer: send it by hand, then mark it paid.`,
+        payoutAccount,
+      }],
+    );
+    return true;
+  });
+  if (!recorded) {
+    return res.status(400).json({ success: false, message: 'Insufficient balance' });
+  }
+
+  const userName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+  await sendWithdrawalSubmittedEmail(profile.email || user.email, userName,
+    { amount: withdrawalAmount, currency: walletCurrency, reference, method: 'bank transfer' }).catch(() => {});
+  const adminEmails = await listActiveAdminEmails().catch(() => []);
+  await Promise.all(adminEmails.map((adminEmail) => sendWithdrawalAdminNotification(adminEmail, {
+    userName: userName || 'Bago user', userEmail: profile.email || user.email,
+    amount: withdrawalAmount, currency: walletCurrency, method: 'Bank transfer (manual)', reference,
+  }).catch(() => false)));
+
+  return res.status(200).json({
+    success: true,
+    message: 'Withdrawal request sent. Our team will transfer the money to your bank account and email you once it has been sent.',
+    reference,
+    status: 'pending_admin_approval',
+    manual: true,
+  });
+}
+
 export const withdrawFundsFlutterwave = async (req, res) => {
   try {
-    if (!isFlutterwaveConfigured()) {
-      return res.status(503).json({ success: false, message: 'Withdrawals are temporarily unavailable. Please try again shortly.' });
-    }
     const { amount, currency } = req.body;
     const user = req.user;
 
@@ -756,10 +839,25 @@ export const withdrawFundsFlutterwave = async (req, res) => {
       }
     }
 
+    const manualPayout = isManualPayoutCurrency(walletCurrency);
+    if (!manualPayout && !isFlutterwaveConfigured()) {
+      return res.status(503).json({ success: false, message: 'Withdrawals are temporarily unavailable. Please try again shortly.' });
+    }
+    if (manualPayout && (beneficiary.type !== 'iban' || !isValidIban(beneficiary.iban))) {
+      return res.status(400).json({
+        success: false,
+        code: 'IBAN_REQUIRED',
+        message: `Add your bank account's IBAN to withdraw ${walletCurrency}.`,
+      });
+    }
+
     if ((profile.available_balance || 0) < withdrawalAmount) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
     await assertNoActiveWithdrawal(null, user.id);
+    if (manualPayout) {
+      return requestManualWithdrawal(res, { user, profile, beneficiary, withdrawalAmount, walletCurrency });
+    }
 
     const reference = `BAGO-WD-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 

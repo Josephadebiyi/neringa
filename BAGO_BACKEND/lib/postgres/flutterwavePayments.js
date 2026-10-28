@@ -115,7 +115,7 @@ function maskAccount({ accountNumber, iban }) {
 }
 
 export async function saveBeneficiary({
-  userId, currency, country, type, accountHolderName, accountNumber, bankCode, bankName, iban, swiftCode,
+  userId, provider = 'flutterwave', currency, country, type, accountHolderName, accountNumber, bankCode, bankName, iban, swiftCode,
   flutterwaveRecipientId, flutterwaveSenderId,
 }) {
   await ensureFlutterwaveInfrastructure();
@@ -131,14 +131,14 @@ export async function saveBeneficiary({
           account_number, bank_code, bank_name, iban, swift_code, masked_display,
           flutterwave_recipient_id, flutterwave_sender_id
         )
-        values ($1,'flutterwave',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        values ($1,$14,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         returning id, masked_display
       `,
       [
         userId, currency, country || null, type, accountHolderName || null,
         accountNumber || null, bankCode || null, bankName || null, iban || null, swiftCode || null,
         maskAccount({ accountNumber, iban }),
-        flutterwaveRecipientId || null, flutterwaveSenderId || null,
+        flutterwaveRecipientId || null, flutterwaveSenderId || null, provider,
       ],
     );
     return result.rows[0];

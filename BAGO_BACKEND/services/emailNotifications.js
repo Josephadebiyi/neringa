@@ -43,6 +43,7 @@ export function generateOtpEmailHtml({ firstName, otp, subtitle, expiryNote, lan
  * Send welcome email after user signup
  */
 export async function sendWelcomeEmail(userEmail, userName, signupMethod = 'email') {
+  [userEmail, userName, signupMethod] = [userEmail, userName, signupMethod].map(neutralizeMarkup);
   if (!resend) {
     console.warn('⚠️ Email service not configured');
     return false;
@@ -92,6 +93,7 @@ export async function sendWelcomeEmail(userEmail, userName, signupMethod = 'emai
  * Send email when user account is banned/restricted
  */
 export async function sendAccountBannedEmail(userEmail, userName, reason = 'policy violation') {
+  [userEmail, userName, reason] = [userEmail, userName, reason].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -138,6 +140,7 @@ export async function sendAccountBannedEmail(userEmail, userName, reason = 'poli
  * Send email when user account is unblocked
  */
 export async function sendAccountUnblockedEmail(userEmail, userName) {
+  [userEmail, userName] = [userEmail, userName].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -185,6 +188,7 @@ export async function sendAccountUnblockedEmail(userEmail, userName) {
  * Send notification to receiver when shipping starts
  */
 export async function sendReceiverShippingStartedEmail(receiverEmail, receiverName, senderName, packageDetails, trackingNumber, externalTracking = null) {
+  [receiverEmail, receiverName, senderName, packageDetails, trackingNumber, externalTracking] = [receiverEmail, receiverName, senderName, packageDetails, trackingNumber, externalTracking].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -228,6 +232,7 @@ export async function sendReceiverShippingStartedEmail(receiverEmail, receiverNa
  * Send notification to receiver when a traveler accepts the shipment
  */
 export async function sendReceiverShipmentAcceptedEmail(receiverEmail, receiverName, senderName, travelerName, packageDetails, trackingNumber) {
+  [receiverEmail, receiverName, senderName, travelerName, packageDetails, trackingNumber] = [receiverEmail, receiverName, senderName, travelerName, packageDetails, trackingNumber].map(neutralizeMarkup);
   if (!resend || !receiverEmail) return false;
 
   try {
@@ -269,6 +274,21 @@ export async function sendReceiverShipmentAcceptedEmail(receiverEmail, receiverN
 // carrierName (from a business's freeform "Other" carrier name) and
 // trackingNumber are user-controlled and land in emails sent to a different
 // party (the sender) — always HTML-escape them before interpolation.
+// Names, package descriptions, trip details and reasons are typed by users and
+// often land in emails sent to someone else. Neutralise markup in every text
+// argument so nobody can inject links, buttons or hidden HTML. Only <, > and "
+// are replaced, so plain-text subjects and email addresses stay as they are.
+function neutralizeMarkup(value) {
+  if (typeof value === 'string') {
+    return value.replace(/[<>"]/g, (char) => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char]);
+  }
+  if (Array.isArray(value)) return value.map(neutralizeMarkup);
+  if (value && typeof value === 'object' && !Buffer.isBuffer(value) && !(value instanceof Date)) {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, typeof entry === 'string' ? neutralizeMarkup(entry) : entry]));
+  }
+  return value;
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -382,6 +402,7 @@ function formatMoney(amount, currency = 'USD') {
 }
 
 export async function sendWithdrawalSubmittedEmail(userEmail, userName, { amount, currency, reference, method } = {}) {
+  [userEmail, userName, currency, reference, method] = [userEmail, userName, currency, reference, method].map(neutralizeMarkup);
   if (!resend || !userEmail) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -416,6 +437,7 @@ export async function sendWithdrawalSubmittedEmail(userEmail, userName, { amount
 }
 
 export async function sendWithdrawalProcessedEmail(userEmail, userName, { amount, currency, reference, method } = {}) {
+  [userEmail, userName, currency, reference, method] = [userEmail, userName, currency, reference, method].map(neutralizeMarkup);
   if (!resend || !userEmail) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -453,6 +475,7 @@ export async function sendWithdrawalProcessedEmail(userEmail, userName, { amount
  * Send email notification for request accepted
  */
 export async function sendRequestAcceptedEmail(senderEmail, senderName, travelerName, packageDetails, trackingNumber, externalTracking = null) {
+  [senderEmail, senderName, travelerName, packageDetails, trackingNumber, externalTracking] = [senderEmail, senderName, travelerName, packageDetails, trackingNumber, externalTracking].map(neutralizeMarkup);
   if (!resend) {
     console.warn('⚠️ Email service not configured');
     return false;
@@ -496,6 +519,7 @@ export async function sendRequestAcceptedEmail(senderEmail, senderName, traveler
  * Send email notification for in-transit status
  */
 export async function sendInTransitEmail(senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking = null) {
+  [senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking] = [senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -537,6 +561,7 @@ export async function sendInTransitEmail(senderEmail, senderName, packageDetails
  * Send email notification for out for delivery status
  */
 export async function sendOutForDeliveryEmail(senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking = null) {
+  [senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking] = [senderEmail, senderName, packageDetails, location, trackingNumber, externalTracking].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -578,6 +603,7 @@ export async function sendOutForDeliveryEmail(senderEmail, senderName, packageDe
  * Send email notification for delivery completed
  */
 export async function sendDeliveryCompletedEmail(senderEmail, senderName, packageDetails, trackingNumber, externalTracking = null) {
+  [senderEmail, senderName, packageDetails, trackingNumber, externalTracking] = [senderEmail, senderName, packageDetails, trackingNumber, externalTracking].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -621,6 +647,7 @@ export async function sendDeliveryCompletedEmail(senderEmail, senderName, packag
  * Send email notification for request rejected
  */
 export async function sendRequestRejectedEmail(senderEmail, senderName, travelerName, packageDetails) {
+  [senderEmail, senderName, travelerName, packageDetails] = [senderEmail, senderName, travelerName, packageDetails].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -659,6 +686,7 @@ export async function sendRequestRejectedEmail(senderEmail, senderName, traveler
  * Send email when trip is approved by admin
  */
 export async function sendTripApprovedEmail(userEmail, userName, trip) {
+  [userEmail, userName, trip] = [userEmail, userName, trip].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -713,6 +741,7 @@ export async function sendTripApprovedEmail(userEmail, userName, trip) {
  * Send notification to admin when a new trip is submitted
  */
 export async function sendNewTripAdminNotification(adminEmail, travelerName, trip) {
+  [adminEmail, travelerName, trip] = [adminEmail, travelerName, trip].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -746,6 +775,7 @@ export async function sendNewTripAdminNotification(adminEmail, travelerName, tri
 }
 
 export async function sendWithdrawalAdminNotification(adminEmail, { userName, userEmail, amount, currency, method, reference }) {
+  [userName, userEmail, currency, method, reference] = [userName, userEmail, currency, method, reference].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const content = `
@@ -777,6 +807,7 @@ export async function sendWithdrawalAdminNotification(adminEmail, { userName, us
 }
 
 export async function sendSecurityFlagNotification(adminEmail, { userName, userEmail, reason, signals = [] }) {
+  [userName, userEmail, reason, signals] = [userName, userEmail, reason, signals].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const signalList = signals.length
@@ -814,6 +845,7 @@ export async function sendSecurityFlagNotification(adminEmail, { userName, userE
  * Send email when trip is declined by admin
  */
 export async function sendTripDeclinedEmail(userEmail, userName, trip, reason = 'verification requirements not met') {
+  [userEmail, userName, trip, reason] = [userEmail, userName, trip, reason].map(neutralizeMarkup);
   if (!resend) return false;
 
   try {
@@ -863,6 +895,7 @@ export async function sendTripDeclinedEmail(userEmail, userName, trip, reason = 
  * Send email to traveler when they receive a new shipping request
  */
 export async function sendNewRequestToTravelerEmail(travelerEmail, travelerName, senderName, packageDetails, trip, requestId = null) {
+  [travelerEmail, travelerName, senderName, packageDetails, trip, requestId] = [travelerEmail, travelerName, senderName, packageDetails, trip, requestId].map(neutralizeMarkup);
   if (!resend) {
     console.warn('Trip-owner email not sent: RESEND_API_KEY is not configured.');
     return false;
@@ -914,6 +947,7 @@ export async function sendNewRequestToTravelerEmail(travelerEmail, travelerName,
  * Main function to send status update email
  */
 export async function sendShippingStatusEmail(request, status, location = null) {
+  [request, status, location] = [request, status, location].map(neutralizeMarkup);
   try {
     if (!request.sender?.email) {
       console.warn('⚠️ No sender email found');
@@ -958,6 +992,7 @@ export async function sendShippingStatusEmail(request, status, location = null) 
 }
 
 export async function sendKycApprovedEmail(userEmail, userName) {
+  [userEmail, userName] = [userEmail, userName].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -1006,6 +1041,7 @@ const BAGO_DEMO_VIDEOS_URL = 'https://loom.com/share/folder/e11da38b635e4f5abf9b
 // set) for a representative, or from the general Users/KYC page (businessName
 // omitted) to get any user unstuck/retrying verification.
 export async function sendKycVerificationLinkEmail(userEmail, userName, businessName, verificationUrl) {
+  [userEmail, userName, businessName, verificationUrl] = [userEmail, userName, businessName, verificationUrl].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -1053,6 +1089,7 @@ export async function sendKycVerificationLinkEmail(userEmail, userName, business
 // admin-created accounts are given a random, never-shared password hash at
 // creation, so this is the account's actual first login credential.
 export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, businessName) {
+  [userEmail, userName, businessName] = [userEmail, userName, businessName].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || '').split(' ')[0] || businessName || 'there';
@@ -1116,6 +1153,7 @@ export async function sendAdminCreatedBusinessAccountEmail(userEmail, userName, 
 }
 
 export async function sendBusinessWelcomeEmail(userEmail, userName, businessName) {
+  [userEmail, userName, businessName] = [userEmail, userName, businessName].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -1165,6 +1203,7 @@ export async function sendBusinessWelcomeEmail(userEmail, userName, businessName
 // Sent a few days before an admin-created business account's 14-day grace
 // period ends, if verification (KYC + CAC) still isn't complete.
 export async function sendBusinessGracePeriodReminderEmail(userEmail, userName, businessName, daysLeft) {
+  [userEmail, userName, businessName, daysLeft] = [userEmail, userName, businessName, daysLeft].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -1205,6 +1244,7 @@ export async function sendBusinessGracePeriodReminderEmail(userEmail, userName, 
 // Sent once an admin-created business account's 14-day grace period has
 // expired without KYC + CAC verification being complete.
 export async function sendBusinessAccountRestrictedEmail(userEmail, userName, businessName) {
+  [userEmail, userName, businessName] = [userEmail, userName, businessName].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -1244,6 +1284,7 @@ export async function sendBusinessAccountRestrictedEmail(userEmail, userName, bu
 }
 
 export async function sendKycSubmittedEmail(userEmail, userName) {
+  [userEmail, userName] = [userEmail, userName].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -1278,6 +1319,7 @@ export async function sendKycSubmittedEmail(userEmail, userName) {
 }
 
 export async function sendKycDeclinedEmail(userEmail, userName, reason = '') {
+  [userEmail, userName, reason] = [userEmail, userName, reason].map(neutralizeMarkup);
   if (!resend) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];
@@ -1317,6 +1359,7 @@ export async function sendKycDeclinedEmail(userEmail, userName, reason = '') {
  * their app to release escrow instantly without waiting for the sender.
  */
 export async function sendHandoverPINEmail(receiverEmail, receiverName, senderName, packageDetails, trackingNumber, handoverPin) {
+  [receiverEmail, receiverName, senderName, packageDetails, trackingNumber, handoverPin] = [receiverEmail, receiverName, senderName, packageDetails, trackingNumber, handoverPin].map(neutralizeMarkup);
   if (!resend || !receiverEmail || !handoverPin) return false;
 
   try {
@@ -1360,6 +1403,7 @@ export async function sendHandoverPINEmail(receiverEmail, receiverName, senderNa
  * Send shipment label PDF as email attachment
  */
 export async function sendShipmentLabelEmail({ toEmail, toName, trackingNumber, requestId, pdfBuffer }) {
+  [toEmail, toName, trackingNumber, requestId] = [toEmail, toName, trackingNumber, requestId].map(neutralizeMarkup);
   if (!resend) {
     console.warn('⚠️ Email service not configured — skipping shipment label email');
     return false;
@@ -1404,6 +1448,7 @@ export async function sendShipmentLabelEmail({ toEmail, toName, trackingNumber, 
  * Sends an annual birthday greeting email to a verified user.
  */
 export async function sendBirthdayEmail(userEmail, userName) {
+  [userEmail, userName] = [userEmail, userName].map(neutralizeMarkup);
   if (!resend || !userEmail) return false;
   try {
     const firstName = (userName || 'there').split(' ')[0];

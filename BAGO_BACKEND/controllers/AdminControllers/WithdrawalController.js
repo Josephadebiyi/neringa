@@ -3,6 +3,7 @@ import { sendWithdrawalProcessedEmail } from '../../services/emailNotifications.
 import { convertCurrency } from '../../services/currencyConverter.js';
 import { initiateTransfer, initiateOrchestratedTransfer, getTransferStatus } from '../../services/flutterwaveService.js';
 import { getActiveBeneficiary } from '../../lib/postgres/flutterwavePayments.js';
+import { MANUAL_PAYOUT_PROVIDER } from '../../services/manualPayout.js';
 
 const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected', 'cancelled']);
 const REFUNDABLE_STATUSES = new Set(['pending', 'pending_admin_approval', 'processing', 'approved']);
@@ -42,6 +43,9 @@ function normalizeWithdrawalRow(row) {
     transferError?.name ||
     null;
 
+  // A manual bank-transfer request carries the account it must be paid to,
+  // captured at request time, so a later account change can't redirect it.
+  const requested = metadata.payoutAccount || {};
   return {
     ...row,
     metadata,
@@ -52,11 +56,13 @@ function normalizeWithdrawalRow(row) {
       status: row.payout_method_status || row.payout_status || null,
       currency: row.payout_currency || row.currency || bankDetails.currency || null,
       reference: metadata.reference || row.reference || null,
-      bankName: bankDetails.bankName || bankDetails.bank_name || null,
+      bankName: requested.bankName || bankDetails.bankName || bankDetails.bank_name || null,
       bankCode: bankDetails.bankCode || bankDetails.bank_code || null,
-      accountNumber: bankDetails.accountNumber || bankDetails.account_number || null,
-      accountName: bankDetails.accountName || bankDetails.account_name || bankDetails.accountHolderName || null,
-      iban: bankDetails.iban || null,
+      accountNumber: requested.iban || bankDetails.accountNumber || bankDetails.account_number || null,
+      accountName: requested.accountHolderName || bankDetails.accountName || bankDetails.account_name || bankDetails.accountHolderName || null,
+      iban: requested.iban || bankDetails.iban || null,
+      swiftBic: requested.swiftBic || bankDetails.swiftBic || null,
+      country: requested.country || null,
     },
     manualReviewRequired: metadata.manualReviewRequired === true,
     manualReviewReason: metadata.manualReviewReason || null,
@@ -463,6 +469,21 @@ export const approveWithdrawal = async (req, res, next) => {
     const metadata = typeof tx.metadata === 'object' ? tx.metadata : JSON.parse(tx.metadata || '{}');
     const amount = Number(tx.amount);
     const currency = tx.currency;
+
+    // Manual bank transfers are never sent through Flutterwave: approving moves
+    // the request to processing, and the admin marks it paid once the transfer is sent.
+    if (metadata.provider === MANUAL_PAYOUT_PROVIDER) {
+      await query(
+        `UPDATE public.wallet_transactions
+         SET status = 'processing',
+             metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+             updated_at = timezone('utc', now())
+         WHERE id = $1 AND status = 'pending_admin_approval'`,
+        [transactionId, { adminApproved: true, adminId, approvedAt: new Date().toISOString() }],
+      );
+      return res.json({ success: true, manual: true,
+        message: 'Approved. Send the bank transfer to the account shown, then mark it paid.' });
+    }
 
     // Lock it to processing so duplicate admin clicks can't double-send
     await query(
