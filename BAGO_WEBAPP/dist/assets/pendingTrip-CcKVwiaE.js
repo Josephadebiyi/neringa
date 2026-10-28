@@ -1,0 +1,1 @@
+const t="bago_pending_trip";function n(e){try{sessionStorage.setItem(t,JSON.stringify(e))}catch{}}function r(){try{const e=sessionStorage.getItem(t);return e?JSON.parse(e):null}catch{return null}}function s(){try{const e=sessionStorage.getItem(t);return e?(sessionStorage.removeItem(t),JSON.parse(e)):null}catch{return null}}export{s as c,r as p,n as s};
