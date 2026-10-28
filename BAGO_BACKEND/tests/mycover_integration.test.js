@@ -78,7 +78,7 @@ describe('MyCover pricing', () => {
     expect(convertCurrency).toHaveBeenCalledWith(5, 'EUR', 'NGN');
   });
 
-  it('uses a BAGO internal sender reference when no vehicle plate exists', async () => {
+  it('uses the sender id as an alphanumeric plate when no vehicle plate exists', async () => {
     convertCurrency.mockResolvedValueOnce(310000);
     const payload = await policyPayload({
       request: {
@@ -100,15 +100,66 @@ describe('MyCover pricing', () => {
       traveler: {},
     });
 
-    expect(payload.vehicle_plate_number).toBe('BAGO-12345678-90ab-c');
+    expect(payload.vehicle_plate_number).toBe('1234567890abcdef1234567890abcdef');
     expect(payload.item_details[0].value).toBe(310000);
-    expect(payload.item_details[0]).toHaveProperty('image_url');
+    expect(payload.item_details[0].image).toMatch(/^https:\/\//);
+    expect(payload.item_details[0]).not.toHaveProperty('image_url');
+    expect(payload.item_value).toBe(310000);
     expect(payload.total_value).toBe(310000);
     expect(payload.bought_for_self).toBe(true);
     expect(payload.gender).toBe('Male');
     expect(payload.date_of_birth).toBe('1990-01-01');
     expect(payload.product_id).toBe('4ca89151-78e9-4cda-9a3b-20f759f89a41');
     expect(payload.metadata.declared_value_currency).toBe('EUR');
+  });
+});
+
+describe('MyCover payload validation', () => {
+  const sender = {
+    firstName: 'Bago',
+    lastName: 'Sender',
+    email: 'sender@example.com',
+    phone: '2348000000000',
+    dateOfBirth: '1990-01-01',
+    gender: 'female',
+  };
+
+  it('meets MyCover field rules for low values, bad images and odd plates', async () => {
+    const payload = await policyPayload({
+      request: {
+        id: 'shipment-2',
+        senderId: 'efde945b-8252-4df3-b53c-e87b716b0865',
+        currency: 'NGN',
+        vehiclePlateNumber: 'LAG-123 XY',
+        package: { value: 1200, description: 'Shoes', images: ['file:///tmp/a.jpg'] },
+      },
+      sender,
+      traveler: {},
+    });
+
+    expect(payload.vehicle_plate_number).toBe('LAG123XY');
+    expect(payload.item_value).toBe(5000);
+    expect(typeof payload.item_value).toBe('number');
+    expect(payload.item_details[0].value).toBe(5000);
+    expect(() => new URL(payload.item_details[0].image)).not.toThrow();
+    expect(payload.item_details[0].image).toMatch(/^https?:\/\//);
+  });
+
+  it('keeps a real https package image', async () => {
+    const payload = await policyPayload({
+      request: {
+        id: 'shipment-3',
+        senderId: 'sender-3',
+        currency: 'NGN',
+        package: { value: 90000, images: ['https://res.cloudinary.com/bago/item.jpg'] },
+      },
+      sender,
+      traveler: {},
+    });
+
+    expect(payload.item_details[0].image).toBe('https://res.cloudinary.com/bago/item.jpg');
+    expect(payload.item_value).toBe(90000);
+    expect(payload.vehicle_plate_number).toBe('sender3');
   });
 });
 

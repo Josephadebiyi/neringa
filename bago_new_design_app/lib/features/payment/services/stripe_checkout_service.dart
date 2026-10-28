@@ -136,6 +136,8 @@ class StripeCheckoutService {
       paymentSheetParameters: SetupPaymentSheetParameters(
         merchantDisplayName: 'Bago',
         paymentIntentClientSecret: clientSecret,
+        // Lets the sheet offer redirect wallets such as PayPal and Revolut Pay.
+        returnURL: 'com.deracali.boltexponativewind.payments://stripe-redirect',
         customerId: intent['customerId']?.toString(),
         customerEphemeralKeySecret: intent['ephemeralKeySecret']?.toString(),
         applePay: config.merchantIdentifier.isEmpty

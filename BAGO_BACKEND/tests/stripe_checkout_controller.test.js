@@ -36,6 +36,10 @@ describe('Stripe card and Apple Pay initialization', () => {
     expect(m.create).toHaveBeenCalledWith(expect.objectContaining({amount: 11280, currency: 'eur', metadata: expect.objectContaining({bago_commission: '13.8'})}), expect.objectContaining({idempotencyKey: expect.any(String)}));
     expect(response.data.paymentStatus).toBe('requires_payment_method');
   });
+  it('lets the payment sheet offer redirect wallets like PayPal and Revolut Pay', async () => {
+    await createStripePaymentIntent(req(), res());
+    expect(m.create.mock.calls[0][0].automatic_payment_methods).toEqual({enabled: true, allow_redirects: 'always'});
+  });
   it('blocks a price that omits commission before charging', async () => {
     const response = res(); await createStripePaymentIntent(req(99), response);
     expect(response.code).toBe(409); expect(response.data.code).toBe('CHECKOUT_PRICE_CHANGED'); expect(m.create).not.toHaveBeenCalled();
@@ -53,10 +57,26 @@ describe('Stripe card and Apple Pay initialization', () => {
     const response = res(); await createStripePaymentIntent(req(120), response);
     expect(response.data.recovered).toBe(true); expect(m.create).not.toHaveBeenCalled(); expect(m.quote).not.toHaveBeenCalled();
   });
-  it('does not charge a sender with an unverified phone', async () => {
+  it('does not charge a sender with an unverified phone when the phone check is on', async () => {
+    vi.stubEnv('REQUIRE_PHONE_FOR_CARD_CHECKOUT', 'true');
     m.queryOne.mockResolvedValue({id: 'sender', preferred_currency: 'EUR', phone_verified: null});
     const response = res(); await createStripePaymentIntent(req(), response);
     expect(response.code).toBe(403); expect(m.create).not.toHaveBeenCalled();
+  });
+  it('lets a sender with an unverified phone pay by default', async () => {
+    const fallback = m.queryOne.getMockImplementation();
+    m.queryOne.mockImplementation(async sql => sql.includes('select p.*')
+      ? {id: 'sender', preferred_currency: 'EUR', phone_verified: null, stripe_customer_id: 'cus_test'} : fallback(sql));
+    const response = res(); await createStripePaymentIntent(req(), response);
+    expect(response.code).toBe(200); expect(m.create).toHaveBeenCalled();
+  });
+  it('charges the amount the sender saw after a small FX move', async () => {
+    m.quote.mockResolvedValue({...quote, shippingAmount: 108.3, totalAmount: 113.3, bagoNetRevenue: 16.3});
+    const response = res(); await createStripePaymentIntent(req(112.8), response);
+    expect(response.code).toBe(200);
+    expect(m.create).toHaveBeenCalledWith(expect.objectContaining({amount: 11280}), expect.anything());
+    const stored = JSON.parse(m.create.mock.calls[0][0].metadata.bago_quote);
+    expect(stored.ta).toBe(112.8); expect(stored.ss).toBe(107.8); expect(stored.cp).toBe(92);
   });
   it('rejects a charge without the booking it must create', async () => {
     const response = res(); await createStripePaymentIntent({user: {id: 'sender'}, body: {amount: 100, currency: 'EUR'}}, response);

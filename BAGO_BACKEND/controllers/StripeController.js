@@ -4,6 +4,7 @@ import { checkTermsAccepted } from './SenderOnboardingController.js';
 import { completeStripeBooking } from '../services/stripeBookingCompletion.js';
 import { buildShipmentCheckoutPreview } from './CurrencyController.js';
 import { encodeStripeQuote, verifyStripeBookingIntent } from '../services/stripeCheckoutRules.js';
+import { acceptQuotedAmount } from '../services/checkoutPriceDrift.js';
 import Stripe from 'stripe';
 
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
@@ -26,6 +27,10 @@ function requireStripe() {
   }
   if (!stripe) stripe = new Stripe(process.env.STRIPE_SECRET_KEY.trim());
   return stripe;
+}
+
+function requirePhoneForCardCheckout() {
+  return String(process.env.REQUIRE_PHONE_FOR_CARD_CHECKOUT || '').trim().toLowerCase() === 'true';
 }
 
 function userIdFromReq(req) {
@@ -970,7 +975,9 @@ export async function createStripePaymentIntent(req, res) {
       if (req.body?.termsAccepted !== true) {
         return res.status(400).json({ success: false, message: 'Shipment terms must be accepted before payment.' });
       }
-      if (profile.phone_verified !== true) {
+      // Off by default: while SMS delivery is down, nobody can verify a phone,
+      // and checkout already requires KYC. Set REQUIRE_PHONE_FOR_CARD_CHECKOUT=true to restore.
+      if (requirePhoneForCardCheckout() && profile.phone_verified !== true) {
         return res.status(403).json({ success: false, code: 'PHONE_NOT_VERIFIED', message: 'Please verify your mobile number before payment.' });
       }
       if (!await checkTermsAccepted(profile.id)) {
@@ -1027,7 +1034,7 @@ export async function createStripePaymentIntent(req, res) {
 
     if (packageId) {
       const residenceCurrency = String(profile.preferred_currency || profile.earning_currency || profile.wallet_currency || '').toUpperCase();
-      if (currency.toUpperCase() !== residenceCurrency) {
+      if (residenceCurrency && currency.toUpperCase() !== residenceCurrency) {
         return res.status(409).json({success: false, code: 'PAYMENT_CURRENCY_MISMATCH',
           message: 'Refresh checkout to pay in your saved local currency.'});
       }
@@ -1035,15 +1042,15 @@ export async function createStripePaymentIntent(req, res) {
       if (additionalQuote && (additionalQuote.packageId !== packageId || additionalQuote.tripId !== tripId || additionalQuote.travelerId !== travelerId)) {
         return res.status(409).json({success: false, message: 'Additional weight does not belong to this shipment.'});
       }
-      checkoutQuote = additionalQuote || await buildShipmentCheckoutPreview({tripId, weight: pkg.package_weight,
+      const freshQuote = additionalQuote || await buildShipmentCheckoutPreview({tripId, weight: pkg.package_weight,
         senderCurrency: currency.toUpperCase(), declaredValue: pkg.declared_value || 0,
         insurance: req.body?.insurance === true});
-      const authoritativeAmount = toMinorAmount(checkoutQuote.totalAmount);
-      if (authoritativeAmount !== amount) {
+      checkoutQuote = acceptQuotedAmount(freshQuote, amount / 100);
+      if (!checkoutQuote) {
         return res.status(409).json({success: false, code: 'CHECKOUT_PRICE_CHANGED',
-          message: 'The checkout price changed. Refresh the price summary before paying.', preview: checkoutQuote});
+          message: 'The checkout price changed. Refresh the price summary before paying.', preview: freshQuote});
       }
-      amount = authoritativeAmount;
+      amount = toMinorAmount(checkoutQuote.totalAmount);
     }
 
     const customerId = await ensureStripeCustomer(profile);
@@ -1081,9 +1088,11 @@ export async function createStripePaymentIntent(req, res) {
     if (paymentMethodTypes) {
       params.payment_method_types = paymentMethodTypes;
     } else {
+      // Redirect wallets (PayPal, Revolut Pay) need allow_redirects. A saved card
+      // is confirmed here on the server, where Stripe would then demand a return_url.
       params.automatic_payment_methods = {
         enabled: true,
-        allow_redirects: 'never',
+        allow_redirects: paymentMethodId ? 'never' : 'always',
       };
     }
     if (paymentMethodId) {

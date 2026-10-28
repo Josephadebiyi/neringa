@@ -1,4 +1,5 @@
 import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
+import { acceptQuotedAmount } from '../services/checkoutPriceDrift.js';
 import { verifyRecordedFlutterwavePayment } from '../services/flutterwaveVerificationRules.js';
 import crypto from 'crypto';
 import {
@@ -158,9 +159,10 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
 
     let authoritativePreview = null;
     if (requestId) {
-      authoritativePreview = await buildAdditionalWeightQuote({requestId, senderId: user.id, additionalKg, currency: normalizedCurrency});
+      const freshPreview = await buildAdditionalWeightQuote({requestId, senderId: user.id, additionalKg, currency: normalizedCurrency});
+      authoritativePreview = acceptQuotedAmount(freshPreview, requestedAmount);
+      if (!authoritativePreview) return res.status(409).json({success: false, code: 'CHECKOUT_PRICE_CHANGED', message: 'Refresh the additional weight quote before paying.', preview: freshPreview});
       numericAmount = authoritativePreview.totalAmount;
-      if (Math.abs(requestedAmount - numericAmount) > .011) return res.status(409).json({success: false, code: 'CHECKOUT_PRICE_CHANGED', message: 'Refresh the additional weight quote before paying.', preview: authoritativePreview});
     }
 
     if (!requestId && packageId && tripId) {
@@ -173,22 +175,23 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       if (!packageRow) {
         return res.status(404).json({ success: false, message: 'Package not found.' });
       }
-      authoritativePreview = await buildShipmentCheckoutPreview({
+      const freshPreview = await buildShipmentCheckoutPreview({
         tripId,
         weight: packageRow.package_weight,
         senderCurrency: normalizedCurrency,
         declaredValue: packageRow.declared_value || 0,
         insurance: metadata?.insurance === true,
       });
-      numericAmount = authoritativePreview.totalAmount;
-      if (Math.abs(requestedAmount - numericAmount) > 0.01) {
+      authoritativePreview = acceptQuotedAmount(freshPreview, requestedAmount);
+      if (!authoritativePreview) {
         return res.status(409).json({
           success: false,
           code: 'CHECKOUT_PRICE_CHANGED',
           message: 'The checkout price changed. Refresh the price summary before paying.',
-          preview: authoritativePreview,
+          preview: freshPreview,
         });
       }
+      numericAmount = authoritativePreview.totalAmount;
     }
 
     const txRef = `BAGO-PAY-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
