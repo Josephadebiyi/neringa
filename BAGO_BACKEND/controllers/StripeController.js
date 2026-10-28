@@ -1172,11 +1172,14 @@ export async function createStripePaymentIntent(req, res) {
     if (paymentMethodTypes) {
       params.payment_method_types = paymentMethodTypes;
     } else {
-      // Redirect wallets such as Revolut Pay need allow_redirects. A saved card
-      // is confirmed here on the server, where Stripe would then demand a return_url.
+      // Redirect wallets such as Revolut Pay only work when the app's payment
+      // sheet has a return URL. App builds without one crash when the sheet
+      // receives them, so only builds that say so get redirects. A saved card
+      // is confirmed here on the server, where Stripe would demand a return_url.
+      const redirectsSupported = req.body?.supportsRedirects === true;
       params.automatic_payment_methods = {
         enabled: true,
-        allow_redirects: paymentMethodId ? 'never' : 'always',
+        allow_redirects: redirectsSupported && !paymentMethodId ? 'always' : 'never',
       };
     }
     if (paymentMethodId) {

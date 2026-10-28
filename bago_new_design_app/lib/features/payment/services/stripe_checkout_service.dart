@@ -104,8 +104,9 @@ class StripeCheckoutService {
 
   Future<Map<String, dynamic>> _createIntent(Map<String, dynamic> draft) async {
     try {
+      // This build's payment sheet has a return URL, so redirect wallets work.
       final res = await _api.post(ApiConstants.stripeCreateIntent,
-          data: _bookingBody(draft));
+          data: {..._bookingBody(draft), 'supportsRedirects': true});
       final data = res.data is Map ? Map<String, dynamic>.from(res.data) : {};
       if ((data['clientSecret']?.toString() ?? '').isEmpty) {
         throw StateError(
