@@ -10,7 +10,7 @@ import axios from 'axios';
 import { query } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { getTripById } from '../lib/postgres/shipping.js';
-import { purchaseMyCoverPolicy } from '../services/myCoverService.js';
+import { isInsuranceSubmissionInFlight, purchaseMyCoverPolicy } from '../services/myCoverService.js';
 
 const request = {
   id: 'shipment-1', senderId: 'sender-1', travelerId: 'traveler-1', tripId: 'trip-1',
@@ -106,4 +106,37 @@ it('never guesses gender when the customer did not provide it', async () => {
   findProfileById.mockImplementation(async id => id === request.senderId ? {...sender, kycVerifiedData: {}} : {});
   await expect(purchaseMyCoverPolicy(request)).rejects.toMatchObject({code: 'INSURANCE_CUSTOMER_DETAILS_REQUIRED', missingFields: ['gender']});
   expect(axios.post).not.toHaveBeenCalled();
+});
+
+describe('retrying rejected MyCover purchases', () => {
+  const validationError = {responseCode: 0, responseText: ['item_value must not be less than 5000']};
+
+  it('records a MyCover rejection as retryable rather than submitted', async () => {
+    axios.post.mockResolvedValue({data: validationError});
+    await expect(purchaseMyCoverPolicy(request)).rejects.toThrow('MyCover API error');
+    expect(finalState()[1]).toBe('failed');
+    const saved = JSON.parse(finalState()[3]);
+    expect(saved).not.toHaveProperty('submittedAt');
+    expect(saved).toHaveProperty('failedAt');
+    expect(saved.attempts).toBe(1);
+    expect(isInsuranceSubmissionInFlight('failed', saved)).toBe(false);
+  });
+
+  it('retries a shipment stuck under the old "already submitted" rejection', async () => {
+    query.mockImplementation(async (sql) => sql.includes('SELECT insurance_policy_id')
+      ? {rows: [{insurance_status: 'failed', insurance_policy_data: {submittedAt: '2026-10-28T10:00:00Z', error: validationError, attempts: 2}}]}
+      : {rows: [{id: request.id}]});
+    axios.post.mockResolvedValue({data: {responseCode: 1, data: {policy: {id: 'policy-2'}}}});
+    await expect(purchaseMyCoverPolicy(request)).resolves.toBe('policy-2');
+    const claim = query.mock.calls.find(([sql]) => sql.includes("insurance_status = 'pending_purchase'"));
+    expect(claim[0]).toContain("OR insurance_status = 'failed'");
+    expect(JSON.parse(claim[1][1]).attempts).toBe(3);
+  });
+
+  it('never retries a purchase that may already have created a policy', () => {
+    expect(isInsuranceSubmissionInFlight('pending_purchase', {submittedAt: 'x'})).toBe(true);
+    expect(isInsuranceSubmissionInFlight('failed', {purchaseId: 'purchase-1'})).toBe(true);
+    expect(isInsuranceSubmissionInFlight('failed', {response: {}})).toBe(true);
+    expect(isInsuranceSubmissionInFlight('failed', {submittedAt: 'x'})).toBe(false);
+  });
 });
