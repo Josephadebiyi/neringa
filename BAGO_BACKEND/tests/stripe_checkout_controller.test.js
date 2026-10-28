@@ -37,7 +37,7 @@ describe('Stripe card and Apple Pay initialization', () => {
     expect(m.create).toHaveBeenCalledWith(expect.objectContaining({amount: 11280, currency: 'eur', metadata: expect.objectContaining({bago_commission: '13.8'})}), expect.objectContaining({idempotencyKey: expect.any(String)}));
     expect(response.data.paymentStatus).toBe('requires_payment_method');
   });
-  it('lets the payment sheet offer redirect wallets like PayPal and Revolut Pay', async () => {
+  it('lets the payment sheet offer redirect wallets like Revolut Pay', async () => {
     await createStripePaymentIntent(req(), res());
     expect(m.create.mock.calls[0][0].automatic_payment_methods).toEqual({enabled: true, allow_redirects: 'always'});
   });
@@ -226,17 +226,17 @@ describe('Stripe web checkout', () => {
   });
 });
 
-describe('Bizum stays Spain-only', () => {
+describe('PayPal is never offered and Bizum stays Spain-only', () => {
   beforeEach(() => m.session.mockResolvedValue({id: 'cs_web_2', url: 'https://checkout.stripe.com/c/pay/cs_web_2'}));
 
   it('excludes Bizum from web checkout for users outside Spain', async () => {
     await createStripeWebCheckoutSession(req(), res());
-    expect(m.session.mock.calls[0][0].excluded_payment_method_types).toEqual(['bizum']);
+    expect(m.session.mock.calls[0][0].excluded_payment_method_types).toEqual(['paypal', 'bizum']);
   });
 
   it('excludes Bizum from the app card sheet for users outside Spain', async () => {
     await createStripePaymentIntent(req(), res());
-    expect(m.create.mock.calls[0][0].excluded_payment_method_types).toEqual(['bizum']);
+    expect(m.create.mock.calls[0][0].excluded_payment_method_types).toEqual(['paypal', 'bizum']);
   });
 
   it('keeps Bizum for Spanish residents', async () => {
@@ -244,7 +244,7 @@ describe('Bizum stays Spain-only', () => {
     m.queryOne.mockImplementation(async sql => sql.includes('select p.*')
       ? {id: 'sender', country: 'Spain', preferred_currency: 'EUR', stripe_customer_id: 'cus_test'} : fallback(sql));
     await createStripeWebCheckoutSession(req(), res());
-    expect(m.session.mock.calls[0][0]).not.toHaveProperty('excluded_payment_method_types');
+    expect(m.session.mock.calls[0][0].excluded_payment_method_types).toEqual(['paypal']);
   });
 
   it('falls back to cards if Stripe rejects the exclusion', async () => {
@@ -255,5 +255,18 @@ describe('Bizum stays Spain-only', () => {
     expect(response.code).toBe(200);
     expect(m.session.mock.calls[1][0].payment_method_types).toEqual(['card']);
     expect(m.session.mock.calls[1][0]).not.toHaveProperty('excluded_payment_method_types');
+  });
+});
+
+describe('Stripe exclusion fallback for Spanish residents', () => {
+  it('keeps Bizum but not PayPal when Stripe rejects the exclusion', async () => {
+    const fallback = m.queryOne.getMockImplementation();
+    m.queryOne.mockImplementation(async sql => sql.includes('select p.*')
+      ? {id: 'sender', country: 'ES', preferred_currency: 'EUR', stripe_customer_id: 'cus_test'} : fallback(sql));
+    m.session
+      .mockRejectedValueOnce(Object.assign(new Error('Received unknown parameter: excluded_payment_method_types'), {type: 'StripeInvalidRequestError'}))
+      .mockResolvedValueOnce({id: 'cs_web_4', url: 'https://checkout.stripe.com/c/pay/cs_web_4'});
+    await createStripeWebCheckoutSession(req(), res());
+    expect(m.session.mock.calls[1][0].payment_method_types).toEqual(['card', 'bizum']);
   });
 });

@@ -7,7 +7,7 @@ const CHECKOUT_STASH_KEY = 'bago_flutterwave_checkout';
 
 // African currencies pay through Flutterwave (local cards, bank transfer,
 // mobile money). Everything else uses Stripe's hosted checkout, which shows
-// cards, Apple Pay, Google Pay, PayPal, Revolut Pay and, in Spain, Bizum.
+// cards, Apple Pay, Google Pay, Revolut Pay and, in Spain, Bizum.
 // Matches flutterwaveOnlyCurrencies in the mobile app.
 const FLUTTERWAVE_CURRENCIES = new Set([
     'NGN', 'GHS', 'KES', 'ZAR', 'UGX', 'TZS', 'RWF', 'XOF', 'XAF', 'ZMW',
@@ -184,7 +184,7 @@ export default function PaymentCheckout() {
                                 <h1 className="text-lg font-black tracking-tight">Pay Now</h1>
                                 <p className="mt-1 text-xs font-bold text-gray-400">
                                     {paymentProviderForCurrency((quotedCheckout || checkout).currency) === 'stripe'
-                                        ? 'Card, Apple Pay, Google Pay, PayPal and more — choose your method on the next page.'
+                                        ? 'Card, Apple Pay, Google Pay and more — choose your method on the next page.'
                                         : 'Card, Apple Pay, bank transfer & mobile money — choose your method on the next page.'}
                                 </p>
                             </div>

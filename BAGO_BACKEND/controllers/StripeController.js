@@ -1073,19 +1073,22 @@ export function isSpainResident(profile) {
   return SPAIN_COUNTRY_VALUES.has(String(profile?.country || '').trim().toLowerCase());
 }
 
-// Bizum is for Spanish residents only. Everyone else gets it excluded; if
-// Stripe rejects the exclusion parameter, fall back to cards (which still
-// include Apple Pay and Google Pay) so checkout never offers Bizum by accident.
-export async function createWithoutBizumOutsideSpain(profile, params, create) {
-  if (isSpainResident(profile) || params.payment_method_types) return create(params);
+// Bago does not offer PayPal, and Bizum is for Spanish residents only. Both
+// are excluded from Stripe's automatic methods. If Stripe rejects the
+// exclusion parameter, fall back to an explicit list (cards include Apple Pay
+// and Google Pay) so neither can appear by accident.
+export async function createWithAllowedMethods(profile, params, create) {
+  if (params.payment_method_types) return create(params);
+  const spain = isSpainResident(profile);
   try {
-    return await create({...params, excluded_payment_method_types: ['bizum']});
+    return await create({...params, excluded_payment_method_types: spain ? ['paypal'] : ['paypal', 'bizum']});
   } catch (error) {
     const unsupported = error?.type === 'StripeInvalidRequestError'
       && /excluded_payment_method_types/.test(`${error.param || ''} ${error.message || ''}`);
     if (!unsupported) throw error;
-    const {automatic_payment_methods: _automatic, ...cardOnly} = params;
-    return create({...cardOnly, payment_method_types: ['card']});
+    const {automatic_payment_methods: _automatic, ...explicit} = params;
+    const bizum = spain && isBizumCheckoutEnabled() && String(params.currency || params.line_items?.[0]?.price_data?.currency).toLowerCase() === 'eur';
+    return create({...explicit, payment_method_types: bizum ? ['card', 'bizum'] : ['card']});
   }
 }
 
@@ -1169,7 +1172,7 @@ export async function createStripePaymentIntent(req, res) {
     if (paymentMethodTypes) {
       params.payment_method_types = paymentMethodTypes;
     } else {
-      // Redirect wallets (PayPal, Revolut Pay) need allow_redirects. A saved card
+      // Redirect wallets such as Revolut Pay need allow_redirects. A saved card
       // is confirmed here on the server, where Stripe would then demand a return_url.
       params.automatic_payment_methods = {
         enabled: true,
@@ -1182,7 +1185,7 @@ export async function createStripePaymentIntent(req, res) {
       params.off_session = false;
     }
 
-    const paymentIntent = await createWithoutBizumOutsideSpain(profile, params, (attempt) => {
+    const paymentIntent = await createWithAllowedMethods(profile, params, (attempt) => {
       const intentKey = crypto.createHash('sha256').update(JSON.stringify(attempt)).digest('hex');
       return requireStripe().paymentIntents.create(attempt, {idempotencyKey: `bago-checkout-${intentKey}`});
     });
@@ -1300,7 +1303,7 @@ async function createStripeHostedCheckout(req, res, method) {
     const cancelUrl = mobile
       ? `${apiReturn}/bizum-cancel?platform=mobile&session_id={CHECKOUT_SESSION_ID}`
       : `${WEB_APP_URL}/payment/callback?provider=stripe&status=cancelled`;
-    const session = await createWithoutBizumOutsideSpain(profile, {
+    const session = await createWithAllowedMethods(profile, {
       mode: 'payment',
       customer: customerId,
       ...(isBizum && { payment_method_types: ['bizum'] }),
