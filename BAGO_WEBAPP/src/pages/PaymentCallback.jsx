@@ -7,9 +7,9 @@ import { CHECKOUT_STASH_KEY } from './PaymentCheckout';
 const PAYMENT_PENDING_MESSAGE =
     'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
 
-// Lands here after Flutterwave's hosted checkout redirects back. Flutterwave
-// appends transaction_id/tx_ref/status query params to whatever redirect_url
-// was passed at initialize time (see PaymentCheckout.jsx).
+// Lands here after a hosted checkout redirects back. Flutterwave appends
+// transaction_id/tx_ref/status; Stripe returns provider=stripe&session_id
+// (see PaymentCheckout.jsx and the backend's Stripe checkout session).
 export default function PaymentCallback() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -17,6 +17,15 @@ export default function PaymentCallback() {
     const [message, setMessage] = useState('Verifying your payment...');
 
     useEffect(() => {
+        if (searchParams.get('provider') === 'stripe') {
+            if (searchParams.get('status') === 'cancelled') {
+                setStatus('error');
+                setMessage('Payment was cancelled. You can try again below.');
+                return;
+            }
+            completeStripePayment(searchParams.get('session_id'), searchParams.get('payment_intent'));
+            return;
+        }
         const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId');
         const flutterwaveStatus = searchParams.get('status');
         if (!transactionId) {
@@ -37,15 +46,49 @@ export default function PaymentCallback() {
         completePayment(transactionId);
     }, []);
 
+    const readStash = () => {
+        const raw = sessionStorage.getItem(CHECKOUT_STASH_KEY);
+        if (!raw) {
+            setStatus('error');
+            setMessage('Payment session expired. Please try again.');
+            return null;
+        }
+        return JSON.parse(raw);
+    };
+
+    const completeStripePayment = async (sessionId, recoveredIntentId) => {
+        try {
+            const pending = readStash();
+            if (!pending) return;
+            let paymentIntentId = recoveredIntentId || '';
+            if (!paymentIntentId) {
+                if (!sessionId) {
+                    setStatus('error');
+                    setMessage('No payment reference found. Please contact support.');
+                    return;
+                }
+                const session = await api.get(`/api/payments/stripe-checkout/${encodeURIComponent(sessionId)}`);
+                paymentIntentId = session.data?.paymentIntentId || '';
+                // Stripe confirms some methods a moment later; the webhook then
+                // creates the shipment on its own.
+                if (!paymentIntentId || session.data?.status !== 'succeeded') {
+                    setStatus('pending');
+                    setMessage(PAYMENT_PENDING_MESSAGE);
+                    return;
+                }
+            }
+            await bookShipment(pending, paymentIntentId, 'stripe');
+        } catch (err) {
+            console.error('[payment-callback]', err);
+            setStatus('pending');
+            setMessage(PAYMENT_PENDING_MESSAGE);
+        }
+    };
+
     const completePayment = async (transactionId) => {
         try {
-            const raw = sessionStorage.getItem(CHECKOUT_STASH_KEY);
-            if (!raw) {
-                setStatus('error');
-                setMessage('Payment session expired. Please try again.');
-                return;
-            }
-            const pending = JSON.parse(raw);
+            const pending = readStash();
+            if (!pending) return;
 
             const verify = await api.get(`/api/payments/flutterwave/verify/${transactionId}`);
             if (!verify.data?.success) {
@@ -54,62 +97,66 @@ export default function PaymentCallback() {
                 return;
             }
 
-            let res;
-            if (pending.isAddKgMode) {
-                res = await api.post('/api/bago/RequestPackage', {
-                    requestId: pending.requestId,
-                    additionalKg: pending.additionalKg,
-                    packageId: pending.packageId,
-                    tripId: pending.tripId,
-                    travelerId: pending.travelerId,
-                    amount: pending.amount,
-                    currency: pending.currency,
-                    termsAccepted: true,
-                    paymentReference: transactionId,
-                    paymentProvider: 'flutterwave',
-                });
-            } else {
-                res = await api.post('/api/bago/RequestPackage', {
-                    travelerId: pending.travelerId,
-                    packageId: pending.packageId,
-                    tripId: pending.tripId,
-                    amount: pending.amount,
-                    currency: pending.currency,
-                    estimatedDeparture: pending.estimatedDeparture,
-                    insurance: pending.insurance,
-                    insuranceCost: pending.insuranceCost || 0,
-                    paymentReference: transactionId,
-                    paymentProvider: 'flutterwave',
-                    termsAccepted: true,
-                });
-            }
-
-            sessionStorage.removeItem(CHECKOUT_STASH_KEY);
-
-            if ([200, 201, 202].includes(res.status) || res.data?.success) {
-                const req = res.data.request || res.data.data || res.data;
-                setStatus('success');
-                setTimeout(() => {
-                    navigate('/shipping-success', {
-                        replace: true,
-                        state: {
-                            requestId: req?.id || req?._id || pending.requestId,
-                            trackingNumber: req?.trackingNumber,
-                            amount: pending.amount,
-                            currency: pending.currency,
-                            paymentMethod: 'flutterwave',
-                            isAddKg: pending.isAddKgMode,
-                            additionalKg: pending.additionalKg,
-                        },
-                    });
-                }, 1500);
-            } else {
-                console.error('[payment-callback]', res.data);
-                setStatus('pending');
-                setMessage(PAYMENT_PENDING_MESSAGE);
-            }
+            await bookShipment(pending, transactionId, 'flutterwave');
         } catch (err) {
             console.error('[payment-callback]', err);
+            setStatus('pending');
+            setMessage(PAYMENT_PENDING_MESSAGE);
+        }
+    };
+
+    const bookShipment = async (pending, paymentReference, paymentProvider) => {
+        let res;
+        if (pending.isAddKgMode) {
+            res = await api.post('/api/bago/RequestPackage', {
+                requestId: pending.requestId,
+                additionalKg: pending.additionalKg,
+                packageId: pending.packageId,
+                tripId: pending.tripId,
+                travelerId: pending.travelerId,
+                amount: pending.amount,
+                currency: pending.currency,
+                termsAccepted: true,
+                paymentReference,
+                paymentProvider,
+            });
+        } else {
+            res = await api.post('/api/bago/RequestPackage', {
+                travelerId: pending.travelerId,
+                packageId: pending.packageId,
+                tripId: pending.tripId,
+                amount: pending.amount,
+                currency: pending.currency,
+                estimatedDeparture: pending.estimatedDeparture,
+                insurance: pending.insurance,
+                insuranceCost: pending.insuranceCost || 0,
+                paymentReference,
+                paymentProvider,
+                termsAccepted: true,
+            });
+        }
+
+        sessionStorage.removeItem(CHECKOUT_STASH_KEY);
+
+        if ([200, 201, 202].includes(res.status) || res.data?.success) {
+            const req = res.data.request || res.data.data || res.data;
+            setStatus('success');
+            setTimeout(() => {
+                navigate('/shipping-success', {
+                    replace: true,
+                    state: {
+                        requestId: req?.id || req?._id || pending.requestId,
+                        trackingNumber: req?.trackingNumber,
+                        amount: pending.amount,
+                        currency: pending.currency,
+                        paymentMethod: paymentProvider,
+                        isAddKg: pending.isAddKgMode,
+                        additionalKg: pending.additionalKg,
+                    },
+                });
+            }, 1500);
+        } else {
+            console.error('[payment-callback]', res.data);
             setStatus('pending');
             setMessage(PAYMENT_PENDING_MESSAGE);
         }

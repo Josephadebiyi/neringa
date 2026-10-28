@@ -88,9 +88,7 @@ class StripeCheckoutService {
     }
   }
 
-  Future<Map<String, dynamic>> _createIntent(Map<String, dynamic> draft) async {
-    try {
-      final res = await _api.post(ApiConstants.stripeCreateIntent, data: {
+  static Map<String, dynamic> _bookingBody(Map<String, dynamic> draft) => {
         'amount': draft['totalAmount'],
         'currency': draft['currency'],
         'packageId': draft['packageId'],
@@ -102,13 +100,70 @@ class StripeCheckoutService {
           'additionalKg': draft['additionalKg'],
         'termsAccepted': true,
         'insurance': draft['insurance'] == true,
-      });
+      };
+
+  Future<Map<String, dynamic>> _createIntent(Map<String, dynamic> draft) async {
+    try {
+      final res = await _api.post(ApiConstants.stripeCreateIntent,
+          data: _bookingBody(draft));
       final data = res.data is Map ? Map<String, dynamic>.from(res.data) : {};
       if ((data['clientSecret']?.toString() ?? '').isEmpty) {
         throw StateError(
             data['message']?.toString() ?? 'Card checkout could not start.');
       }
       return Map<String, dynamic>.from(data);
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  /// The backend offers Bizum only to users living in Spain paying in EUR.
+  Future<bool> isBizumAvailable(String currency) async {
+    if (currency.toUpperCase() != 'EUR') return false;
+    try {
+      final res = await _api.get(ApiConstants.stripeBizumEligibility,
+          queryParameters: {'currency': currency.toUpperCase()});
+      return res.data is Map && res.data['available'] == true;
+    } catch (e) {
+      debugPrint('[Stripe] Bizum eligibility unavailable: $e');
+      return false;
+    }
+  }
+
+  /// Starts a hosted Bizum checkout. [paidIntentId] is set instead of [url]
+  /// when this booking was already paid and only needs finalising.
+  Future<({String url, String? paidIntentId})> startBizum(
+      Map<String, dynamic> draft) async {
+    try {
+      final res = await _api.post(ApiConstants.stripeBizumCheckout,
+          data: {..._bookingBody(draft), 'platform': 'mobile'});
+      final data = res.data is Map ? Map<String, dynamic>.from(res.data) : {};
+      final paidId = data['paymentIntentId']?.toString() ?? '';
+      if (data['recovered'] == true && paidId.isNotEmpty) {
+        return (url: '', paidIntentId: paidId);
+      }
+      final url = data['url']?.toString() ?? '';
+      if (url.isEmpty) {
+        throw StateError(
+            data['message']?.toString() ?? 'Bizum checkout could not start.');
+      }
+      return (url: url, paidIntentId: null);
+    } on DioException catch (e) {
+      throw ApiService.parseError(e);
+    }
+  }
+
+  /// Payment state of a finished Bizum checkout session.
+  Future<({String paymentIntentId, String status})> bizumSession(
+      String sessionId) async {
+    try {
+      final res =
+          await _api.get('${ApiConstants.stripeBizumCheckout}/$sessionId');
+      final data = res.data is Map ? Map<String, dynamic>.from(res.data) : {};
+      return (
+        paymentIntentId: data['paymentIntentId']?.toString() ?? '',
+        status: data['status']?.toString() ?? '',
+      );
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }
@@ -136,6 +191,8 @@ class StripeCheckoutService {
       paymentSheetParameters: SetupPaymentSheetParameters(
         merchantDisplayName: 'Bago',
         paymentIntentClientSecret: clientSecret,
+        // Lets the sheet offer redirect wallets such as Revolut Pay.
+        returnURL: 'com.deracali.boltexponativewind.payments://stripe-redirect',
         customerId: intent['customerId']?.toString(),
         customerEphemeralKeySecret: intent['ephemeralKeySecret']?.toString(),
         applePay: config.merchantIdentifier.isEmpty

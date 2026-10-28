@@ -19,7 +19,7 @@ import {
 import { Link } from 'react-router-dom';
 import api from '../../api';
 
-const GENERAL_ITEMS = [
+export const GENERAL_ITEMS = [
     { id: 'overview', label: 'Home', icon: LayoutDashboard },
     { id: 'chats', label: 'Messages', icon: MessageCircle, badge: true },
     { id: 'trips', label: 'My Trips', icon: Plane },
@@ -37,7 +37,7 @@ const STAFF_PERMISSION_BY_NAV_ID = {
     financial: 'accounts.view',
 };
 
-function filterByStaffPermission(items, user) {
+export function filterByStaffPermission(items, user) {
     if (!user?.isStaffSession) return items;
     const permissions = user.staffPermissions || [];
     return items.filter((item) => {
@@ -46,7 +46,7 @@ function filterByStaffPermission(items, user) {
     });
 }
 
-function getAccountItems(isBusinessAccount, user) {
+export function getAccountItems(isBusinessAccount, user) {
     const items = [
         { id: 'earnings', label: 'Wallet', icon: Wallet },
     ];
@@ -67,7 +67,9 @@ function getAccountItems(isBusinessAccount, user) {
     return items;
 }
 
-export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen, isBusinessAccount = false }) {
+// Unread chat count, polled every 30s. Dashboard owns it and passes it to
+// both the sidebar and the top bar.
+export function useUnreadCount(user) {
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
@@ -82,6 +84,11 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
         const id = setInterval(fetchUnread, 30000);
         return () => clearInterval(id);
     }, [user]);
+
+    return unreadCount;
+}
+
+export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebarOpen, setSidebarOpen, isBusinessAccount = false, unreadCount = 0 }) {
 
     const NavItem = ({ item }) => {
         const isActive = activeTab === item.id;

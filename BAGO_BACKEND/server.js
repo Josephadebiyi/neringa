@@ -1,5 +1,5 @@
 import { previewAdditionalWeight } from './services/additionalWeightQuote.js';
-import { createStripePaymentIntent, getStripeCheckoutConfig, isStripeCheckoutEnabled, stripeConnectWebhook } from './controllers/StripeController.js';
+import { bizumReturnPage, createBizumCheckoutSession, createStripePaymentIntent, createStripeWebCheckoutSession, getBizumCheckoutSession, getBizumEligibility, getStripeCheckoutConfig, isBizumCheckoutEnabled, isStripeCheckoutEnabled, stripeConnectWebhook } from './controllers/StripeController.js';
 import express from 'express';
 import cors from 'cors';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
@@ -1097,14 +1097,23 @@ app.get('/api/payments/methods', disabledPaymentProvider('Stripe'));
 app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, (req, res) => (
   isStripeCheckoutEnabled() ? createStripePaymentIntent(req, res) : disabledPaymentProvider('Stripe')(req, res)
 ));
-app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
-app.get('/api/payments/bizum-checkout/:sessionId', isAuthenticated, disabledPaymentProvider('Stripe'));
-app.get('/api/payments/bizum-return', (_req, res) => {
-  res.type('html').send('<!doctype html><html><body><p>Payment complete. You can return to Bago.</p></body></html>');
-});
-app.get('/api/payments/bizum-cancel', (_req, res) => {
-  res.type('html').send('<!doctype html><html><body><p>Payment cancelled. You can return to Bago.</p></body></html>');
-});
+// Bizum (Stripe Checkout) for Spanish residents paying in EUR.
+app.get('/api/payments/bizum-eligibility', isAuthenticated, getBizumEligibility);
+app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, (req, res) => (
+  isBizumCheckoutEnabled() ? createBizumCheckoutSession(req, res) : disabledPaymentProvider('Stripe')(req, res)
+));
+app.get('/api/payments/bizum-checkout/:sessionId', isAuthenticated, (req, res) => (
+  isStripeCheckoutEnabled() ? getBizumCheckoutSession(req, res) : disabledPaymentProvider('Stripe')(req, res)
+));
+// Web checkout for non-African currencies: Stripe-hosted page (cards, wallets, Bizum).
+app.post('/api/payments/stripe-checkout', isAuthenticated, requireKycVerification, (req, res) => (
+  isStripeCheckoutEnabled() ? createStripeWebCheckoutSession(req, res) : disabledPaymentProvider('Stripe')(req, res)
+));
+app.get('/api/payments/stripe-checkout/:sessionId', isAuthenticated, (req, res) => (
+  isStripeCheckoutEnabled() ? getBizumCheckoutSession(req, res) : disabledPaymentProvider('Stripe')(req, res)
+));
+app.get('/api/payments/bizum-return', bizumReturnPage('success'));
+app.get('/api/payments/bizum-cancel', bizumReturnPage('cancelled'));
 app.post('/api/escrow/capture', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.post('/api/escrow/cancel', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.post('/api/refunds/issue', isAuthenticated, disabledPaymentProvider('Stripe'));

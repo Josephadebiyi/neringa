@@ -102,6 +102,23 @@ function senderDateOfBirth(sender) {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().split('T')[0];
 }
 
+// MyCover rejects plate numbers with anything other than letters and digits.
+function alphanumeric(value) {
+  return cleanText(value).replace(/[^a-z0-9]/gi, '');
+}
+
+// MyCover only accepts an absolute http(s) URL for the item image.
+function imageUrl(value) {
+  try {
+    const url = new URL(cleanText(value));
+    if (url.protocol === 'https:' || url.protocol === 'http:') return url.toString();
+  } catch {}
+  return process.env.MYCOVER_DEFAULT_ITEM_IMAGE_URL || 'https://neringa.onrender.com/favicon.ico';
+}
+
+// Smallest item value MyCover accepts, in NGN.
+export const MYCOVER_MIN_ITEM_VALUE_NGN = 5000;
+
 function vehicleTypeFor(request) {
   const raw = cleanText(
     request.trip?.travelMeans ||
@@ -137,9 +154,9 @@ export async function policyPayload({ request, sender, traveler }) {
     [request.toLocation, request.destinationCountry].filter(Boolean).join(', ') ||
     'Bago delivery';
   const declaredValue = Number(packageModel.value || request.amount || 0);
-  const itemValue = await convertDeclaredValueToNgn(
-    declaredValue,
-    request.currency || 'NGN',
+  const itemValue = Math.max(
+    MYCOVER_MIN_ITEM_VALUE_NGN,
+    Number(await convertDeclaredValueToNgn(declaredValue, request.currency || 'NGN')) || 0,
   );
   const itemImage = Array.isArray(packageModel.images)
     ? packageModel.images.find((image) => cleanText(image))
@@ -172,12 +189,12 @@ export async function policyPayload({ request, sender, traveler }) {
     shipping_date: isoDate(
       request.estimatedDeparture || request.trip?.departureDate || request.createdAt || undefined,
     ),
-    vehicle_plate_number: cleanText(
-      request.vehiclePlateNumber ||
-        request.trip?.vehiclePlateNumber ||
-        `BAGO-${request.senderId || tracking}`.replace(/[^a-z0-9-]/gi, '').slice(0, 20),
-      'BAGO-SHIPMENT',
-    ),
+    // No real plate exists for most trips, so fall back to the sender's user id.
+    vehicle_plate_number:
+      alphanumeric(request.vehiclePlateNumber) ||
+      alphanumeric(request.trip?.vehiclePlateNumber) ||
+      alphanumeric(request.senderId || sender?.id || tracking) ||
+      'BAGOSHIPMENT',
     vehicle_type: vehicleTypeFor(request),
     item_details: [
       {
@@ -186,9 +203,10 @@ export async function policyPayload({ request, sender, traveler }) {
         ),
         value: itemValue,
         quantity: 1,
-        image_url: cleanText(itemImage, 'https://neringa.onrender.com/favicon.ico'),
+        image: imageUrl(itemImage),
       },
     ],
+    item_value: itemValue,
     total_value: itemValue,
     bought_for_self: true,
     metadata: {
