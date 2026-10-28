@@ -132,7 +132,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
             fixed left-0 top-0 h-screen w-64 bg-[#5845D8] flex flex-col z-40
             transition-transform duration-300 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-            md:translate-x-0
+            lg:hidden
         `}>
             {/* Logo */}
             <div className="px-6 pt-7 pb-5 flex items-center justify-between">
@@ -149,7 +149,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, logout, sidebar
                     <span className="hidden text-white font-black text-xl tracking-tight">bago</span>
                 </Link>
                 <button
-                    className="md:hidden p-1.5 rounded-xl text-white/30 hover:text-white/70 transition-colors"
+                    className="p-1.5 rounded-xl text-white/30 hover:text-white/70 transition-colors"
                     onClick={() => setSidebarOpen(false)}
                 >
                     <X size={18} />
