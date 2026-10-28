@@ -5,6 +5,18 @@ import api from '../api';
 
 const CHECKOUT_STASH_KEY = 'bago_flutterwave_checkout';
 
+// African currencies pay through Flutterwave (local cards, bank transfer,
+// mobile money). Everything else uses Stripe's hosted checkout, which shows
+// cards, Apple Pay, Google Pay, PayPal, Revolut Pay and, in Spain, Bizum.
+// Matches flutterwaveOnlyCurrencies in the mobile app.
+const FLUTTERWAVE_CURRENCIES = new Set([
+    'NGN', 'GHS', 'KES', 'ZAR', 'UGX', 'TZS', 'RWF', 'XOF', 'XAF', 'ZMW',
+    'MWK', 'EGP', 'SLL', 'ETB', 'MAD',
+]);
+
+export const paymentProviderForCurrency = (currency) =>
+    FLUTTERWAVE_CURRENCIES.has(String(currency || '').toUpperCase()) ? 'flutterwave' : 'stripe';
+
 function checkoutErrorMessage(error, fallback = 'Payment checkout could not load.') {
     const data = error?.response?.data;
     const raw = data?.message || data?.error || error?.message || fallback;
@@ -22,9 +34,8 @@ function checkoutErrorMessage(error, fallback = 'Payment checkout could not load
     return raw;
 }
 
-// Flutterwave is the sole active payment provider. Unlike PayPal's inline SDK,
-// Flutterwave Standard checkout is a hosted-page redirect — the browser leaves
-// Bago entirely, so checkout details are stashed in sessionStorage before
+// Both providers use a hosted-page redirect — the browser leaves Bago
+// entirely, so checkout details are stashed in sessionStorage before
 // redirecting out and read back by PaymentCallback.jsx on return.
 export default function PaymentCheckout() {
     const [params] = useSearchParams();
@@ -87,6 +98,35 @@ export default function PaymentCheckout() {
                         insuranceCost: checkout.insuranceCost,
                     },
                 };
+                if (paymentProviderForCurrency(paymentCheckout.currency) === 'stripe') {
+                    const res = await api.post('/api/payments/stripe-checkout', {
+                        packageId:  paymentCheckout.packageId,
+                        tripId:     paymentCheckout.tripId,
+                        travelerId: paymentCheckout.travelerId,
+                        amount:     paymentCheckout.amount,
+                        currency:   paymentCheckout.currency,
+                        insurance:  !isAddKgMode && checkout.insurance,
+                        termsAccepted: true,
+                        ...(isAddKgMode && { requestId: checkout.requestId, additionalKg: checkout.additionalKg }),
+                    });
+                    if (!alive) return;
+                    sessionStorage.setItem(CHECKOUT_STASH_KEY, JSON.stringify({
+                        ...paymentCheckout,
+                        isAddKgMode,
+                        provider: 'stripe',
+                    }));
+                    // This booking was already paid; only the shipment needs creating.
+                    if (res.data?.recovered && res.data?.paymentIntentId) {
+                        navigate(`/payment/callback?provider=stripe&payment_intent=${encodeURIComponent(res.data.paymentIntentId)}`, { replace: true });
+                        return;
+                    }
+                    if (!res.data?.url) {
+                        throw new Error(res.data?.message || 'Could not start checkout.');
+                    }
+                    setAuthorizationUrl(res.data.url);
+                    return;
+                }
+
                 const res = await api.post('/api/payments/flutterwave/initialize', initBody);
                 if (!alive) return;
                 const url = res.data?.authorizationUrl || res.data?.data?.authorizationUrl;
@@ -101,6 +141,7 @@ export default function PaymentCheckout() {
                 sessionStorage.setItem(CHECKOUT_STASH_KEY, JSON.stringify({
                     ...paymentCheckout,
                     isAddKgMode,
+                    provider: 'flutterwave',
                     reference,
                 }));
 
@@ -117,7 +158,7 @@ export default function PaymentCheckout() {
         return () => { alive = false; };
     }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.requestId, checkout.additionalKg, (quotedCheckout || checkout).amount, (quotedCheckout || checkout).currency, isAddKgMode]);
 
-    const goToFlutterwave = () => {
+    const goToCheckout = () => {
         if (!authorizationUrl) return;
         setRedirecting(true);
         window.location.href = authorizationUrl;
@@ -142,7 +183,9 @@ export default function PaymentCheckout() {
                             <div className="mb-5">
                                 <h1 className="text-lg font-black tracking-tight">Pay Now</h1>
                                 <p className="mt-1 text-xs font-bold text-gray-400">
-                                    Card, Apple Pay, bank transfer & mobile money — choose your method on the next page.
+                                    {paymentProviderForCurrency((quotedCheckout || checkout).currency) === 'stripe'
+                                        ? 'Card, Apple Pay, Google Pay, PayPal and more — choose your method on the next page.'
+                                        : 'Card, Apple Pay, bank transfer & mobile money — choose your method on the next page.'}
                                 </p>
                             </div>
 
@@ -165,7 +208,7 @@ export default function PaymentCheckout() {
 
                             {!loading && !redirecting && !error && (
                                 <button
-                                    onClick={goToFlutterwave}
+                                    onClick={goToCheckout}
                                     className="w-full rounded-2xl bg-[#5845D8] py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-[#5845D8]/20 transition-all hover:bg-[#4838B5]"
                                 >
                                     Pay Now

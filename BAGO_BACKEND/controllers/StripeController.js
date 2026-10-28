@@ -1073,6 +1073,22 @@ export function isSpainResident(profile) {
   return SPAIN_COUNTRY_VALUES.has(String(profile?.country || '').trim().toLowerCase());
 }
 
+// Bizum is for Spanish residents only. Everyone else gets it excluded; if
+// Stripe rejects the exclusion parameter, fall back to cards (which still
+// include Apple Pay and Google Pay) so checkout never offers Bizum by accident.
+export async function createWithoutBizumOutsideSpain(profile, params, create) {
+  if (isSpainResident(profile) || params.payment_method_types) return create(params);
+  try {
+    return await create({...params, excluded_payment_method_types: ['bizum']});
+  } catch (error) {
+    const unsupported = error?.type === 'StripeInvalidRequestError'
+      && /excluded_payment_method_types/.test(`${error.param || ''} ${error.message || ''}`);
+    if (!unsupported) throw error;
+    const {automatic_payment_methods: _automatic, ...cardOnly} = params;
+    return create({...cardOnly, payment_method_types: ['card']});
+  }
+}
+
 export function isBizumCheckoutEnabled() {
   return isStripeCheckoutEnabled()
     && String(process.env.STRIPE_BIZUM_ENABLED ?? 'true').trim().toLowerCase() !== 'false';
@@ -1166,9 +1182,10 @@ export async function createStripePaymentIntent(req, res) {
       params.off_session = false;
     }
 
-    const intentKey = crypto.createHash('sha256').update(JSON.stringify(params)).digest('hex');
-    const paymentIntent = await requireStripe().paymentIntents.create(params,
-      {idempotencyKey: `bago-checkout-${intentKey}`});
+    const paymentIntent = await createWithoutBizumOutsideSpain(profile, params, (attempt) => {
+      const intentKey = crypto.createHash('sha256').update(JSON.stringify(attempt)).digest('hex');
+      return requireStripe().paymentIntents.create(attempt, {idempotencyKey: `bago-checkout-${intentKey}`});
+    });
     if (shipmentId) {
       await query(
         `
@@ -1241,22 +1258,27 @@ export async function createStripePaymentIntent(req, res) {
   }
 }
 
-export async function createBizumCheckoutSession(req, res) {
+const WEB_APP_URL = process.env.FRONTEND_URL || 'https://sendwithbago.com';
+
+// Stripe-hosted checkout. method 'bizum' is the app's Bizum button; 'any' is
+// web checkout, where Stripe shows every method enabled in the Dashboard.
+async function createStripeHostedCheckout(req, res, method) {
+  const isBizum = method === 'bizum';
   try {
     const profile = await getProfile(userIdFromReq(req));
     if (!profile) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
-    if (!isBizumCheckoutEnabled()) {
+    if (isBizum && !isBizumCheckoutEnabled()) {
       return res.status(410).json({ success: false, message: 'Bizum is not available right now.' });
     }
 
     const booking = await validateStripeBooking(req, profile);
     if (booking.error) return res.status(booking.error.status).json(booking.error.body);
-    if (booking.currency !== 'eur') {
+    if (isBizum && booking.currency !== 'eur') {
       return res.status(400).json({ success: false, code: 'BIZUM_CURRENCY', message: 'Bizum is only available for EUR payments.' });
     }
-    if (!isSpainResident(profile)) {
+    if (isBizum && !isSpainResident(profile)) {
       return res.status(403).json({ success: false, code: 'BIZUM_COUNTRY', message: 'Bizum is only available to users living in Spain.' });
     }
 
@@ -1270,34 +1292,40 @@ export async function createBizumCheckoutSession(req, res) {
     const { checkoutQuote, amount } = priced;
 
     const customerId = await ensureStripeCustomer(profile);
-    const returnBase = `${appUrl()}/api/payments`;
-    const platform = req.body?.platform === 'mobile' ? 'mobile' : 'web';
-    const session = await requireStripe().checkout.sessions.create({
+    const mobile = req.body?.platform === 'mobile';
+    const apiReturn = `${appUrl()}/api/payments`;
+    const successUrl = mobile
+      ? `${apiReturn}/bizum-return?platform=mobile&session_id={CHECKOUT_SESSION_ID}`
+      : `${WEB_APP_URL}/payment/callback?provider=stripe&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = mobile
+      ? `${apiReturn}/bizum-cancel?platform=mobile&session_id={CHECKOUT_SESSION_ID}`
+      : `${WEB_APP_URL}/payment/callback?provider=stripe&status=cancelled`;
+    const session = await createWithoutBizumOutsideSpain(profile, {
       mode: 'payment',
       customer: customerId,
-      payment_method_types: ['bizum'],
+      ...(isBizum && { payment_method_types: ['bizum'] }),
       line_items: [
         {
           quantity: 1,
           price_data: {
-            currency: 'eur',
+            currency: booking.currency,
             unit_amount: amount,
             product_data: { name: 'Bago shipment payment' },
           },
         },
       ],
       payment_intent_data: {
-        metadata: stripeBookingMetadata(req, profile, booking, checkoutQuote, 'bizum'),
+        metadata: stripeBookingMetadata(req, profile, booking, checkoutQuote, isBizum ? 'bizum' : 'checkout'),
       },
-      success_url: `${returnBase}/bizum-return?platform=${platform}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${returnBase}/bizum-cancel?platform=${platform}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         senderId: profile.id,
         packageId: booking.packageId,
         tripId: booking.tripId,
         travelerId: booking.travelerId,
       },
-    });
+    }, (attempt) => requireStripe().checkout.sessions.create(attempt));
 
     return res.json({
       success: true,
@@ -1307,12 +1335,22 @@ export async function createBizumCheckoutSession(req, res) {
       checkoutPreview: checkoutQuote,
     });
   } catch (error) {
-    console.error('createBizumCheckoutSession failed:', error);
+    console.error(`Stripe ${method} checkout failed:`, error);
     return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Bizum checkout could not be started. Please try again.',
+      message: isBizum
+        ? 'Bizum checkout could not be started. Please try again.'
+        : 'Secure checkout could not be started. Please try again.',
     });
   }
+}
+
+export function createBizumCheckoutSession(req, res) {
+  return createStripeHostedCheckout(req, res, 'bizum');
+}
+
+export function createStripeWebCheckoutSession(req, res) {
+  return createStripeHostedCheckout(req, res, 'any');
 }
 
 export async function getBizumCheckoutSession(req, res) {

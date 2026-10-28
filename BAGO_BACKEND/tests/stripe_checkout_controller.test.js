@@ -13,7 +13,7 @@ vi.mock('stripe', () => ({default: class Stripe {
   webhooks = {constructEvent: m.signature};
   checkout = {sessions: {create: m.session}};
 }}));
-import {bizumReturnPage, createBizumCheckoutSession, createStripePaymentIntent, getBizumEligibility, isStripeCheckoutEnabled, stripeConnectWebhook} from '../controllers/StripeController.js';
+import {bizumReturnPage, createBizumCheckoutSession, createStripePaymentIntent, createStripeWebCheckoutSession, getBizumEligibility, isStripeCheckoutEnabled, stripeConnectWebhook} from '../controllers/StripeController.js';
 const quote = {travelerCurrency: 'USD', senderCurrency: 'EUR', travelerPayout: 100,
   convertedTravelerPayout: 92, platformFee: 13.8, processingFee: 2, fxBuffer: 0,
   shippingAmount: 107.8, insuranceAmount: 5, totalAmount: 112.8, bagoNetRevenue: 15.8, exchangeRate: .92};
@@ -204,5 +204,56 @@ describe('Bizum checkout for Spanish residents', () => {
     const response = {redirect(code, url) { redirect = {code, url}; }};
     bizumReturnPage('success')({query: {platform: 'mobile', session_id: 'cs_test_1'}}, response);
     expect(redirect).toEqual({code: 302, url: 'com.deracali.boltexponativewind.payments://bizum?status=success&session_id=cs_test_1'});
+  });
+});
+
+describe('Stripe web checkout', () => {
+  beforeEach(() => m.session.mockResolvedValue({id: 'cs_web_1', url: 'https://checkout.stripe.com/c/pay/cs_web_1'}));
+
+  it('opens a hosted page with every enabled method and returns to the website', async () => {
+    const response = res(); await createStripeWebCheckoutSession(req(), response);
+    expect(response.code).toBe(200);
+    const params = m.session.mock.calls[0][0];
+    expect(params).not.toHaveProperty('payment_method_types');
+    expect(params.line_items[0].price_data).toMatchObject({currency: 'eur', unit_amount: 11280});
+    expect(params.payment_intent_data.metadata).toMatchObject({senderId: 'sender', packageId: 'pkg', paymentMethodType: 'checkout'});
+    expect(params.success_url).toMatch(/\/payment\/callback\?provider=stripe&session_id=\{CHECKOUT_SESSION_ID\}$/);
+  });
+
+  it('applies the same price check as card checkout', async () => {
+    const response = res(); await createStripeWebCheckoutSession(req(99), response);
+    expect(response.code).toBe(409); expect(m.session).not.toHaveBeenCalled();
+  });
+});
+
+describe('Bizum stays Spain-only', () => {
+  beforeEach(() => m.session.mockResolvedValue({id: 'cs_web_2', url: 'https://checkout.stripe.com/c/pay/cs_web_2'}));
+
+  it('excludes Bizum from web checkout for users outside Spain', async () => {
+    await createStripeWebCheckoutSession(req(), res());
+    expect(m.session.mock.calls[0][0].excluded_payment_method_types).toEqual(['bizum']);
+  });
+
+  it('excludes Bizum from the app card sheet for users outside Spain', async () => {
+    await createStripePaymentIntent(req(), res());
+    expect(m.create.mock.calls[0][0].excluded_payment_method_types).toEqual(['bizum']);
+  });
+
+  it('keeps Bizum for Spanish residents', async () => {
+    const fallback = m.queryOne.getMockImplementation();
+    m.queryOne.mockImplementation(async sql => sql.includes('select p.*')
+      ? {id: 'sender', country: 'Spain', preferred_currency: 'EUR', stripe_customer_id: 'cus_test'} : fallback(sql));
+    await createStripeWebCheckoutSession(req(), res());
+    expect(m.session.mock.calls[0][0]).not.toHaveProperty('excluded_payment_method_types');
+  });
+
+  it('falls back to cards if Stripe rejects the exclusion', async () => {
+    m.session
+      .mockRejectedValueOnce(Object.assign(new Error('Received unknown parameter: excluded_payment_method_types'), {type: 'StripeInvalidRequestError'}))
+      .mockResolvedValueOnce({id: 'cs_web_3', url: 'https://checkout.stripe.com/c/pay/cs_web_3'});
+    const response = res(); await createStripeWebCheckoutSession(req(), response);
+    expect(response.code).toBe(200);
+    expect(m.session.mock.calls[1][0].payment_method_types).toEqual(['card']);
+    expect(m.session.mock.calls[1][0]).not.toHaveProperty('excluded_payment_method_types');
   });
 });
