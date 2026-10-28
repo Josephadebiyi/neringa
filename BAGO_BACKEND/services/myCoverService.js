@@ -271,6 +271,14 @@ function extractPolicy(responseData) {
   };
 }
 
+// True while a purchase may still be creating a policy. A shipment whose
+// purchase MyCover rejected ('failed', no purchase id) can be retried.
+export function isInsuranceSubmissionInFlight(status, data) {
+  if (data?.purchaseId || data?.response) return true;
+  if (status === 'failed') return false;
+  return Boolean(data?.submittedAt || (status === 'pending_purchase' && data?.payload));
+}
+
 async function updateInsuranceState(requestId, fields) {
   await query(
     `
@@ -315,7 +323,7 @@ export async function purchaseMyCoverPolicy(request) {
     return stored?.insurance_policy_id || request.insurancePolicyId;
   }
   const storedData = stored?.insurance_policy_data;
-  if (storedData?.submittedAt || storedData?.purchaseId || storedData?.response || (stored?.insurance_status === 'pending_purchase' && storedData?.payload)) return null;
+  if (isInsuranceSubmissionInFlight(stored?.insurance_status, storedData)) return null;
 
   const secretKey = process.env.MYCOVER_SECRET_KEY;
   if (!secretKey) {
@@ -339,6 +347,8 @@ export async function purchaseMyCoverPolicy(request) {
     throw error;
   }
 
+  const attempts = Number(storedData?.attempts || 0) + 1;
+
   // A durable claim prevents concurrent acceptance requests (or a repeat after
   // a timeout) from buying a second policy against the funded wallet.
   const claimed = await query(`
@@ -346,9 +356,9 @@ export async function purchaseMyCoverPolicy(request) {
     SET insurance_status = 'pending_purchase', insurance_error = NULL,
         insurance_policy_data = $2::jsonb, updated_at = timezone('utc', now())
     WHERE id = $1 AND NULLIF(insurance_policy_id, '') IS NULL
-      AND insurance_policy_data->>'submittedAt' IS NULL
+      AND (insurance_policy_data->>'submittedAt' IS NULL OR insurance_status = 'failed')
     RETURNING id
-  `, [request.id, JSON.stringify({ provider: 'mycover', payload, submittedAt: new Date().toISOString() })]);
+  `, [request.id, JSON.stringify({ provider: 'mycover', payload, submittedAt: new Date().toISOString(), attempts })]);
   if (!claimed.rows?.length) return null;
 
   let responseData;
@@ -373,10 +383,18 @@ export async function purchaseMyCoverPolicy(request) {
     const detail = err.response?.data
       ? JSON.stringify(err.response.data)
       : err.message;
+    // A MyCover response means no policy was created, so the shipment can be
+    // retried. With no response (timeout, network) the policy may exist, so
+    // it stays submitted until MyCover's webhook confirms either way.
+    const rejected = Boolean(err.response);
     await updateInsuranceState(request.id, {
-      status: err.response ? 'failed' : 'pending_purchase',
+      status: rejected ? 'failed' : 'pending_purchase',
       error: detail,
-      policyData: { provider: 'mycover', payload, submittedAt: new Date().toISOString(), error: err.response?.data || err.message },
+      policyData: {
+        provider: 'mycover', payload, attempts,
+        ...(rejected ? { failedAt: new Date().toISOString() } : { submittedAt: new Date().toISOString() }),
+        error: err.response?.data || err.message,
+      },
     });
     throw new Error(`MyCover API error: ${detail}`);
   }

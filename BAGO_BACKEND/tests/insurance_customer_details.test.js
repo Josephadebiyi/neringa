@@ -2,7 +2,7 @@ import {beforeEach, expect, it, vi} from 'vitest';
 const m = vi.hoisted(() => ({query: vi.fn(), get: vi.fn(), buy: vi.fn()}));
 vi.mock('../lib/postgres/db.js', () => ({query: m.query}));
 vi.mock('../lib/postgres/shipping.js', () => ({getShipmentRequestById: m.get}));
-vi.mock('../services/myCoverService.js', () => ({purchaseMyCoverPolicy: m.buy}));
+vi.mock('../services/myCoverService.js', async (importOriginal) => ({...await importOriginal(), purchaseMyCoverPolicy: m.buy}));
 import {completeInsuranceDetails} from '../controllers/InsuranceCustomerController.js';
 const shipment = {id: 'shipment', senderId: 'sender', insurance: true, insuranceCost: 20, status: 'accepted_awaiting_inspection', insuranceStatus: 'failed'};
 function response() {return {code: 200, status(code) {this.code = code; return this;}, json(data) {this.data = data; return this;}};}
@@ -23,10 +23,17 @@ it('rejects invalid gender instead of substituting a value', async () => {
   const res = response(); await completeInsuranceDetails(request('sender', 'unknown'), res);
   expect(res.code).toBe(400); expect(m.buy).not.toHaveBeenCalled();
 });
-it('does not repurchase or modify an already-submitted policy', async () => {
-  m.get.mockResolvedValue({...shipment, insurancePolicyData: {submittedAt: '2026-10-17'}});
+it('does not repurchase or modify a policy still awaiting MyCover', async () => {
+  m.get.mockResolvedValue({...shipment, insuranceStatus: 'pending_purchase', insurancePolicyData: {submittedAt: '2026-10-17'}});
   const res = response(); await completeInsuranceDetails(request(), res);
   expect(res.code).toBe(409); expect(m.query).not.toHaveBeenCalled(); expect(m.buy).not.toHaveBeenCalled();
+});
+it('retries an application MyCover rejected', async () => {
+  const rejected = {...shipment, insuranceStatus: 'failed', insurancePolicyData: {submittedAt: '2026-10-17', error: {responseCode: 0}}};
+  m.get.mockResolvedValue(rejected);
+  const res = response(); await completeInsuranceDetails(request(), res);
+  expect(res.code).toBe(200); expect(m.buy).toHaveBeenCalled();
+  expect(m.query.mock.calls[0][0]).toContain("or insurance_status = 'failed'");
 });
 it('does not overwrite an issued policy', async () => {
   m.get.mockResolvedValue({...shipment, insurancePolicyId: 'policy'});
