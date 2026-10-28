@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { cacheWallet, getCachedWallet, getUserPayoutCurrency } from '../../utils/userCurrency';
+import { cacheWallet, getCachedWallet, getUserDisplayCurrency } from '../../utils/userCurrency';
 import { convertWallet } from '../../utils/currencyConversion';
 
 const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', NGN: '₦', GHS: '₵', KES: 'KSh', ZAR: 'R' };
@@ -108,8 +108,8 @@ function Sparkline({ data, color = '#5845D8', height = 40 }) {
 export default function Overview({ user, kycStatus, handleStartKyc, userStats }) {
     const navigate = useNavigate();
 
-    const profileCurrency = getUserPayoutCurrency(user);
-    const cachedWallet = getCachedWallet(user);
+    const profileCurrency = getUserDisplayCurrency(user);
+    const cachedWallet = getCachedWallet(user, profileCurrency);
 
     const [walletData, setWalletData] = useState({
         balance: cachedWallet?.balance ?? null,
