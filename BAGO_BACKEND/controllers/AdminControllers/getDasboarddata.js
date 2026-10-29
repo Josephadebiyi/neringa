@@ -19,12 +19,49 @@ async function safeQuery(sql, params = [], fallback = []) {
   }
 }
 
+// One pass over paid bookings for both dashboard totals.
+const revenueTotalsSql = `
+  WITH paid AS (
+    SELECT
+      COALESCE(sl.payment_amount, sr.amount, 0) AS amount,
+      COALESCE(sl.bago_commission_amount, sr.platform_commission, 0) AS commission,
+      UPPER(COALESCE(sl.payment_currency, sr.currency, 'USD')) AS currency
+    FROM public.shipment_requests sr
+    LEFT JOIN public.shipment_ledgers sl ON sl.shipment_id = sr.id
+    LEFT JOIN public.profiles sender ON sender.id = sr.sender_id
+    LEFT JOIN public.profiles traveler ON traveler.id = sr.traveler_id
+    WHERE (
+        sl.shipment_id IS NOT NULL
+        OR sr.status::text IN ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed')
+      )
+      AND sr.status::text NOT IN ('cancelled', 'rejected', 'refund_approved')
+      AND COALESCE(sr.payment_status, '') NOT ILIKE '%refund%'
+      AND COALESCE(sender.is_demo_account, false) = false
+      AND COALESCE(traveler.is_demo_account, false) = false
+  ), converted AS (
+    SELECT amount, commission,
+      CASE
+        WHEN currency = 'EUR' THEN 1
+        WHEN currency = 'USD' THEN COALESCE((er.rates->>'EUR')::numeric, 1)
+        ELSE (1 / NULLIF((er.rates->>currency)::numeric, 0)) * COALESCE((er.rates->>'EUR')::numeric, 1)
+      END AS to_eur
+    FROM paid
+    LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
+  )
+  SELECT
+    COALESCE(SUM(amount * to_eur), 0) AS total_income_eur,
+    COALESCE(SUM(commission * to_eur), 0) AS total_commission_eur,
+    COUNT(*) FILTER (WHERE to_eur IS NULL)::int AS unconverted_count
+  FROM converted
+`;
+
 export const dashboard = async (req, res, next) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    const revenueTotals = safeQueryOne(revenueTotalsSql, [], { total_income_eur: 0, total_commission_eur: 0 });
     const [
       userCountRow,
       packageCountRow,
@@ -45,55 +82,14 @@ export const dashboard = async (req, res, next) => {
       safeQueryOne(`select count(*)::int as total from public.profiles`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.packages`, [], { total: 0 }),
       safeQueryOne(`select count(*)::int as total from public.shipment_requests`, [], { total: 0 }),
-      // Platform reporting base currency is EUR (see migration plan §platform_base_currency).
-      // exchange_rates only maintains a USD-base row, so amounts are converted to USD first
-      // (existing logic) then to EUR via the same row's USD->EUR rate, rather than fetching
-      // a second EUR-base row from the rate provider on every cron cycle.
-      safeQueryOne(`
-        SELECT COALESCE(
-          SUM(
-            CASE
-              WHEN sr.currency = 'EUR'
-                THEN COALESCE(sr.amount, sr.insurance_cost, 0)
-              WHEN sr.currency IS NULL OR sr.currency = 'USD'
-                THEN COALESCE(sr.amount, sr.insurance_cost, 0) * COALESCE((er.rates->>'EUR')::numeric, 1)
-              ELSE
-                (COALESCE(sr.amount, sr.insurance_cost, 0) / NULLIF((er.rates->>sr.currency)::numeric, 0))
-                * COALESCE((er.rates->>'EUR')::numeric, 1)
-            END
-          ), 0
-        ) AS total_income_eur
-        FROM public.shipment_requests sr
-        LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
-        LEFT JOIN public.profiles sender ON sender.id = sr.sender_id
-        LEFT JOIN public.profiles traveler ON traveler.id = sr.traveler_id
-        WHERE sr.status IN ('accepted', 'package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed')
-          AND coalesce(sender.is_demo_account, false) = false
-          AND coalesce(traveler.is_demo_account, false) = false
-      `, [], { total_income_eur: 0 }),
-      // Real platform commission (shipment_ledgers.bago_commission_amount), converted to
-      // EUR the same way — replaces the previous hardcoded totalIncome * 0.1 estimate.
-      safeQueryOne(`
-        SELECT COALESCE(
-          SUM(
-            CASE
-              WHEN sl.payment_currency = 'EUR'
-                THEN COALESCE(sl.bago_commission_amount, 0)
-              WHEN sl.payment_currency IS NULL OR sl.payment_currency = 'USD'
-                THEN COALESCE(sl.bago_commission_amount, 0) * COALESCE((er.rates->>'EUR')::numeric, 1)
-              ELSE
-                (COALESCE(sl.bago_commission_amount, 0) / NULLIF((er.rates->>sl.payment_currency)::numeric, 0))
-                * COALESCE((er.rates->>'EUR')::numeric, 1)
-            END
-          ), 0
-        ) AS total_commission_eur
-        FROM public.shipment_ledgers sl
-        LEFT JOIN public.exchange_rates er ON er.base_currency = 'USD'
-        LEFT JOIN public.profiles sender ON sender.id = sl.sender_id
-        LEFT JOIN public.profiles traveler ON traveler.id = sl.traveler_id
-        WHERE coalesce(sender.is_demo_account, false) = false
-          AND coalesce(traveler.is_demo_account, false) = false
-      `, [], { total_commission_eur: 0 }),
+      // Income and commission come from the same set of bookings so they always
+      // agree: every paid booking (it has a shipment_ledgers row, written when the
+      // payment is held in escrow), whether or not the traveler has accepted yet,
+      // plus older accepted-or-later bookings from before the ledger existed.
+      // Refunded, rejected, cancelled and demo bookings are left out. Amounts are
+      // converted to EUR via the USD-base exchange_rates row.
+      revenueTotals,
+      revenueTotals,
       safeQuery(`
         select status as name, count(*)::int as count
         from public.shipment_requests
@@ -171,6 +167,9 @@ export const dashboard = async (req, res, next) => {
       value: totalRequests > 0 ? (Number(row.count || 0) / totalRequests) * 100 : 0,
     }));
 
+    if (Number(incomeRow?.unconverted_count) > 0) {
+      console.warn(`Dashboard revenue: ${incomeRow.unconverted_count} paid booking(s) skipped, no EUR exchange rate for their currency.`);
+    }
     const totalIncome = Number(incomeRow?.total_income_eur || 0);
     const totalCommission = Number(commissionRow?.total_commission_eur || 0);
 
