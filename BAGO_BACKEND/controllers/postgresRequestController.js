@@ -523,7 +523,12 @@ async function handlePackageRequest(req, res) {
 
     const signupMethod = senderProfile.signupMethod || 'email';
 
-    if (!senderProfile.phoneVerified) {
+    // A paid booking is never blocked on phone verification: the money is
+    // already taken, and SMS verification can be unavailable (checkout no longer
+    // requires it either). REQUIRE_PHONE_FOR_CARD_CHECKOUT=true restores the
+    // check for requests that arrive without a payment.
+    const requirePhone = String(process.env.REQUIRE_PHONE_FOR_CARD_CHECKOUT || '').trim().toLowerCase() === 'true';
+    if (!senderProfile.phoneVerified && !paymentReference && requirePhone) {
       return res.status(403).json({
         code: 'PHONE_NOT_VERIFIED',
         message: 'Please verify your mobile number before sending a shipment.',
