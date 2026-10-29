@@ -1,6 +1,7 @@
+import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { getConversationById } from '../lib/postgres/messaging.js';
 import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
-import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail } from '../services/emailNotifications.js';
+import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail, sendNewPaidOrderAdminNotification } from '../services/emailNotifications.js';
 import { generateShippingLabelPDF } from '../services/pdfGenerator.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
@@ -411,6 +412,18 @@ export async function applyPaidAdditionalKg({
   return updatedRequestId ? getShipmentRequestById(updatedRequestId) : null;
 }
 
+async function notifyAdminsOfPaidOrder({ senderProfile, travelerProfile, tripDoc, amount, currency, provider, reference }) {
+  const adminEmails = await listActiveAdminEmails();
+  const fullName = (profile) => [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim();
+  await Promise.all(adminEmails.map((adminEmail) => sendNewPaidOrderAdminNotification(adminEmail, {
+    senderName: fullName(senderProfile) || 'Sender',
+    senderEmail: senderProfile?.email || '',
+    travelerName: fullName(travelerProfile) || 'Traveler',
+    route: [tripDoc?.fromLocation, tripDoc?.toLocation].filter(Boolean).join(' → '),
+    amount, currency: String(currency || '').toUpperCase(), provider, reference,
+  })));
+}
+
 // One lock per paid package (or per paid additional-weight payment), shared by
 // the app, the website, provider webhooks and the recovery job, so a paid
 // booking is only ever created once.
@@ -561,7 +574,7 @@ async function handlePackageRequest(req, res) {
           targetType: 'package',
           targetId: packageId,
           ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
+          userAgent: req.headers?.['user-agent'],
           metadata: { category: packageDoc.category, categoryName: cat.name },
         });
         return res.status(403).json({
@@ -577,7 +590,7 @@ async function handlePackageRequest(req, res) {
           targetType: 'package',
           targetId: packageId,
           ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
+          userAgent: req.headers?.['user-agent'],
           metadata: { category: packageDoc.category, declaredValue: packageDoc.declaredValue },
         });
       }
@@ -593,7 +606,7 @@ async function handlePackageRequest(req, res) {
           targetType: 'package',
           targetId: packageId,
           ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
+          userAgent: req.headers?.['user-agent'],
           metadata: { declaredValue, threshold: kycValueThreshold, reason: 'high_value' },
         });
         return res.status(403).json({
@@ -715,7 +728,7 @@ async function handlePackageRequest(req, res) {
                 status = 'paid_escrow',
                 raw_response = raw_response || $3::jsonb,
                 updated_at = timezone('utc', now())
-            where provider = 'flutterwave' and provider_reference = $1
+            where provider = 'flutterwave' and (provider_reference = $1 or raw_response ->> 'id' = $1)
           `,
           [
             paymentReference,
@@ -839,7 +852,7 @@ async function handlePackageRequest(req, res) {
                 status = 'paid_escrow',
                 raw_response = raw_response || $3::jsonb,
                 updated_at = timezone('utc', now())
-            where provider = 'flutterwave' and provider_reference = $1
+            where provider = 'flutterwave' and (provider_reference = $1 or raw_response ->> 'id' = $1)
           `,
           [paymentReference, newRequest.id, { requestId: newRequest.id, linkedAfterPayment: true }],
         ).catch((linkError) => {
@@ -930,6 +943,14 @@ async function handlePackageRequest(req, res) {
       packageDetails: `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
       trip: tripDoc,
     }).catch((error) => console.error('Trip-owner request email failed:', error.message));
+
+    if (paymentReference && !existingRequest) {
+      notifyAdminsOfPaidOrder({
+        senderProfile, travelerProfile, tripDoc,
+        amount: requestAmount, currency: requestCurrency,
+        provider: paymentProvider || 'flutterwave', reference: paymentReference,
+      }).catch((error) => console.error('Admin new-order email failed:', error.message));
+    }
 
     return res.status(existingRequest ? 200 : 201).json({
       success: true,

@@ -59,9 +59,9 @@ const verifyDojahWebhook = (req) => {
   if (!secret) return process.env.NODE_ENV !== 'production';
 
   const receivedSecret =
-    req.headers['x-dojah-webhook-secret'] ||
-    req.headers['x-dojah-secret'] ||
-    req.headers['x-webhook-secret'];
+    req.headers?.['x-dojah-webhook-secret'] ||
+    req.headers?.['x-dojah-secret'] ||
+    req.headers?.['x-webhook-secret'];
 
   return Boolean(receivedSecret && safeEqualText(receivedSecret, secret));
 };
