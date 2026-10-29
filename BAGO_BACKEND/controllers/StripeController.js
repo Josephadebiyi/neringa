@@ -1019,10 +1019,13 @@ export async function createStripePaymentIntent(req, res) {
       amount = authoritativeAmount;
     }
 
+    // Web Elements needs neither a native SDK ephemeral key nor IP-based
+    // alternative-method discovery when this checkout explicitly uses cards.
+    const webCardCheckout = req.body?.checkoutClient === 'web' && paymentMethodType === 'card';
     const customerId = await ensureStripeCustomer(profile);
-    const ephemeralKey = await createEphemeralKey(customerId);
+    const ephemeralKey = webCardCheckout ? null : await createEphemeralKey(customerId);
     const ip = getClientIP(req);
-    const location = await getLocationFromIP(ip).catch(() => null);
+    const location = webCardCheckout ? null : await getLocationFromIP(ip).catch(() => null);
     const detectedCountry = location?.countryCode || location?.country || '';
     const paymentMethodEligibility = buildPaymentMethodEligibility({
       countryCode: detectedCountry || req.body?.countryCode || profile.country || '',
@@ -1129,7 +1132,7 @@ export async function createStripePaymentIntent(req, res) {
       paymentStatus: paymentIntent.status,
       checkoutPreview: checkoutQuote,
       customerId,
-      ephemeralKeySecret: ephemeralKey.secret,
+      ephemeralKeySecret: ephemeralKey?.secret,
       paymentMethodEligibility,
     });
   } catch (error) {

@@ -41,7 +41,7 @@ export async function preparePaymentCheckout(checkout, api, storage = sessionSto
             amount: paymentCheckout.amount, currency: paymentCheckout.currency,
             packageId: paymentCheckout.packageId, tripId: paymentCheckout.tripId,
             travelerId: paymentCheckout.travelerId, termsAccepted: true,
-            insurance: paymentCheckout.insurance === true, paymentMethodType: 'card',
+            insurance: paymentCheckout.insurance === true, paymentMethodType: 'card', checkoutClient: 'web',
             ...(isAddKgMode && { requestId: checkout.requestId, additionalKg: checkout.additionalKg }),
         });
         const intent = response.data;
@@ -86,7 +86,11 @@ export async function completePaymentCheckout(provider, reference, api, storage 
         if (!verified?.success || verified.reference !== pending.reference ||
             String(verified.currency).toUpperCase() !== pending.currency.toUpperCase() ||
             Math.abs(Number(verified.amount) - Number(pending.amount)) > 0.011) {
-            throw new Error('Payment is still awaiting verification. Check your shipments before paying again.');
+            const error = new Error('Payment is still awaiting verification. Check your shipments before paying again.');
+            // A successful response with a different reference/amount is a
+            // permanent mismatch, not a reason to retry another booking.
+            error.retryable = verified?.success !== true;
+            throw error;
         }
     } else throw new Error('Unsupported payment provider.');
 
@@ -100,11 +104,40 @@ export async function completePaymentCheckout(provider, reference, api, storage 
         ...(pending.isAddKgMode && { requestId: pending.requestId, additionalKg: pending.additionalKg }),
     });
     if (response.data?.success !== true || response.data?.paymentPending === true) {
-        throw new Error('Payment is still confirming. Check your shipments before paying again.');
+        const error = new Error('Payment is still confirming. Check your shipments before paying again.');
+        error.retryable = response.data?.paymentPending === true;
+        throw error;
     }
     const current = JSON.parse(storage.getItem(CHECKOUT_STASH_KEY) || 'null');
     if (current?.reference === pending.reference && (current.provider || 'flutterwave') === provider) {
         storage.removeItem(CHECKOUT_STASH_KEY);
     }
     return { pending, request: response.data.request || response.data.data || response.data };
+}
+
+export function canRetryPaymentConfirmation(error) {
+    if (typeof error?.retryable === 'boolean') return error.retryable;
+    const status = error?.response?.status;
+    return ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error?.code)
+        || [402, 408, 425, 429, 500, 502, 503, 504].includes(status);
+}
+
+export async function confirmPaymentWithRetry(provider, reference, api, {
+    storage = sessionStorage,
+    isActive = () => true,
+    wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
+    onRetry = () => {},
+} = {}) {
+    const delays = [1500, 3000, 6000];
+    for (let attempt = 0; ; attempt++) {
+        if (!isActive()) return null;
+        try {
+            return await completePaymentCheckout(provider, reference, api, storage);
+        } catch (error) {
+            if (!isActive()) return null;
+            if (!canRetryPaymentConfirmation(error) || attempt >= delays.length) throw error;
+            onRetry(attempt + 1);
+            await wait(delays[attempt]);
+        }
+    }
 }

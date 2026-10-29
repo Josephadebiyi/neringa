@@ -1,6 +1,6 @@
 let scriptPromise;
 
-export async function loadStripeWeb(publishableKey) {
+export async function preloadStripeWeb() {
     if (!window.Stripe) {
         scriptPromise ||= new Promise((resolve, reject) => {
             const script = document.createElement('script');
@@ -12,6 +12,10 @@ export async function loadStripeWeb(publishableKey) {
         });
         await scriptPromise;
     }
+}
+
+export async function loadStripeWeb(publishableKey) {
+    await preloadStripeWeb();
     return window.Stripe(publishableKey);
 }
 

@@ -5,7 +5,8 @@ import api from '../api';
 import { customerError } from '../utils/customerErrors';
 
 import StripeWebCheckout from '../components/StripeWebCheckout';
-import { preparePaymentCheckout } from '../utils/paymentCheckout';
+import { preloadStripeWeb } from '../utils/stripeWeb';
+import { paymentProviderForCurrency, preparePaymentCheckout } from '../utils/paymentCheckout';
 export { CHECKOUT_STASH_KEY } from '../utils/paymentCheckout';
 
 const checkoutErrorMessage = error => customerError(error, 'Payment checkout could not load. Please try again.');
@@ -47,6 +48,10 @@ export default function PaymentCheckout() {
         }
 
         let alive = true;
+        // Download secure card entry while the server prepares the intent.
+        if (!isAddKgMode && paymentProviderForCurrency(checkout.currency) === 'stripe') {
+            void preloadStripeWeb().catch(() => {});
+        }
 
         setLoading(true);
         setError('');

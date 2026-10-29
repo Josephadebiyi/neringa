@@ -1,14 +1,14 @@
 import {beforeEach, afterEach, describe, expect, it, vi} from 'vitest';
-const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn()}));
+const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn(), ephemeral: vi.fn(), location: vi.fn()}));
 vi.mock('../lib/postgres/db.js', () => ({query: m.query, queryOne: m.queryOne, withTransaction: vi.fn()}));
 vi.mock('../lib/postgres/tripCapacity.js', () => ({buildTripCapacitySnapshot: vi.fn().mockResolvedValue({availableKg: 20})}));
 vi.mock('../controllers/CurrencyController.js', () => ({buildShipmentCheckoutPreview: m.quote}));
 vi.mock('../services/resendClient.js', () => ({resend: null}));
-vi.mock('../services/ipGeolocation.js', () => ({getClientIP: () => '127.0.0.1', getLocationFromIP: vi.fn().mockResolvedValue(null)}));
+vi.mock('../services/ipGeolocation.js', () => ({getClientIP: () => '127.0.0.1', getLocationFromIP: m.location}));
 vi.mock('../services/emailNotifications.js', () => ({sendWithdrawalProcessedEmail: vi.fn(), sendWithdrawalSubmittedEmail: vi.fn()}));
 vi.mock('stripe', () => ({default: class Stripe {
   paymentIntents = {create: m.create, retrieve: m.retrieve};
-  ephemeralKeys = {create: async () => ({secret: 'test_ephemeral'})};
+  ephemeralKeys = {create: m.ephemeral};
   webhooks = {constructEvent: m.signature};
 }}));
 import {createStripePaymentIntent, isStripeCheckoutEnabled, stripeConnectWebhook} from '../controllers/StripeController.js';
@@ -19,6 +19,8 @@ function res() {return {code: 200, status(code) {this.code = code; return this;}
 function req(amount = 112.8) {return {user: {id: 'sender'}, body: {amount, currency: 'EUR', packageId: 'pkg', tripId: 'trip', travelerId: 'traveler', termsAccepted: true, insurance: true}};}
 beforeEach(() => {
   vi.clearAllMocks();
+  m.ephemeral.mockResolvedValue({secret: 'test_ephemeral'});
+  m.location.mockResolvedValue(null);
   vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_mockonly'); vi.stubEnv('STRIPE_PUBLISHABLE_KEY', 'pk_test_mockonly'); vi.stubEnv('STRIPE_CHECKOUT_ENABLED', 'true');
   m.query.mockResolvedValue({rows: []});
   m.queryOne.mockImplementation(async sql => sql.includes('select p.*') ? {id: 'sender', preferred_currency: 'EUR', phone_verified: true, stripe_customer_id: 'cus_test'} : {id: 'pkg', package_weight: 2, declared_value: 50});
@@ -33,6 +35,22 @@ describe('Stripe card and Apple Pay initialization', () => {
     expect(response.code).toBe(200);
     expect(m.create).toHaveBeenCalledWith(expect.objectContaining({payment_method_types: ['card']}), expect.any(Object));
     expect(m.create.mock.calls[0][0]).not.toHaveProperty('automatic_payment_methods');
+  });
+  it('web cards skip native key creation and IP lookup while still validating price', async () => {
+    const request = req();
+    Object.assign(request.body, {paymentMethodType: 'card', checkoutClient: 'web'});
+    const response = res();
+    await createStripePaymentIntent(request, response);
+    expect(response.code).toBe(200);
+    expect(m.ephemeral).not.toHaveBeenCalled();
+    expect(m.location).not.toHaveBeenCalled();
+    expect(m.quote).toHaveBeenCalled();
+    expect(response.data.clientSecret).toBe('pi_mock_secret_test');
+  });
+  it('native checkout retains its ephemeral key', async () => {
+    const response = res(); await createStripePaymentIntent(req(), response);
+    expect(m.ephemeral).toHaveBeenCalled();
+    expect(response.data.ephemeralKeySecret).toBe('test_ephemeral');
   });
   it('charges the complete converted price with commission and insurance', async () => {
     const response = res(); await createStripePaymentIntent(req(), response);

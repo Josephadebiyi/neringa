@@ -2,21 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Clock, XCircle, Loader } from 'lucide-react';
 import api from '../api';
-import { completePaymentCheckout } from '../utils/paymentCheckout';
+import { canRetryPaymentConfirmation, confirmPaymentWithRetry } from '../utils/paymentCheckout';
 
 const PAYMENT_PENDING_MESSAGE =
-    'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
+    'We are confirming your payment. If your bank has already charged you, check your shipments before paying again. You can check this payment again below.';
 
 // Both providers return here; booking is confirmed only after server-side verification.
 export default function PaymentCallback() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const [retryCount, setRetryCount] = useState(0);
     const [status, setStatus] = useState('processing');
     const [message, setMessage] = useState('Verifying your payment...');
 
     useEffect(() => {
         let alive = true;
-        let redirectTimer;
+        setStatus('processing');
+        setMessage('Confirming your payment and shipment...');
         const provider = searchParams.get('provider') || 'flutterwave';
         const reference = provider === 'stripe'
             ? searchParams.get('payment_intent')
@@ -34,22 +36,31 @@ export default function PaymentCallback() {
         }
         (async () => {
             try {
-                const { pending, request } = await completePaymentCheckout(provider, reference, api);
+                const result = await confirmPaymentWithRetry(provider, reference, api, {
+                    isActive: () => alive,
+                    onRetry: () => { if (alive) setMessage('Confirmation is taking a little longer. Checking again automatically...'); },
+                });
+                if (!result || !alive) return;
+                const { pending, request } = result;
                 if (!alive) return;
                 setStatus('success');
-                redirectTimer = setTimeout(() => navigate('/shipping-success', {
+                navigate('/shipping-success', {
                     replace: true,
                     state: { requestId: request?.id || request?._id || pending.requestId,
                         trackingNumber: request?.trackingNumber, amount: pending.amount,
                         currency: pending.currency, paymentMethod: provider,
                         isAddKg: pending.isAddKgMode, additionalKg: pending.additionalKg },
-                }), 1500);
-            } catch {
-                if (alive) { setStatus('pending'); setMessage(PAYMENT_PENDING_MESSAGE); }
+                });
+            } catch (error) {
+                if (alive) {
+                    setStatus(canRetryPaymentConfirmation(error) ? 'pending' : 'error');
+                    setMessage(canRetryPaymentConfirmation(error) ? PAYMENT_PENDING_MESSAGE
+                        : 'We could not confirm this checkout. Check your shipments or contact send@sendwithbago.com before paying again.');
+                }
             }
         })();
-        return () => { alive = false; clearTimeout(redirectTimer); };
-    }, [searchParams, navigate]);
+        return () => { alive = false; };
+    }, [searchParams, navigate, retryCount]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-6">
@@ -59,7 +70,7 @@ export default function PaymentCallback() {
                         <div className="inline-flex items-center justify-center w-20 h-20 bg-[#5845D8]/10 rounded-full mb-6">
                             <Loader size={40} className="text-[#5845D8] animate-spin" />
                         </div>
-                        <h1 className="text-2xl font-black text-gray-900 mb-2">Processing Payment</h1>
+                        <h1 className="text-2xl font-black text-gray-900 mb-2">Confirming Payment</h1>
                         <p className="text-gray-500 text-sm">{message}</p>
                     </>
                 )}
@@ -82,10 +93,10 @@ export default function PaymentCallback() {
                         <h1 className="text-2xl font-black text-gray-900 mb-2">Payment Error</h1>
                         <p className="text-gray-500 text-sm mb-6">{message}</p>
                         <button
-                            onClick={() => navigate('/send-package')}
+                            onClick={() => navigate('/dashboard?tab=shipments')}
                             className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#4838B5] transition-all"
                         >
-                            Try Again
+                            View Shipments
                         </button>
                     </>
                 )}
@@ -97,6 +108,7 @@ export default function PaymentCallback() {
                         </div>
                         <h1 className="text-2xl font-black text-gray-900 mb-2">Payment Still Confirming</h1>
                         <p className="text-gray-500 text-sm mb-6">{message}</p>
+                        <button onClick={() => setRetryCount(value => value + 1)} className="w-full border border-[#5845D8] text-[#5845D8] py-3 rounded-xl font-bold text-sm mb-3">Check Payment Again</button>
                         <button
                             onClick={() => navigate('/dashboard?tab=shipments')}
                             className="w-full bg-[#5845D8] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#4838B5] transition-all"

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { CHECKOUT_STASH_KEY, FLUTTERWAVE_ONLY_CURRENCIES, paymentProviderForCurrency, preparePaymentCheckout, completePaymentCheckout } from '../../BAGO_WEBAPP/src/utils/paymentCheckout.js';
+import { CHECKOUT_STASH_KEY, FLUTTERWAVE_ONLY_CURRENCIES, paymentProviderForCurrency, preparePaymentCheckout, completePaymentCheckout, confirmPaymentWithRetry } from '../../BAGO_WEBAPP/src/utils/paymentCheckout.js';
 import { confirmStripeWebPayment } from '../../BAGO_WEBAPP/src/utils/stripeWeb.js';
 
 let storage;
@@ -128,5 +128,53 @@ describe('Stripe browser confirmation', () => {
 
     it.each(['Your card was declined', 'Payment cancelled'])('does not report a provider failure as paid (%s)', async message => {
         await expect(confirmStripeWebPayment({ confirmPayment: async () => ({ error: { message } }) }, { submit: async () => ({}) }, 'https://sendwithbago.com')).rejects.toThrow(message);
+    });
+});
+
+
+describe('bounded payment confirmation recovery', () => {
+    async function prepare() {
+        await preparePaymentCheckout(checkout, api, storage);
+        api.post.mockReset();
+    }
+    it('rechecks pending booking using the same payment without another charge', async () => {
+        await prepare();
+        api.post.mockResolvedValueOnce({ data: { success: true, paymentPending: true } })
+            .mockResolvedValueOnce({ data: { success: true, request: { id: 'confirmed' } } });
+        const wait = vi.fn().mockResolvedValue();
+        const result = await confirmPaymentWithRetry('stripe', 'pi_mock', api, { storage, wait });
+        expect(result.request.id).toBe('confirmed');
+        expect(wait).toHaveBeenCalledWith(1500);
+        expect(api.post).toHaveBeenCalledTimes(2);
+        for (const [path, body] of api.post.mock.calls) {
+            expect(path).toBe('/api/bago/RequestPackage');
+            expect(body.paymentReference).toBe('pi_mock');
+        }
+        expect(storage.getItem(CHECKOUT_STASH_KEY)).toBeNull();
+    });
+    it('stops after four transient failures and preserves checkout', async () => {
+        await prepare();
+        api.post.mockRejectedValue({ code: 'ECONNABORTED' });
+        await expect(confirmPaymentWithRetry('stripe', 'pi_mock', api, { storage, wait: async () => {} }))
+            .rejects.toEqual({ code: 'ECONNABORTED' });
+        expect(api.post).toHaveBeenCalledTimes(4);
+        expect(storage.getItem(CHECKOUT_STASH_KEY)).not.toBeNull();
+    });
+    it('does not retry an ownership rejection or mismatching reference', async () => {
+        await prepare();
+        api.post.mockRejectedValue({ response: { status: 403 } });
+        await expect(confirmPaymentWithRetry('stripe', 'pi_mock', api, { storage })).rejects.toEqual({ response: { status: 403 } });
+        expect(api.post).toHaveBeenCalledTimes(1);
+        api.post.mockClear();
+        await expect(confirmPaymentWithRetry('stripe', 'pi_other', api, { storage })).rejects.toThrow('does not match');
+        expect(api.post).not.toHaveBeenCalled();
+    });
+    it('stops requesting after leaving the page', async () => {
+        await prepare();
+        let active = true;
+        api.post.mockRejectedValue({ code: 'ERR_NETWORK' });
+        expect(await confirmPaymentWithRetry('stripe', 'pi_mock', api, { storage,
+            isActive: () => active, wait: async () => { active = false; } })).toBeNull();
+        expect(api.post).toHaveBeenCalledTimes(1);
     });
 });

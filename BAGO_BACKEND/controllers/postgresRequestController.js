@@ -852,7 +852,9 @@ async function handlePackageRequest(req, res) {
             type: 'shipment_request',
             payload: { requestId: newRequest.id, tripId },
           });
-          await sendPushNotification(newRequest.travelerId, '📦 New Shipping Request!', `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`);
+          // Provider delivery must not hold a confirmed booking response open.
+          void sendPushNotification(newRequest.travelerId, '📦 New Shipping Request!', `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`)
+            .catch(error => console.error('Trip-owner push delivery failed:', error.message));
         }
       }
     } catch (notifError) {
@@ -861,7 +863,9 @@ async function handlePackageRequest(req, res) {
 
     // An earlier escrow failure can leave a request that has never emailed
     // its owner. Keep email independent of socket, in-app and push failures.
-    await notifyTripOwnerByEmail({
+    // The booking and escrow are already persisted. Email delivery has its own
+    // idempotent sent marker and runs independently of the payment response.
+    void notifyTripOwnerByEmail({
       request: newRequest,
       owner: travelerProfile,
       packageDetails: `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
