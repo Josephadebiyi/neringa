@@ -188,6 +188,8 @@ class StripeCheckoutService {
           paymentIntentId: intent['paymentIntentId'].toString());
     }
 
+    // Never leave the Pay button spinning: if Stripe's form can't be prepared
+    // in time, fail with a message the payment screen shows.
     await Stripe.instance.initPaymentSheet(
       paymentSheetParameters: SetupPaymentSheetParameters(
         merchantDisplayName: 'Bago',
@@ -214,7 +216,9 @@ class StripeCheckoutService {
           ),
         ),
       ),
-    );
+    ).timeout(const Duration(seconds: 30),
+        onTimeout: () => throw StateError(
+            'Card payment took too long to load. Please check your connection and try again.'));
     await Stripe.instance.presentPaymentSheet();
     return StripePaymentOutcome(
         paymentIntentId: intent['paymentIntentId']?.toString() ??

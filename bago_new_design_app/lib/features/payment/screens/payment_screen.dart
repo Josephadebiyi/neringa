@@ -433,7 +433,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     context.go('/payment-failed', extra: fresh);
   }
 
-  String _publicPaymentError(String errorMsg) {
+  String _publicPaymentError(String rawError) {
+    final errorMsg = rawError.replaceFirst('Bad state: ', '');
     final normalized = errorMsg.toLowerCase();
     if (normalized.contains('cancel')) return 'Payment was cancelled.';
     if (normalized.contains('country of residence') ||
@@ -482,6 +483,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
     if (normalized.contains('bizum')) {
       return 'Bizum could not be completed. Please try again or use card payment.';
+    }
+    // The backend refused before charging: retrying the same checkout won't help.
+    if (normalized.contains('no longer available for booking') ||
+        normalized.contains('could not be found. please choose another trip') ||
+        normalized.contains('kg left')) {
+      return errorMsg;
+    }
+    if (normalized.contains('price changed') ||
+        normalized.contains('refresh the price')) {
+      return 'The price changed because exchange rates moved. Go back and open checkout again to see the new total.';
+    }
+    if (normalized.contains('took too long')) {
+      return errorMsg;
     }
     return 'Payment could not be completed. Please try again or use another method.';
   }
