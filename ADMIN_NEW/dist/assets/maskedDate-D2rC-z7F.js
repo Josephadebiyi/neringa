@@ -1,0 +1,1 @@
+function o(e){if(!e)return"Not provided";const t=new Date(e);if(Number.isNaN(t.getTime()))return"Not provided";const r=t.toLocaleDateString("en-US",{month:"short",day:"numeric"}),n=String(t.getFullYear()).slice(0,2);return`${r}, ${n}**`}export{o as m};
