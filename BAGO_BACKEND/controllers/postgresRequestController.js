@@ -1,7 +1,7 @@
 import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { getConversationById } from '../lib/postgres/messaging.js';
 import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
-import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail, sendNewPaidOrderAdminNotification } from '../services/emailNotifications.js';
+import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail, sendNewPaidOrderAdminNotification, sendBookingConfirmedSenderEmail } from '../services/emailNotifications.js';
 import { generateShippingLabelPDF } from '../services/pdfGenerator.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
@@ -945,6 +945,14 @@ async function handlePackageRequest(req, res) {
     }).catch((error) => console.error('Trip-owner request email failed:', error.message));
 
     if (paymentReference && !existingRequest) {
+      sendBookingConfirmedSenderEmail(
+        senderProfile?.email,
+        senderProfile?.firstName || '',
+        {
+          route: [tripDoc?.fromLocation, tripDoc?.toLocation].filter(Boolean).join(' → '),
+          amount: requestAmount, currency: String(requestCurrency || '').toUpperCase(), reference: paymentReference,
+        },
+      ).catch((error) => console.error('Sender booking email failed:', error.message));
       notifyAdminsOfPaidOrder({
         senderProfile, travelerProfile, tripDoc,
         amount: requestAmount, currency: requestCurrency,
