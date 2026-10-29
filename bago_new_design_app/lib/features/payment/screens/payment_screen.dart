@@ -497,9 +497,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (normalized.contains('took too long')) {
       return errorMsg;
     }
-    if (normalized.contains('verify your mobile number')) {
-      return 'Verify your phone number in Profile, then come back to pay.';
-    }
     return 'Payment could not be completed. Please try again or use another method.';
   }
 
