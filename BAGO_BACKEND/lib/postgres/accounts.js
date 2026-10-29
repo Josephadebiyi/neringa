@@ -677,6 +677,14 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       [requestId, { method: provider, status: 'paid', requestId: providerReference, gateway: provider }],
     );
 
+    // A traveler who has never opened their wallet may not have a row yet;
+    // create it (as getWallet would) rather than failing a paid booking.
+    await client.query(
+      `insert into public.wallet_accounts (user_id, available_balance, escrow_balance, currency)
+       select id, 0, 0, coalesce(earning_currency, preferred_currency, 'USD') from public.profiles where id = $1
+       on conflict (user_id) do nothing`,
+      [request.traveler_id],
+    );
     const walletResult = await client.query(`select id, currency from public.wallet_accounts where user_id = $1 for update`, [request.traveler_id]);
     const wallet = walletResult.rows[0];
     if (!wallet) throw new Error('Traveler wallet is not initialized; payment finalization must be retried.');
