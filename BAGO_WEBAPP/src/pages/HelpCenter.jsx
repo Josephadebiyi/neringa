@@ -144,7 +144,7 @@ export default function HelpCenter() {
                                 {t('supportTeamAvailability')}
                             </p>
                             <div className="space-y-3">
-                                <a href="mailto:support@sendwithbago.com" className="flex items-center gap-3 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-all font-black text-[10px] uppercase tracking-widest border border-white/5">
+                                <a href="mailto:send@sendwithbago.com" className="flex items-center gap-3 p-4 bg-white/10 rounded-xl hover:bg-white/20 transition-all font-black text-[10px] uppercase tracking-widest border border-white/5">
                                     <Mail size={18} />
                                     <span>{t('supportEmail')}</span>
                                 </a>

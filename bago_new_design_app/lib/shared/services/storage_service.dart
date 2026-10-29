@@ -1,6 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
   StorageService._();
@@ -177,12 +178,36 @@ class StorageService {
   Future<String?> getBackendUrl() => _safeRead(_backendUrlKey);
 
   // ---------- Language ---------------------------------------------
-  Future<void> saveLanguageCode(String code) =>
-      _safeWrite(_languageCodeKey, code);
+  // The language lives in SharedPreferences: keychain reads can fail
+  // transiently at startup, and a missed read let the profile's language
+  // overwrite the user's choice. The keychain copy is only a fallback for
+  // installs that saved it there before.
+  Future<void> saveLanguageCode(String code) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_languageCodeKey, code);
+    } catch (e) {
+      debugPrint('StorageService language write failed: $e');
+    }
+    await _safeWrite(_languageCodeKey, code);
+  }
 
-  Future<String?> getLanguageCode() => _safeRead(_languageCodeKey);
+  Future<String?> getLanguageCode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final code = prefs.getString(_languageCodeKey);
+      if (code != null && code.isNotEmpty) return code;
+    } catch (_) {}
+    return _safeRead(_languageCodeKey);
+  }
 
-  Future<void> deleteLanguageCode() => _safeWrite(_languageCodeKey, null);
+  Future<void> deleteLanguageCode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_languageCodeKey);
+    } catch (_) {}
+    await _safeWrite(_languageCodeKey, null);
+  }
 
   // ---------- Clear all -----------------------------------------------
   Future<void> clearAll() async {

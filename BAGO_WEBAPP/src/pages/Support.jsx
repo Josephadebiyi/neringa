@@ -684,7 +684,7 @@ const Support = () => {
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-slate-800">Email Support</h4>
-                                    <p className="text-slate-400 text-sm font-medium">support@sendwithbago.com</p>
+                                    <p className="text-slate-400 text-sm font-medium">send@sendwithbago.com</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">

@@ -1,3 +1,4 @@
+import '../../l10n/runtime_tr.dart';
 import 'package:flutter/material.dart';
 import '../utils/country_currency_helper.dart';
 
@@ -283,7 +284,7 @@ class CountryFlag extends StatelessWidget {
             size: size * .65,
             color: Theme.of(context).colorScheme.onSurfaceVariant));
     return Semantics(
-        label: normalized.isEmpty ? 'Country' : normalized.toUpperCase(),
+        label: normalized.isEmpty ? tr('Country') : normalized.toUpperCase(),
         image: true,
         child: Container(
             width: size,

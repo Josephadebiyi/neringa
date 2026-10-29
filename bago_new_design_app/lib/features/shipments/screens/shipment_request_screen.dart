@@ -1,3 +1,6 @@
+import '../../../shared/utils/localized_dates.dart';
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 import 'dart:io';
@@ -75,7 +78,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       await ref.read(shipmentProvider.notifier).acceptRequest(req.id);
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Request accepted!', type: SnackBarType.success);
+            message: AppLocalizations.of(context).uiRequestAccepted2,
+            type: SnackBarType.success);
         context.pop();
       }
     } catch (e) {
@@ -94,7 +98,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       await ref.read(shipmentProvider.notifier).rejectRequest(req.id);
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Request declined.', type: SnackBarType.info);
+            message: AppLocalizations.of(context).uiRequestDeclined2,
+            type: SnackBarType.info);
         context.pop();
       }
     } catch (e) {
@@ -113,7 +118,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     if (receiverId.isEmpty) {
       AppSnackBar.show(
         context,
-        message: 'Chat is not available for this shipment yet.',
+        message: AppLocalizations.of(context).uiChatIsNotAvailableForThis,
         type: SnackBarType.error,
       );
       return;
@@ -144,18 +149,18 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm delivery?'),
-        content: const Text(
-          'Confirm this only after the package is in your hands. This will release payment to the traveler.',
+        title: Text(AppLocalizations.of(context).uiConfirmDelivery2),
+        content: Text(
+          AppLocalizations.of(context).uiConfirmThisOnlyAfterThePackage,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Confirm'),
+            child: Text(AppLocalizations.of(context).uiConfirm),
           ),
         ],
       ),
@@ -168,7 +173,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'Delivery confirmed! Payment released to traveler.',
+        message: AppLocalizations.of(context)
+            .uiDeliveryConfirmedPaymentReleasedToTraveler,
         type: SnackBarType.success,
       );
       setState(() {
@@ -199,7 +205,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     final pin = _pinControllers.map((c) => c.text.trim()).join();
     if (pin.length != 4) {
       AppSnackBar.show(context,
-          message: 'Enter all 4 digits', type: SnackBarType.warning);
+          message: AppLocalizations.of(context).uiEnterAll4Digits,
+          type: SnackBarType.warning);
       return;
     }
     if (_confirmingHandover) return;
@@ -208,7 +215,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       await ShipmentService.instance.confirmHandover(req.id, pin);
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Handover confirmed! Funds released.',
+            message:
+                AppLocalizations.of(context).uiHandoverConfirmedFundsReleased,
             type: SnackBarType.success);
         ref.read(shipmentProvider.notifier).loadIncomingRequests();
         setState(() {
@@ -246,7 +254,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       appBar: AppBar(
         backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
-        title: Text('Shipment Request',
+        title: Text(AppLocalizations.of(context).uiShipmentRequest,
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         leading: IconButton(
@@ -279,16 +287,18 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     Icon(Icons.inbox_rounded,
                         color: AppPalette.of(context).gray300, size: 56),
                     const SizedBox(height: 16),
-                    Text('Request not found', style: AppTextStyles.h3),
+                    Text(AppLocalizations.of(context).uiRequestNotFound,
+                        style: AppTextStyles.h3),
                     const SizedBox(height: 8),
                     Text(
-                      'The request details are not available right now. Please refresh and try again.',
+                      AppLocalizations.of(context)
+                          .uiTheRequestDetailsAreNotAvailable,
                       style: AppTextStyles.muted(AppTextStyles.bodyMd),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
                     AppButton(
-                      label: 'Refresh',
+                      label: AppLocalizations.of(context).uiRefresh,
                       onPressed: () {
                         ref
                             .read(shipmentProvider.notifier)
@@ -376,7 +386,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                       Icon(Icons.inbox_rounded, color: statusColor, size: 30),
                 ),
                 const SizedBox(height: 12),
-                Text(req.packageTitle ?? 'Shipment Request',
+                Text(req.packageTitle ?? tr('Shipment Request'),
                     style:
                         AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
@@ -504,10 +514,10 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(req.senderName ?? 'Unknown Sender',
+                        Text(req.senderName ?? tr('Unknown Sender'),
                             style: AppTextStyles.labelMd
                                 .copyWith(fontWeight: FontWeight.w800)),
-                        Text('Sender',
+                        Text(AppLocalizations.of(context).senderLabel,
                             style: AppTextStyles.muted(AppTextStyles.bodySm)),
                         if (req.senderEmail != null &&
                             req.senderEmail!.isNotEmpty) ...[
@@ -574,7 +584,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
           Builder(builder: (context) {
             final displayAmount =
                 req.amountForRole(isSender ? 'sender' : 'traveler');
-            final priceLabel = isSender ? 'Total paid' : 'Your earning';
+            final priceLabel = isSender ? tr('Total paid') : tr('Your earning');
             return _InfoCard(
               child: Column(
                 children: [
@@ -597,7 +607,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Insurance included',
+                        Text(AppLocalizations.of(context).uiInsuranceIncluded,
                             style: AppTextStyles.bodySm.copyWith(
                                 color: AppPalette.of(context).gray500,
                                 fontWeight: FontWeight.w600)),
@@ -669,12 +679,13 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   const _InfoLabel('Confirm delivery'),
                   const SizedBox(height: 8),
                   Text(
-                    'The traveler marked this shipment as delivered. Confirm receipt here to release the payment.',
+                    AppLocalizations.of(context)
+                        .uiTheTravelerMarkedThisShipmentAs,
                     style: AppTextStyles.muted(AppTextStyles.bodySm),
                   ),
                   const SizedBox(height: 12),
                   AppButton(
-                    label: 'I Received My Package',
+                    label: AppLocalizations.of(context).uiIReceivedMyPackage,
                     isLoading: _confirmingReceived,
                     onPressed: _confirmingReceived
                         ? null
@@ -693,12 +704,12 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   const _InfoLabel('Feedback'),
                   const SizedBox(height: 8),
                   Text(
-                    'Share how the shipment went so others can make better decisions.',
+                    AppLocalizations.of(context).uiShareHowTheShipmentWentSo,
                     style: AppTextStyles.muted(AppTextStyles.bodySm),
                   ),
                   const SizedBox(height: 12),
                   AppButton(
-                    label: 'Leave feedback',
+                    label: AppLocalizations.of(context).leaveFeedback,
                     onPressed: () => _showReviewSheet(req),
                   ),
                 ],
@@ -714,7 +725,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Thanks for sharing your feedback. It helps other users trust the marketplace.',
+                      AppLocalizations.of(context)
+                          .uiThanksForSharingYourFeedbackIt,
                       style: AppTextStyles.bodyMd
                           .copyWith(fontWeight: FontWeight.w600),
                     ),
@@ -771,14 +783,14 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
               const SizedBox(height: 16),
             ],
             AppButton(
-              label: 'Accept Request',
+              label: AppLocalizations.of(context).uiAcceptRequest,
               isLoading: _isAccepting,
               onPressed:
                   _isAccepting || _isRejecting ? null : () => _accept(req),
             ),
             const SizedBox(height: 12),
             AppButton(
-              label: 'Decline',
+              label: AppLocalizations.of(context).uiDecline,
               variant: AppButtonVariant.outline,
               isLoading: _isRejecting,
               onPressed:
@@ -795,7 +807,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     const _InfoLabel('Confirm Handover'),
                     const SizedBox(height: 8),
                     Text(
-                      'Ask the sender or receiver for their 4-digit handover PIN to confirm delivery and release your payment instantly.',
+                      AppLocalizations.of(context).uiAskTheSenderOrReceiverFor,
                       style: AppTextStyles.muted(AppTextStyles.bodySm),
                     ),
                     const SizedBox(height: 20),
@@ -812,7 +824,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     ),
                     const SizedBox(height: 16),
                     AppButton(
-                      label: 'Confirm Delivery & Get Paid',
+                      label:
+                          AppLocalizations.of(context).uiConfirmDeliveryGetPaid,
                       isLoading: _confirmingHandover,
                       onPressed: _confirmingHandover
                           ? null
@@ -832,7 +845,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     const _InfoLabel('Update Shipment Status'),
                     const SizedBox(height: 8),
                     Text(
-                      'Keep the sender updated on the shipment progress.',
+                      AppLocalizations.of(context).uiKeepTheSenderUpdatedOnThe,
                       style: AppTextStyles.muted(AppTextStyles.bodySm),
                     ),
                     const SizedBox(height: 16),
@@ -858,7 +871,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
             ],
             const SizedBox(height: 24),
             AppButton(
-              label: 'Open Chat',
+              label: AppLocalizations.of(context).uiOpenChat,
               variant: AppButtonVariant.outline,
               onPressed: () => _openChat(req),
             ),
@@ -912,7 +925,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                   setState(() => _hasReviewed = true);
                   AppSnackBar.show(
                     this.context,
-                    message: 'Feedback submitted successfully.',
+                    message: AppLocalizations.of(context)
+                        .feedbackSubmittedSuccessfully,
                     type: SnackBarType.success,
                   );
                 }
@@ -964,13 +978,14 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Leave feedback',
+                      AppLocalizations.of(context).leaveFeedback,
                       style: AppTextStyles.h3
                           .copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Rate this shipment experience and add a short comment.',
+                      AppLocalizations.of(context)
+                          .uiRateThisShipmentExperienceAndAdd,
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppPalette.of(context).gray500),
                     ),
@@ -1000,8 +1015,8 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                       controller: commentCtrl,
                       maxLines: 4,
                       decoration: InputDecoration(
-                        hintText:
-                            'Share what went well or what could improve...',
+                        hintText: AppLocalizations.of(context)
+                            .uiShareWhatWentWellOrWhat,
                         filled: true,
                         fillColor: AppPalette.of(context).gray50,
                         border: OutlineInputBorder(
@@ -1016,7 +1031,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                     ),
                     const SizedBox(height: 16),
                     AppButton(
-                      label: 'Submit feedback',
+                      label: AppLocalizations.of(context).submitFeedback,
                       isLoading: submitting,
                       onPressed: submit,
                     ),
@@ -1062,23 +1077,10 @@ String _formatShipmentDateTime(String value) {
   if (parsed == null) return trimmed;
 
   final local = parsed.toLocal();
-  final months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
+  final months = [for (var m = 1; m <= 12; m++) monthShort(m)];
   final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
   final minute = local.minute.toString().padLeft(2, '0');
-  final suffix = local.hour >= 12 ? 'PM' : 'AM';
+  final suffix = local.hour >= 12 ? tr('PM') : 'AM';
   return '${months[local.month - 1]} ${local.day}, ${local.year} at $hour12:$minute $suffix';
 }
 
@@ -1138,8 +1140,9 @@ class _PackageImage extends StatelessWidget {
   final double? width;
   final double? height;
 
+  // Neutral mid-grey reads on both light and dark surfaces.
   static final _placeholder = Container(
-    color: AppColors.gray100,
+    color: AppColors.gray400.withValues(alpha: 0.18),
     child: const Icon(Icons.inventory_2_outlined,
         color: AppColors.gray300, size: 40),
   );
@@ -1194,7 +1197,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
     if (current == 'accepted' ||
         current == 'accepted_awaiting_inspection' ||
         current == 'inspection_in_progress') {
-      return 'inspection';
+      return widget.isBusinessAccount ? 'package_received' : 'intransit';
     }
     if (current == 'approved_for_trip' || current == 'inspection_completed') {
       return widget.isBusinessAccount ? 'package_received' : 'intransit';
@@ -1213,13 +1216,13 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
 
   String get _nextStatusLabel {
     return switch (_nextStatus) {
-      'intransit' => 'Mark as In Transit',
-      'inspection' => 'Inspect Package',
-      'package_received' => 'Mark Package Received',
-      'delivery_started' => 'Start Delivery',
-      'arrived_at_hub' => 'Mark Arrived at Hub',
-      'delivering' => 'Mark as Delivering',
-      'delivered' => 'Mark as Delivered',
+      'intransit' => tr('Mark as In Transit'),
+      'inspection' => tr('Inspect Package'),
+      'package_received' => tr('Mark Package Received'),
+      'delivery_started' => tr('Start Delivery'),
+      'arrived_at_hub' => tr('Mark Arrived at Hub'),
+      'delivering' => tr('Mark as Delivering'),
+      'delivered' => tr('Mark as Delivered'),
       _ => '',
     };
   }
@@ -1302,14 +1305,14 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
 
       if (mounted) {
         final msg = targetStatus == 'delivering'
-            ? 'Shipment is now Out for Delivery!'
-            : 'Shipment is now In Transit!';
+            ? tr('Shipment is now Out for Delivery!')
+            : tr('Shipment is now In Transit!');
         AppSnackBar.show(context, message: msg, type: SnackBarType.success);
         if (targetStatus == 'intransit') {
           unawaited(CelebrationNotificationService.showFlightSuccess(
             context,
-            title: 'Shipment started',
-            message: 'The package is now in transit.',
+            title: AppLocalizations.of(context).uiShipmentStarted,
+            message: AppLocalizations.of(context).uiThePackageIsNowInTransit,
           ));
         }
         widget.onStatusUpdated();
@@ -1329,18 +1332,21 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Update Status',
+        title: Text(AppLocalizations.of(context).uiUpdateStatus,
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Update shipment to "$_nextStatusLabel"?',
+            Text(
+                AppLocalizations.of(context)
+                    .uiFUpdateShipmentTo(_nextStatusLabel),
                 style: AppTextStyles.bodyMd),
             const SizedBox(height: 16),
             TextField(
               controller: _locationCtrl,
               decoration: InputDecoration(
-                hintText: 'Current location (optional)',
+                hintText:
+                    AppLocalizations.of(context).uiCurrentLocationOptional,
                 filled: true,
                 fillColor: AppPalette.of(context).gray50,
                 border: OutlineInputBorder(
@@ -1353,7 +1359,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
               controller: _notesCtrl,
               maxLines: 2,
               decoration: InputDecoration(
-                hintText: 'Notes (optional)',
+                hintText: AppLocalizations.of(context).uiNotesOptional,
                 filled: true,
                 fillColor: AppPalette.of(context).gray50,
                 border: OutlineInputBorder(
@@ -1366,7 +1372,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(AppLocalizations.of(context).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -1375,7 +1381,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
                   borderRadius: BorderRadius.circular(14)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Confirm'),
+            child: Text(AppLocalizations.of(context).uiConfirm),
           ),
         ],
       ),
@@ -1396,7 +1402,8 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
       );
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Status updated!', type: SnackBarType.success);
+            message: AppLocalizations.of(context).uiStatusUpdated,
+            type: SnackBarType.success);
         _locationCtrl.clear();
         _notesCtrl.clear();
         widget.onStatusUpdated();
@@ -1422,7 +1429,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Package Under Review\nDo not transport or collect this package while Bago reviews the evidence.',
+              AppLocalizations.of(context).uiPackageUnderReviewDoNotTransport,
               style: AppTextStyles.bodySm.copyWith(
                   color: AppPalette.of(context).gray700,
                   fontWeight: FontWeight.w600),
@@ -1439,7 +1446,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Shipment has been delivered. Waiting for sender confirmation.',
+              AppLocalizations.of(context).uiShipmentHasBeenDeliveredWaitingFor,
               style: AppTextStyles.bodySm.copyWith(
                   color: AppColors.success, fontWeight: FontWeight.w600),
             ),
@@ -1467,13 +1474,13 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
           children: List.generate(steps.length, (i) {
             final done = i <= currentIdx;
             final label = switch (steps[i]) {
-              'accepted' => 'Accepted',
-              'package_received' => 'Received',
-              'delivery_started' => 'Started',
-              'intransit' => 'In Transit',
-              'arrived_at_hub' => 'At Hub',
-              'delivering' => 'Delivering',
-              'delivered' => 'Delivered',
+              'accepted' => tr('Accepted'),
+              'package_received' => tr('Received'),
+              'delivery_started' => tr('Started'),
+              'intransit' => tr('In Transit'),
+              'arrived_at_hub' => tr('At Hub'),
+              'delivering' => tr('Delivering'),
+              'delivered' => tr('Delivered'),
               _ => steps[i],
             };
             return Expanded(
@@ -1598,12 +1605,13 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
     if (_saving) return;
     if (reject && _rejectionReason == null) {
       AppSnackBar.show(context,
-          message: 'Select a rejection reason.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiSelectARejectionReason,
+          type: SnackBarType.error);
       return;
     }
     if (reject && _rejectionReason == 'Other' && _notes.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message: 'Explain why you are rejecting the package.',
+          message: AppLocalizations.of(context).uiExplainWhyYouAreRejectingThe,
           type: SnackBarType.error);
       return;
     }
@@ -1613,7 +1621,7 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
             !_safetyConfirmed ||
             !_responsibilityAccepted)) {
       AppSnackBar.show(context,
-          message: 'Add 2–4 photos and accept all agreements.',
+          message: AppLocalizations.of(context).uiAdd24PhotosAndAccept,
           type: SnackBarType.error);
       return;
     }
@@ -1652,15 +1660,17 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Open Box Inspection Required',
+          Text(AppLocalizations.of(context).uiOpenBoxInspectionRequired,
               style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           Text(
-            'For your safety, the sender must open the package and allow you to inspect all items before collection.\n\nDo not accept sealed packages or items that you have not personally inspected.',
+            AppLocalizations.of(context).uiForYourSafetyTheSenderMust,
             style: AppTextStyles.bodySm.copyWith(height: 1.45),
           ),
           const SizedBox(height: 18),
-          Text('Traveler inspection photos (${_photos.length}/4)',
+          Text(
+              AppLocalizations.of(context)
+                  .uiFTravelerInspectionPhotos(_photos.length),
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
@@ -1688,7 +1698,7 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
                 OutlinedButton.icon(
                   onPressed: _saving ? null : _addPhoto,
                   icon: const Icon(Icons.camera_alt_outlined),
-                  label: const Text('Add photo'),
+                  label: Text(AppLocalizations.of(context).uiAddPhoto),
                 ),
             ],
           ),
@@ -1698,8 +1708,8 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
             onChanged: _saving
                 ? null
                 : (v) => setState(() => _contentsConfirmed = v == true),
-            title: const Text(
-                'I have personally inspected the contents and confirm the items match the delivery description.'),
+            title: Text(AppLocalizations.of(context)
+                .uiIHavePersonallyInspectedTheContents),
             controlAffinity: ListTileControlAffinity.leading,
           ),
           CheckboxListTile(
@@ -1708,8 +1718,8 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
             onChanged: _saving
                 ? null
                 : (v) => setState(() => _responsibilityAccepted = v == true),
-            title: const Text(
-                'I accept responsibility for this package once I collect it and understand this agreement will be electronically signed and kept with the order.'),
+            title: Text(AppLocalizations.of(context)
+                .uiIAcceptResponsibilityForThisPackage),
             controlAffinity: ListTileControlAffinity.leading,
           ),
           CheckboxListTile(
@@ -1718,15 +1728,15 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
             onChanged: _saving
                 ? null
                 : (v) => setState(() => _safetyConfirmed = v == true),
-            title: const Text(
-                'I understand that I must not transport illegal, dangerous, restricted, undisclosed, or suspicious items.'),
+            title: Text(AppLocalizations.of(context).uiIUnderstandThatIMustNot),
             controlAffinity: ListTileControlAffinity.leading,
           ),
           const Divider(height: 28),
           DropdownButtonFormField<String>(
             initialValue: _rejectionReason,
-            decoration: const InputDecoration(
-                labelText: 'Rejection reason (if rejecting)'),
+            decoration: InputDecoration(
+                labelText:
+                    AppLocalizations.of(context).uiRejectionReasonIfRejecting),
             items: _reasons
                 .map((r) => DropdownMenuItem(value: r, child: Text(r)))
                 .toList(),
@@ -1737,8 +1747,9 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
           TextField(
             controller: _notes,
             maxLines: 2,
-            decoration:
-                const InputDecoration(labelText: 'Supporting explanation'),
+            decoration: InputDecoration(
+                labelText:
+                    AppLocalizations.of(context).uiSupportingExplanation),
           ),
           const SizedBox(height: 18),
           Row(children: [
@@ -1747,14 +1758,14 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
                 onPressed: _saving ? null : () => _submit(reject: true),
                 style:
                     OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-                child: const Text('Reject Package'),
+                child: Text(AppLocalizations.of(context).uiRejectPackage),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: ElevatedButton(
                 onPressed: _saving ? null : () => _submit(reject: false),
-                child: Text(_saving ? 'Saving…' : 'Complete Inspection'),
+                child: Text(_saving ? tr('Saving…') : tr('Complete Inspection')),
               ),
             ),
           ]),
@@ -1858,8 +1869,8 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                 Expanded(
                   child: Text(
                     widget.isDelivering
-                        ? 'Mark as Delivering'
-                        : 'Mark as In Transit',
+                        ? tr('Mark as Delivering')
+                        : tr('Mark as In Transit'),
                     style:
                         AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
                   ),
@@ -1902,7 +1913,7 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
 
             // Proof photo requirement
             Text(
-              'PROOF OF COLLECTION REQUIRED',
+              AppLocalizations.of(context).uiProofOfCollectionRequired,
               style: AppTextStyles.labelXs.copyWith(
                   color: AppPalette.of(context).gray400,
                   letterSpacing: 1,
@@ -1911,8 +1922,8 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
             const SizedBox(height: 10),
             Text(
               widget.isDelivering
-                  ? 'Take a photo of the item out for delivery. This is required before you can mark the shipment as Delivering.'
-                  : 'Take a photo of the item you\'ve collected. This is required before you can mark the shipment as In Transit.',
+                  ? tr('Take a photo of the item out for delivery. This is required before you can mark the shipment as Delivering.')
+                  : tr('Take a photo of the item you\'ve collected. This is required before you can mark the shipment as In Transit.'),
               style: AppTextStyles.bodySm
                   .copyWith(color: AppPalette.of(context).gray600, height: 1.5),
             ),
@@ -1964,7 +1975,7 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                             const Icon(Icons.camera_alt_rounded,
                                 color: Colors.white, size: 14),
                             const SizedBox(width: 4),
-                            Text('Retake',
+                            Text(AppLocalizations.of(context).uiRetake,
                                 style: AppTextStyles.captionBold
                                     .copyWith(color: Colors.white)),
                           ],
@@ -1980,7 +1991,7 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                   Expanded(
                     child: _PhotoButton(
                       icon: Icons.camera_alt_rounded,
-                      label: 'Take Photo',
+                      label: AppLocalizations.of(context).uiTakePhoto,
                       onTap: _pickPhoto,
                     ),
                   ),
@@ -1988,7 +1999,7 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                   Expanded(
                     child: _PhotoButton(
                       icon: Icons.photo_library_rounded,
-                      label: 'From Gallery',
+                      label: AppLocalizations.of(context).uiFromGallery,
                       onTap: _pickFromGallery,
                     ),
                   ),
@@ -2007,8 +2018,9 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                     width: 22,
                     height: 22,
                     decoration: BoxDecoration(
-                      color:
-                          _acknowledged ? AppColors.primary : AppColors.white,
+                      color: _acknowledged
+                          ? AppColors.primary
+                          : AppPalette.of(context).white,
                       border: Border.all(
                         color: _acknowledged
                             ? AppColors.primary
@@ -2026,7 +2038,7 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                   Expanded(
                     child: Text(
                       widget.isDelivering
-                          ? 'I confirm this item is out for delivery and will be delivered within 48 hours.'
+                          ? tr('I confirm this item is out for delivery and will be delivered within 48 hours.')
                           : 'I confirm I have collected this item and understand I must deliver it within 48 hours.',
                       style: AppTextStyles.bodySm.copyWith(
                           color: AppPalette.of(context).gray700, height: 1.45),
@@ -2057,10 +2069,10 @@ class _ProofRequiredSheetState extends State<_ProofRequiredSheet> {
                 ),
                 child: Text(
                   _proofImage == null
-                      ? 'Add a photo to continue'
+                      ? tr('Add a photo to continue')
                       : !_acknowledged
-                          ? 'Confirm the checkbox above'
-                          : 'Confirm & Start Transit',
+                          ? tr('Confirm the checkbox above')
+                          : tr('Confirm & Start Transit'),
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
@@ -2134,7 +2146,7 @@ class _HandoverPinCard extends StatelessWidget {
                   color: AppPalette.of(context).primary, size: 18),
               const SizedBox(width: 6),
               Text(
-                'Handover PIN',
+                AppLocalizations.of(context).uiHandoverPin,
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w700,
@@ -2178,7 +2190,7 @@ class _HandoverPinCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Share this PIN with the traveler to confirm handover.',
+            AppLocalizations.of(context).uiShareThisPinWithTheTraveler,
             textAlign: TextAlign.center,
             style: AppTextStyles.labelSm
                 .copyWith(color: AppPalette.of(context).gray600),
@@ -2365,7 +2377,7 @@ class _ExternalTrackingCard extends StatelessWidget {
                     ),
                   )
                 else
-                  Text('Not set',
+                  Text(AppLocalizations.of(context).notSet,
                       style: AppTextStyles.muted(AppTextStyles.bodySm)),
               ],
             ),
@@ -2373,7 +2385,7 @@ class _ExternalTrackingCard extends StatelessWidget {
           if (canManage)
             TextButton(
               onPressed: () => _manage(context),
-              child: Text(_hasTracking ? 'Edit' : 'Add'),
+              child: Text(_hasTracking ? tr('Edit') : tr('Add')),
             ),
         ],
       ),
@@ -2469,7 +2481,7 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('External Carrier Tracking',
+            Text(AppLocalizations.of(context).uiExternalCarrierTracking,
                 style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 16),
             const _InfoLabel('Carrier'),
@@ -2479,7 +2491,7 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
               runSpacing: 8,
               children: [
                 ChoiceChip(
-                  label: const Text('None'),
+                  label: Text(AppLocalizations.of(context).uiNone),
                   selected: _carrier == null,
                   onSelected: (_) => setState(() => _carrier = null),
                 ),
@@ -2496,7 +2508,8 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
               TextField(
                 controller: _customNameCtrl,
                 decoration: InputDecoration(
-                  hintText: 'Carrier / logistics company name',
+                  hintText: AppLocalizations.of(context)
+                      .uiCarrierLogisticsCompanyName,
                   filled: true,
                   fillColor: AppPalette.of(context).gray50,
                   border: OutlineInputBorder(
@@ -2511,7 +2524,7 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
               TextField(
                 controller: _trackingCtrl,
                 decoration: InputDecoration(
-                  hintText: 'Tracking number',
+                  hintText: AppLocalizations.of(context).uiTrackingNumber,
                   filled: true,
                   fillColor: AppPalette.of(context).gray50,
                   border: OutlineInputBorder(
@@ -2535,7 +2548,7 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _saving ? null : _remove,
-                      child: const Text('Remove'),
+                      child: Text(AppLocalizations.of(context).uiRemove),
                     ),
                   ),
                 if (widget.initialTrackingNumber != null &&
@@ -2556,7 +2569,7 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: AppColors.white),
                           )
-                        : const Text('Save'),
+                        : Text(AppLocalizations.of(context).uiSave),
                   ),
                 ),
               ],

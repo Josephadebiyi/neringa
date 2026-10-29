@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -607,7 +608,7 @@ class MessageNotifier extends Notifier<MessageState> {
 
     final optimisticMsg = MessageModel.optimistic(
       content: trimmedContent.isEmpty && imageFile != null
-          ? 'Sending image...'
+          ? tr('Sending image...')
           : trimmedContent,
       senderId: currentUserId,
       conversationId: convId,

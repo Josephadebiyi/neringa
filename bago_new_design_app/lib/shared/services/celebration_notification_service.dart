@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_palette.dart';
 import '../../core/theme/app_text_styles.dart';
 
 class CelebrationNotificationService {
@@ -147,10 +148,14 @@ class _AnimatedFlightToastState extends State<_AnimatedFlightToast>
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
+                          color: AppPalette.of(context)
+                              .white
+                              .withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: AppPalette.of(context)
+                                .white
+                                .withValues(alpha: 0.18),
                           ),
                         ),
                         child: const Icon(
@@ -192,7 +197,7 @@ class _AnimatedFlightToastState extends State<_AnimatedFlightToast>
                         width: 34,
                         height: 34,
                         decoration: BoxDecoration(
-                          color: AppColors.white,
+                          color: AppPalette.of(context).white,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(

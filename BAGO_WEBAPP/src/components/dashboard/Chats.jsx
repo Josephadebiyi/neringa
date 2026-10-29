@@ -190,7 +190,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     useEffect(() => {
         selectedConvRef.current = selectedConv;
         if (selectedConv) setActiveShipmentIdx(0);
-    }, [selectedConv?._id]);
+    }, [selectedConv]);
 
     useEffect(() => {
         if (selectedConv) {
@@ -274,8 +274,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
             );
             setConversations(processed);
 
-            if (selectedConv?._id) {
-                const full = processed.find(c => c._id === selectedConv._id);
+            const currentConversation = selectedConvRef.current;
+            if (currentConversation?._id) {
+                const full = processed.find(c => c._id === currentConversation._id);
                 if (full) setSelectedConv(full);
             }
         } catch {
@@ -307,7 +308,9 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         socket.on('disconnect', () => setIsConnected(false));
         socket.on('reconnect',  () => { setIsConnected(true); rejoin(); });
 
+        socket.on('trip_capacity_updated', () => fetchConversations());
         socket.on('new_message', (message) => {
+            fetchConversations();
             if (message?.conversationId?.toString() === selectedConvRef.current?._id?.toString()) {
                 appendMessage(message);
             }
@@ -481,13 +484,10 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
         if (!reqId) return;
         setAddKgLoading(true);
         try {
-            const res = await api.get(`/api/bago/request/${reqId}/details`);
-            const details = res.data?.data;
-            const amount  = Number(details?.amount || 0);
-            const weight  = Number(details?.package?.packageWeight || 1);
-            const currency = (details?.currency || 'USD').toUpperCase();
-            const pricePerKg = weight > 0 ? amount / weight : 0;
-            const estimatedAmount = parseFloat((pricePerKg * kg).toFixed(2));
+            const quoteResponse = await api.post('/api/checkout/additional-weight-preview', { requestId: reqId, additionalKg: kg });
+            const quote = quoteResponse.data.preview;
+            const currency = quote.senderCurrency;
+            const estimatedAmount = quote.totalAmount;
             setShowAddKgModal(false);
             setAddKgInput('');
             navigate(`/checkout/payment?requestId=${reqId}&additionalKg=${kg}&amount=${estimatedAmount}&currency=${currency}`);
@@ -524,12 +524,12 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
     // Show Add KG if ANY active shipment in this conversation is sender+accepted/intransit
     const convShipments = getConvShipments();
     const CLOSED_STATUSES = ['completed', 'cancelled', 'canceled', 'rejected'];
-    const isChatClosed = convShipments.length > 0
-        && convShipments.every(r => CLOSED_STATUSES.includes((r?.status || '').toLowerCase()));
+    const isChatClosed = selectedConv?.chatLocked || (convShipments.length > 0
+        && convShipments.every(r => CLOSED_STATUSES.includes((r?.status || '').toLowerCase())));
     const hasAddKgShipment = convShipments.some(r => {
         const role   = r?.role || (r?.senderId === (user?._id || user?.id) ? 'sender' : 'traveler');
         const status = (r?.status || '').toLowerCase();
-        return role === 'sender' && ['accepted', 'intransit'].includes(status);
+        return role === 'sender' && ['pending', 'accepted', 'accepted_awaiting_inspection', 'inspection_in_progress', 'inspection_completed', 'approved_for_trip'].includes(status);
     });
 
     // ── Render ─────────────────────────────────────────────────────────────────
@@ -760,7 +760,7 @@ export default function Chats({ user, selectedConv, setSelectedConv, onTabChange
                             <div className="px-5 pb-5 pt-2 bg-white border-t border-gray-50">
                                 <div className="flex items-center justify-center gap-2 rounded-[18px] border border-[#ECEBF3] bg-gray-50 px-4 py-3.5 text-[13px] font-bold text-[#6B7280]">
                                     <CheckCircle size={14} className="text-green-500 shrink-0" />
-                                    This shipment is completed — chat is now read-only
+                                    {selectedConv?.chatLocked ? 'This chat is locked. Please contact Bago Support.' : 'This shipment is closed — chat is now read-only'}
                                 </div>
                             </div>
                         ) : (

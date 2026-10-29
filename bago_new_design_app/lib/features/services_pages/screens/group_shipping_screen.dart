@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -41,7 +42,7 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
         _fromCtrl.text.trim().isEmpty ||
         _toCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please fill in the required fields',
+          message: AppLocalizations.of(context).uiPleaseFillInTheRequiredFields,
           type: SnackBarType.error);
       return;
     }
@@ -50,8 +51,8 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
     if (mounted) {
       setState(() => _isSubmitting = false);
       AppSnackBar.show(context,
-          message:
-              'Group shipping request created! Share with your group to join.',
+          message: AppLocalizations.of(context)
+              .uiGroupShippingRequestCreatedShareWith,
           type: SnackBarType.success);
       context.pop();
     }
@@ -64,7 +65,7 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
       appBar: AppBar(
         backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
-        title: Text('Group Shipping',
+        title: Text(AppLocalizations.of(context).uiGroupShipping,
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         leading: GestureDetector(
@@ -88,7 +89,7 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
+                  color: AppPalette.of(context).successSoft,
                   borderRadius: BorderRadius.circular(16)),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,7 +99,8 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Pool your shipment with others going to the same destination to split costs and get cheaper rates.',
+                      AppLocalizations.of(context)
+                          .uiPoolYourShipmentWithOthersGoing,
                       style: AppTextStyles.bodySm.copyWith(
                           color: AppColors.success,
                           fontWeight: FontWeight.w600,
@@ -119,22 +121,28 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('HOW IT WORKS',
+                  Text(AppLocalizations.of(context).uiHowItWorks,
                       style: AppTextStyles.labelXs.copyWith(
                           color: AppPalette.of(context).gray400,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1)),
                   const SizedBox(height: 12),
-                  const _HowItWorksStep(
-                      num: '1', text: 'Create a group shipping request'),
-                  const _HowItWorksStep(
+                  _HowItWorksStep(
+                      num: '1',
+                      text: AppLocalizations.of(context)
+                          .uiCreateAGroupShippingRequest),
+                  _HowItWorksStep(
                       num: '2',
-                      text: 'Invite others with the same destination'),
-                  const _HowItWorksStep(
-                      num: '3', text: 'Get matched with a carrier together'),
-                  const _HowItWorksStep(
+                      text: AppLocalizations.of(context)
+                          .uiInviteOthersWithTheSameDestination),
+                  _HowItWorksStep(
+                      num: '3',
+                      text: AppLocalizations.of(context)
+                          .uiGetMatchedWithACarrierTogether),
+                  _HowItWorksStep(
                       num: '4',
-                      text: 'Share the shipping cost — save up to 60%'),
+                      text: AppLocalizations.of(context)
+                          .uiShareTheShippingCostSaveUp),
                 ],
               ),
             ),
@@ -144,7 +152,7 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
             const SizedBox(height: 8),
             AppTextField(
               controller: _itemCtrl,
-              hint: 'List the items you want to ship...',
+              hint: AppLocalizations.of(context).uiListTheItemsYouWantTo,
               maxLines: 2,
             ),
             const SizedBox(height: 16),
@@ -158,7 +166,8 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
                         _label('FROM *'),
                         const SizedBox(height: 8),
                         AppTextField(
-                            controller: _fromCtrl, hint: 'Origin country'),
+                            controller: _fromCtrl,
+                            hint: AppLocalizations.of(context).uiOriginCountry),
                       ]),
                 ),
                 const SizedBox(width: 12),
@@ -168,7 +177,10 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
                       children: [
                         _label('TO *'),
                         const SizedBox(height: 8),
-                        AppTextField(controller: _toCtrl, hint: 'Destination'),
+                        AppTextField(
+                            controller: _toCtrl,
+                            hint: AppLocalizations.of(context)
+                                .destinationLabelShort),
                       ]),
                 ),
               ],
@@ -185,7 +197,7 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
                         const SizedBox(height: 8),
                         AppTextField(
                           controller: _weightCtrl,
-                          hint: 'Your items\' weight',
+                          hint: AppLocalizations.of(context).uiYourItemsWeight,
                           keyboardType: TextInputType.number,
                         ),
                       ]),
@@ -254,20 +266,22 @@ class _GroupShippingScreenState extends State<GroupShippingScreen> {
             _label('GROUP NAME (OPTIONAL)'),
             const SizedBox(height: 8),
             AppTextField(
-                controller: _groupNameCtrl, hint: 'e.g. "Lagos Friends Group"'),
+                controller: _groupNameCtrl,
+                hint: AppLocalizations.of(context).uiEGLagosFriendsGroup),
             const SizedBox(height: 16),
 
             _label('NOTES'),
             const SizedBox(height: 8),
             AppTextField(
               controller: _noteCtrl,
-              hint: 'Any special requirements or instructions...',
+              hint: AppLocalizations.of(context)
+                  .uiAnySpecialRequirementsOrInstructions,
               maxLines: 3,
             ),
             const SizedBox(height: 32),
 
             AppButton(
-              label: 'Create Group Shipment',
+              label: AppLocalizations.of(context).uiCreateGroupShipment,
               isLoading: _isSubmitting,
               onPressed: _isSubmitting ? null : _submit,
             ),

@@ -61,7 +61,7 @@ function IconButton({ label, onClick, to, children, badge = 0 }) {
     );
 }
 
-export default function TopNav({ activeTab, setActiveTab, user, logout, isBusinessAccount, unreadCount }) {
+export default function TopNav({ activeTab, setActiveTab, user, logout, isBusinessAccount, unreadCount, notificationCount = 0, onNotificationsClick }) {
     const [moreOpen, setMoreOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const moreRef = useRef(null);
@@ -187,7 +187,7 @@ export default function TopNav({ activeTab, setActiveTab, user, logout, isBusine
                 <IconButton label="Messages" onClick={() => go('chats')} badge={unreadCount}>
                     <MessageCircle size={17} />
                 </IconButton>
-                <IconButton label="Notifications">
+                <IconButton label="Notifications" onClick={onNotificationsClick} badge={notificationCount}>
                     <Bell size={17} />
                 </IconButton>
                 {canSeeSettings && (

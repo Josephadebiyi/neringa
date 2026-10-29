@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 // ignore_for_file: unused_element, unused_field, prefer_const_constructors
 
@@ -100,7 +101,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       setState(() => _hydrateFromUser(ref.read(authProvider).user));
       AppSnackBar.show(
         context,
-        message: 'Payout status refreshed.',
+        message: AppLocalizations.of(context).uiPayoutStatusRefreshed,
         type: SnackBarType.success,
       );
     } catch (error) {
@@ -125,8 +126,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     if (user?.hasPassedKyc != true) {
       AppSnackBar.show(
         context,
-        message:
-            'Complete identity verification before adding a payout account.',
+        message: AppLocalizations.of(context)
+            .uiCompleteIdentityVerificationBeforeAddingA,
         type: SnackBarType.info,
       );
       await context.push('/kyc');
@@ -155,15 +156,16 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
         setState(() => _selectedCurrency = previousCurrency);
         AppSnackBar.show(
           context,
-          message:
-              'Payout setup was not completed. Currency restored to $previousCurrency.',
+          message: AppLocalizations.of(context)
+              .uiFPayoutSetupWasNotCompletedCurrency(previousCurrency),
           type: SnackBarType.info,
         );
       } else {
         setState(() => _selectedCurrency = payoutCurrency);
         AppSnackBar.show(
           context,
-          message: '$payoutCurrency payout account linked.',
+          message: AppLocalizations.of(context)
+              .uiFPayoutAccountLinked(payoutCurrency),
           type: SnackBarType.success,
         );
       }
@@ -176,8 +178,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       setState(() => _selectedCurrency = previousCurrency);
       AppSnackBar.show(
         context,
-        message:
-            '${error.toString().replaceFirst('Exception: ', '')} Currency restored to $previousCurrency.',
+        message: AppLocalizations.of(context).uiFCurrencyRestoredTo(
+            error.toString().replaceFirst('Exception: ', ''), previousCurrency),
         type: SnackBarType.error,
       );
     } finally {
@@ -191,18 +193,19 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     final proceed = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: Text('Set up $currency payouts?'),
+            title: Text(AppLocalizations.of(context).uiFSetUpPayouts(currency)),
             content: Text(
-              'You must link a $currency payout account to use this currency. If setup is cancelled, Bago will keep $previous.',
+              AppLocalizations.of(context)
+                  .uiFYouMustLinkAPayoutAccount(currency, previous),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text('Keep $previous'),
+                child: Text(AppLocalizations.of(context).uiFKeep(previous)),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text('Set up account'),
+                child: Text(AppLocalizations.of(context).uiSetUpAccount),
               ),
             ],
           ),
@@ -212,8 +215,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
     if (ref.read(authProvider).user?.hasPassedKyc != true) {
       AppSnackBar.show(
         context,
-        message:
-            'Complete identity verification before changing payout currency.',
+        message: AppLocalizations.of(context)
+            .uiCompleteIdentityVerificationBeforeChangingPayout,
         type: SnackBarType.info,
       );
       await context.push('/kyc');
@@ -274,7 +277,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           ),
           SizedBox(height: 22),
           Text(
-            "To get your shipment payouts, tell us where you want Bago to send the money.",
+            AppLocalizations.of(context).uiToGetYourShipmentPayoutsTell,
             style: AppTextStyles.h2.copyWith(
               color: AppPalette.of(context).black,
               fontWeight: FontWeight.w900,
@@ -284,7 +287,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           SizedBox(height: 28),
           _PayoutChoiceTile(
             icon: Icons.account_balance_rounded,
-            title: payoutState.isActive ? bankName : 'Bank account',
+            title: payoutState.isActive ? bankName : tr('Bank account'),
             subtitle: payoutState.isActive
                 ? [
                     if (maskedAccount.isNotEmpty) maskedAccount,
@@ -293,7 +296,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                         accountCurrency != _selectedCurrency)
                       'Add an account for $_selectedCurrency',
                   ].join(' · ')
-                : 'Add your bank account to receive payouts',
+                : tr('Add your bank account to receive payouts'),
             enabled: !_saving,
             onTap: _continueToAddPayoutAccount,
           ),
@@ -310,32 +313,38 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('LINKED PAYOUT ACCOUNT',
+                  Text(AppLocalizations.of(context).uiLinkedPayoutAccount,
                       style: AppTextStyles.labelSm.copyWith(
                           color: AppPalette.of(context).gray400,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .8)),
                   SizedBox(height: 14),
-                  _AccountDetailRow(label: 'Bank', value: bankName),
+                  _AccountDetailRow(
+                      label: AppLocalizations.of(context).uiBank,
+                      value: bankName),
                   if ((payoutAccount['accountHolderName'] ??
                               payoutAccount['account_holder_name'])
                           ?.toString()
                           .isNotEmpty ==
                       true)
                     _AccountDetailRow(
-                      label: 'Account holder',
+                      label: AppLocalizations.of(context).uiAccountHolder,
                       value: (payoutAccount['accountHolderName'] ??
                               payoutAccount['account_holder_name'])
                           .toString(),
                     ),
                   if (maskedAccount.isNotEmpty)
-                    _AccountDetailRow(label: 'Account', value: maskedAccount),
+                    _AccountDetailRow(
+                        label: AppLocalizations.of(context).profileTabAccount,
+                        value: maskedAccount),
                   if (accountCurrency.isNotEmpty)
                     _AccountDetailRow(
-                        label: 'Currency', value: accountCurrency),
+                        label: AppLocalizations.of(context).uiCurrency,
+                        value: accountCurrency),
                   SizedBox(height: 10),
                   Text(
-                    'Changing this account requires a confirmation code sent to your email.',
+                    AppLocalizations.of(context)
+                        .uiChangingThisAccountRequiresAConfirmation,
                     style: AppTextStyles.bodySm.copyWith(
                         color: AppPalette.of(context).gray500, height: 1.35),
                   ),
@@ -345,8 +354,9 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           ],
           SizedBox(height: 26),
           _SectionLabel(
-            title: 'Payout currency',
-            subtitle: 'This becomes your wallet display and payout currency.',
+            title: AppLocalizations.of(context).uiPayoutCurrency,
+            subtitle:
+                AppLocalizations.of(context).uiThisBecomesYourWalletDisplayAnd,
           ),
           SizedBox(height: 10),
           DropdownButtonFormField<String>(
@@ -364,7 +374,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
                   },
             decoration: InputDecoration(
               filled: true,
-              fillColor: AppColors.white,
+              fillColor: AppPalette.of(context).white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide(color: AppPalette.of(context).border),
@@ -377,7 +387,8 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
           ),
           SizedBox(height: 34),
           Text(
-            'Data are collected by Bago and transmitted to our payout provider only to enable payouts. $providerHelp By proceeding, you confirm this payout account belongs to you.',
+            AppLocalizations.of(context)
+                .uiFDataAreCollectedByBagoAnd(providerHelp),
             style: AppTextStyles.bodySm.copyWith(
               color: AppPalette.of(context).gray500,
               height: 1.4,
@@ -525,10 +536,10 @@ class _HeaderPanel extends StatelessWidget {
     final active = status == _PayoutStatus.active;
     final incomplete = status == _PayoutStatus.incomplete;
     final label = active
-        ? 'Ready for payouts'
+        ? tr('Ready for payouts')
         : incomplete
-            ? 'Bank details needed'
-            : 'Setup required';
+            ? tr('Bank details needed')
+            : tr('Setup required');
     final color = active
         ? Color(0xFF059669)
         : incomplete
@@ -594,7 +605,8 @@ class _HeaderPanel extends StatelessWidget {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Payouts release after delivery is complete, confirmed, and cleared.',
+                    AppLocalizations.of(context)
+                        .uiPayoutsReleaseAfterDeliveryIsComplete,
                     style: AppTextStyles.bodySm.copyWith(
                       color: AppPalette.of(context).gray600,
                       height: 1.35,

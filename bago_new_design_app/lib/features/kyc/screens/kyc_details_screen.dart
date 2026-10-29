@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:dio/dio.dart';
@@ -213,7 +215,8 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
           color: AppPalette.of(context).black,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Your Details', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).uiYourDetails,
+            style: AppTextStyles.h3),
       ),
       body: Column(
         children: [
@@ -237,7 +240,8 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Please confirm your legal name and date of birth exactly as they appear on your ID document. These must match for verification to succeed.',
+                            AppLocalizations.of(context)
+                                .uiPleaseConfirmYourLegalNameAnd,
                             style: AppTextStyles.bodySm.copyWith(
                                 color: AppPalette.of(context).gray500,
                                 height: 1.5),
@@ -251,7 +255,7 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
                   const SizedBox(height: 8),
                   _textField(
                     controller: _firstNameCtrl,
-                    hint: 'First name',
+                    hint: AppLocalizations.of(context).firstNameHint,
                     capitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 20),
@@ -259,7 +263,7 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
                   const SizedBox(height: 8),
                   _textField(
                     controller: _lastNameCtrl,
-                    hint: 'Last name',
+                    hint: AppLocalizations.of(context).lastNameHint,
                     capitalization: TextCapitalization.words,
                   ),
                   const SizedBox(height: 28),
@@ -290,8 +294,8 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         _dobValid
-                            ? 'Age confirmed (18+)'
-                            : 'Enter a valid date of birth. You must be 18 or older.',
+                            ? tr('Age confirmed (18+)')
+                            : tr('Enter a valid date of birth. You must be 18 or older.'),
                         style: AppTextStyles.bodySm.copyWith(
                           color: _dobValid ? AppColors.primary : Colors.red,
                         ),
@@ -325,7 +329,7 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
             padding: EdgeInsets.fromLTRB(
                 24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
             child: AppButton(
-              label: _saving ? 'Saving…' : 'Confirm & Continue',
+              label: _saving ? tr('Saving…') : tr('Confirm & Continue'),
               onPressed: _canSave && !_saving ? _save : null,
             ),
           ),
@@ -405,7 +409,7 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
                 children: [
                   Text(
                     country == null
-                        ? 'Choose your country'
+                        ? tr('Choose your country')
                         : '${country.name} (${country.code})',
                     style: AppTextStyles.bodyMd.copyWith(
                       color: AppPalette.of(context).black,
@@ -415,7 +419,7 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     country == null
-                        ? 'This sets the wallet currency used for payments.'
+                        ? tr('This sets the wallet currency used for payments.')
                         : 'Payment currency: ${CurrencyConversionHelper.paymentCurrencyForCountry(country)}',
                     style: AppTextStyles.bodySm.copyWith(
                       color: AppPalette.of(context).gray500,
@@ -523,14 +527,14 @@ class _KycCountryCurrencySheetState extends State<_KycCountryCurrencySheet> {
                   ),
                   const SizedBox(height: 18),
                   Text(
-                    'Confirm country',
+                    AppLocalizations.of(context).uiConfirmCountry,
                     style: AppTextStyles.h3.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Bago will use this country to set your wallet currency before KYC.',
+                    AppLocalizations.of(context).uiBagoWillUseThisCountryTo,
                     style: AppTextStyles.bodySm.copyWith(
                       color: AppPalette.of(context).gray500,
                       height: 1.45,
@@ -541,7 +545,8 @@ class _KycCountryCurrencySheetState extends State<_KycCountryCurrencySheet> {
                     controller: _searchCtrl,
                     onChanged: (value) => setState(() => _query = value),
                     decoration: InputDecoration(
-                      hintText: 'Search country or currency',
+                      hintText: AppLocalizations.of(context)
+                          .uiSearchCountryOrCurrency,
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
                       fillColor: AppPalette.of(context).gray100,

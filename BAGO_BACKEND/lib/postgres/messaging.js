@@ -68,7 +68,8 @@ function normalizeConversation(row, currentUserId = null) {
   return {
     _id: row.id,
     id: row.id,
-    request: row.request_id
+    // An older completed shipment must not close a pair's newer active chat.
+    request: (Array.isArray(row.active_requests) && row.active_requests[0]) || (row.request_id
       ? {
           _id: row.request_id,
           id: row.request_id,
@@ -88,7 +89,7 @@ function normalizeConversation(row, currentUserId = null) {
               }
             : null,
         }
-      : null,
+      : null),
     activeRequests: Array.isArray(row.active_requests) ? row.active_requests : [],
     trip: row.trip_id ? { _id: row.trip_id, id: row.trip_id } : null,
     sender,
@@ -215,8 +216,8 @@ const conversationSelect = `
     ) as requests
     from public.shipment_requests sr2
     left join public.packages pkg2 on pkg2.id = sr2.package_id
-    where sr2.sender_id = c.sender_id
-      and sr2.traveler_id = c.traveler_id
+    where ((sr2.sender_id = c.sender_id and sr2.traveler_id = c.traveler_id)
+      or (sr2.sender_id = c.traveler_id and sr2.traveler_id = c.sender_id))
       and lower(coalesce(sr2.status::text, '')) not in ('completed', 'cancelled', 'canceled', 'rejected')
   ) active_requests on true
 `;
@@ -546,11 +547,11 @@ export async function createConversationMessage({
     const requestResult = await client.query(
       `
         select
-          count(*) filter (where status not in ('completed', 'cancelled', 'rejected'))::int as active_count,
+          count(*) filter (where lower(status::text) not in ('completed', 'cancelled', 'canceled', 'rejected'))::int as active_count,
           max(status) filter (where id = $3) as request_status
         from public.shipment_requests
-        where sender_id = $1
-          and traveler_id = $2
+        where (sender_id = $1 and traveler_id = $2)
+           or (sender_id = $2 and traveler_id = $1)
       `,
       [conversation.sender_id, conversation.traveler_id, conversation.request_id],
     );

@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -68,7 +69,7 @@ class PrivacyScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
-        title: Text('Privacy Policy',
+        title: Text(AppLocalizations.of(context).privacyPolicy,
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         leading: GestureDetector(
@@ -98,7 +99,8 @@ class PrivacyScreen extends StatelessWidget {
                     color: AppPalette.of(context).primary, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text('Last updated: July 17, 2026',
+                  child: Text(
+                      AppLocalizations.of(context).uiLastUpdatedJuly172026,
                       style: AppTextStyles.bodySm.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600)),
@@ -106,8 +108,7 @@ class PrivacyScreen extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: 20),
-            Text(
-                'Your privacy matters to us. This Privacy Policy explains how Bago collects, uses, and protects your personal information.',
+            Text(AppLocalizations.of(context).uiYourPrivacyMattersToUsThis,
                 style: AppTextStyles.bodyMd.copyWith(
                     color: AppPalette.of(context).gray600,
                     height: 1.6,

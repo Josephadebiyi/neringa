@@ -341,7 +341,7 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
+                        color: AppPalette.of(context).warningSoft,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                             color: const Color(0xFFFDE68A), width: 1.5),
@@ -355,7 +355,8 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
                             child: Text(
                               'Fast Payout enabled — eligible earnings are released early, ahead of standard delivery-completion payout.',
                               style: AppTextStyles.bodySm.copyWith(
-                                  color: const Color(0xFF92400E),
+                                  color: AppPalette.of(context)
+                                      .ink(const Color(0xFF92400E)),
                                   fontWeight: FontWeight.w700),
                             ),
                           ),
@@ -368,10 +369,13 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDFA),
+                      color:
+                          AppPalette.of(context).tint(const Color(0xFFF0FDFA)),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                          color: const Color(0xFFCCFBF1), width: 1.5),
+                          color: AppPalette.of(context)
+                              .tint(const Color(0xFFCCFBF1)),
+                          width: 1.5),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,8 +501,9 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
             decoration: BoxDecoration(
                 border: isLast
                     ? null
-                    : const Border(
-                        bottom: BorderSide(color: Colors.white, width: 1.5))),
+                    : Border(
+                        bottom: BorderSide(
+                            color: AppPalette.of(context).white, width: 1.5))),
             child: Row(children: [
               Container(
                 width: 44,

@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../api';
 import Sidebar, { useUnreadCount } from '../components/dashboard/Sidebar';
 import TopNav from '../components/dashboard/TopNav';
+import DashboardNotifications from '../components/dashboard/DashboardNotifications';
 import Overview from '../components/dashboard/Overview';
 import Trips from '../components/dashboard/Trips';
 import Shipments from '../components/dashboard/Shipments';
@@ -24,6 +25,7 @@ import {
     ArrowLeft,
     Package,
     Plus,
+    Bell,
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { getUserAccountCurrency } from '../utils/userCurrency';
@@ -68,6 +70,8 @@ export default function Dashboard() {
     const [kycStatus, setKycStatus] = useState('not_started');
     const [activeTab, setActiveTab] = useState('overview');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notificationCount, setNotificationCount] = useState(0);
     const [userStats, setUserStats] = useState({ totalUsers: 0 });
     const [chatConv, setChatConv] = useState(null);
     const unreadCount = useUnreadCount(user);
@@ -326,6 +330,10 @@ export default function Dashboard() {
     const tabLabel = activeTab === 'overview' ? 'Dashboard' : (TAB_LABELS[activeTab] || activeTab);
     const tabSubtitle = TAB_SUBTITLES[activeTab] || '';
     const goBack = () => (activeTab === 'overview' ? navigate('/') : setActiveTab('overview'));
+    const showNotifications = () => {
+        setNotificationsOpen(true);
+        document.getElementById('dashboard-notifications')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     return (
         <div className={`dashboard-shell min-h-screen bg-[#ECEBF7] font-sans lg:p-5 ${darkMode ? 'dashboard-dark' : ''}`}>
@@ -364,11 +372,17 @@ export default function Dashboard() {
                     <Link to="/" aria-label="Bago home">
                         <img src="/bago_logo.png" alt="Bago" className="h-8 w-auto" />
                     </Link>
+                    <div className="flex items-center gap-2">
+                    <button type="button" onClick={showNotifications} aria-label={`Notifications${notificationCount ? `, ${notificationCount} unread` : ''}`} className="relative w-11 h-11 rounded-full bg-white border border-gray-200/80 flex items-center justify-center text-[#5845D8]">
+                        <Bell size={19} />
+                        {notificationCount > 0 && <span className="absolute -top-1 -right-1 rounded-full bg-red-500 text-white text-[10px] font-bold min-w-[18px] px-1">{notificationCount > 99 ? '99+' : notificationCount}</span>}
+                    </button>
                     <div className="relative w-11 h-11 rounded-full bg-[#5845D8] text-white flex items-center justify-center font-bold overflow-hidden ring-2 ring-white">
                         {user?.image ? <img src={user.image} alt="" className="w-full h-full object-cover" /> : userInitial}
                         {unreadCount > 0 && (
                             <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-[#EF4444] ring-2 ring-[#F7F7FC]" />
                         )}
+                    </div>
                     </div>
                 </header>
 
@@ -380,6 +394,8 @@ export default function Dashboard() {
                     logout={logout}
                     isBusinessAccount={isBusinessAccount}
                     unreadCount={unreadCount}
+                    notificationCount={notificationCount}
+                    onNotificationsClick={showNotifications}
                 />
 
                 <main className="max-w-[1400px] mx-auto w-full">
@@ -425,6 +441,12 @@ export default function Dashboard() {
                             {msg}
                         </div>
                     )}
+                    <DashboardNotifications
+                        key={user?.id || user?._id}
+                        open={notificationsOpen}
+                        setOpen={setNotificationsOpen}
+                        onCountChange={setNotificationCount}
+                    />
                     {renderTabContent()}
                 </main>
             </div>

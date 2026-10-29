@@ -1,3 +1,4 @@
+import '../../l10n/runtime_tr.dart';
 import 'dart:io';
 import 'dart:math';
 
@@ -100,10 +101,10 @@ class ApiService {
   static String parseError(DioException e) {
     final statusCode = e.response?.statusCode;
     if (statusCode == 502 || statusCode == 503 || statusCode == 504) {
-      return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+      return tr('Bago is temporarily unavailable. Please try again in a few minutes.');
     }
     if (statusCode == 401) {
-      return 'Session expired. Please sign in again.';
+      return tr('Session expired. Please sign in again.');
     }
     if (e.response?.data != null) {
       final data = e.response!.data;
@@ -112,7 +113,7 @@ class ApiService {
         if (code == 'VERIFICATION_REQUIRED' ||
             code == 'KYC_REQUIRED' ||
             data['kycRequired'] == true) {
-          return 'Identity verification is required. Please complete KYC to continue.';
+          return tr('Identity verification is required. Please complete KYC to continue.');
         }
         return data['message']?.toString() ??
             data['error']?.toString() ??
@@ -124,21 +125,21 @@ class ApiService {
             value.contains('service unavailable') ||
             value.contains('bad gateway') ||
             value.contains('gateway timeout')) {
-          return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+          return tr('Bago is temporarily unavailable. Please try again in a few minutes.');
         }
       }
     }
     if (statusCode == 100 || statusCode == 403) {
-      return 'Identity verification or permission is required to continue.';
+      return tr('Identity verification or permission is required to continue.');
     }
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
-      return 'Connection timed out. Please try again.';
+      return tr('Connection timed out. Please try again.');
     }
     if (e.type == DioExceptionType.connectionError) {
-      return 'No internet connection.';
+      return tr('No internet connection.');
     }
-    return 'An unexpected error occurred.';
+    return tr('An unexpected error occurred.');
   }
 }
 

@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -21,15 +22,16 @@ class PaymentFailedScreen extends StatelessWidget {
       backgroundColor: AppPalette.of(context).pageBackground,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 width: 100,
                 height: 100,
-                decoration: const BoxDecoration(
-                    color: AppColors.errorLight, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                    color: AppPalette.of(context).soft(AppColors.errorLight),
+                    shape: BoxShape.circle),
                 child: const Icon(Icons.close_rounded,
                     color: AppColors.error, size: 52),
               ),
@@ -58,19 +60,19 @@ class PaymentFailedScreen extends StatelessWidget {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Discard draft?'),
-                      content: const Text(
-                          'This will remove your saved shipment draft. You\'ll need to start over.'),
+                      title: Text(AppLocalizations.of(context).uiDiscardDraft),
+                      content: Text(AppLocalizations.of(context)
+                          .uiThisWillRemoveYourSavedShipment2),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Keep'),
+                          child: Text(AppLocalizations.of(context).uiKeep),
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(ctx).pop(true),
                           style:
                               TextButton.styleFrom(foregroundColor: Colors.red),
-                          child: const Text('Discard'),
+                          child: Text(AppLocalizations.of(context).uiDiscard),
                         ),
                       ],
                     ),
@@ -112,17 +114,17 @@ class PaymentFailedScreen extends StatelessWidget {
     if (normalized.contains('country of residence') ||
         normalized.contains('residence currency') ||
         normalized.contains('currency mismatch')) {
-      return 'Your payment currency does not match your country of residence. Update it in Profile → Currency and try again.';
+      return tr('Your payment currency does not match your country of residence. Update it in Profile → Currency and try again.');
     }
     if (normalized.contains('identity verification') ||
         normalized.contains('kyc')) {
-      return 'Complete identity verification before making this payment.';
+      return tr('Complete identity verification before making this payment.');
     }
     if (normalized.contains('not enabled') && normalized.contains('payment')) {
-      return 'This currency is not enabled on Bago’s payment account yet. Please contact support.';
+      return tr('This currency is not enabled on Bago’s payment account yet. Please contact support.');
     }
     if (normalized.contains('could not authorize')) {
-      return 'Flutterwave could not authorize this payment. Try another available payment method.';
+      return tr('Flutterwave could not authorize this payment. Try another available payment method.');
     }
     if (normalized.contains('insufficient_funds')) {
       return l10n.insufficientFundsMessage;

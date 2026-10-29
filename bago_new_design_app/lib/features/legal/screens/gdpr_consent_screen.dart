@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +31,7 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
     if (!_termsChecked || !_privacyChecked || !_ageChecked) {
       AppSnackBar.show(
         context,
-        message: 'Please accept all required terms',
+        message: AppLocalizations.of(context).uiPleaseAcceptAllRequiredTerms,
         type: SnackBarType.error,
       );
       return;
@@ -73,7 +74,7 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Privacy & Consent',
+                    AppLocalizations.of(context).uiPrivacyConsent,
                     style: AppTextStyles.h3.copyWith(
                       color: AppColors.white,
                     ),
@@ -98,7 +99,7 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                   children: [
                     // Required section header
                     Text(
-                      'Required Agreements',
+                      AppLocalizations.of(context).uiRequiredAgreements,
                       style: AppTextStyles.labelMd.copyWith(
                         color: AppPalette.of(context).primary,
                         fontWeight: FontWeight.w600,
@@ -111,9 +112,9 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                       value: _termsChecked,
                       onChanged: (val) =>
                           setState(() => _termsChecked = val ?? false),
-                      title: 'Terms of Service *',
+                      title: AppLocalizations.of(context).uiTermsOfService,
                       subtitle:
-                          'I agree to the platform\'s terms and conditions for using Bago.',
+                          AppLocalizations.of(context).uiIAgreeToThePlatformS,
                     ),
                     const SizedBox(height: 16),
 
@@ -122,9 +123,9 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                       value: _privacyChecked,
                       onChanged: (val) =>
                           setState(() => _privacyChecked = val ?? false),
-                      title: 'Privacy Policy *',
-                      subtitle:
-                          'I acknowledge that my personal data will be processed according to the privacy policy.',
+                      title: AppLocalizations.of(context).uiPrivacyPolicy,
+                      subtitle: AppLocalizations.of(context)
+                          .uiIAcknowledgeThatMyPersonalData,
                     ),
                     const SizedBox(height: 16),
 
@@ -133,14 +134,15 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                       value: _ageChecked,
                       onChanged: (val) =>
                           setState(() => _ageChecked = val ?? false),
-                      title: 'Age Verification *',
-                      subtitle: 'I confirm that I am 18 years of age or older.',
+                      title: AppLocalizations.of(context).uiAgeVerification,
+                      subtitle:
+                          AppLocalizations.of(context).uiIConfirmThatIAm18,
                     ),
                     const SizedBox(height: 32),
 
                     // Optional section header
                     Text(
-                      'Optional Preferences',
+                      AppLocalizations.of(context).uiOptionalPreferences,
                       style: AppTextStyles.labelMd.copyWith(
                         color: AppPalette.of(context).gray400,
                         fontWeight: FontWeight.w600,
@@ -153,9 +155,10 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                       value: _marketingChecked,
                       onChanged: (val) =>
                           setState(() => _marketingChecked = val ?? false),
-                      title: 'Marketing Communications',
-                      subtitle:
-                          'I would like to receive promotional offers and updates via email.',
+                      title: AppLocalizations.of(context)
+                          .uiMarketingCommunications,
+                      subtitle: AppLocalizations.of(context)
+                          .uiIWouldLikeToReceivePromotional,
                     ),
                     const SizedBox(height: 24),
 
@@ -171,7 +174,7 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Your Privacy Rights',
+                            AppLocalizations.of(context).uiYourPrivacyRights,
                             style: AppTextStyles.labelMd.copyWith(
                               color: AppColors.white,
                               fontWeight: FontWeight.w600,
@@ -197,11 +200,14 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppPalette.of(context).gray900,
+                        color: AppPalette.of(context).dark
+                            ? const Color(0xFF2A2546)
+                            : AppColors.gray900,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'Your data is processed securely and will not be shared with third parties without your consent.',
+                        AppLocalizations.of(context)
+                            .uiYourDataIsProcessedSecurelyAnd,
                         style: AppTextStyles.caption.copyWith(
                           color: AppPalette.of(context).gray400,
                         ),
@@ -240,7 +246,7 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                                   ),
                                 )
                               : Text(
-                                  'Accept & Continue',
+                                  AppLocalizations.of(context).uiAcceptContinue,
                                   style: AppTextStyles.labelMd.copyWith(
                                     color: AppColors.white,
                                   ),
@@ -263,7 +269,7 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            'Decline',
+                            AppLocalizations.of(context).uiDecline,
                             style: AppTextStyles.labelMd.copyWith(
                               color: AppColors.white,
                             ),

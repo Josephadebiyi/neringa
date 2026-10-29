@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -16,7 +17,7 @@ class GiftItemsScreen extends StatelessWidget {
         backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
         title: Text(
-          'Send a Gift',
+          AppLocalizations.of(context).uiSendAGift,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -43,7 +44,7 @@ class GiftItemsScreen extends StatelessWidget {
                 width: 88,
                 height: 88,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
+                  color: AppPalette.of(context).warningSoft,
                   borderRadius: BorderRadius.circular(28),
                 ),
                 child: const Icon(
@@ -54,7 +55,7 @@ class GiftItemsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Coming soon',
+                AppLocalizations.of(context).uiComingSoon,
                 style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black,
@@ -62,7 +63,7 @@ class GiftItemsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Gift items is not live yet. We will implement it soon.',
+                AppLocalizations.of(context).uiGiftItemsIsNotLiveYet,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppPalette.of(context).gray500,

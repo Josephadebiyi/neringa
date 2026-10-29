@@ -23,6 +23,7 @@ const AboutUs = lazy(() => import('./pages/AboutUs'));
 const HowToUse = lazy(() => import('./pages/HowToUse'));
 const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+const PublicPolicy = lazy(() => import('./pages/PublicPolicy'));
 const HelpCenter = lazy(() => import('./pages/HelpCenter'));
 const TrackShipment = lazy(() => import('./pages/TrackShipment'));
 const Banned = lazy(() => import('./pages/Banned'));
@@ -51,6 +52,9 @@ function App() {
                         <Route path="/business" element={<BusinessPartnership />} />
                         <Route path="/terms" element={<Terms />} />
                         <Route path="/privacy" element={<Privacy />} />
+                        <Route path="/contact" element={<PublicPolicy contact />} />
+                        <Route path="/refund-policy" element={<PublicPolicy />} />
+                        <Route path="/refunds" element={<Navigate to="/refund-policy" replace />} />
                         <Route path="/help" element={<HelpCenter />} />
                         <Route path="/track" element={<TrackShipment />} />
                         <Route path="/banned" element={<Banned />} />

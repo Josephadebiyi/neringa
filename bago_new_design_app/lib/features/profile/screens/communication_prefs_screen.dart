@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,9 +87,9 @@ class _CommunicationPrefsScreenState
         context,
         message: key == 'push'
             ? (next
-                ? 'Push notifications enabled'
-                : 'Push notifications disabled')
-            : 'Preferences updated',
+                ? tr('Push notifications enabled')
+                : tr('Push notifications disabled'))
+            : tr('Preferences updated'),
         type: SnackBarType.success,
       );
     } catch (_) {
@@ -95,7 +97,7 @@ class _CommunicationPrefsScreenState
       setState(() => _prefs[key] = prev);
       AppSnackBar.show(
         context,
-        message: 'Failed to update preferences',
+        message: AppLocalizations.of(context).uiFailedToUpdatePreferences,
         type: SnackBarType.error,
       );
     } finally {
@@ -108,7 +110,8 @@ class _CommunicationPrefsScreenState
     return Scaffold(
       backgroundColor: AppPalette.of(context).pageBackground,
       appBar: AppBar(
-        title: Text('Communication', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).uiCommunication,
+            style: AppTextStyles.h3),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -122,7 +125,7 @@ class _CommunicationPrefsScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'NOTIFICATION SETTINGS',
+                    AppLocalizations.of(context).uiNotificationSettings,
                     style: AppTextStyles.labelMd.copyWith(
                       color: AppPalette.of(context).gray500,
                       fontWeight: FontWeight.w700,
@@ -131,19 +134,19 @@ class _CommunicationPrefsScreenState
                   const SizedBox(height: 16),
                   _buildPrefItem(
                     icon: Icons.notifications_active_rounded,
-                    title: 'Push Notifications',
+                    title: AppLocalizations.of(context).uiPushNotifications,
                     desc: 'Shipment updates, trip requests & chat alerts',
                     prefKey: 'push',
                   ),
                   _buildPrefItem(
                     icon: Icons.mail_outline_rounded,
-                    title: 'Email Notifications',
+                    title: AppLocalizations.of(context).uiEmailNotifications,
                     desc: 'Booking confirmations and account security',
                     prefKey: 'email',
                   ),
                   _buildPrefItem(
                     icon: Icons.shield_outlined,
-                    title: 'System Alerts',
+                    title: AppLocalizations.of(context).uiSystemAlerts,
                     desc: 'Critical updates about the Bago service',
                     prefKey: 'system',
                     locked: true,

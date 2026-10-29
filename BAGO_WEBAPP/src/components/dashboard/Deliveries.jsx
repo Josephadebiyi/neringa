@@ -115,7 +115,7 @@ export default function Deliveries({ user, onNavigateToChat }) {
     const [extSaving, setExtSaving] = useState(false);
     const [extError, setExtError] = useState('');
 
-    useEffect(() => { fetchDeliveries(); }, []);
+    useEffect(() => { fetchDeliveries(); }, [location.search]);
     useEffect(() => { setAcceptedTerms([false, false, false]); }, [viewingDetails]);
 
     // Lets a transaction row elsewhere (Wallet & Earnings) deep-link into a
@@ -200,8 +200,8 @@ export default function Deliveries({ user, onNavigateToChat }) {
                 : 'Status updated.');
             resetStatusModal();
             fetchDeliveries();
-        } catch {
-            notify('Failed to update status. Please try again.', false);
+        } catch (error) {
+            notify(error.response?.data?.message || 'Failed to update status. Please try again.', false);
         } finally { setIsSubmitting(false); }
     };
 

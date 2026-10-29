@@ -1,8 +1,10 @@
+import 'l10n/runtime_tr.dart';
 import 'dart:async';
 import 'dart:io';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +18,7 @@ import 'features/auth/widgets/app_unlock_gate.dart';
 import 'l10n/app_localizations.dart';
 import 'shared/providers/app_lock_provider.dart';
 import 'shared/providers/locale_provider.dart';
+import 'shared/providers/theme_mode_provider.dart';
 import 'shared/services/pending_trip_link.dart';
 import 'shared/services/push_notification_service.dart';
 import 'shared/services/socket_service.dart';
@@ -28,6 +31,7 @@ class BagoApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     final locale = ref.watch(localeProvider);
+    final themeMode = ref.watch(themeModeProvider);
     ref.listen<String?>(
       authProvider.select((state) => state.user?.preferredLanguage),
       (previous, next) {
@@ -41,7 +45,10 @@ class BagoApp extends ConsumerWidget {
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      themeMode: ThemeMode.light,
+      darkTheme: AppTheme.dark,
+      // System (follow the phone) unless the user picked Light/Dark in
+      // Settings → Appearance.
+      themeMode: themeMode,
       routerConfig: router,
       locale: locale,
       supportedLocales: supportedAppLocales,
@@ -51,7 +58,12 @@ class BagoApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+      builder: (context, child) {
+        // Runtime-translated helper text follows the active app language.
+        AppLang.code = Localizations.localeOf(context).languageCode;
+        // Dates (e.g. "Jun 2026") format in the same language.
+        Intl.defaultLocale = Localizations.localeOf(context).toLanguageTag();
+        return AnnotatedRegion<SystemUiOverlayStyle>(
         value: Theme.of(context).brightness == Brightness.dark
             ? SystemUiOverlayStyle.light
             : SystemUiOverlayStyle.dark,
@@ -64,7 +76,8 @@ class BagoApp extends ConsumerWidget {
             ),
           ),
         ),
-      ),
+      );
+      },
     );
   }
 }
@@ -151,7 +164,7 @@ class _CurrencyLocationPromptHostState
             context: dialogContext,
             barrierDismissible: false,
             builder: (alertContext) => AlertDialog(
-              title: const Text('Confirm your country'),
+              title: Text(AppLocalizations.of(context).uiConfirmYourCountry),
               content: Text(
                 sameCurrency && sameCountry
                     ? 'We detected $countryCode as your current location. Confirm this so Bago keeps using $currency for your wallet.'
@@ -160,11 +173,11 @@ class _CurrencyLocationPromptHostState
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(alertContext).pop(false),
-                  child: const Text('Not now'),
+                  child: Text(AppLocalizations.of(context).uiNotNow),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(alertContext).pop(true),
-                  child: Text('Use $currency'),
+                  child: Text(AppLocalizations.of(context).uiFUse(currency)),
                 ),
               ],
             ),
@@ -190,7 +203,9 @@ class _CurrencyLocationPromptHostState
             ? null
             : ScaffoldMessenger.maybeOf(snackContext);
         messenger?.showSnackBar(
-          SnackBar(content: Text('Wallet currency set to $currency.')),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)
+                  .uiFWalletCurrencySetTo(currency))),
         );
       } catch (_) {
         if (!mounted) return;
@@ -199,9 +214,9 @@ class _CurrencyLocationPromptHostState
             ? null
             : ScaffoldMessenger.maybeOf(snackContext);
         messenger?.showSnackBar(
-          const SnackBar(
-            content:
-                Text('Could not update wallet currency. Please try again.'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)
+                .uiCouldNotUpdateWalletCurrencyPlease),
           ),
         );
         _lastScheduledKey = null;
@@ -405,12 +420,12 @@ class _NotificationPromptHostState
         SnackBar(
           behavior: SnackBarBehavior.floating,
           content: Text(
-            text.isEmpty ? 'You have a new message' : 'New message: $text',
+            text.isEmpty ? tr('You have a new message') : 'New message: $text',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           action: SnackBarAction(
-            label: 'Open',
+            label: AppLocalizations.of(context).uiOpen,
             onPressed: () => router.go('/messages/$conversationId'),
           ),
         ),
@@ -441,7 +456,7 @@ class _NotificationPromptHostState
             ? rawMessage['senderName'].toString().trim()
             : data['senderName']?.toString().trim().isNotEmpty == true
                 ? data['senderName'].toString().trim()
-                : 'Bago support';
+                : tr('Bago support');
     final content = rawMessage['content']?.toString().trim() ?? '';
 
     final bannerContext = router.routerDelegate.navigatorKey.currentContext;
@@ -462,7 +477,7 @@ class _NotificationPromptHostState
             overflow: TextOverflow.ellipsis,
           ),
           action: SnackBarAction(
-            label: 'Open',
+            label: AppLocalizations.of(context).uiOpen,
             onPressed: () => router.go('/profile/support'),
           ),
         ),
@@ -513,18 +528,19 @@ class _NotificationPromptHostState
             context: dialogContext,
             barrierDismissible: false,
             builder: (alertContext) => AlertDialog(
-              title: const Text('Allow notifications?'),
-              content: const Text(
-                'Get instant updates about messages, shipment activity, and delivery progress.',
+              title: Text(AppLocalizations.of(context).uiAllowNotifications),
+              content: Text(
+                AppLocalizations.of(context)
+                    .uiGetInstantUpdatesAboutMessagesShipment,
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(alertContext).pop(false),
-                  child: const Text('Not now'),
+                  child: Text(AppLocalizations.of(context).uiNotNow),
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(alertContext).pop(true),
-                  child: const Text('Allow'),
+                  child: Text(AppLocalizations.of(context).uiAllow),
                 ),
               ],
             ),
@@ -551,8 +567,8 @@ class _NotificationPromptHostState
         SnackBar(
           content: Text(
             granted
-                ? 'Notifications enabled for this account.'
-                : 'Notifications were not enabled. You can change this later in Settings.',
+                ? tr('Notifications enabled for this account.')
+                : tr('Notifications were not enabled. You can change this later in Settings.'),
           ),
         ),
       );

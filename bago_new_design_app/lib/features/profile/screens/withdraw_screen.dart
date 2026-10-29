@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -162,14 +164,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         CurrencyConversionHelper.minimumWithdrawalForCurrency(currency);
     if (amount <= 0) {
       AppSnackBar.show(context,
-          message: 'Please enter a valid amount.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiPleaseEnterAValidAmount,
+          type: SnackBarType.error);
       return;
     }
     if (_balance < minimumAmount) {
       AppSnackBar.show(
         context,
-        message:
-            'Your balance is below the minimum withdrawal amount of $currency ${minimumAmount.toStringAsFixed(2)}.',
+        message: AppLocalizations.of(context).uiFYourBalanceIsBelowTheMinimum(
+            currency, minimumAmount.toStringAsFixed(2)),
         type: SnackBarType.error,
       );
       return;
@@ -177,15 +180,17 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     if (amount < minimumAmount) {
       AppSnackBar.show(
         context,
-        message:
-            'Minimum withdrawal is $currency ${minimumAmount.toStringAsFixed(2)} across all currencies.',
+        message: AppLocalizations.of(context)
+            .uiFMinimumWithdrawalIsAcrossAllCurrencies(
+                currency, minimumAmount.toStringAsFixed(2)),
         type: SnackBarType.error,
       );
       return;
     }
     if (amount > _balance) {
       AppSnackBar.show(context,
-          message: 'Insufficient balance.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiInsufficientBalance,
+          type: SnackBarType.error);
       return;
     }
     setState(() => _submitting = true);
@@ -230,8 +235,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                       color: AppPalette.of(context).primary, size: 34),
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  'Withdrawal Submitted',
+                Text(
+                  AppLocalizations.of(context).uiWithdrawalSubmitted,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                   textAlign: TextAlign.center,
                 ),
@@ -240,13 +245,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   isManualPayout
                       ? 'Your withdrawal of $currency ${amount.toStringAsFixed(2)} has been sent to the Bago accounts team. They will pay it to your bank account and you\'ll be notified by email at each step.'
                       : 'Your withdrawal of $currency ${amount.toStringAsFixed(2)} is under review. Once approved by our team, the funds will be sent to your payout account.',
-                  style: const TextStyle(
-                      fontSize: 14, color: Color(0xFF6B7280), height: 1.5),
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: AppPalette.of(context).gray500,
+                      height: 1.5),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'You can track the status in your transaction history.',
+                Text(
+                  AppLocalizations.of(context).uiYouCanTrackTheStatusIn,
                   style: TextStyle(
                       fontSize: 12, color: Color(0xFF9CA3AF), height: 1.4),
                   textAlign: TextAlign.center,
@@ -267,7 +274,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                     Navigator.of(ctx).pop();
                     if (mounted) context.pop();
                   },
-                  child: const Text('Got it',
+                  child: Text(AppLocalizations.of(context).uiGotIt,
                       style: TextStyle(
                           color: Colors.white, fontWeight: FontWeight.w800)),
                 ),
@@ -288,7 +295,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: 'Withdrawal could not be submitted. Please try again.',
+          message: AppLocalizations.of(context)
+              .uiWithdrawalCouldNotBeSubmittedPlease,
           type: SnackBarType.error,
         );
       }
@@ -307,7 +315,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       AppSnackBar.show(
         context,
         message: destination == null
-            ? 'Withdrawal code sent to your email.'
+            ? tr('Withdrawal code sent to your email.')
             : 'Withdrawal code sent to $destination.',
         type: SnackBarType.success,
       );
@@ -351,7 +359,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Enter withdrawal code',
+                    AppLocalizations.of(context).uiEnterWithdrawalCode,
                     style: AppTextStyles.h3.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -359,7 +367,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   const SizedBox(height: 8),
                   Text(
                     destination == null
-                        ? 'Enter the 6-digit code sent to your email.'
+                        ? tr('Enter the 6-digit code sent to your email.')
                         : 'Enter the 6-digit code sent to $destination.',
                     style: AppTextStyles.bodyMd
                         .copyWith(color: AppPalette.of(context).gray500),
@@ -377,7 +385,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                       }
                     },
                     decoration: InputDecoration(
-                      labelText: '6-digit code',
+                      labelText: AppLocalizations.of(context).ui6DigitCode,
                       counterText: '',
                       errorText: errorText,
                       border: const OutlineInputBorder(),
@@ -389,7 +397,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Cancel'),
+                          child: Text(AppLocalizations.of(context).cancel),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -405,7 +413,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                             }
                             Navigator.of(ctx).pop(otp);
                           },
-                          child: const Text('Confirm'),
+                          child: Text(AppLocalizations.of(context).uiConfirm),
                         ),
                       ),
                     ],
@@ -444,7 +452,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   color: AppPalette.of(context).black),
             ),
           ),
-          title: Text('Withdraw Funds',
+          title: Text(AppLocalizations.of(context).uiWithdrawFunds,
               style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
           centerTitle: true,
         ),
@@ -452,7 +460,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Please set your preferred currency in profile settings before withdrawing.',
+              AppLocalizations.of(context).uiPleaseSetYourPreferredCurrencyIn3,
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500),
               textAlign: TextAlign.center,
@@ -499,12 +507,12 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 color: AppPalette.of(context).black),
           ),
         ),
-        title: Text('Withdraw Funds',
+        title: Text(AppLocalizations.of(context).uiWithdrawFunds,
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: 'Refresh wallet',
+            tooltip: AppLocalizations.of(context).uiRefreshWallet,
             onPressed: _balanceLoading ? null : _fetchBalance,
             icon: _balanceLoading
                 ? const SizedBox(
@@ -546,7 +554,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '$currency withdrawals are paid to your bank by the Bago accounts team, usually within 1–3 business days. We\'ll email and notify you when it\'s approved and paid.',
+                          AppLocalizations.of(context)
+                              .uiFWithdrawalsArePaidToYourBank(currency),
                           style: AppTextStyles.bodySm.copyWith(
                               color: AppPalette.of(context).gray700,
                               height: 1.45),
@@ -561,7 +570,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
+                    color: AppPalette.of(context).warningSoft,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: const Color(0xFFFDE68A)),
                   ),
@@ -575,23 +584,32 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('No payout method linked',
+                            Text(
+                                AppLocalizations.of(context)
+                                    .uiNoPayoutMethodLinked,
                                 style: AppTextStyles.labelMd.copyWith(
-                                    color: const Color(0xFF92400E),
+                                    color: AppPalette.of(context)
+                                        .ink(const Color(0xFF92400E)),
                                     fontWeight: FontWeight.w800)),
                             const SizedBox(height: 4),
                             Text(
-                              'Please link a bank account before withdrawing.',
+                              AppLocalizations.of(context)
+                                  .uiPleaseLinkABankAccountBefore,
                               style: AppTextStyles.bodySm.copyWith(
-                                  color: const Color(0xFF92400E), height: 1.4),
+                                  color: AppPalette.of(context)
+                                      .ink(const Color(0xFF92400E)),
+                                  height: 1.4),
                             ),
                             const SizedBox(height: 12),
                             GestureDetector(
                               onTap: () =>
                                   context.push('/profile/payout-methods'),
-                              child: Text('Set up payout method →',
+                              child: Text(
+                                  AppLocalizations.of(context)
+                                      .uiSetUpPayoutMethod,
                                   style: AppTextStyles.labelSm.copyWith(
-                                      color: const Color(0xFF92400E),
+                                      color: AppPalette.of(context)
+                                          .ink(const Color(0xFF92400E)),
                                       fontWeight: FontWeight.w800,
                                       decoration: TextDecoration.underline)),
                             ),
@@ -619,7 +637,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 children: [
                   Expanded(
                     child: _QuickAmountButton(
-                      label: 'Minimum',
+                      label: AppLocalizations.of(context).uiMinimum,
                       onTap: () {
                         _amountCtrl.text = minimumAmount.toStringAsFixed(2);
                         setState(() {});
@@ -629,7 +647,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _QuickAmountButton(
-                      label: 'Withdraw all',
+                      label: AppLocalizations.of(context).uiWithdrawAll,
                       onTap: _balance > 0
                           ? () {
                               _amountCtrl.text = _balance.toStringAsFixed(2);
@@ -668,7 +686,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2.5))
-                      : Text('Confirm withdrawal',
+                      : Text(AppLocalizations.of(context).uiConfirmWithdrawal,
                           style: AppTextStyles.labelLg.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w800)),
@@ -677,7 +695,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               if (!(user?.canWithdrawFunds ?? true)) ...[
                 const SizedBox(height: 10),
                 Text(
-                  "Your account doesn't have permission to withdraw funds. Ask the business owner to enable it.",
+                  AppLocalizations.of(context)
+                      .uiYourAccountDoesnTHavePermission,
                   textAlign: TextAlign.center,
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray500),
@@ -710,8 +729,9 @@ class _WithdrawBalanceHero extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 18, 18, 18),
       decoration: BoxDecoration(
-        image: const DecorationImage(
-          image: AssetImage('assets/images/wallet/withdraw_background.png'),
+        image: DecorationImage(
+          image:
+              const AssetImage('assets/images/wallet/withdraw_background.png'),
           fit: BoxFit.cover,
           alignment: Alignment.centerRight,
         ),
@@ -725,9 +745,9 @@ class _WithdrawBalanceHero extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Available Balance',
+                  AppLocalizations.of(context).uiAvailableBalance,
                   style: AppTextStyles.labelMd.copyWith(
-                    color: AppPalette.of(context).black,
+                    color: AppColors.black,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -741,7 +761,7 @@ class _WithdrawBalanceHero extends StatelessWidget {
                     Text(
                       '$currency ${balance.toStringAsFixed(2)}',
                       style: AppTextStyles.displaySm.copyWith(
-                        color: AppPalette.of(context).black,
+                        color: AppColors.black,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -751,8 +771,7 @@ class _WithdrawBalanceHero extends StatelessWidget {
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
-                            color: AppPalette.of(context).black,
-                            strokeWidth: 2),
+                            color: AppColors.black, strokeWidth: 2),
                       ),
                     ],
                   ],
@@ -760,16 +779,16 @@ class _WithdrawBalanceHero extends StatelessWidget {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    Icon(Icons.lock_rounded,
-                        size: 14, color: AppPalette.of(context).black),
+                    Icon(Icons.lock_rounded, size: 14, color: AppColors.black),
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        '$currency ${escrowBalance.toStringAsFixed(2)} held in escrow',
+                        AppLocalizations.of(context).uiFHeldInEscrow(
+                            currency, escrowBalance.toStringAsFixed(2)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.caption.copyWith(
-                          color: AppPalette.of(context).black,
+                          color: AppColors.black,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -809,7 +828,7 @@ class _WithdrawAmountPanel extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Enter amount',
+            AppLocalizations.of(context).uiEnterAmount,
             style: AppTextStyles.bodyMd.copyWith(
               color: AppPalette.of(context).gray500,
               fontWeight: FontWeight.w700,
@@ -890,7 +909,7 @@ class _PayoutMethodPanel extends StatelessWidget {
             width: 52,
             height: 38,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: AppPalette.of(context).tint(const Color(0xFFF1F5F9)),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -906,7 +925,7 @@ class _PayoutMethodPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasMethod ? method : 'Payout method required',
+                  hasMethod ? method : tr('Payout method required'),
                   style: AppTextStyles.labelMd.copyWith(
                     color: AppPalette.of(context).black,
                     fontWeight: FontWeight.w900,
@@ -915,8 +934,8 @@ class _PayoutMethodPanel extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   hasMethod
-                      ? 'Funds are sent after approval.'
-                      : 'Set up payouts before withdrawing.',
+                      ? tr('Funds are sent after approval.')
+                      : tr('Set up payouts before withdrawing.'),
                   style: AppTextStyles.caption.copyWith(
                     color: AppPalette.of(context).gray500,
                     fontWeight: FontWeight.w700,
@@ -927,7 +946,7 @@ class _PayoutMethodPanel extends StatelessWidget {
           ),
           TextButton(
             onPressed: onSetup,
-            child: Text(hasMethod ? 'Manage' : 'Set up'),
+            child: Text(hasMethod ? tr('Manage') : tr('Set up')),
           ),
         ],
       ),
@@ -946,7 +965,7 @@ class _QuickAmountButton extends StatelessWidget {
     return TextButton(
       onPressed: onTap,
       style: TextButton.styleFrom(
-        backgroundColor: const Color(0xFFF2F3F5),
+        backgroundColor: AppPalette.of(context).tint(const Color(0xFFF2F3F5)),
         foregroundColor: AppPalette.of(context).black,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -988,14 +1007,18 @@ class _WithdrawalSummaryCard extends StatelessWidget {
       child: Column(
         children: [
           _InfoLine(
-              label: 'Amount', value: '$currency ${amount.toStringAsFixed(2)}'),
+              label: AppLocalizations.of(context).uiAmount,
+              value: '$currency ${amount.toStringAsFixed(2)}'),
           const SizedBox(height: 10),
-          const _InfoLine(label: 'Bago fee', value: 'No withdrawal fee'),
+          _InfoLine(
+              label: AppLocalizations.of(context).uiBagoFee,
+              value: 'No withdrawal fee'),
           const SizedBox(height: 10),
-          _InfoLine(label: 'Method', value: method),
+          _InfoLine(
+              label: AppLocalizations.of(context).uiMethod, value: method),
           Divider(height: 26, color: AppPalette.of(context).border),
           _InfoLine(
-            label: 'Minimum',
+            label: AppLocalizations.of(context).uiMinimum,
             value: '$currency ${minimumAmount.toStringAsFixed(2)}',
           ),
           if (belowMinimum || aboveBalance) ...[
@@ -1004,8 +1027,8 @@ class _WithdrawalSummaryCard extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 aboveBalance
-                    ? 'Amount is higher than your available balance.'
-                    : 'Amount is below the minimum withdrawal.',
+                    ? tr('Amount is higher than your available balance.')
+                    : tr('Amount is below the minimum withdrawal.'),
                 style: AppTextStyles.bodySm.copyWith(
                   color: AppColors.error,
                   fontWeight: FontWeight.w800,

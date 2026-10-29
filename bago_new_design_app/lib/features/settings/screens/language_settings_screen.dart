@@ -68,7 +68,10 @@ class LanguageSettingsScreen extends ConsumerWidget {
                     if (!context.mounted) return;
                     AppSnackBar.show(
                       context,
-                      message: l10n.languageChangedMessage,
+                      // Confirm in the language just picked, not the old one.
+                      message: lookupAppLocalizations(
+                              supportedAppLanguages[i].locale)
+                          .languageChangedMessage,
                       type: SnackBarType.success,
                     );
                   },

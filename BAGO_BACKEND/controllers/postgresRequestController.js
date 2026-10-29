@@ -1,4 +1,6 @@
-import { sendNewRequestToTravelerEmail, sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail } from '../services/emailNotifications.js';
+import { getConversationById } from '../lib/postgres/messaging.js';
+import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
+import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail } from '../services/emailNotifications.js';
 import { generateShippingLabelPDF } from '../services/pdfGenerator.js';
 import { sendPushNotification } from '../services/pushNotificationService.js';
 import {
@@ -33,6 +35,7 @@ import { holdEscrowForPaidRequest } from '../lib/postgres/accounts.js';
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
 import { buildTripCapacitySnapshot, syncTripCapacity } from '../lib/postgres/tripCapacity.js';
 import { verifyFlutterwaveTransactionServerSide } from './FlutterwaveController.js';
+import { isStripeCheckoutEnabled, verifyStripePaymentIntentServerSide } from './StripeController.js';
 import { refundPaidShipmentRequest } from '../services/shipmentRefundService.js';
 import { convertCurrency } from '../services/currencyConverter.js';
 import { getAppSettings } from './AdminControllers/setting.js';
@@ -258,11 +261,12 @@ export async function mergePaidDuplicateRequest({
   return updatedRequestId ? getShipmentRequestById(updatedRequestId) : null;
 }
 
-async function applyPaidAdditionalKg({
+export async function applyPaidAdditionalKg({
   requestId,
   senderId,
   additionalKg,
   additionalAmount,
+  quote,
   currency,
   paymentReference,
   paymentProvider,
@@ -270,11 +274,10 @@ async function applyPaidAdditionalKg({
   const updatedRequestId = await withTransaction(async (client) => {
     const requestResult = await client.query(
       `
-        select id, traveler_id, package_id, trip_id, payment_info, amount, currency, tracking_number
+        select id, traveler_id, package_id, trip_id, payment_info, amount, currency, tracking_number, status
         from public.shipment_requests
         where id = $1
           and sender_id = $2
-          and status in ('pending', 'accepted')
           and fast_payout_released_at is null
         for update
       `,
@@ -283,6 +286,14 @@ async function applyPaidAdditionalKg({
     const request = requestResult.rows[0];
     if (!request) return null;
 
+    const info = request.payment_info || {};
+    if (info.requestId === paymentReference || (info.payments || []).some(p => p.requestId === paymentReference)) return request.id;
+    if (!['pending', 'accepted', 'accepted_awaiting_inspection', 'inspection_in_progress', 'inspection_completed', 'approved_for_trip'].includes(request.status)) throw new Error('Additional weight can only be purchased before the trip starts.');
+    if (!quote || Math.abs(Number(quote.totalAmount) - Number(additionalAmount)) > .011) throw new Error('Verified additional weight quote is required.');
+    const claim = await client.query(`insert into public.payment_events (provider, event_type, provider_reference, request_id, payload)
+      values ($1, 'payment_confirmed', $2, $3, $4) on conflict (provider, event_type, provider_reference) do nothing returning id`,
+      [paymentProvider || 'flutterwave', paymentReference, request.id, {additionalKg}]);
+    if (claim.rowCount === 0) throw new Error('This payment has already been used.');
     const parsedKg = Number(additionalKg || 0);
     if (!Number.isFinite(parsedKg) || parsedKg <= 0) {
       throw new Error('Additional kg must be greater than 0.');
@@ -320,10 +331,16 @@ async function applyPaidAdditionalKg({
         set amount = $2,
             currency = $3,
             payment_info = $4,
+            traveler_payout = coalesce(traveler_payout, 0) + $5,
+            platform_commission = coalesce(platform_commission, 0) + $6,
+            processing_fee = coalesce(processing_fee, 0) + $7,
+            fx_buffer = coalesce(fx_buffer, 0) + $8,
+            sender_shipping_fee = coalesce(sender_shipping_fee, 0) + $9,
+            bago_net_revenue = coalesce(bago_net_revenue, 0) + $10,
             updated_at = timezone('utc', now())
         where id = $1
       `,
-      [request.id, nextAmount, nextCurrency, paymentInfo],
+      [request.id, nextAmount, nextCurrency, paymentInfo, quote.travelerPayout, quote.platformFee, quote.processingFee, quote.fxBuffer, quote.shippingAmount, quote.bagoNetRevenue],
     );
 
     await recordOperationalEvent(client, {
@@ -356,9 +373,11 @@ async function applyPaidAdditionalKg({
     const wallet = walletResult.rows[0];
     if (wallet && rawAmount > 0) {
       const walletCurrency = String(wallet.currency || 'USD').toUpperCase();
-      const escrowAmount = nextCurrency !== walletCurrency
-        ? await convertCurrency(rawAmount, nextCurrency, walletCurrency)
-        : rawAmount;
+      const payoutCurrency = quote.travelerCurrency;
+      const payoutAmount = Number(quote.travelerPayout);
+      const escrowAmount = payoutCurrency !== walletCurrency
+        ? await convertCurrency(payoutAmount, payoutCurrency, walletCurrency)
+        : payoutAmount;
       await client.query(
         `update public.wallet_accounts set escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
         [request.traveler_id, escrowAmount],
@@ -393,6 +412,18 @@ async function applyPaidAdditionalKg({
 }
 
 export async function RequestPackage(req, res) {
+  const reference = req.body?.paymentReference;
+  if (req.body?.paymentProvider === 'stripe' && /^pi_[A-Za-z0-9]+$/.test(String(reference || ''))) {
+    return withTransaction(async client => {
+      // Serialize webhook and app finalization for the same captured payment.
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [reference]);
+      return handlePackageRequest(req, res);
+    });
+  }
+  return handlePackageRequest(req, res);
+}
+
+async function handlePackageRequest(req, res) {
   try {
     const {
       travelerId,
@@ -421,6 +452,8 @@ export async function RequestPackage(req, res) {
 
     const senderId = req.user.id || req.user._id;
     let verifiedPaymentStatus = paymentStatus;
+    let stripeQuote = null;
+    let additionalQuote = null;
     let requestAmount = Number(amount);
     let requestCurrency = currency || 'USD';
 
@@ -565,11 +598,36 @@ export async function RequestPackage(req, res) {
       // client redirect alone. Flutterwave is the sole active provider.
       const provider = (paymentProvider || 'flutterwave').toLowerCase();
       if (provider === 'stripe') {
-        return res.status(410).json({ message: 'This payment method is disabled. Please restart checkout.', success: false });
+        if (!isStripeCheckoutEnabled()) {
+          return res.status(410).json({ message: 'This payment method is disabled. Please restart checkout.', success: false });
+        }
+        const verification = await verifyStripePaymentIntentServerSide(paymentReference, { senderId, packageId, tripId, travelerId });
+        if (!verification.success) {
+          return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
+        }
+        if (Math.abs(verification.data.amount - requestAmount) > 0.011) {
+          return res.status(402).json({ message: 'Verified payment amount does not match the agreed amount.', success: false });
+        }
+        if (verification.data.currency !== String(requestCurrency || '').toUpperCase()) {
+          return res.status(402).json({ message: 'Verified payment currency does not match the agreed currency.', success: false });
+        }
+        if (String(verification.data.additionalRequestId || '') !== String(requestId || '') || Number(verification.data.additionalKg || 0) !== Number(additionalKg || 0)) {
+          return res.status(402).json({success: false, message: 'Payment does not match the additional weight request.'});
+        }
+        stripeQuote = verification.data.quote;
+        if (requestId) additionalQuote = stripeQuote;
+        verifiedPaymentStatus = 'succeeded';
       } else if (provider === 'flutterwave') {
         const verification = await verifyFlutterwaveTransactionServerSide(paymentReference);
         if (!verification.success) {
           return res.status(402).json({ message: 'Payment could not be verified. Please complete payment first.', success: false });
+        }
+        if (requestId) {
+          const recorded = await queryOne("select raw_response from public.payments where provider = 'flutterwave' and provider_reference = $1 and user_id = $2", [verification.data.txRef, senderId]);
+          additionalQuote = recorded?.raw_response?.authoritativePreview;
+          if (!additionalQuote || additionalQuote.requestId !== requestId || Number(additionalQuote.additionalKg) !== Number(additionalKg)) {
+            return res.status(402).json({success: false, message: 'Payment does not match the additional weight request.'});
+          }
         }
         const verifiedAmount = Number(verification.data?.amount || 0);
         const agreedAmount = requestAmount;
@@ -588,6 +646,7 @@ export async function RequestPackage(req, res) {
         senderId,
         additionalKg,
         additionalAmount: requestAmount,
+        quote: additionalQuote,
         currency: requestCurrency,
         paymentReference,
         paymentProvider: paymentProvider || 'flutterwave',
@@ -639,16 +698,16 @@ export async function RequestPackage(req, res) {
           amount: requestAmount,
           currency: requestCurrency,
           imageUrl: typeof image === 'string' ? image : null,
-          insurance: insurance === 'yes' || insurance === true,
-          insuranceCost: (insurance === 'yes' || insurance === true)
+          insurance: stripeQuote ? stripeQuote.insuranceAmount > 0 : insurance === 'yes' || insurance === true,
+          insuranceCost: stripeQuote ? stripeQuote.insuranceAmount : (insurance === 'yes' || insurance === true)
             ? (await getRouteProtectionFee({
                 fromCountry: tripDoc.fromCountry,
                 toCountry: tripDoc.toCountry,
                 currency: requestCurrency,
               })).amount
             : 0,
-          estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : null,
-          estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : null,
+          estimatedDeparture: estimatedDeparture ? new Date(estimatedDeparture) : tripDoc.departureDate ? new Date(tripDoc.departureDate) : null,
+          estimatedArrival: estimatedArrival ? new Date(estimatedArrival) : tripDoc.arrivalDate ? new Date(tripDoc.arrivalDate) : null,
           termsAccepted: true,
           paymentInfo: paymentReference
             ? {
@@ -658,12 +717,12 @@ export async function RequestPackage(req, res) {
                 requestId: paymentReference,
               }
             : {},
-          travelerPayout: Number(travelerPayout) || null,
-          platformCommission: Number(platformCommission) || null,
-          processingFee: Number(processingFee) || null,
-          fxBuffer: Number(fxBuffer) || null,
-          senderShippingFee: Number(senderShippingFee) || requestAmount,
-          bagoNetRevenue: Number(bagoNetRevenue) || null,
+          travelerPayout: stripeQuote?.travelerPayout ?? (Number(travelerPayout) || null),
+          platformCommission: stripeQuote?.platformFee ?? (Number(platformCommission) || null),
+          processingFee: stripeQuote?.processingFee ?? (Number(processingFee) || null),
+          fxBuffer: stripeQuote?.fxBuffer ?? (Number(fxBuffer) || null),
+          senderShippingFee: stripeQuote?.shippingAmount ?? (Number(senderShippingFee) || requestAmount),
+          bagoNetRevenue: stripeQuote?.bagoNetRevenue ?? (Number(bagoNetRevenue) || null),
         });
 
     if (paymentReference) {
@@ -768,6 +827,8 @@ export async function RequestPackage(req, res) {
           provider: paymentProvider || 'flutterwave',
           error: escrowError.message,
         });
+        return res.status(202).json({success: true, paymentPending: true,
+          message: 'Your payment is secured. Shipment finalization is awaiting confirmation.'});
       }
 
       await applyReferralShipmentReward({
@@ -793,19 +854,19 @@ export async function RequestPackage(req, res) {
           });
           await sendPushNotification(newRequest.travelerId, '📦 New Shipping Request!', `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`);
         }
-        if (newRequest?.traveler?.email) {
-          await sendNewRequestToTravelerEmail(
-            newRequest.traveler.email,
-            newRequest.travelerName || 'Traveler',
-            newRequest.senderName || 'Sender',
-            `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
-            tripDoc,
-          );
-        }
       }
     } catch (notifError) {
       console.error('Failed to notify traveler:', notifError);
     }
+
+    // An earlier escrow failure can leave a request that has never emailed
+    // its owner. Keep email independent of socket, in-app and push failures.
+    await notifyTripOwnerByEmail({
+      request: newRequest,
+      owner: travelerProfile,
+      packageDetails: `${packageDoc.description || 'Package'}, ${packageDoc.packageWeight}kg`,
+      trip: tripDoc,
+    }).catch((error) => console.error('Trip-owner request email failed:', error.message));
 
     return res.status(existingRequest ? 200 : 201).json({
       success: true,
@@ -907,10 +968,32 @@ export async function updateRequestStatus(req, res) {
       }
     }
 
+    // Insurance must run independently of email/push delivery, and finish
+    // before returning the acceptance response with its current policy status.
+    if (['accepted', 'accepted_awaiting_inspection'].includes(status) && updatedRequest.insurance && updatedRequest.insuranceCost > 0) {
+      try {
+        await purchaseMyCoverPolicy(updatedRequest);
+      } catch (insuranceError) {
+        console.error('MyCover policy purchase failed:', insuranceError.message);
+      }
+      const refreshedRequest = await getShipmentRequestById(updatedRequest.id);
+      if (refreshedRequest) Object.assign(updatedRequest, refreshedRequest);
+    }
+
     try {
       if (updatedRequest?.tripId) {
         const updatedTrip = await getTripById(updatedRequest.tripId);
         emitTripUpdate(req, updatedTrip, [updatedRequest.travelerId, updatedRequest.senderId]);
+      }
+
+      if (['accepted', 'accepted_awaiting_inspection'].includes(status) && updatedRequest.conversationId) {
+        const io = req.app?.get('io');
+        if (io) {
+          for (const participantId of [updatedRequest.senderId, updatedRequest.travelerId].filter(Boolean)) {
+            const conversation = await getConversationById(updatedRequest.conversationId, participantId);
+            if (conversation) io.to(String(participantId)).emit('update_conversation', conversation);
+          }
+        }
       }
 
       const statusLabel = rawStatus === 'delivered'
@@ -931,20 +1014,13 @@ export async function updateRequestStatus(req, res) {
         payload: { requestId, status: statusLabel, location },
       });
 
-      // Purchase MyCover.ai insurance policy when traveler accepts — fire-and-forget
-      if (statusLabel === 'accepted_awaiting_inspection' && updatedRequest.insurance && updatedRequest.insuranceCost > 0) {
-        purchaseMyCoverPolicy(updatedRequest).catch(e =>
-          console.error('MyCover policy purchase failed:', e.message)
-        );
-      }
-
       // PUSH notification for sender on key status changes
       if (['accepted_awaiting_inspection', 'rejected', 'intransit', 'delivering', 'delivered', 'awaiting_sender_confirmation'].includes(statusLabel)) {
         const pushTitle = statusLabel === 'accepted_awaiting_inspection' ? 'Request Accepted!'
           : statusLabel === 'rejected' ? 'Request Declined'
           : statusLabel === 'awaiting_sender_confirmation' ? 'Confirm delivery'
           : `Shipment ${statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}`;
-        const pushBody = statusLabel === 'accepted_awaiting_inspection' ? `${travelerName} accepted your request. The package must be inspected at pickup before the trip can start.`
+        const pushBody = statusLabel === 'accepted_awaiting_inspection' ? `${travelerName} accepted your request. You can now coordinate pickup and delivery in your chat.`
           : statusLabel === 'rejected' ? `${travelerName} declined your shipment request.`
           : statusLabel === 'awaiting_sender_confirmation' ? senderStatusMessage
           : `Your shipment is now ${statusLabel}${location ? ` at ${location}` : ''}`;
@@ -1690,6 +1766,7 @@ export async function downloadRequestPDF(req, res) {
     const shippingData = {
       trackingNumber: request.trackingNumber || request.id,
       status: request.status || 'pending',
+      currency: request.currency || '',
       sender: {
         name: request.senderName || 'Sender',
         phone: request.senderPhone || '',

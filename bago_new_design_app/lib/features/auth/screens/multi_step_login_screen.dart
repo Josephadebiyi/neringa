@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 // ignore_for_file: prefer_const_constructors
 
@@ -53,25 +54,27 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: Text('Complete your profile'),
+        title: Text(AppLocalizations.of(context).uiCompleteYourProfile),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Please enter your name so we know what to call you.',
+            Text(AppLocalizations.of(context).uiPleaseEnterYourNameSoWe,
                 style: TextStyle(fontSize: 13)),
             SizedBox(height: 16),
             TextField(
               controller: firstCtrl,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                  labelText: 'First name', border: OutlineInputBorder()),
+                  labelText: AppLocalizations.of(context).firstNameHint,
+                  border: OutlineInputBorder()),
             ),
             SizedBox(height: 12),
             TextField(
               controller: lastCtrl,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
-                  labelText: 'Last name', border: OutlineInputBorder()),
+                  labelText: AppLocalizations.of(context).lastNameHint,
+                  border: OutlineInputBorder()),
             ),
           ],
         ),
@@ -88,7 +91,7 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
                       } catch (_) {}
                       if (ctx2.mounted) Navigator.of(ctx2).pop();
                     },
-                    child: Text('Save'),
+                    child: Text(AppLocalizations.of(context).uiSave),
                   )),
         ],
       ),
@@ -175,7 +178,7 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
         normalized.contains('service unavailable') ||
         normalized.contains('bad gateway') ||
         normalized.contains('gateway timeout')) {
-      return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+      return tr('Bago is temporarily unavailable. Please try again in a few minutes.');
     }
 
     if (raw.startsWith('Exception: ')) {
@@ -212,7 +215,9 @@ class _MultiStepLoginScreenState extends ConsumerState<MultiStepLoginScreen> {
                   height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppPalette.of(context).gray800,
+                    color: AppPalette.of(context).dark
+                        ? const Color(0xFF2A2546)
+                        : AppColors.gray800,
                   ),
                   child: Icon(
                     Icons.arrow_back,

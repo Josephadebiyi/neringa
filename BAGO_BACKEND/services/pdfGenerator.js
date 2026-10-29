@@ -418,235 +418,337 @@ export async function generateEarningsSummaryPDF(data) {
  * @param {Object} shippingData - Shipping request data
  * @returns {Promise<Buffer>} PDF as buffer
  */
-export async function generateShippingLabelPDF(shippingData) {
+export async function generateShippingLabelPDF(shippingData = {}) {
   return new Promise((resolve, reject) => {
     try {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = path.dirname(__filename);
-      const logoPath = path.resolve(__dirname, '../controllers/image/Bago_New_2.png');
+      const whiteLogo = path.resolve(__dirname, '../controllers/image/bago-logo-white.png');
+      const colorLogo = path.resolve(__dirname, '../controllers/image/bago-logo-color.png');
 
       const doc = new PDFDocument({
         size: 'A4',
-        margins: { top: 30, bottom: 30, left: 30, right: 30 }
+        margins: { top: 36, bottom: 54, left: 36, right: 36 },
+        bufferPages: true,
+        info: {
+          Title: `Bago Shipping Label ${shippingData.trackingNumber || ''}`.trim(),
+          Author: 'Bago',
+          Subject: 'Shipping label / waybill',
+        },
       });
 
       const chunks = [];
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      drawBrandHeader(doc, logoPath);
+      const L = 36;
+      const R = doc.page.width - 36;
+      const W = R - L;
+      const pkg = shippingData.package || {};
+      const tracking = String(shippingData.trackingNumber || 'BGO-PENDING');
+      const status = String(shippingData.status || 'pending');
+      const currency = String(shippingData.currency || '').toUpperCase();
+      const money = (v) => `${currency ? `${currency} ` : ''}${Number(v || 0).toFixed(2)}`;
+      const place = (city, country) => [city, country].filter(Boolean).join(', ') || 'N/A';
 
-      doc.moveDown(1);
-      drawLine(doc);
-      doc.moveDown(1);
-
-      // Tracking number - large and prominent
-      doc.fontSize(14)
-         .fillColor('#000000')
-         .font('Helvetica-Bold')
-         .text('TRACKING NUMBER', { align: 'center' });
-
-      doc.fontSize(24)
-         .fillColor('#5240E8')
-         .text(shippingData.trackingNumber || 'BGO-PENDING', { align: 'center' });
-
-      doc.moveDown(1);
-      drawLine(doc);
-      doc.moveDown(1);
-
-      // Sender Information
-      doc.fontSize(14)
-         .fillColor('#000000')
-         .font('Helvetica-Bold')
-         .text('FROM (SENDER)');
-      doc.moveDown(0.3);
-
-       doc.fontSize(11)
-          .font('Helvetica')
-          .text(shippingData.sender?.name || 'Sender')
-          .text(shippingData.sender?.phone || '')
-          .text((shippingData.package?.fromCity || 'N/A') + ', ' + (shippingData.package?.fromCountry || 'N/A'));
- 
-       doc.moveDown(1);
-
-      // Recipient Information
-      doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .text('TO (RECIPIENT)');
-      doc.moveDown(0.3);
-
-       doc.fontSize(11)
-          .font('Helvetica')
-          .text(shippingData.package?.receiverName || 'Recipient')
-          .text(shippingData.package?.receiverPhone || '')
-          .text((shippingData.package?.toCity || 'N/A') + ', ' + (shippingData.package?.toCountry || 'N/A'));
- 
-       doc.moveDown(1);
-      drawLine(doc);
-      doc.moveDown(1);
-
-      // Package Details
-      doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .text('PACKAGE INFORMATION');
-      doc.moveDown(0.5);
-
-       const packageInfo = [
-         ['Description:', shippingData.package?.description || 'N/A'],
-         ['Weight:', `${shippingData.package?.packageWeight || 0} kg`],
-         ['Category:', shippingData.package?.category || 'General'],
-         ['Value:', `$${shippingData.package?.value || 0}`],
-       ];
-
-      if (shippingData.insurance) {
-        packageInfo.push(['Insurance:', `Yes - $${shippingData.insuranceCost}`]);
+      // ── 1. Brand header band ────────────────────────────────────────────
+      doc.roundedRect(L, 36, W, 70, 10).fill(LABEL.purple);
+      if (fs.existsSync(whiteLogo)) {
+        doc.image(whiteLogo, L + 18, 52, { height: 38 });
+      } else {
+        doc.font('Helvetica-Bold').fontSize(26).fillColor('#FFFFFF').text('Bago', L + 18, 55);
       }
+      doc.font('Helvetica-Bold').fontSize(17).fillColor('#FFFFFF')
+        .text('SHIPPING LABEL', L, 52, { width: W - 18, align: 'right' });
+      doc.font('Helvetica').fontSize(8.5).fillColor('#E4E0FF')
+        .text('Waybill  ·  Peer-to-peer delivery', L, 74, { width: W - 18, align: 'right' })
+        .text(`Issued ${formatDate(new Date().toISOString())}`, L, 86, { width: W - 18, align: 'right' });
 
-      drawTable(doc, packageInfo);
+      // ── 2. Tracking + barcode ──────────────────────────────────────────
+      let y = 120;
+      doc.roundedRect(L, y, W, 96, 8).lineWidth(1).stroke(LABEL.line);
+      labelCaps(doc, 'TRACKING NUMBER', L + 16, y + 14);
+      doc.font('Helvetica-Bold').fontSize(21).fillColor(LABEL.ink)
+        .text(tracking, L + 16, y + 28, { width: 250 });
+      const statusColor = getStatusColor(status.toLowerCase());
+      const statusText = ({ intransit: 'in transit' }[status.toLowerCase()] || status)
+        .replace(/_/g, ' ').toUpperCase();
+      doc.font('Helvetica-Bold').fontSize(8);
+      const pillW = doc.widthOfString(statusText) + 18;
+      doc.roundedRect(L + 16, y + 62, pillW, 18, 9).fill(statusColor);
+      doc.fillColor('#FFFFFF').text(statusText, L + 16, y + 67, { width: pillW, align: 'center' });
+      drawCode128(doc, tracking, R - 16 - 230, y + 14, 230, 54);
+      doc.font('Courier').fontSize(9).fillColor(LABEL.ink)
+        .text(tracking, R - 16 - 230, y + 72, { width: 230, align: 'center', characterSpacing: 1.5 });
+
+      // ── 3. From / To ───────────────────────────────────────────────────
+      y = 230;
+      const colW = (W - 14) / 2;
+      addressBox(doc, L, y, colW, 'FROM  ·  SENDER', [
+        { text: shippingData.sender?.name || 'Sender', bold: true },
+        { text: shippingData.sender?.phone || '' },
+        { text: place(pkg.fromCity, pkg.fromCountry), big: true },
+      ]);
+      addressBox(doc, L + colW + 14, y, colW, 'TO  ·  RECIPIENT', [
+        { text: pkg.receiverName || 'Recipient', bold: true },
+        { text: [pkg.receiverPhone, pkg.receiverEmail].filter(Boolean).join('  ·  ') },
+        { text: place(pkg.toCity, pkg.toCountry), big: true },
+      ]);
+
+      // ── 4. Route strip ─────────────────────────────────────────────────
+      y = 352;
+      doc.roundedRect(L, y, W, 40, 8).fill(LABEL.soft);
+      const fromCode = (pkg.fromCity || 'ORIGIN').toUpperCase();
+      const toCode = (pkg.toCity || 'DEST').toUpperCase();
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(LABEL.purple)
+        .text(fromCode, L + 18, y + 13, { width: W / 2 - 60 });
+      doc.text(toCode, L + W / 2 + 42, y + 13, { width: W / 2 - 60, align: 'right' });
+      const midY = y + 20;
+      doc.moveTo(L + W / 2 - 50, midY).lineTo(L + W / 2 + 50, midY)
+        .dash(3, { space: 3 }).lineWidth(1.2).stroke(LABEL.purple).undash();
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(LABEL.purple)
+        .text(formatTransportMode(shippingData.trip?.travelMeans).toUpperCase(),
+          L + W / 2 - 50, y + 26, { width: 100, align: 'center' });
+
+      // ── 5. Shipment details grid ───────────────────────────────────────
+      y = 406;
+      sectionTitle(doc, 'SHIPMENT DETAILS', L, y);
+      y += 18;
+      const details = [
+        ['Contents', pkg.description || 'General goods'],
+        ['Category', pkg.category || 'General'],
+        ['Weight', `${pkg.packageWeight || 0} kg`],
+        ['Declared value', money(pkg.value)],
+        ['Insurance', shippingData.insurance ? `Yes  ·  ${money(shippingData.insuranceCost)}` : 'No'],
+        ['Traveler', shippingData.traveler?.name || 'Traveler'],
+        ['Est. departure', formatDate(shippingData.estimatedDeparture)],
+        ['Est. arrival', formatDate(shippingData.estimatedArrival)],
+      ];
+      const cellW = W / 2;
+      details.forEach(([k, v], i) => {
+        const cx = L + (i % 2) * cellW;
+        const cy = y + Math.floor(i / 2) * 38;
+        doc.rect(cx, cy, cellW, 38).lineWidth(0.6).stroke(LABEL.line);
+        labelCaps(doc, k.toUpperCase(), cx + 10, cy + 7);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor(LABEL.ink)
+          .text(String(v), cx + 10, cy + 19, { width: cellW - 20, height: 14, ellipsis: true });
+      });
+
+      // ── 6. Handover signatures ─────────────────────────────────────────
+      y = y + 4 * 38 + 18;
+      sectionTitle(doc, 'HANDOVER', L, y);
+      y += 18;
+      const sigW = (W - 14) / 2;
+      signatureBox(doc, L, y, sigW, 'Collected by traveler');
+      signatureBox(doc, L + sigW + 14, y, sigW, 'Delivered to recipient');
+
+      // Tracking link under the signatures.
+      doc.font('Helvetica').fontSize(8.5).fillColor(LABEL.muted)
+        .text(`Track this shipment: sendwithbago.com/tracking/${tracking}`, L, y + 96, { width: W, align: 'center' });
+
+      // ── 7. Record pages: agreement, activity, chat, terms ──────────────
+      doc.addPage();
+      doc.font('Helvetica-Bold').fontSize(15).fillColor(LABEL.ink).text('Shipment record', L, 40);
+      doc.font('Helvetica').fontSize(9).fillColor(LABEL.muted)
+        .text(`Tracking ${tracking}  ·  ${place(pkg.fromCity, pkg.fromCountry)} to ${place(pkg.toCity, pkg.toCountry)}`);
       doc.moveDown(1);
 
-      // Travel Details
-      doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .text('TRAVEL INFORMATION');
-      doc.moveDown(0.5);
-
-       const travelInfo = [
-         ['Traveler:', shippingData.traveler?.name || 'Traveler'],
-         ['Travel Mode:', shippingData.trip?.travelMeans || 'N/A'],
-         ['Estimated Departure:', formatDate(shippingData.estimatedDeparture)],
-         ['Estimated Arrival:', formatDate(shippingData.estimatedArrival)],
-       ];
-
-      drawTable(doc, travelInfo);
-      doc.moveDown(1);
-
-      // Status section
-      drawLine(doc);
-      doc.moveDown(0.5);
-
-      doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .text('CURRENT STATUS');
-      doc.moveDown(0.3);
-
-      const statusColor = getStatusColor(shippingData.status || 'pending');
-      doc.fontSize(14)
-         .fillColor(statusColor)
-         .text((shippingData.status || 'PENDING').toUpperCase(), { align: 'center' });
-
-      doc.fillColor('#000000');
-      doc.moveDown(1);
-
-      if (shippingData.inspection) {
-        drawLine(doc);
-        doc.moveDown(0.5);
-        doc.fontSize(12).font('Helvetica-Bold').text('SIGNED PACKAGE INSPECTION AGREEMENT');
-        doc.moveDown(0.3);
-        const agreement = shippingData.inspection.signedAgreement || {};
-        drawTable(doc, [
-          ['Signer:', shippingData.traveler?.name || agreement.signerId || 'Traveler'],
-          ['Electronically signed:', formatDate(agreement.signedAt)],
-          ['Terms version:', agreement.termsVersion || 'N/A'],
-          ['Personally inspected:', shippingData.inspection.inspectionConfirmed ? 'Accepted' : 'Not accepted'],
-          ['Prohibited-items policy:', shippingData.inspection.safetyConfirmed ? 'Accepted' : 'Not accepted'],
-          ['Responsibility after collection:', shippingData.inspection.responsibilityAccepted ? 'Accepted' : 'Not accepted'],
-          ['Rejection reason:', shippingData.inspection.rejectionReason || 'None'],
+      const inspection = shippingData.inspection || {};
+      if (inspection && Object.keys(inspection).length) {
+        recordHeading(doc, 'Signed package inspection agreement');
+        const agreement = inspection.signedAgreement || {};
+        drawRecordTable(doc, [
+          ['Signer', shippingData.traveler?.name || agreement.signerId || 'Traveler'],
+          ['Electronically signed', formatDate(agreement.signedAt)],
+          ['Terms version', agreement.termsVersion || 'N/A'],
+          ['Personally inspected', inspection.inspectionConfirmed ? 'Accepted' : 'Not accepted'],
+          ['Prohibited-items policy', inspection.safetyConfirmed ? 'Accepted' : 'Not accepted'],
+          ['Responsibility after collection', inspection.responsibilityAccepted ? 'Accepted' : 'Not accepted'],
+          ['Rejection reason', inspection.rejectionReason || 'None'],
         ]);
-        doc.moveDown(0.7);
       }
 
       if (Array.isArray(shippingData.activity) && shippingData.activity.length) {
-        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000').text('ORDER ACTIVITY');
-        doc.moveDown(0.3);
+        recordHeading(doc, 'Order activity');
         shippingData.activity.forEach((event) => {
-          doc.fontSize(8).font('Helvetica')
-            .text(`${formatDate(event.created_at || event.createdAt)} — ${event.event_type || event.eventType || 'activity'}${event.status ? ` (${event.status})` : ''}`);
+          doc.font('Helvetica').fontSize(8.5).fillColor(LABEL.ink)
+            .text(`${formatDate(event.created_at || event.createdAt)}   ${event.event_type || event.eventType || 'activity'}${event.status ? ` (${event.status})` : ''}`, { lineGap: 2 });
         });
-        doc.moveDown(0.7);
+        doc.moveDown(0.8);
       }
 
       if (Array.isArray(shippingData.chatMessages) && shippingData.chatMessages.length) {
-        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000').text('SHIPMENT CHAT TRANSCRIPT');
-        doc.moveDown(0.3);
+        recordHeading(doc, 'Shipment chat transcript');
         shippingData.chatMessages.forEach((message) => {
           const author = message.sender_name || message.senderName || message.sender_id || 'User';
-          doc.fontSize(8).font('Helvetica-Bold').text(`${author} — ${formatDate(message.created_at || message.createdAt)}`);
-          doc.fontSize(8).font('Helvetica').fillColor('#333333').text(message.content || '[Attachment]');
-          doc.moveDown(0.25);
+          doc.font('Helvetica-Bold').fontSize(8.5).fillColor(LABEL.ink)
+            .text(`${author}  ·  ${formatDate(message.created_at || message.createdAt)}`);
+          doc.font('Helvetica').fontSize(8.5).fillColor('#374151').text(message.content || '[Attachment]');
+          doc.moveDown(0.3);
         });
-        doc.moveDown(0.7);
+        doc.moveDown(0.6);
       }
 
-      // Terms and Important Info
-      drawLine(doc);
-      doc.moveDown(0.5);
+      recordHeading(doc, 'Terms & conditions');
+      bulletList(doc, [
+        'This shipment must comply with the laws of the origin, transit, and destination countries.',
+        'Sender and recipient are responsible for accurate item descriptions, declared value, and contents.',
+        'Any prohibited or undeclared item may be refused, delayed, seized, or reported.',
+        'Keep this document with the shipment and present it when requested by support or customs.',
+      ]);
+      recordHeading(doc, 'Allowed items');
+      bulletList(doc, [
+        'Documents, books, and printed materials',
+        'Clothing, footwear, and personal accessories',
+        'Electronics with built-in batteries or standard consumer accessories',
+        'Cosmetics, household goods, toys, and sports items allowed by destination rules',
+        'Food and medicine only when destination rules and documentation permit it',
+      ]);
+      recordHeading(doc, 'Prohibited items');
+      bulletList(doc, RESTRICTED_ITEMS.prohibited.slice(0, 10)
+        .map((item) => String(item).replace(/^[•\s]+/, ''))
+        .map((item) => item.charAt(0).toUpperCase() + item.slice(1)));
+      recordHeading(doc, 'Sender acknowledgement');
+      bulletList(doc, [
+        'The package contents are truthful and acceptable for human-carried delivery.',
+        'I accept responsibility for customs declarations, destination restrictions, and any legal consequences of inaccurate declarations.',
+      ]);
 
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .text('TERMS & CONDITIONS', { align: 'center' });
-      doc.moveDown(0.3);
-      doc.fontSize(7.5)
-         .font('Helvetica')
-         .fillColor('#555555')
-         .text('• This shipment must comply with the laws of the origin, transit, and destination countries.', { align: 'left', lineGap: 3 })
-         .text('• Sender and recipient are responsible for accurate item descriptions, declared value, and contents.', { align: 'left', lineGap: 3 })
-         .text('• Any prohibited or undeclared item may be refused, delayed, seized, or reported.', { align: 'left', lineGap: 3 })
-         .text('• Keep this PDF with the shipment and present it when requested by support or customs.', { align: 'left', lineGap: 3 })
-         .text('• Track your shipment: sendwithbago.com/tracking/' + (shippingData.trackingNumber || 'PENDING'), { align: 'left', lineGap: 3 });
-
-      doc.moveDown(0.8);
-      doc.fillColor('#000000');
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .text('ALLOWED ITEMS', { align: 'center' });
-      doc.moveDown(0.3);
-      doc.fontSize(7.5)
-         .font('Helvetica')
-         .fillColor('#555555')
-         .text('• Documents, books, and printed materials', { align: 'left', lineGap: 3 })
-         .text('• Clothing, footwear, and personal accessories', { align: 'left', lineGap: 3 })
-         .text('• Electronics with built-in batteries or standard consumer accessories', { align: 'left', lineGap: 3 })
-         .text('• Cosmetics, household goods, toys, and sports items allowed by destination rules', { align: 'left', lineGap: 3 })
-         .text('• Food and medicine only when destination rules and documentation permit it', { align: 'left', lineGap: 3 });
-
-      doc.moveDown(0.8);
-      doc.fillColor('#000000');
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .text('PROHIBITED ITEMS', { align: 'center' });
-      doc.moveDown(0.3);
-      doc.fontSize(7.5)
-         .font('Helvetica')
-         .fillColor('#555555')
-         .text(formatItemList(RESTRICTED_ITEMS.prohibited.slice(0, 10)), { align: 'left', lineGap: 3 });
-
-      doc.moveDown(0.8);
-      doc.fillColor('#000000');
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .text('SENDER ACKNOWLEDGEMENT', { align: 'center' });
-      doc.moveDown(0.3);
-      doc.fontSize(7.5)
-         .font('Helvetica')
-         .fillColor('#555555')
-         .text('By using this label, I confirm the package contents are truthful and acceptable for human-carried delivery.', { align: 'left', lineGap: 3 })
-         .text('I accept responsibility for customs declarations, destination restrictions, and any legal consequences of inaccurate declarations.', { align: 'left', lineGap: 3 });
-
-      doc.moveDown(1);
-
-      // Footer
-      doc.fontSize(7)
-         .fillColor('#999999')
-         .text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' })
-         .text('Bago - Connecting Senders with Travelers | www.sendwithbago.com', { align: 'center' });
+      // ── Footer on every page ───────────────────────────────────────────
+      const range = doc.bufferedPageRange();
+      for (let i = range.start; i < range.start + range.count; i += 1) {
+        doc.switchToPage(i);
+        // Writing inside the bottom margin would make pdfkit start a new page.
+        const savedBottom = doc.page.margins.bottom;
+        doc.page.margins.bottom = 0;
+        const fy = doc.page.height - 40;
+        doc.moveTo(L, fy - 6).lineTo(R, fy - 6).lineWidth(0.6).stroke(LABEL.line);
+        if (fs.existsSync(colorLogo)) doc.image(colorLogo, L, fy - 1, { height: 11 });
+        doc.font('Helvetica').fontSize(7.5).fillColor(LABEL.muted)
+          .text('sendwithbago.com  ·  Connecting senders with travelers', L + 44, fy + 1, { lineBreak: false });
+        doc.text(`Page ${i - range.start + 1} of ${range.count}`, L, fy + 1, { width: W, align: 'right', lineBreak: false });
+        doc.page.margins.bottom = savedBottom;
+      }
 
       doc.end();
     } catch (error) {
       reject(error);
     }
   });
+}
+
+// ── Shipping-label drawing helpers ────────────────────────────────────────
+const LABEL = {
+  purple: '#5C4BFD',
+  soft: '#F1EFFF',
+  ink: '#111827',
+  muted: '#6B7280',
+  line: '#D9DCE3',
+};
+
+function labelCaps(doc, text, x, y) {
+  doc.font('Helvetica-Bold').fontSize(7).fillColor(LABEL.muted)
+    .text(text, x, y, { characterSpacing: 0.8, lineBreak: false });
+}
+
+function sectionTitle(doc, text, x, y) {
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(LABEL.purple)
+    .text(text, x, y, { characterSpacing: 1, lineBreak: false });
+}
+
+function addressBox(doc, x, y, w, title, lines) {
+  doc.roundedRect(x, y, w, 110, 8).lineWidth(1).stroke(LABEL.line);
+  doc.save().roundedRect(x, y, w, 24, 8).clip().rect(x, y, w, 24).fill(LABEL.soft).restore();
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(LABEL.purple)
+    .text(title, x + 12, y + 8, { characterSpacing: 0.8, lineBreak: false });
+  let ty = y + 34;
+  lines.forEach((line) => {
+    if (!line.text) return;
+    if (line.big) {
+      doc.font('Helvetica-Bold').fontSize(12).fillColor(LABEL.ink);
+      ty = y + 82;
+    } else {
+      doc.font(line.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(line.bold ? 11.5 : 9).fillColor(line.bold ? LABEL.ink : '#374151');
+    }
+    doc.text(line.text, x + 12, ty, { width: w - 24, height: 16, ellipsis: true });
+    ty += line.bold ? 18 : 14;
+  });
+}
+
+function signatureBox(doc, x, y, w, title) {
+  doc.roundedRect(x, y, w, 86, 8).lineWidth(1).stroke(LABEL.line);
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(LABEL.ink).text(title, x + 12, y + 10);
+  [['Name', 34], ['Signature', 54], ['Date', 74]].forEach(([label, dy]) => {
+    doc.font('Helvetica').fontSize(8).fillColor(LABEL.muted).text(label, x + 12, y + dy - 7, { lineBreak: false });
+    doc.moveTo(x + 64, y + dy).lineTo(x + w - 12, y + dy).lineWidth(0.6).stroke(LABEL.line);
+  });
+}
+
+function recordHeading(doc, text) {
+  if (doc.y > doc.page.height - 140) doc.addPage();
+  doc.moveDown(0.3);
+  const y = doc.y;
+  doc.rect(36, y, 3, 13).fill(LABEL.purple);
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(LABEL.ink).text(text, 46, y + 1);
+  doc.moveDown(0.5);
+  doc.x = 36;
+}
+
+function drawRecordTable(doc, rows) {
+  rows.forEach(([k, v]) => {
+    const y = doc.y;
+    doc.font('Helvetica').fontSize(8.5).fillColor(LABEL.muted).text(k, 36, y, { width: 170 });
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(LABEL.ink).text(String(v), 210, y, { width: 345 });
+    doc.moveDown(0.25);
+  });
+  doc.moveDown(0.6);
+  doc.x = 36;
+}
+
+function bulletList(doc, items) {
+  items.forEach((item) => {
+    doc.font('Helvetica').fontSize(8.5).fillColor('#374151')
+      .text(`•  ${item}`, 40, doc.y, { width: 515, lineGap: 2 });
+  });
+  doc.moveDown(0.6);
+  doc.x = 36;
+}
+
+// Code 128 (set B) barcode, drawn as vector bars — no extra dependency.
+const CODE128_PATTERNS = [
+  '212222', '222122', '222221', '121223', '121322', '131222', '122213', '122312', '132212', '221213',
+  '221312', '231212', '112232', '122132', '122231', '113222', '123122', '123221', '223211', '221132',
+  '221231', '213212', '223112', '312131', '311222', '321122', '321221', '312212', '322112', '322211',
+  '212123', '212321', '232121', '111323', '131123', '131321', '112313', '132113', '132311', '211313',
+  '231113', '231311', '112133', '112331', '132131', '113123', '113321', '133121', '313121', '211331',
+  '231131', '213113', '213311', '213131', '311123', '311321', '331121', '312113', '312311', '332111',
+  '314111', '221411', '431111', '111224', '111422', '121124', '121421', '141122', '141221', '112214',
+  '112412', '122114', '122411', '142112', '142211', '241211', '221114', '413111', '241112', '134111',
+  '111242', '121142', '121241', '114212', '124112', '124211', '411212', '421112', '421211', '212141',
+  '214121', '412121', '111143', '111341', '131141', '114113', '114311', '411113', '411311', '113141',
+  '114131', '311141', '411131', '211412', '211214', '211232', '2331112',
+];
+
+function drawCode128(doc, value, x, y, width, height) {
+  const text = String(value).replace(/[^\x20-\x7E]/g, '');
+  const codes = [104]; // START B
+  for (const ch of text) codes.push(ch.charCodeAt(0) - 32);
+  let checksum = 104;
+  for (let i = 1; i < codes.length; i += 1) checksum += codes[i] * i;
+  codes.push(checksum % 103, 106); // checksum + STOP
+  const modules = codes.reduce((sum, c) => sum + CODE128_PATTERNS[c].split('').reduce((a, n) => a + Number(n), 0), 0) + 20;
+  const unit = width / modules;
+  let cx = x + 10 * unit; // quiet zone
+  doc.save().fillColor('#000000');
+  codes.forEach((c) => {
+    CODE128_PATTERNS[c].split('').forEach((n, idx) => {
+      const w = Number(n) * unit;
+      if (idx % 2 === 0) doc.rect(cx, y, w, height).fill();
+      cx += w;
+    });
+  });
+  doc.restore();
 }
 
 // Helper function for status colors

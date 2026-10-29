@@ -1,3 +1,5 @@
+import '../../../shared/utils/localized_dates.dart';
+import '../../../l10n/runtime_tr.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
@@ -328,16 +330,17 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           builder: (ctx) => AlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Identity Verification Required'),
+            title: Text(
+                AppLocalizations.of(context).uiIdentityVerificationRequired),
             content: Text(
               user?.kycStatus == 'pending' || user?.kycStatus == 'manual_review'
-                  ? 'Your identity verification is still under review. You\'ll be able to post trips once approved.'
-                  : 'Travelers must verify their identity before posting trips. Complete verification in your profile to start earning.',
+                  ? tr('Your identity verification is still under review. You\'ll be able to post trips once approved.')
+                  : tr('Travelers must verify their identity before posting trips. Complete verification in your profile to start earning.'),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context).cancel),
               ),
               if (user?.kycStatus != 'pending' &&
                   user?.kycStatus != 'manual_review')
@@ -351,7 +354,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                     foregroundColor: Colors.white,
                     shape: const StadiumBorder(),
                   ),
-                  child: const Text('Verify Identity'),
+                  child: Text(AppLocalizations.of(context).uiVerifyIdentity),
                 ),
             ],
           ),
@@ -360,7 +363,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       }
       if (user?.phoneVerified != true) {
         AppSnackBar.show(context,
-            message: 'Please verify your phone number before posting a trip.',
+            message: AppLocalizations.of(context)
+                .uiPleaseVerifyYourPhoneNumberBefore,
             type: SnackBarType.error);
         context.push('/profile/change-phone');
         return;
@@ -565,7 +569,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           AppSnackBar.show(
             context,
             message: isTimeout
-                ? 'This is taking longer than usual. Check My Trips before posting again — it may have already gone through.'
+                ? tr('This is taking longer than usual. Check My Trips before posting again — it may have already gone through.')
                 : message,
             type: SnackBarType.error,
           );
@@ -643,7 +647,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     final minute =
         departure == null ? '00' : departure.minute.toString().padLeft(2, '0');
     final period =
-        departure == null ? 'AM' : (departure.hour >= 12 ? 'PM' : 'AM');
+        departure == null ? tr('AM') : (departure.hour >= 12 ? tr('PM') : 'AM');
     final dateLabel = departure == null
         ? ''
         : '${_shortMonth(departure.month)} ${departure.day}, ${departure.year}';
@@ -664,7 +668,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       _time = clearSchedule ? '' : '$hour:$minute $period';
       _hour = clearSchedule ? '08' : hour;
       _minute = clearSchedule ? '00' : minute;
-      _period = clearSchedule ? 'AM' : period;
+      _period = clearSchedule ? tr('AM') : period;
       _selectedDate = clearSchedule ? null : departure;
       _currentMonth =
           clearSchedule ? DateTime.now() : departure ?? _currentMonth;
@@ -827,7 +831,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
                         _isEditMode
                             ? l10n.editTrip
                             : widget.redoTrip != null
-                                ? 'Redo trip'
+                                ? tr('Redo trip')
                                 : l10n.postTripTitle,
                         style: AppTextStyles.h3
                             .copyWith(fontWeight: FontWeight.w800)),
@@ -982,7 +986,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         );
       case 3:
         return _DateStep(
-          value: _date,
+          value: localizeEnglishDate(_date),
           currentMonth: _currentMonth,
           selectedDate: _selectedDate,
           onMonthPrev: () {
@@ -1052,7 +1056,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
         return _ReviewStep(
           from: _from,
           to: _to,
-          date: _date,
+          date: localizeEnglishDate(_date),
           time: _time,
           travelMeans: _travelMeansLabel(_travelMeans),
           capacity: _capacity,
@@ -1067,20 +1071,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     }
   }
 
-  String _shortMonth(int m) => [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ][m - 1];
+  String _shortMonth(int m) => englishShortMonth(m);
 
   // Extracts the base city from either "City, Country" or "HubName, City, Country"
   String _extractBaseCity(String location) {
@@ -1159,7 +1150,7 @@ class _SuccessScreen extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFD1FAE5),
+                    color: AppPalette.of(context).tint(const Color(0xFFD1FAE5)),
                     borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1302,8 +1293,9 @@ class _ComplianceStep extends StatelessWidget {
                                   fontWeight: FontWeight.w700, fontSize: 15)),
                           const SizedBox(height: 2),
                           Text(l10n.requiredToPostTrip,
-                              style: const TextStyle(
-                                  color: Color(0xFF6B7280), fontSize: 13)),
+                              style: TextStyle(
+                                  color: AppPalette.of(context).gray500,
+                                  fontSize: 13)),
                         ],
                       )),
                     ],
@@ -1332,7 +1324,7 @@ class _ComplianceStep extends StatelessWidget {
           ],
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F8),
+              color: AppPalette.of(context).gray100,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppPalette.of(context).border),
             ),
@@ -1345,7 +1337,7 @@ class _ComplianceStep extends StatelessWidget {
                       style: AppTextStyles.h4
                           .copyWith(fontWeight: FontWeight.w800)),
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(18, 0, 18, 16),
                   child: Text(
                     'As a Bago Carrier, you enter into a legally binding agreement with Bago and the Senders you connect with.\n\n'
@@ -1356,7 +1348,9 @@ class _ComplianceStep extends StatelessWidget {
                     '5. In-App Conduct: All negotiations, tracking, and payments must occur via the Bago platform to be protected by our escrow and insurance policies.\n\n'
                     '6. Liability: Bago is not liable for transport-related losses beyond the insured value. You indemnify Bago against any legal claims arising from your conduct.',
                     style: TextStyle(
-                        fontSize: 13, color: Color(0xFF6B7280), height: 1.6),
+                        fontSize: 13,
+                        color: AppPalette.of(context).gray500,
+                        height: 1.6),
                   ),
                 ),
                 const Divider(height: 1),
@@ -1370,8 +1364,9 @@ class _ComplianceStep extends StatelessWidget {
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color:
-                                accepted ? AppColors.primary : AppColors.white,
+                            color: accepted
+                                ? AppColors.primary
+                                : AppPalette.of(context).white,
                             border: Border.all(
                                 color: accepted
                                     ? AppColors.primary
@@ -1722,7 +1717,7 @@ class _LocationStepState extends State<_LocationStep> {
                   decoration: BoxDecoration(
                     color: selected
                         ? AppPalette.of(context).primarySoft
-                        : const Color(0xFFF7F7F8),
+                        : AppPalette.of(context).tint(const Color(0xFFF7F7F8)),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: selected
@@ -1746,7 +1741,7 @@ class _LocationStepState extends State<_LocationStep> {
                       child: Text(
                         selected
                             ? widget.value
-                            : 'Search cities, airports, stations...',
+                            : tr('Search cities, airports, stations...'),
                         style: AppTextStyles.bodyMd.copyWith(
                           color: selected
                               ? AppColors.primary
@@ -1767,7 +1762,7 @@ class _LocationStepState extends State<_LocationStep> {
                           color: AppColors.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text('Change',
+                        child: Text(AppLocalizations.of(context).uiChange,
                             style: AppTextStyles.labelSm.copyWith(
                                 color: AppPalette.of(context).primary,
                                 fontWeight: FontWeight.w700)),
@@ -1783,7 +1778,7 @@ class _LocationStepState extends State<_LocationStep> {
         if (!selected) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
-            child: Text('POPULAR CITIES',
+            child: Text(AppLocalizations.of(context).uiPopularCities,
                 style: AppTextStyles.labelSm.copyWith(
                     color: AppPalette.of(context).gray400,
                     fontWeight: FontWeight.w700,
@@ -1862,7 +1857,7 @@ class _LocationStepState extends State<_LocationStep> {
                     child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Selected',
+                    Text(AppLocalizations.of(context).uiSelected,
                         style: AppTextStyles.labelSm
                             .copyWith(color: AppPalette.of(context).primary)),
                     const SizedBox(height: 2),
@@ -2042,13 +2037,13 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
   String _catLabel(String cat) {
     switch (cat) {
       case 'airport':
-        return 'Airports';
+        return tr('Airports');
       case 'train':
-        return 'Train Stations';
+        return tr('Train Stations');
       case 'bus':
-        return 'Bus Stations';
+        return tr('Bus Stations');
       default:
-        return 'Cities';
+        return tr('Cities');
     }
   }
 
@@ -2150,7 +2145,7 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             height: 52,
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F8),
+              color: AppPalette.of(context).gray100,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppPalette.of(context).border),
             ),
@@ -2164,8 +2159,8 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
                   autofocus: true,
                   style: AppTextStyles.bodyMd
                       .copyWith(fontWeight: FontWeight.w600),
-                  decoration: const InputDecoration(
-                    hintText: 'City, airport, station...',
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(context).uiCityAirportStation,
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
@@ -2227,20 +2222,7 @@ class _DateStep extends StatelessWidget {
   final VoidCallback onMonthPrev, onMonthNext;
   final void Function(DateTime) onDaySelect;
 
-  String _monthName(int m) => [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December'
-      ][m - 1];
+  String _monthName(int m) => monthLong(m);
 
   @override
   Widget build(BuildContext context) {
@@ -2257,12 +2239,12 @@ class _DateStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Travel Date',
+          Text(AppLocalizations.of(context).uiTravelDate,
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black)),
           const SizedBox(height: 6),
-          Text('When are you travelling?',
+          Text(AppLocalizations.of(context).uiWhenAreYouTravelling,
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500)),
           const SizedBox(height: 24),
@@ -2371,7 +2353,7 @@ class _DateStep extends StatelessWidget {
                   Icon(Icons.calendar_today_rounded,
                       color: AppPalette.of(context).primary, size: 18),
                   const SizedBox(width: 10),
-                  Text('Selected: $value',
+                  Text(AppLocalizations.of(context).uiFSelected(value),
                       style: AppTextStyles.bodyMd.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700)),
@@ -2437,12 +2419,12 @@ class _TimeStepState extends State<_TimeStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Departure Time',
+          Text(AppLocalizations.of(context).uiDepartureTime,
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black)),
           const SizedBox(height: 6),
-          Text('When does your journey begin?',
+          Text(AppLocalizations.of(context).uiWhenDoesYourJourneyBegin,
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500)),
           const SizedBox(height: 32),
@@ -2499,7 +2481,7 @@ class _TimeStepState extends State<_TimeStep> {
                       width: 68,
                       onChanged: (i) {
                         HapticFeedback.selectionClick();
-                        widget.onPeriodChanged(i == 0 ? 'AM' : 'PM');
+                        widget.onPeriodChanged(i == 0 ? tr('AM') : 'PM');
                       },
                     ),
                   ],
@@ -2599,12 +2581,12 @@ class _CapacityStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Available Capacity',
+          Text(AppLocalizations.of(context).uiAvailableCapacity,
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black)),
           const SizedBox(height: 6),
-          Text('How many kg can you carry?',
+          Text(AppLocalizations.of(context).uiHowManyKgCanYouCarry,
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500)),
           const SizedBox(height: 60),
@@ -2632,7 +2614,7 @@ class _CapacityStep extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Center(
-            child: Text('kg',
+            child: Text(AppLocalizations.of(context).uiKg,
                 style: AppTextStyles.h2.copyWith(
                     color: AppPalette.of(context).gray400,
                     fontWeight: FontWeight.w700)),
@@ -2651,7 +2633,8 @@ class _CapacityStep extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                      'Senders will see your available kg and match accordingly.',
+                      AppLocalizations.of(context)
+                          .uiSendersWillSeeYourAvailableKg,
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppColors.primary, height: 1.4)),
                 ),
@@ -2721,20 +2704,20 @@ class _TravelProofStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(showProofUpload ? 'Trip Proof' : 'Travel Type',
+          Text(showProofUpload ? tr('Trip Proof') : tr('Travel Type'),
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black)),
           const SizedBox(height: 6),
           Text(
             showProofUpload
-                ? 'Choose how you are traveling and upload your ticket or booking proof. This is required for approval.'
-                : 'Choose how this shipment route travels.',
+                ? tr('Choose how you are traveling and upload your ticket or booking proof. This is required for approval.')
+                : tr('Choose how this shipment route travels.'),
             style: AppTextStyles.bodyMd
                 .copyWith(color: AppPalette.of(context).gray500, height: 1.5),
           ),
           const SizedBox(height: 24),
-          Text('Travel type',
+          Text(AppLocalizations.of(context).travelTypeLabel,
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
@@ -2769,7 +2752,7 @@ class _TravelProofStep extends StatelessWidget {
           ),
           if (showProofUpload) ...[
             const SizedBox(height: 24),
-            Text('Proof of trip',
+            Text(AppLocalizations.of(context).uiProofOfTrip,
                 style: AppTextStyles.labelMd
                     .copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
@@ -2781,7 +2764,7 @@ class _TravelProofStep extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: hasProof
                       ? AppPalette.of(context).primarySoft
-                      : const Color(0xFFF7F7F8),
+                      : AppPalette.of(context).tint(const Color(0xFFF7F7F8)),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: hasProof
@@ -2807,15 +2790,15 @@ class _TravelProofStep extends StatelessWidget {
                         children: [
                           Text(
                             hasProof
-                                ? 'Proof uploaded'
-                                : 'Upload ticket or booking screenshot',
+                                ? tr('Proof uploaded')
+                                : tr('Upload ticket or booking screenshot'),
                             style: AppTextStyles.labelMd
                                 .copyWith(fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             proofName ??
-                                'Flight ticket, bus ticket, train ticket, or booking confirmation',
+                                tr('Flight ticket, bus ticket, train ticket, or booking confirmation'),
                             style: AppTextStyles.bodySm.copyWith(
                                 color: AppPalette.of(context).gray600),
                           ),
@@ -2909,19 +2892,21 @@ class _PriceStepState extends State<_PriceStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Price per kg',
+          Text(AppLocalizations.of(context).uiPricePerKg,
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black)),
           const SizedBox(height: 6),
-          Text('Set your rate. Competitive pricing attracts more senders.',
+          Text(
+              AppLocalizations.of(context)
+                  .uiSetYourRateCompetitivePricingAttracts,
               style: AppTextStyles.bodyMd.copyWith(
                   color: AppPalette.of(context).gray500, height: 1.5)),
           const SizedBox(height: 40),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F8),
+              color: AppPalette.of(context).gray100,
               border:
                   Border.all(color: AppPalette.of(context).border, width: 1.5),
               borderRadius: BorderRadius.circular(16),
@@ -2979,7 +2964,7 @@ class _PriceStepState extends State<_PriceStep> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
+                color: AppPalette.of(context).warningSoft,
                 borderRadius: BorderRadius.circular(16)),
             child: Row(
               children: [
@@ -2988,9 +2973,12 @@ class _PriceStepState extends State<_PriceStep> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                      'Typical rates range from $currency 5 - $currency 20 per kg depending on the route.',
+                      AppLocalizations.of(context)
+                          .uiFTypicalRatesRangeFromPerKg(currency, currency),
                       style: AppTextStyles.bodySm.copyWith(
-                          color: const Color(0xFF92400E), height: 1.4)),
+                          color: AppPalette.of(context)
+                              .ink(const Color(0xFF92400E)),
+                          height: 1.4)),
                 ),
               ],
             ),
@@ -3064,7 +3052,10 @@ class _AiPriceBanner extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'AI suggests $currency ${suggestedMin.toStringAsFixed(0)}–${suggestedMax.toStringAsFixed(0)}/kg',
+                  AppLocalizations.of(context).uiFAiSuggestsKg(
+                      currency,
+                      suggestedMin.toStringAsFixed(0),
+                      suggestedMax.toStringAsFixed(0)),
                   style: const TextStyle(
                     color: primaryBlue,
                     fontWeight: FontWeight.w700,
@@ -3096,8 +3087,8 @@ class _AiPriceBanner extends StatelessWidget {
                 color: primaryBlue,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
-                'Apply suggestion',
+              child: Text(
+                AppLocalizations.of(context).uiApplySuggestion,
                 style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -3140,12 +3131,14 @@ class _ReviewStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Review Your Trip',
+          Text(AppLocalizations.of(context).uiReviewYourTrip,
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black)),
           const SizedBox(height: 6),
-          Text('Everything look right? Publish when ready.',
+          Text(
+              AppLocalizations.of(context)
+                  .uiEverythingLookRightPublishWhenReady,
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500)),
           const SizedBox(height: 20),
@@ -3155,7 +3148,7 @@ class _ReviewStep extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F8),
+              color: AppPalette.of(context).gray100,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: AppPalette.of(context).border),
             ),
@@ -3164,35 +3157,35 @@ class _ReviewStep extends StatelessWidget {
                 _ReviewRow(
                   leading: Icon(Icons.flight_takeoff_rounded,
                       color: AppPalette.of(context).primary, size: 20),
-                  label: 'From',
+                  label: AppLocalizations.of(context).fromLabel,
                   value: from,
                 ),
                 Divider(height: 24, color: AppPalette.of(context).border),
                 _ReviewRow(
                   leading: Icon(Icons.flight_land_rounded,
                       color: AppPalette.of(context).primary, size: 20),
-                  label: 'To',
+                  label: AppLocalizations.of(context).toLabel,
                   value: to,
                 ),
                 Divider(height: 24, color: AppPalette.of(context).border),
                 _ReviewRow(
                   leading: Icon(Icons.calendar_today_rounded,
                       color: AppPalette.of(context).primary, size: 20),
-                  label: 'Date',
+                  label: AppLocalizations.of(context).uiDate,
                   value: date,
                 ),
                 Divider(height: 24, color: AppPalette.of(context).border),
                 _ReviewRow(
                   leading: Icon(Icons.access_time_rounded,
                       color: AppPalette.of(context).primary, size: 20),
-                  label: 'Time',
+                  label: AppLocalizations.of(context).uiTime,
                   value: time,
                 ),
                 Divider(height: 24, color: AppPalette.of(context).border),
                 _ReviewRow(
                   leading: Icon(Icons.route_rounded,
                       color: AppPalette.of(context).primary, size: 20),
-                  label: 'Travel Type',
+                  label: AppLocalizations.of(context).uiTravelType,
                   value: travelMeans,
                 ),
                 if (showProof) ...[
@@ -3200,21 +3193,21 @@ class _ReviewStep extends StatelessWidget {
                   _ReviewRow(
                     leading: Icon(Icons.verified_outlined,
                         color: AppPalette.of(context).primary, size: 20),
-                    label: 'Proof',
-                    value: hasProof ? 'Attached' : 'Missing',
+                    label: AppLocalizations.of(context).uiProof,
+                    value: hasProof ? tr('Attached') : tr('Missing'),
                   ),
                 ],
                 Divider(height: 24, color: AppPalette.of(context).border),
                 _ReviewRow(
                   leading: Icon(Icons.scale_rounded,
                       color: AppPalette.of(context).primary, size: 20),
-                  label: 'Capacity',
+                  label: AppLocalizations.of(context).capacityLabel,
                   value: '$capacity kg',
                 ),
                 Divider(height: 24, color: AppPalette.of(context).border),
                 _ReviewRow(
                   leading: _CurrencyBadge(currency: currency),
-                  label: 'Price',
+                  label: AppLocalizations.of(context).priceLabel,
                   value: '$price / kg',
                 ),
               ],
@@ -3235,7 +3228,8 @@ class _ReviewStep extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'By submitting, you confirm this trip is accurate. Trips with new or edited details are sent to the support team again for approval before going live.',
+                    AppLocalizations.of(context)
+                        .uiBySubmittingYouConfirmThisTrip,
                     style: AppTextStyles.bodySm
                         .copyWith(color: AppColors.primary, height: 1.5),
                   ),

@@ -423,7 +423,7 @@ class _TripCard extends ConsumerWidget {
     final card = TripTicketCard(
       trip: trip,
       onTap: startShipment,
-      actionLabel: 'Send package',
+      actionLabel: AppLocalizations.of(context).uiSendPackage,
       // null while the authoritative per-kg quote is in flight — TripTicketCard
       // shows a shimmer placeholder rather than any estimate, so the sender
       // only ever sees the one real, backend-computed price.
@@ -468,7 +468,7 @@ class _MatchBadge extends StatelessWidget {
     switch (badge) {
       case 'Top Match':
         color = const Color(0xFFF59E0B);
-        textColor = const Color(0xFF78350F);
+        textColor = AppPalette.of(context).ink(const Color(0xFF78350F));
         icon = Icons.workspace_premium_rounded;
       case 'Good Fit':
         color = const Color(0xFF3B82F6);

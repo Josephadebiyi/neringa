@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,7 +77,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Requests',
+                          AppLocalizations.of(context).activityTabRequests,
                           style: AppTextStyles.h3.copyWith(
                             color: AppPalette.of(context).black,
                             fontWeight: FontWeight.w800,
@@ -86,14 +88,16 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Review package requests from senders waiting for your trip.',
+                    AppLocalizations.of(context)
+                        .uiReviewPackageRequestsFromSendersWaiting,
                     style: AppTextStyles.bodySm
                         .copyWith(color: AppPalette.of(context).gray500),
                   ),
                   if (!state.isLoading && requests.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
-                      '${requests.length} request${requests.length == 1 ? '' : 's'} waiting',
+                      AppLocalizations.of(context)
+                          .uiFOtherRequestsWaiting(requests.length),
                       style: AppTextStyles.labelMd.copyWith(
                         color: AppPalette.of(context).black,
                         fontWeight: FontWeight.w700,
@@ -119,11 +123,13 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
                               children: [
                                 BagoEmptyState(
                                   icon: Icons.inbox_rounded,
-                                  title: 'Nothing here yet',
-                                  subtitle:
-                                      'Requests will appear here when senders ask you to carry a package.',
+                                  title: AppLocalizations.of(context)
+                                      .nothingHereYet,
+                                  subtitle: AppLocalizations.of(context)
+                                      .uiRequestsWillAppearHereWhenSenders,
                                   cta: AppButton(
-                                    label: 'Refresh',
+                                    label:
+                                        AppLocalizations.of(context).uiRefresh,
                                     onPressed: () => ref
                                         .read(shipmentProvider.notifier)
                                         .loadIncomingRequests(),
@@ -174,7 +180,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'Request accepted',
+        message: AppLocalizations.of(context).uiRequestAccepted,
         type: SnackBarType.success,
       );
     } catch (e) {
@@ -199,7 +205,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'Request declined',
+        message: AppLocalizations.of(context).uiRequestDeclined,
         type: SnackBarType.success,
       );
     } catch (e) {
@@ -223,10 +229,10 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
     ].whereType<String>().join(' → ');
     final subtitle = request.packageTitle?.trim().isNotEmpty == true
         ? request.packageTitle!.trim()
-        : 'Shipment request';
+        : tr('Shipment request');
     final senderName = request.senderName?.trim().isNotEmpty == true
         ? request.senderName!.trim()
-        : 'Unknown sender';
+        : tr('Unknown sender');
 
     return AppCard(
       onTap: () =>
@@ -254,7 +260,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Sender: $senderName',
+                      AppLocalizations.of(context).uiFSender(senderName),
                       style: AppTextStyles.labelMd
                           .copyWith(fontWeight: FontWeight.w800),
                     ),
@@ -312,7 +318,8 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
           if (request.createdAt.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              'Created ${_formatDateTime(request.createdAt)}',
+              AppLocalizations.of(context)
+                  .uiFCreated(_formatDateTime(request.createdAt)),
               style: AppTextStyles.caption
                   .copyWith(color: AppPalette.of(context).gray400),
             ),
@@ -335,7 +342,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Decline'),
+                        : Text(AppLocalizations.of(context).uiDecline),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -357,7 +364,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
                               color: AppColors.white,
                             ),
                           )
-                        : const Text('Accept'),
+                        : Text(AppLocalizations.of(context).uiAccept),
                   ),
                 ),
               ],
@@ -375,7 +382,7 @@ String _formatDateTime(String raw) {
     final now = DateTime.now();
     final date =
         dt.year == now.year && dt.month == now.month && dt.day == now.day
-            ? 'Today'
+            ? tr('Today')
             : '${dt.day}/${dt.month}/${dt.year}';
     final hh = dt.hour.toString().padLeft(2, '0');
     final mm = dt.minute.toString().padLeft(2, '0');

@@ -291,7 +291,8 @@ class BagoInfoBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: backgroundColor ?? AppPalette.of(context).pageBackground,
+        color: AppPalette.of(context)
+            .soft(backgroundColor ?? AppColors.primarySoft),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

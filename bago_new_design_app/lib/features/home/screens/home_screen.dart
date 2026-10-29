@@ -1,3 +1,5 @@
+import '../../../shared/utils/localized_dates.dart';
+import '../../../l10n/runtime_tr.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
@@ -205,7 +207,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             .toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: Theme.of(context).brightness == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: AppPalette.of(context).pageBackground,
         body: BagoPageBackground(
@@ -223,7 +227,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     unreadCount: unreadCount,
                     from: _from,
                     to: _to,
-                    date: _date,
+                    date: localizeEnglishDate(_date),
                     onFromTap: () => _openLocationPicker(true),
                     onToTap: () => _openLocationPicker(false),
                     onDateTap: _openCalendar,
@@ -242,7 +246,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Current shipments',
+                            AppLocalizations.of(context).uiCurrentShipments,
                             style: AppTextStyles.h3.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: AppPalette.of(context).black),
@@ -250,7 +254,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           GestureDetector(
                             onTap: () => context.go('/activity'),
                             child: Text(
-                              'See all',
+                              AppLocalizations.of(context).uiSeeAll,
                               style: AppTextStyles.bodySm.copyWith(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w700),
@@ -287,7 +291,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFFBEB),
+                                color: AppPalette.of(context).warningSoft,
                                 borderRadius: BorderRadius.circular(12),
                                 border:
                                     Border.all(color: const Color(0xFFFDE68A)),
@@ -298,9 +302,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       color: Color(0xFFD97706), size: 18),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '${_liveEscrowCurrency.isNotEmpty ? _liveEscrowCurrency : UserCurrencyHelper.resolve(user)} ${_liveEscrow!.toStringAsFixed(2)} held in escrow',
+                                    AppLocalizations.of(context)
+                                        .uiFHeldInEscrow(
+                                            _liveEscrowCurrency.isNotEmpty
+                                                ? _liveEscrowCurrency
+                                                : UserCurrencyHelper.resolve(
+                                                    user),
+                                            _liveEscrow!.toStringAsFixed(2)),
                                     style: AppTextStyles.labelMd.copyWith(
-                                      color: const Color(0xFF92400E),
+                                      color: AppPalette.of(context)
+                                          .ink(const Color(0xFF92400E)),
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -386,7 +397,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   GestureDetector(
                                     onTap: () => context.go('/activity'),
                                     child: Text(
-                                      'See all',
+                                      AppLocalizations.of(context).uiSeeAll,
                                       style: AppTextStyles.bodySm.copyWith(
                                           color: AppColors.primary,
                                           fontWeight: FontWeight.w700),
@@ -481,7 +492,7 @@ class _CarrierHero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Total wallet',
+                      AppLocalizations.of(context).uiTotalWallet,
                       style: AppTextStyles.labelMd.copyWith(
                         color: Colors.white70,
                         fontWeight: FontWeight.w800,
@@ -497,7 +508,8 @@ class _CarrierHero extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Ready to withdraw + held in escrow',
+                      AppLocalizations.of(context)
+                          .uiReadyToWithdrawHeldInEscrow,
                       style: AppTextStyles.caption.copyWith(
                         color: Colors.white38,
                         fontWeight: FontWeight.w700,
@@ -535,7 +547,7 @@ class _CarrierHero extends StatelessWidget {
                                     color: Colors.white, size: 15),
                             const SizedBox(width: 6),
                             Text(
-                              'Refresh wallet',
+                              AppLocalizations.of(context).uiRefreshWallet,
                               style: AppTextStyles.labelXs.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
@@ -555,11 +567,11 @@ class _CarrierHero extends StatelessWidget {
             children: [
               Expanded(
                 child: _SoftWalletTile(
-                  label: 'Ready to withdraw',
+                  label: AppLocalizations.of(context).uiReadyToWithdraw,
                   amount: balance,
                   currency: currency,
-                  note: 'Available now',
-                  color: const Color(0xFFFFE7B8),
+                  note: AppLocalizations.of(context).uiAvailableNow,
+                  color: AppPalette.of(context).tint(const Color(0xFFFFE7B8)),
                   backgroundAsset:
                       'assets/images/wallet/withdraw_background.png',
                 ),
@@ -567,11 +579,11 @@ class _CarrierHero extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _SoftWalletTile(
-                  label: 'In escrow',
+                  label: AppLocalizations.of(context).uiInEscrow,
                   amount: pendingEarnings,
                   currency: currency,
-                  note: 'After delivery',
-                  color: const Color(0xFFDDFDDD),
+                  note: AppLocalizations.of(context).uiAfterDelivery,
+                  color: AppPalette.of(context).tint(const Color(0xFFDDFDDD)),
                   backgroundAsset: 'assets/images/wallet/escrow_background.png',
                 ),
               ),
@@ -601,7 +613,7 @@ class _CarrierHero extends StatelessWidget {
                       color: Colors.white, size: 19),
                   const SizedBox(width: 8),
                   Text(
-                    'Withdraw Earnings',
+                    AppLocalizations.of(context).uiWithdrawEarnings,
                     style: AppTextStyles.buttonMd.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -659,7 +671,7 @@ class _SoftWalletTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.labelMd.copyWith(
-              color: AppPalette.of(context).gray700,
+              color: AppColors.gray700,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -669,7 +681,7 @@ class _SoftWalletTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.h3.copyWith(
-              color: AppPalette.of(context).black,
+              color: AppColors.black,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -677,7 +689,7 @@ class _SoftWalletTile extends StatelessWidget {
           Text(
             note,
             style: AppTextStyles.caption.copyWith(
-              color: AppPalette.of(context).gray600,
+              color: AppColors.gray600,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -817,7 +829,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 height: 50,
                 decoration: BoxDecoration(
-                    color: const Color(0xFFF7F7F8),
+                    color: AppPalette.of(context).gray100,
                     borderRadius: BorderRadius.circular(16)),
                 child: Row(
                   children: [
@@ -1074,7 +1086,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                     ? null
                     : () {
                         final formatted =
-                            '${_monthName(_selected!.month).substring(0, 3)} ${_selected!.day}, ${_selected!.year}';
+                            '${englishShortMonth(_selected!.month)} ${_selected!.day}, ${_selected!.year}';
                         widget.onSelect(formatted);
                         Navigator.pop(context);
                       },
@@ -1095,20 +1107,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
     );
   }
 
-  String _monthName(int m) => [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December'
-      ][m - 1];
+  String _monthName(int m) => monthLong(m);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1199,19 +1198,19 @@ class _RecentActivityList extends StatelessWidget {
   }
 
   String _statusLabel(String s) {
-    if (s == 'paid' || s == 'succeeded' || s == 'success') return 'Paid';
+    if (s == 'paid' || s == 'succeeded' || s == 'success') return tr('Paid');
     if (s == 'pending' || s == 'processing' || s == 'under_review') {
-      return 'Pending';
+      return tr('Pending');
     }
-    if (s == 'completed') return 'Completed';
-    if (s == 'delivered') return 'Delivered';
-    if (s == 'intransit' || s == 'in_transit') return 'In Transit';
-    if (s == 'delivering') return 'Delivering';
-    if (s == 'accepted') return 'Accepted';
-    if (s == 'matched') return 'Matched';
-    if (s == 'rejected' || s == 'failed' || s == 'declined') return 'Rejected';
-    if (s == 'cancelled') return 'Cancelled';
-    return formatFrontendStatus(s);
+    if (s == 'completed') return tr('Completed');
+    if (s == 'delivered') return tr('Delivered');
+    if (s == 'intransit' || s == 'in_transit') return tr('In Transit');
+    if (s == 'delivering') return tr('Delivering');
+    if (s == 'accepted') return tr('Accepted');
+    if (s == 'matched') return tr('Matched');
+    if (s == 'rejected' || s == 'failed' || s == 'declined') return tr('Rejected');
+    if (s == 'cancelled') return tr('Cancelled');
+    return tr(formatFrontendStatus(s));
   }
 
   String _dateGroup(String iso) {
@@ -1220,26 +1219,13 @@ class _RecentActivityList extends StatelessWidget {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final d = DateTime(dt.year, dt.month, dt.day);
-      if (d == today) return 'Today';
-      if (d == today.subtract(const Duration(days: 1))) return 'Yesterday';
-      if (today.difference(d).inDays < 7) return 'This Week';
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ];
+      if (d == today) return tr('Today');
+      if (d == today.subtract(const Duration(days: 1))) return tr('Yesterday');
+      if (today.difference(d).inDays < 7) return tr('This Week');
+      final months = [for (var m = 1; m <= 12; m++) monthShort(m)];
       return '${months[dt.month - 1]} ${dt.year}';
     } catch (_) {
-      return 'Earlier';
+      return tr('Earlier');
     }
   }
 
@@ -1248,7 +1234,7 @@ class _RecentActivityList extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppPalette.of(context).white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF0F0F2)),
+        border: Border.all(color: AppPalette.of(context).gray100),
       ),
       child: Column(
         children: List.generate(3, (i) {
@@ -1263,7 +1249,7 @@ class _RecentActivityList extends StatelessWidget {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: AppColors.gray100,
+                        color: AppPalette.of(context).gray100,
                         borderRadius: BorderRadius.circular(22),
                       ),
                     ),
@@ -1276,14 +1262,14 @@ class _RecentActivityList extends StatelessWidget {
                               height: 13,
                               width: 120,
                               decoration: BoxDecoration(
-                                  color: AppColors.gray100,
+                                  color: AppPalette.of(context).gray100,
                                   borderRadius: BorderRadius.circular(6))),
                           const SizedBox(height: 6),
                           Container(
                               height: 11,
                               width: 80,
                               decoration: BoxDecoration(
-                                  color: AppColors.gray100,
+                                  color: AppPalette.of(context).gray100,
                                   borderRadius: BorderRadius.circular(6))),
                         ],
                       ),
@@ -1295,14 +1281,14 @@ class _RecentActivityList extends StatelessWidget {
                             height: 13,
                             width: 60,
                             decoration: BoxDecoration(
-                                color: AppColors.gray100,
+                                color: AppPalette.of(context).gray100,
                                 borderRadius: BorderRadius.circular(6))),
                         const SizedBox(height: 6),
                         Container(
                             height: 11,
                             width: 40,
                             decoration: BoxDecoration(
-                                color: AppColors.gray100,
+                                color: AppPalette.of(context).gray100,
                                 borderRadius: BorderRadius.circular(6))),
                       ],
                     ),
@@ -1310,11 +1296,11 @@ class _RecentActivityList extends StatelessWidget {
                 ),
               ),
               if (i < 2)
-                const Divider(
+                Divider(
                     height: 1,
                     indent: 72,
                     endIndent: 16,
-                    color: Color(0xFFF5F5F7)),
+                    color: AppPalette.of(context).gray100),
             ],
           );
         }),
@@ -1503,7 +1489,7 @@ class _RecentActivityList extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isCarrier ? 'No requests yet' : 'No shipments yet',
+                      isCarrier ? tr('No requests yet') : tr('No shipments yet'),
                       style: AppTextStyles.bodyMd.copyWith(
                           color: AppPalette.of(context).black,
                           fontWeight: FontWeight.w700),
@@ -1511,8 +1497,8 @@ class _RecentActivityList extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       isCarrier
-                          ? 'Requests from senders will appear here'
-                          : 'Your shipment activity will appear here',
+                          ? tr('Requests from senders will appear here')
+                          : tr('Your shipment activity will appear here'),
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppPalette.of(context).gray500),
                     ),
@@ -1666,8 +1652,8 @@ class _RecentActivityEntry {
   factory _RecentActivityEntry.fromRequest(RequestModel request) =>
       _RecentActivityEntry(
         id: request.id,
-        title: request.packageTitle ?? 'Package',
-        counterpart: request.carrierName ?? request.senderName ?? 'Traveler',
+        title: request.packageTitle ?? tr('Package'),
+        counterpart: request.carrierName ?? request.senderName ?? tr('Traveler'),
         status: request.status.apiValue,
         amount: request.amountForRole(request.role),
         currency: request.currency,
@@ -1681,8 +1667,8 @@ class _RecentActivityEntry {
   factory _RecentActivityEntry.fromPackage(PackageModel package) =>
       _RecentActivityEntry(
         id: package.id,
-        title: package.title.isNotEmpty ? package.title : 'Package',
-        counterpart: package.travelerName ?? package.senderName ?? 'Traveler',
+        title: package.title.isNotEmpty ? package.title : tr('Package'),
+        counterpart: package.travelerName ?? package.senderName ?? tr('Traveler'),
         status: package.status.apiValue,
         amount: package.senderDisplayAmount,
         currency: package.currency,
@@ -1746,7 +1732,7 @@ class _RecentActivityEntry {
       id: id.isNotEmpty
           ? id
           : 'withdrawal-${createdAt.isNotEmpty ? createdAt : transaction.hashCode}',
-      title: description.isNotEmpty ? description : 'Withdrawal Request',
+      title: description.isNotEmpty ? description : tr('Withdrawal Request'),
       counterpart: 'Withdrawal Request',
       status: status,
       amount: _doubleFrom(transaction, [
@@ -1816,7 +1802,7 @@ class _SlimProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Shipment progress, step ${stage + 1} of 4',
+      label: AppLocalizations.of(context).uiFShipmentProgressStepOf(stage + 1),
       child: Row(children: [
         for (var i = 0; i < 4; i++) ...[
           Container(

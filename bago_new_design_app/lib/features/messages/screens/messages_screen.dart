@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -66,7 +68,7 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
               child: Row(
                 children: [
                   Text(
-                    'Messages',
+                    AppLocalizations.of(context).navMessages,
                     style: AppTextStyles.displaySm.copyWith(
                       color: AppPalette.of(context).black,
                       fontWeight: FontWeight.w800,
@@ -104,7 +106,8 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                   style: AppTextStyles.bodyMd
                       .copyWith(color: AppPalette.of(context).black),
                   decoration: InputDecoration(
-                    hintText: 'Search chats, names, or routes',
+                    hintText:
+                        AppLocalizations.of(context).uiSearchChatsNamesOrRoutes,
                     hintStyle: AppTextStyles.bodyMd
                         .copyWith(color: AppPalette.of(context).gray500),
                     prefixIcon: Icon(Icons.search_rounded,
@@ -140,15 +143,16 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                       ? ListView(
                           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                           children: [
-                            const BagoInfoBanner(
+                            BagoInfoBanner(
                               icon: Icons.verified_user_outlined,
-                              message:
-                                  'Chat safely by staying within Bago. We protect your payments and data.',
+                              message: AppLocalizations.of(context)
+                                  .uiChatSafelyByStayingWithinBago,
                             ),
                             const SizedBox(height: 28),
                             BagoEmptyState(
                               icon: Icons.error_outline_rounded,
-                              title: 'Unable to load messages',
+                              title: AppLocalizations.of(context)
+                                  .uiUnableToLoadMessages,
                               subtitle: state.error!,
                             ),
                           ],
@@ -160,21 +164,21 @@ class _MessagesScreenState extends ConsumerState<MessagesScreen> {
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                             children: [
-                              const BagoInfoBanner(
+                              BagoInfoBanner(
                                 icon: Icons.verified_user_outlined,
-                                message:
-                                    'Chat safely by staying within Bago. We protect your payments and data.',
+                                message: AppLocalizations.of(context)
+                                    .uiChatSafelyByStayingWithinBago,
                               ),
                               const SizedBox(height: 28),
                               if (conversations.isEmpty)
                                 BagoEmptyState(
                                   icon: Icons.chat_bubble_outline_rounded,
                                   title: state.searchQuery.isEmpty
-                                      ? 'No messages yet'
-                                      : 'No results found',
+                                      ? tr('No messages yet')
+                                      : tr('No results found'),
                                   subtitle: state.searchQuery.isEmpty
-                                      ? 'When you contact a carrier or sender, your chats will appear here.'
-                                      : 'Try searching by name, message, request, or route.',
+                                      ? tr('When you contact a carrier or sender, your chats will appear here.')
+                                      : tr('Try searching by name, message, request, or route.'),
                                 )
                               else
                                 ...conversations.map(

@@ -308,7 +308,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     borderRadius: BorderRadius.circular(2),
                     child: LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: Color(0xFFEEEEF0),
+                      backgroundColor:
+                          AppPalette.of(context).tint(const Color(0xFFEEEEF0)),
                       color: AppColors.primary,
                       minHeight: 4,
                     ),
@@ -335,7 +336,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
-                                    color: Color(0xFFF4F4F6),
+                                    color: AppPalette.of(context).gray100,
                                     borderRadius: BorderRadius.circular(22),
                                   ),
                                   child:
@@ -508,7 +509,7 @@ class _StepInput extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: Color(0xFFF4F4F6),
+          color: AppPalette.of(context).gray100,
           borderRadius: BorderRadius.circular(16),
         ),
         height: 60,
@@ -577,7 +578,7 @@ class _StepEmail extends ConsumerWidget {
           Expanded(child: Divider()),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 14),
-            child: Text('or',
+            child: Text(AppLocalizations.of(context).uiOr,
                 style: AppTextStyles.bodySm
                     .copyWith(color: AppPalette.of(context).gray400)),
           ),
@@ -592,7 +593,7 @@ class _StepEmail extends ConsumerWidget {
           child: ElevatedButton(
             onPressed: isLoading ? null : onGoogleSignIn,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
+              backgroundColor: AppPalette.of(context).white,
               foregroundColor: Color(0xFF1F1F1F),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(28),
@@ -643,10 +644,10 @@ class _StepEmail extends ConsumerWidget {
                           strokeWidth: 2, color: Colors.white))
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.apple, size: 22, color: Colors.white),
                         SizedBox(width: 12),
-                        Text('Continue with Apple',
+                        Text(AppLocalizations.of(context).uiContinueWithApple,
                             style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -710,22 +711,22 @@ class _StepAccountType extends StatelessWidget {
         _StepTitle('Account\ntype'),
         SizedBox(height: 6),
         Text(
-          'Are you signing up as an individual or a company?',
+          AppLocalizations.of(context).uiAreYouSigningUpAsAn,
           style: AppTextStyles.bodyMd
               .copyWith(color: AppPalette.of(context).gray500),
         ),
         SizedBox(height: 32),
         _AccountTypeCard(
-          label: 'Individual',
-          subtitle: 'Personal account',
+          label: AppLocalizations.of(context).uiIndividual,
+          subtitle: AppLocalizations.of(context).uiPersonalAccount,
           icon: Icons.person_rounded,
           selected: selected == 'individual',
           onTap: () => onSelect('individual'),
         ),
         SizedBox(height: 16),
         _AccountTypeCard(
-          label: 'Company',
-          subtitle: 'Business or organisation',
+          label: AppLocalizations.of(context).uiCompany,
+          subtitle: AppLocalizations.of(context).uiBusinessOrOrganisation,
           icon: Icons.business_rounded,
           selected: selected == 'company',
           onTap: () => onSelect('company'),
@@ -758,7 +759,7 @@ class _AccountTypeCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary.withOpacity(0.06)
-              : Color(0xFFF4F4F6),
+              : AppPalette.of(context).tint(const Color(0xFFF4F4F6)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? AppColors.primary : Colors.transparent,
@@ -819,7 +820,7 @@ class _StepNameCompany extends StatelessWidget {
         _StepTitle('Company\nname'),
         SizedBox(height: 6),
         Text(
-          'Enter your registered business name',
+          AppLocalizations.of(context).uiEnterYourRegisteredBusinessName,
           style: AppTextStyles.bodyMd
               .copyWith(color: AppPalette.of(context).gray500),
         ),
@@ -830,7 +831,7 @@ class _StepNameCompany extends StatelessWidget {
             textCapitalization: TextCapitalization.words,
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
             decoration: InputDecoration(
-              hintText: 'e.g. Acme Logistics Ltd',
+              hintText: AppLocalizations.of(context).uiEGAcmeLogisticsLtd,
               border: InputBorder.none,
             ),
           ),
@@ -1063,7 +1064,9 @@ class _StepCountry extends StatelessWidget {
               margin: EdgeInsets.only(bottom: 12),
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: sel ? Colors.white : Color(0xFFF4F4F6),
+                color: sel
+                    ? AppPalette.of(context).white
+                    : AppPalette.of(context).tint(const Color(0xFFF4F4F6)),
                 borderRadius: BorderRadius.circular(20),
                 border: sel
                     ? Border.all(color: AppColors.primary, width: 1.5)
@@ -1220,7 +1223,7 @@ class _StepOtpState extends State<_StepOtp> {
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,
-                        fillColor: Color(0xFFF4F4F6),
+                        fillColor: AppPalette.of(context).gray100,
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none),
@@ -1327,7 +1330,7 @@ class _DialCodeButton extends StatelessWidget {
         height: 60,
         padding: EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: Color(0xFFF4F4F6),
+          color: AppPalette.of(context).gray100,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(

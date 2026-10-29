@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import 'dart:convert';
 
 import '../../../core/utils/json_parser.dart';
@@ -179,7 +180,7 @@ class UserModel {
 
   String get kycDisplayStatus {
     final label = formatFrontendStatus(kycStatus);
-    return label == 'Pending' ? 'Pending Review' : label;
+    return tr(label == 'Pending' ? tr('Pending Review') : label);
   }
 
   UserModel copyWith({

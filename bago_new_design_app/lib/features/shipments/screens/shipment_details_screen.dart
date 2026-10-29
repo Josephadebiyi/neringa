@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -383,17 +384,17 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm delivery?'),
-        content: const Text(
-          'Confirming receipt will release payment to the traveler. Only do this once you have the package.',
+        title: Text(AppLocalizations.of(context).uiConfirmDelivery2),
+        content: Text(
+          AppLocalizations.of(context).uiConfirmingReceiptWillReleasePaymentTo,
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel')),
+              child: Text(AppLocalizations.of(context).cancel)),
           FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Confirm')),
+              child: Text(AppLocalizations.of(context).uiConfirm)),
         ],
       ),
     );
@@ -404,7 +405,8 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
       await ShipmentService.instance.confirmReceived(requestId);
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: 'Delivery confirmed! Payment released to traveler.',
+          message: AppLocalizations.of(context)
+              .uiDeliveryConfirmedPaymentReleasedToTraveler,
           type: SnackBarType.success);
       setState(() {
         _future = ShipmentService.instance.getPackageDetails(widget.shipmentId);
@@ -453,7 +455,7 @@ class _ShipmentBody extends StatelessWidget {
     };
     final displayAmount =
         package.amountForRole(isSender ? 'sender' : 'traveler');
-    final priceLabel = isSender ? 'Total paid' : 'Your earning';
+    final priceLabel = isSender ? tr('Total paid') : tr('Your earning');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -731,12 +733,13 @@ class _ShipmentBody extends StatelessWidget {
                   const _Label('Confirm delivery'),
                   const SizedBox(height: 8),
                   Text(
-                    'The traveler has marked this package as delivered. Please confirm you\'ve received it to release the payment.',
+                    AppLocalizations.of(context)
+                        .uiTheTravelerHasMarkedThisPackage,
                     style: AppTextStyles.muted(AppTextStyles.bodySm),
                   ),
                   const SizedBox(height: 12),
                   AppButton(
-                    label: 'I Received My Package',
+                    label: AppLocalizations.of(context).uiIReceivedMyPackage,
                     isLoading: confirmingReceived,
                     onPressed: onConfirmReceived,
                   ),
@@ -849,7 +852,7 @@ String _formatDateTime(String raw) {
     final now = DateTime.now();
     final date =
         dt.year == now.year && dt.month == now.month && dt.day == now.day
-            ? 'Today'
+            ? tr('Today')
             : '${dt.day}/${dt.month}/${dt.year}';
     final hh = dt.hour.toString().padLeft(2, '0');
     final mm = dt.minute.toString().padLeft(2, '0');
@@ -865,9 +868,9 @@ String _insuranceStatusLabel(PackageModel package) {
       status == 'active' ||
       status == 'policy.issued' ||
       status == 'policy.activated') {
-    return 'Active - covered';
+    return tr('Active - covered');
   }
-  if (status == 'failed') return 'Protection failed - contact support';
-  if (status == 'cancelled' || status == 'canceled') return 'Cancelled';
-  return 'Protection being activated';
+  if (status == 'failed') return tr('Protection failed - contact support');
+  if (status == 'cancelled' || status == 'canceled') return tr('Cancelled');
+  return tr('Protection being activated');
 }

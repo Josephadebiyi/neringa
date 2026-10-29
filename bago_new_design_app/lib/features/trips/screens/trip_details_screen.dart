@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,7 +73,7 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
     }).catchError((e) {
       if (mounted) {
         setState(() {
-          _error = e?.toString() ?? 'Could not load trip.';
+          _error = e?.toString() ?? tr('Could not load trip.');
           _loading = false;
         });
       }
@@ -104,7 +105,7 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
             IconButton(
               icon: Icon(Icons.share_outlined,
                   color: AppPalette.of(context).gray900),
-              tooltip: 'Share trip',
+              tooltip: AppLocalizations.of(context).uiShareTrip,
               onPressed: () => Share.share(
                 'Check out my Bago trip from '
                 '${resolvedTrip.fromLocation} to ${resolvedTrip.toLocation} — '
@@ -237,32 +238,35 @@ class _TripBody extends StatelessWidget {
                 _TripInfoRow(
                     label: l10n.statusLabel,
                     value: isHistory
-                        ? 'History'
-                        : formatTripStatusLabel(trip.status)),
+                        ? tr('History')
+                        : tr(formatTripStatusLabel(trip.status))),
                 if (tripNumber.isNotEmpty)
-                  _TripInfoRow(label: 'Trip number', value: '#$tripNumber'),
+                  _TripInfoRow(
+                      label: AppLocalizations.of(context).uiTripNumber,
+                      value: '#$tripNumber'),
                 _TripInfoRow(
                     label: l10n.travelTypeLabel, value: trip.travelMeans),
                 _TripInfoRow(
                     label: l10n.departureLabel,
                     value: _formatDate(trip.departureDate)),
                 _TripInfoRow(
-                    label: 'Total space',
+                    label: AppLocalizations.of(context).uiTotalSpace,
                     value: '${trip.totalKg.toStringAsFixed(0)} kg'),
                 _TripInfoRow(
-                    label: 'Sold',
+                    label: AppLocalizations.of(context).uiSold,
                     value: '${trip.soldKg.toStringAsFixed(0)} kg'),
                 _TripInfoRow(
-                    label: 'Reserved',
+                    label: AppLocalizations.of(context).uiReserved,
                     value: '${trip.reservedKg.toStringAsFixed(0)} kg'),
                 _TripInfoRow(
-                    label: 'Remaining',
+                    label: AppLocalizations.of(context).uiRemaining,
                     value: '${trip.availableKg.toStringAsFixed(0)} kg'),
                 _TripInfoRow(
-                    label: 'Active shipments',
+                    label: AppLocalizations.of(context).uiActiveShipments,
                     value: '${trip.activeShipmentCount}'),
                 _TripInfoRow(
-                    label: 'Bookings', value: trip.bookingStatusSummary),
+                    label: AppLocalizations.of(context).uiBookings,
+                    value: trip.bookingStatusSummary),
                 // Always show the trip's own currency first (carrier set this price)
                 _TripInfoRow(
                   label: l10n.priceLabel,
@@ -270,12 +274,12 @@ class _TripBody extends StatelessWidget {
                       '$displayCurrency ${trip.pricePerKg.toStringAsFixed(2)}/kg',
                 ),
                 _TripInfoRow(
-                  label: 'Your earnings',
+                  label: AppLocalizations.of(context).uiYourEarnings,
                   value:
                       '$displayCurrency ${trip.travelerEarnings.toStringAsFixed(2)}',
                 ),
                 _TripInfoRow(
-                  label: 'Payout status',
+                  label: AppLocalizations.of(context).uiPayoutStatus,
                   value: _formatPayoutStatus(trip.payoutStatus),
                 ),
                 if (userCurrencyLabel.isNotEmpty &&
@@ -318,7 +322,7 @@ class _TripBody extends StatelessWidget {
             ),
             child: Text(
               isHistory
-                  ? 'This trip is now history. It cannot be edited, but you can redo it to publish a new copy with updated dates.'
+                  ? tr('This trip is now history. It cannot be edited, but you can redo it to publish a new copy with updated dates.')
                   : l10n.tripEditApprovalMessage,
               style: AppTextStyles.bodySm.copyWith(
                   color: isHistory
@@ -354,7 +358,7 @@ class _TripBody extends StatelessWidget {
                 minimumSize: const Size.fromHeight(56),
               ),
               child: Text(
-                isHistory ? 'Redo trip' : l10n.editTrip,
+                isHistory ? tr('Redo trip') : l10n.editTrip,
                 style: AppTextStyles.labelLg
                     .copyWith(color: Colors.white, fontWeight: FontWeight.w800),
               ),
@@ -388,13 +392,13 @@ class _TripBody extends StatelessWidget {
   String _formatPayoutStatus(String raw) {
     switch (raw.trim().toLowerCase()) {
       case 'paid':
-        return 'Paid out';
+        return tr('Paid out');
       case 'partially_paid':
-        return 'Partially paid — some shipments still in transit';
+        return tr('Partially paid — some shipments still in transit');
       case 'pending':
-        return 'Pending — awaiting delivery confirmations';
+        return tr('Pending — awaiting delivery confirmations');
       default:
-        return raw.isNotEmpty ? raw : 'Pending';
+        return raw.isNotEmpty ? raw : tr('Pending');
     }
   }
 

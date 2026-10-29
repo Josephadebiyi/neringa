@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
@@ -96,7 +97,7 @@ class _CurrencySettingsScreenState
         elevation: 0,
         title: Text(
           _pickingCountry
-              ? 'Country of residence'
+              ? tr('Country of residence')
               : l10n.preferredCurrencyTitle,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
@@ -133,11 +134,11 @@ class _CurrencySettingsScreenState
             controller: _countrySearchCtrl,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              hintText: 'Search country',
+              hintText: AppLocalizations.of(context).uiSearchCountry,
               prefixIcon:
                   Icon(Icons.search, color: AppPalette.of(context).gray400),
               filled: true,
-              fillColor: AppColors.white,
+              fillColor: AppPalette.of(context).white,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(color: AppPalette.of(context).border),
@@ -157,7 +158,9 @@ class _CurrencySettingsScreenState
                     style: AppTextStyles.bodyMd
                         .copyWith(fontWeight: FontWeight.w700)),
                 subtitle: Text(
-                    'Payment currency: ${CurrencyConversionHelper.paymentCurrencyForCountry(country)}',
+                    AppLocalizations.of(context).uiFPaymentCurrency(
+                        CurrencyConversionHelper.paymentCurrencyForCountry(
+                            country)),
                     style: AppTextStyles.bodySm
                         .copyWith(color: AppPalette.of(context).gray400)),
                 onTap: () => setState(() {
@@ -188,7 +191,7 @@ class _CurrencySettingsScreenState
             border: Border.all(color: AppPalette.of(context).border),
           ),
           child: Text(
-            'Your earning and payout currency is locked. To change it, send a change request below or chat with support.',
+            AppLocalizations.of(context).uiYourEarningAndPayoutCurrencyIs,
             style: AppTextStyles.bodyMd
                 .copyWith(color: AppPalette.of(context).gray500, height: 1.45),
           ),
@@ -239,7 +242,7 @@ class _CurrencySettingsScreenState
                     const Icon(Icons.lock_rounded,
                         size: 12, color: Colors.white),
                     const SizedBox(width: 4),
-                    Text('Locked',
+                    Text(AppLocalizations.of(context).uiLocked,
                         style: AppTextStyles.bodySm.copyWith(
                             color: Colors.white, fontWeight: FontWeight.w700)),
                   ],
@@ -254,7 +257,7 @@ class _CurrencySettingsScreenState
           child: ElevatedButton.icon(
             onPressed: () => _showChangeRequestSheet(context, currency),
             icon: const Icon(Icons.swap_horiz_rounded, color: Colors.white),
-            label: Text('Request a currency change',
+            label: Text(AppLocalizations.of(context).uiRequestACurrencyChange,
                 style: AppTextStyles.labelLg.copyWith(
                     color: Colors.white, fontWeight: FontWeight.w800)),
             style: ElevatedButton.styleFrom(
@@ -271,7 +274,7 @@ class _CurrencySettingsScreenState
             onPressed: () => context.push('/profile/support'),
             icon: Icon(Icons.chat_bubble_outline_rounded,
                 color: AppPalette.of(context).primary),
-            label: Text('Chat with support',
+            label: Text(AppLocalizations.of(context).uiChatWithSupport,
                 style: AppTextStyles.labelLg.copyWith(
                     color: AppColors.primary, fontWeight: FontWeight.w800)),
             style: OutlinedButton.styleFrom(
@@ -309,12 +312,13 @@ class _CurrencySettingsScreenState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Request a currency change',
+              Text(AppLocalizations.of(context).uiRequestACurrencyChange,
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
               Text(
-                  'Current: $current. Our team reviews requests within 1–2 business days.',
+                  AppLocalizations.of(context)
+                      .uiFCurrentOurTeamReviewsRequestsWithin(current),
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray500)),
               const SizedBox(height: 16),
@@ -341,9 +345,8 @@ class _CurrencySettingsScreenState
               TextField(
                 controller: reasonCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText:
-                      'Why do you need to change it? (e.g. moved country)',
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(context).uiWhyDoYouNeedToChange,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -361,7 +364,7 @@ class _CurrencySettingsScreenState
                               subject:
                                   'Currency change request: $current → $target',
                               description:
-                                  'Please change my earning/payout currency from $current to $target.\n\nReason: ${reasonCtrl.text.trim().isEmpty ? 'Not provided' : reasonCtrl.text.trim()}',
+                                  'Please change my earning/payout currency from $current to $target.\n\nReason: ${reasonCtrl.text.trim().isEmpty ? tr('Not provided') : reasonCtrl.text.trim()}',
                               category: 'PAYMENT',
                             );
                             if (sheetContext.mounted) {
@@ -369,16 +372,16 @@ class _CurrencySettingsScreenState
                             }
                             if (context.mounted) {
                               AppSnackBar.show(context,
-                                  message:
-                                      'Request sent. Support will update you in your tickets.',
+                                  message: AppLocalizations.of(context)
+                                      .uiRequestSentSupportWillUpdateYou,
                                   type: SnackBarType.success);
                             }
                           } catch (_) {
                             setSheet(() => sending = false);
                             if (context.mounted) {
                               AppSnackBar.show(context,
-                                  message:
-                                      'Could not send the request. Please try again.',
+                                  message: AppLocalizations.of(context)
+                                      .uiCouldNotSendTheRequestPlease,
                                   type: SnackBarType.error);
                             }
                           }
@@ -390,7 +393,7 @@ class _CurrencySettingsScreenState
                   ),
                   child: sending
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : Text('Send request',
+                      : Text(AppLocalizations.of(context).uiSendRequest,
                           style: AppTextStyles.labelLg.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w800)),
@@ -417,7 +420,7 @@ class _CurrencySettingsScreenState
             border: Border.all(color: AppPalette.of(context).border),
           ),
           child: Text(
-            'Choose your earning currency. This will be locked once confirmed and can only be changed by support.',
+            AppLocalizations.of(context).uiChooseYourEarningCurrencyThisWill,
             style: AppTextStyles.bodyMd
                 .copyWith(color: AppPalette.of(context).gray500, height: 1.45),
           ),
@@ -446,14 +449,14 @@ class _CurrencySettingsScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Country of residence',
+                      Text(AppLocalizations.of(context).uiCountryOfResidence,
                           style: AppTextStyles.labelSm.copyWith(
                               color: AppPalette.of(context).gray400,
                               fontWeight: FontWeight.w700)),
                       const SizedBox(height: 2),
                       Text(
                         _selectedCountry?.name ??
-                            'Select your country — sets the right currency automatically',
+                            tr('Select your country — sets the right currency automatically'),
                         style: AppTextStyles.bodyMd
                             .copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -469,7 +472,10 @@ class _CurrencySettingsScreenState
         const SizedBox(height: 16),
         if (_selectedCountry != null) ...[
           Text(
-            '${_selectedCountry!.flag} ${_selectedCountry!.name} will use ${_selectedCurrency!} for payments.',
+            AppLocalizations.of(context).uiFWillUseForPayments(
+                _selectedCountry!.flag,
+                _selectedCountry!.name,
+                _selectedCurrency!),
             style: AppTextStyles.bodySm.copyWith(
                 color: AppPalette.of(context).gray500,
                 fontWeight: FontWeight.w700),

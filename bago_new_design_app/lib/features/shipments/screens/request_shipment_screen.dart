@@ -1,3 +1,6 @@
+import 'package:intl/intl.dart';
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
@@ -67,7 +70,7 @@ class _ItemDeclarationPanel extends StatelessWidget {
         border: Border.all(color: AppPalette.of(context).gray100),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('PACKAGE DECLARATION',
+        Text(AppLocalizations.of(context).uiPackageDeclaration,
             style: AppTextStyles.labelSm.copyWith(fontWeight: FontWeight.w900)),
         check('factory', 'Factory sealed', factorySealed),
         check('personal', 'Personal sealed box or bag', personalSealed),
@@ -81,7 +84,7 @@ class _ItemDeclarationPanel extends StatelessWidget {
             hasPrescriptionMedicine),
         if (factorySealed) ...[
           const Divider(),
-          Text('Factory-sealed evidence',
+          Text(AppLocalizations.of(context).uiFactorySealedEvidence,
               style:
                   AppTextStyles.labelSm.copyWith(fontWeight: FontWeight.w800)),
           check('receipt', 'Receipt available', receiptProvided),
@@ -89,7 +92,7 @@ class _ItemDeclarationPanel extends StatelessWidget {
           check('barcode', 'Barcode visible', barcodeProvided),
         ],
         Text(
-          'Wrapped or sealed packages are not rejected, but they must be inspected before collection.',
+          AppLocalizations.of(context).uiWrappedOrSealedPackagesAreNot,
           style: AppTextStyles.caption
               .copyWith(color: AppPalette.of(context).gray500),
         ),
@@ -274,7 +277,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 18, 12, 8),
                   child: Row(children: [
                     Expanded(
-                        child: Text('What is inside?',
+                        child: Text(AppLocalizations.of(context).uiWhatIsInside,
                             style: AppTextStyles.h3
                                 .copyWith(fontWeight: FontWeight.w900))),
                     TextButton(
@@ -295,7 +298,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
                               });
                               Navigator.pop(sheetContext);
                             },
-                      child: Text('Done (${working.length})'),
+                      child: Text(
+                          AppLocalizations.of(context).uiFDone(working.length)),
                     ),
                   ]),
                 ),
@@ -403,7 +407,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final trip = _currentTrip;
     if (trip == null) return null;
     final user = ref.read(authProvider).user;
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
     if (currency.isEmpty || weight <= 0) return null;
@@ -428,7 +432,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final trip = _currentTrip;
     if (trip == null || !mounted) return null;
     final user = ref.read(authProvider).user;
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     final weight = double.tryParse(_weightCtrl.text.trim()) ?? 0;
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0;
     final key = _currentPreviewKey();
@@ -518,7 +522,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     final user = ref.read(authProvider).user;
 
     final weight = double.tryParse(_weightCtrl.text.trim());
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     final residence = CurrencyConversionHelper.countryByName(user?.country) ??
         CurrencyConversionHelper.countryByCode(user?.country);
 
@@ -527,7 +531,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             currency) {
       AppSnackBar.show(context,
           message:
-              'Set your country of residence before paying. Your payment currency is assigned from that country.',
+              AppLocalizations.of(context).uiSetYourCountryOfResidenceBefore,
           type: SnackBarType.info);
       await context.push('/profile/currency');
       return;
@@ -535,13 +539,14 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
     if (weight == null || weight <= 0) {
       AppSnackBar.show(context,
-          message: 'Enter a valid shipment weight.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiEnterAValidShipmentWeight,
+          type: SnackBarType.error);
       return;
     }
     if (currency.isEmpty) {
       AppSnackBar.show(context,
           message:
-              'Please set your preferred currency in profile settings before continuing.',
+              AppLocalizations.of(context).uiPleaseSetYourPreferredCurrencyIn,
           type: SnackBarType.error);
       return;
     }
@@ -549,7 +554,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         _receiverPhoneCtrl.text.trim().isEmpty ||
         _deliveryAddressCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please fill in all receiver details.',
+          message:
+              AppLocalizations.of(context).uiPleaseFillInAllReceiverDetails,
           type: SnackBarType.error);
       return;
     }
@@ -557,25 +563,26 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         _receiverPhoneCtrl.text.trim().replaceAll(RegExp(r'\D'), '');
     if (phoneDigits.length < 5 || phoneDigits.length > 15) {
       AppSnackBar.show(context,
-          message: 'Enter a valid phone number (5–15 digits, numbers only).',
+          message: AppLocalizations.of(context).uiEnterAValidPhoneNumber5,
           type: SnackBarType.error);
       return;
     }
     if (_selectedContents.isEmpty && widget.preFilledData == null) {
       AppSnackBar.show(context,
-          message: 'Select every item contained in the package.',
+          message: AppLocalizations.of(context).uiSelectEveryItemContainedInThe,
           type: SnackBarType.error);
       return;
     }
     if (!_travellerMayInspect) {
       AppSnackBar.show(context,
-          message: 'The traveller must be allowed to inspect the package.',
+          message: AppLocalizations.of(context).uiTheTravellerMustBeAllowedTo,
           type: SnackBarType.error);
       return;
     }
     if (_itemImage == null && widget.preFilledData == null) {
       AppSnackBar.show(context,
-          message: 'Add an item image before continuing.',
+          message:
+              AppLocalizations.of(context).uiAddAnItemImageBeforeContinuing,
           type: SnackBarType.error);
       return;
     }
@@ -606,7 +613,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     if (!mounted) return;
     final user = ref.read(authProvider).user;
     final weight = double.tryParse(_weightCtrl.text.trim());
-    final currency = UserCurrencyHelper.resolve(user);
+    final currency = UserCurrencyHelper.paymentCurrency(user);
     if (weight == null || weight <= 0 || currency.isEmpty) return;
 
     final declaredValue = double.tryParse(_itemValueCtrl.text.trim()) ?? 0.0;
@@ -623,7 +630,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           AppSnackBar.show(
             context,
             message: _previewError ??
-                'Checkout price could not be calculated. Please try again.',
+                tr('Checkout price could not be calculated. Please try again.'),
             type: SnackBarType.error,
           );
         }
@@ -808,7 +815,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
                     textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 AppButton(
-                    label: 'Try again',
+                    label: AppLocalizations.of(context).uiTryAgain2,
                     onPressed: () {
                       setState(() => _loadError = null);
                       _loadTrip();
@@ -821,7 +828,8 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
     }
 
     final trip = _currentTrip!;
-    final currency = UserCurrencyHelper.resolve(ref.watch(authProvider).user);
+    final currency =
+        UserCurrencyHelper.paymentCurrency(ref.watch(authProvider).user);
 
     if (currency.isEmpty) {
       return Scaffold(
@@ -843,12 +851,13 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
                       color: AppPalette.of(context).primary, size: 30),
                 ),
                 const SizedBox(height: 20),
-                Text('Currency Not Set',
+                Text(AppLocalizations.of(context).uiCurrencyNotSet,
                     style:
                         AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
                 Text(
-                    'Please set your preferred currency in profile settings before requesting shipping.',
+                    AppLocalizations.of(context)
+                        .uiPleaseSetYourPreferredCurrencyIn2,
                     style: AppTextStyles.muted(AppTextStyles.bodyMd),
                     textAlign: TextAlign.center),
               ],
@@ -884,8 +893,9 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             const SizedBox(height: 24),
 
             // ── Shipment details ──────────────────────────────────────
-            const _SectionHeader(
-                title: 'Shipment Details', icon: Icons.inventory_2_outlined),
+            _SectionHeader(
+                title: AppLocalizations.of(context).shipmentDetailsTitle,
+                icon: Icons.inventory_2_outlined),
             const SizedBox(height: 14),
 
             if (widget.preFilledData != null)
@@ -907,7 +917,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
                 onPressed: _showContentsPicker,
                 icon: const Icon(Icons.playlist_add_check_rounded),
                 label: Text(_selectedContents.isEmpty
-                    ? 'Select everything inside'
+                    ? tr('Select everything inside')
                     : '${_selectedContents.length} item types selected'),
               ),
               if (_selectedContents.isNotEmpty) ...[
@@ -970,13 +980,14 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             const SizedBox(height: 24),
 
             // ── Receiver details ──────────────────────────────────────
-            const _SectionHeader(
-                title: 'Receiver Details', icon: Icons.person_outline_rounded),
+            _SectionHeader(
+                title: AppLocalizations.of(context).uiReceiverDetails,
+                icon: Icons.person_outline_rounded),
             const SizedBox(height: 14),
             AppTextField(
                 controller: _receiverNameCtrl,
-                label: 'Full name',
-                hint: 'Who receives this?'),
+                label: AppLocalizations.of(context).uiFullName2,
+                hint: AppLocalizations.of(context).uiWhoReceivesThis),
             const SizedBox(height: 12),
             _PhoneRow(
               controller: _receiverPhoneCtrl,
@@ -986,15 +997,15 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
             const SizedBox(height: 12),
             AppTextField(
               controller: _deliveryAddressCtrl,
-              label: 'Delivery address',
-              hint: 'Drop-off address',
+              label: AppLocalizations.of(context).uiDeliveryAddress,
+              hint: AppLocalizations.of(context).uiDropOffAddress,
               maxLines: 2,
             ),
             const SizedBox(height: 12),
             AppTextField(
               controller: _messageCtrl,
-              label: 'Note to traveler',
-              hint: 'Optional handling instructions…',
+              label: AppLocalizations.of(context).uiNoteToTraveler,
+              hint: AppLocalizations.of(context).uiOptionalHandlingInstructions,
               maxLines: 3,
             ),
             const SizedBox(height: 24),
@@ -1027,7 +1038,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
 
             // ── CTA ───────────────────────────────────────────────────
             AppButton(
-              label: 'Continue to Payment',
+              label: AppLocalizations.of(context).uiContinueToPayment,
               isLoading: _isSubmitting,
               onPressed: _isSubmitting ? null : () => _continueToPayment(trip),
             ),
@@ -1049,14 +1060,14 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F6FB),
+            color: AppPalette.of(context).pageBackground,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(Icons.arrow_back_ios_new_rounded,
               size: 16, color: AppPalette.of(context).black),
         ),
       ),
-      title: Text('Request Shipment',
+      title: Text(AppLocalizations.of(context).uiRequestShipment,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
     );
   }
@@ -1143,7 +1154,7 @@ class _TravelerHeroCard extends StatelessWidget {
                             size: 14, color: Color(0xFFFFD700)),
                         const SizedBox(width: 4),
                         Text(
-                          rating > 0 ? rating.toStringAsFixed(1) : 'No ratings',
+                          rating > 0 ? rating.toStringAsFixed(1) : tr('No ratings'),
                           style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
@@ -1157,7 +1168,7 @@ class _TravelerHeroCard extends StatelessWidget {
                         Text(
                           trip.completedTripCount > 0
                               ? '${trip.completedTripCount} completed ${trip.completedTripCount == 1 ? 'trip' : 'trips'}'
-                              : 'New traveler',
+                              : tr('New traveler'),
                           style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
@@ -1194,7 +1205,7 @@ class _TravelerHeroCard extends StatelessWidget {
           const SizedBox(height: 16),
           Container(
             height: 1,
-            color: Colors.white.withValues(alpha: 0.15),
+            color: AppPalette.of(context).white.withValues(alpha: 0.15),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -1203,7 +1214,8 @@ class _TravelerHeroCard extends StatelessWidget {
             children: [
               _StatChip(
                 icon: Icons.scale_rounded,
-                label: '${trip.availableKg.toStringAsFixed(1)} kg free',
+                label: AppLocalizations.of(context)
+                    .uiFKgFree(trip.availableKg.toStringAsFixed(1)),
               ),
               _StatChip(
                 icon: Icons.payments_outlined,
@@ -1297,21 +1309,7 @@ class _RouteCard extends StatelessWidget {
   String _formatDate(String raw) {
     try {
       final dt = DateTime.parse(raw).toLocal();
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ];
-      return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+      return DateFormat.yMMMd().format(dt);
     } catch (_) {
       return raw;
     }
@@ -1323,7 +1321,7 @@ class _RouteCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppPalette.of(context).white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8EAED)),
+        border: Border.all(color: AppPalette.of(context).border),
       ),
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -1333,7 +1331,7 @@ class _RouteCard extends StatelessWidget {
               Icon(Icons.route_rounded,
                   size: 18, color: AppPalette.of(context).primary),
               const SizedBox(width: 8),
-              Text('Route',
+              Text(AppLocalizations.of(context).route,
                   style: AppTextStyles.labelMd.copyWith(
                       fontWeight: FontWeight.w800,
                       color: AppPalette.of(context).black)),
@@ -1347,7 +1345,7 @@ class _RouteCard extends StatelessWidget {
                     color: AppPalette.of(context).primarySoft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text('Change',
+                  child: Text(AppLocalizations.of(context).uiChange,
                       style: AppTextStyles.labelSm.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w700,
@@ -1361,7 +1359,7 @@ class _RouteCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _RouteStop(
-                  label: 'From',
+                  label: AppLocalizations.of(context).fromLabel,
                   city: trip.fromLocation,
                   country: trip.fromCountry,
                   isOrigin: true,
@@ -1384,7 +1382,7 @@ class _RouteCard extends StatelessWidget {
               ),
               Expanded(
                 child: _RouteStop(
-                  label: 'To',
+                  label: AppLocalizations.of(context).toLabel,
                   city: trip.toLocation,
                   country: trip.toCountry,
                   isOrigin: false,
@@ -1395,7 +1393,7 @@ class _RouteCard extends StatelessWidget {
           const SizedBox(height: 14),
           Container(
             height: 1,
-            color: const Color(0xFFEEEFF1),
+            color: AppPalette.of(context).gray100,
           ),
           const SizedBox(height: 12),
           Row(
@@ -1404,7 +1402,8 @@ class _RouteCard extends StatelessWidget {
                   size: 14, color: AppPalette.of(context).gray400),
               const SizedBox(width: 6),
               Text(
-                'Departs ${_formatDate(trip.departureDate)}',
+                AppLocalizations.of(context)
+                    .uiFDeparts(_formatDate(trip.departureDate)),
                 style: AppTextStyles.bodySm.copyWith(
                     color: AppPalette.of(context).gray500,
                     fontWeight: FontWeight.w600),
@@ -1433,9 +1432,9 @@ class _RouteStop extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FF),
+        color: AppPalette.of(context).tint(const Color(0xFFF8F9FF)),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8EAED)),
+        border: Border.all(color: AppPalette.of(context).border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1506,7 +1505,7 @@ class _WeightField extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppPalette.of(context).white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EAED)),
+        border: Border.all(color: AppPalette.of(context).border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -1538,7 +1537,7 @@ class _WeightField extends StatelessWidget {
               color: AppPalette.of(context).primarySoft,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text('kg',
+            child: Text(AppLocalizations.of(context).uiKg,
                 style: AppTextStyles.labelSm.copyWith(
                   color: AppPalette.of(context).primary,
                   fontWeight: FontWeight.w800,
@@ -1563,7 +1562,7 @@ class _ValueField extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppPalette.of(context).white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EAED)),
+        border: Border.all(color: AppPalette.of(context).border),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(children: [
@@ -1575,7 +1574,7 @@ class _ValueField extends StatelessWidget {
             style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
             decoration: InputDecoration(
               border: InputBorder.none,
-              hintText: 'Value',
+              hintText: AppLocalizations.of(context).uiValue,
               hintStyle: AppTextStyles.labelMd
                   .copyWith(color: AppPalette.of(context).gray300),
               isDense: true,
@@ -1586,12 +1585,12 @@ class _ValueField extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0F0F0),
+            color: AppPalette.of(context).tint(const Color(0xFFF0F0F0)),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             CurrencyConversionHelper.symbolForCurrency(
-                currency.isEmpty ? 'USD' : currency),
+                currency.isEmpty ? tr('USD') : currency),
             style: AppTextStyles.labelSm.copyWith(
                 color: AppPalette.of(context).gray500,
                 fontWeight: FontWeight.w800),
@@ -1618,7 +1617,9 @@ class _ImagePickerTile extends StatelessWidget {
           color: AppPalette.of(context).white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: image != null ? AppColors.primary : const Color(0xFFE8EAED),
+            color: image != null
+                ? AppColors.primary
+                : AppPalette.of(context).border,
             width: image != null ? 1.5 : 1,
           ),
         ),
@@ -1640,11 +1641,10 @@ class _ImagePickerTile extends StatelessWidget {
                         color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child:
-                          const Row(mainAxisSize: MainAxisSize.min, children: [
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.edit_rounded, size: 13, color: Colors.white),
                         SizedBox(width: 5),
-                        Text('Change',
+                        Text(AppLocalizations.of(context).uiChange,
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -1668,11 +1668,13 @@ class _ImagePickerTile extends StatelessWidget {
                           color: AppPalette.of(context).primary, size: 24),
                     ),
                     const SizedBox(height: 12),
-                    Text('Add item photo',
+                    Text(AppLocalizations.of(context).uiAddItemPhoto,
                         style: AppTextStyles.labelMd
                             .copyWith(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 4),
-                    Text('A clear photo helps the traveler identify your item',
+                    Text(
+                        AppLocalizations.of(context)
+                            .uiAClearPhotoHelpsTheTraveler,
                         style: AppTextStyles.bodySm
                             .copyWith(color: AppPalette.of(context).gray400),
                         textAlign: TextAlign.center),
@@ -1740,7 +1742,7 @@ class _PrefilledItemCard extends StatelessWidget {
               decoration: BoxDecoration(
                   color: AppPalette.of(context).primarySoft,
                   borderRadius: BorderRadius.circular(8)),
-              child: Text('From wizard',
+              child: Text(AppLocalizations.of(context).uiFromWizard,
                   style: AppTextStyles.labelXs.copyWith(
                       color: AppColors.primary, fontWeight: FontWeight.w700)),
             ),
@@ -1752,7 +1754,8 @@ class _PrefilledItemCard extends StatelessWidget {
                     color: AppPalette.of(context).gray100,
                     borderRadius: BorderRadius.circular(8)),
                 child: Text(
-                    'Value: $currency ${declaredValue.toStringAsFixed(0)}',
+                    AppLocalizations.of(context)
+                        .uiFValue(currency, declaredValue.toStringAsFixed(0)),
                     style: AppTextStyles.labelXs
                         .copyWith(color: AppPalette.of(context).gray500)),
               ),
@@ -1797,7 +1800,7 @@ class _PhoneRow extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
-            'Phone number',
+            AppLocalizations.of(context).uiPhoneNumber,
             style: AppTextStyles.labelSm.copyWith(
               color: AppPalette.of(context).gray600,
               fontWeight: FontWeight.w700,
@@ -1807,7 +1810,7 @@ class _PhoneRow extends StatelessWidget {
         Container(
           height: 56,
           decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F8),
+            color: AppPalette.of(context).gray100,
             border:
                 Border.all(color: AppPalette.of(context).border, width: 1.5),
             borderRadius: BorderRadius.circular(14),
@@ -1894,12 +1897,14 @@ class _InsuranceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: enabled ? AppPalette.of(context).primarySoft : AppColors.white,
+        color: enabled
+            ? AppPalette.of(context).primarySoft
+            : AppPalette.of(context).white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: enabled
               ? AppColors.primary.withValues(alpha: 0.4)
-              : const Color(0xFFE8EAED),
+              : AppPalette.of(context).border,
         ),
       ),
       padding: const EdgeInsets.all(16),
@@ -1908,7 +1913,9 @@ class _InsuranceTile extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: enabled ? AppColors.primary : const Color(0xFFF4F6FB),
+            color: enabled
+                ? AppColors.primary
+                : AppPalette.of(context).tint(const Color(0xFFF4F6FB)),
             borderRadius: BorderRadius.circular(13),
           ),
           child: Icon(Icons.shield_outlined,
@@ -1919,14 +1926,14 @@ class _InsuranceTile extends StatelessWidget {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Protect my item',
+          Text(AppLocalizations.of(context).uiProtectMyItem,
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 3),
           Text(
             insuranceBaseAmount != null && insuranceBaseAmount! > 0
                 ? '${insuranceBaseCurrency ?? currency} ${insuranceBaseAmount!.toStringAsFixed(insuranceBaseAmount! % 1 == 0 ? 0 : 2)} fixed — covered in transit'
-                : 'Fixed protection — covered in transit',
+                : tr('Fixed protection — covered in transit'),
             style: AppTextStyles.bodySm
                 .copyWith(color: AppPalette.of(context).gray500),
           ),
@@ -1980,7 +1987,7 @@ class _PriceSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppPalette.of(context).white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8EAED)),
+        border: Border.all(color: AppPalette.of(context).border),
       ),
       padding: const EdgeInsets.all(18),
       child: Column(children: [
@@ -1994,7 +2001,7 @@ class _PriceSummaryCard extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Calculating checkout total...',
+                AppLocalizations.of(context).uiCalculatingCheckoutTotal,
                 style: AppTextStyles.bodySm.copyWith(
                   color: AppPalette.of(context).gray500,
                   fontWeight: FontWeight.w600,
@@ -2002,9 +2009,9 @@ class _PriceSummaryCard extends StatelessWidget {
               ),
             ),
           ]),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
-            child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+            child: Divider(height: 1, color: AppPalette.of(context).gray100),
           ),
         ],
         if (error != null) ...[
@@ -2022,13 +2029,13 @@ class _PriceSummaryCard extends StatelessWidget {
               ),
             ),
           ]),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
-            child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+            child: Divider(height: 1, color: AppPalette.of(context).gray100),
           ),
         ],
         _Row(
-            label: 'Shipping fee',
+            label: AppLocalizations.of(context).uiShippingFee,
             value: hasAmounts
                 ? '$currency ${displayShipping!.toStringAsFixed(2)}'
                 : '--'),
@@ -2036,17 +2043,17 @@ class _PriceSummaryCard extends StatelessWidget {
         _Row(
             label: insuranceBaseAmount != null && insuranceBaseAmount! > 0
                 ? 'Item protection (${insuranceBaseCurrency ?? currency} ${insuranceBaseAmount!.toStringAsFixed(insuranceBaseAmount! % 1 == 0 ? 0 : 2)} fixed)'
-                : 'Item protection',
+                : tr('Item protection'),
             value: hasAmounts
                 ? '$currency ${displayInsurance.toStringAsFixed(2)}'
                 : '--'),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 14),
-          child: Divider(height: 1, color: Color(0xFFEEEFF1)),
+          child: Divider(height: 1, color: AppPalette.of(context).gray100),
         ),
         Row(children: [
           Expanded(
-              child: Text('Total',
+              child: Text(AppLocalizations.of(context).uiTotal,
                   style: AppTextStyles.labelLg
                       .copyWith(fontWeight: FontWeight.w900))),
           Container(
@@ -2146,11 +2153,12 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               onChanged: _onSearch,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Search country or dial code…',
+                hintText:
+                    AppLocalizations.of(context).uiSearchCountryOrDialCode,
                 prefixIcon:
                     Icon(Icons.search, color: AppPalette.of(context).gray400),
                 filled: true,
-                fillColor: const Color(0xFFF7F7F8),
+                fillColor: AppPalette.of(context).gray100,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,

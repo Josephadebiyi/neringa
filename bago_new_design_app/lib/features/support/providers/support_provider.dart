@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
@@ -61,7 +62,7 @@ class SupportNotifier extends Notifier<SupportState> {
     if (error is DioException) {
       return ApiService.parseError(error);
     }
-    return 'Something went wrong. Please try again.';
+    return tr('Something went wrong. Please try again.');
   }
 
   @override
@@ -128,9 +129,9 @@ class SupportNotifier extends Notifier<SupportState> {
       if (isDuplicate(active.messages)) return;
       final updated = active.copyWith(
         messages: [...active.messages, msg],
-        status: msg.sender == 'ADMIN' ? 'IN_PROGRESS' : active.status,
+        status: msg.sender == 'ADMIN' ? tr('IN_PROGRESS') : active.status,
         assistantState:
-            msg.sender == 'ADMIN' ? 'HANDOFF' : active.assistantState,
+            msg.sender == 'ADMIN' ? tr('HANDOFF') : active.assistantState,
       );
       state = state.copyWith(activeTicket: updated);
     }
@@ -140,8 +141,8 @@ class SupportNotifier extends Notifier<SupportState> {
       if (t.id != ticketId || isDuplicate(t.messages)) return t;
       return t.copyWith(
         messages: [...t.messages, msg],
-        status: msg.sender == 'ADMIN' ? 'IN_PROGRESS' : t.status,
-        assistantState: msg.sender == 'ADMIN' ? 'HANDOFF' : t.assistantState,
+        status: msg.sender == 'ADMIN' ? tr('IN_PROGRESS') : t.status,
+        assistantState: msg.sender == 'ADMIN' ? tr('HANDOFF') : t.assistantState,
       );
     }).toList();
     state = state.copyWith(tickets: tickets);

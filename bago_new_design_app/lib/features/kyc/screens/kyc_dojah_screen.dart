@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 import 'dart:math';
@@ -368,7 +370,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
                 color: AppPalette.of(context).black, size: 20),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: Text('Identity Verification', style: AppTextStyles.h3),
+          title: Text(AppLocalizations.of(context).identityVerification,
+              style: AppTextStyles.h3),
         ),
         body: Center(
           child: Padding(
@@ -380,7 +383,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
                     color: AppColors.error, size: 48),
                 const SizedBox(height: 16),
                 Text(
-                  _errorMessage ?? 'Something went wrong. Please try again.',
+                  _errorMessage ?? tr('Something went wrong. Please try again.'),
                   style: AppTextStyles.bodyMd
                       .copyWith(color: AppPalette.of(context).gray700),
                   textAlign: TextAlign.center,
@@ -390,7 +393,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
                   onPressed: _retry,
                   style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary),
-                  child: const Text('Try Again'),
+                  child: Text(AppLocalizations.of(context).uiTryAgain),
                 ),
               ],
             ),
@@ -409,7 +412,8 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
               color: AppPalette.of(context).black, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Identity Verification', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).identityVerification,
+            style: AppTextStyles.h3),
       ),
       body: Center(
         child: CircularProgressIndicator(

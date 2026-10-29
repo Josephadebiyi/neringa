@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -728,7 +729,7 @@ class AuthService {
   }
 
   static String _currencyForCountry(String country) {
-    return CurrencyConversionHelper.countryByName(country)?.currency ?? 'USD';
+    return CurrencyConversionHelper.countryByName(country)?.currency ?? tr('USD');
   }
 
   String _mapGoogleSignInError(Object error) {
@@ -742,7 +743,7 @@ class AuthService {
     // specific, more actionable check would otherwise never be reached.
     if (normalized.contains('apiexception: 10') ||
         normalized.contains('developer_error')) {
-      return 'Google Sign-In configuration does not match this Android app signing certificate. Please update the app and try again.';
+      return tr('Google Sign-In configuration does not match this Android app signing certificate. Please update the app and try again.');
     }
 
     if (normalized.contains('keychainerror') ||
@@ -750,31 +751,31 @@ class AuthService {
         normalized.contains('sign_in_failed') ||
         normalized.contains('code: -34018')) {
       if (Platform.isIOS) {
-        return 'Google Sign-In is not available on this iPhone simulator right now. Please try again on a real device or use email login.';
+        return tr('Google Sign-In is not available on this iPhone simulator right now. Please try again on a real device or use email login.');
       }
-      return 'Google Sign-In is temporarily unavailable. Please try again or use email login.';
+      return tr('Google Sign-In is temporarily unavailable. Please try again or use email login.');
     }
 
     if (normalized.contains('cancelled')) {
-      return 'Google sign-in was cancelled.';
+      return tr('Google sign-in was cancelled.');
     }
 
     if (normalized.contains('failed to get google authentication token')) {
-      return 'Google Sign-In could not complete. Please try again.';
+      return tr('Google Sign-In could not complete. Please try again.');
     }
 
     if (normalized.contains('something went wrong')) {
       if (Platform.isIOS) {
-        return 'Google Sign-In hit an iPhone-side error. If this is the simulator, please test Google Sign-In on a real device or use email login here.';
+        return tr('Google Sign-In hit an iPhone-side error. If this is the simulator, please test Google Sign-In on a real device or use email login here.');
       }
-      return 'Google Sign-In hit an unexpected error. Please try again.';
+      return tr('Google Sign-In hit an unexpected error. Please try again.');
     }
 
     if (normalized.contains('timeoutexception')) {
       if (Platform.isIOS) {
-        return 'Google Sign-In timed out on this iPhone simulator. Please use email login here, or test Google Sign-In on a real iPhone.';
+        return tr('Google Sign-In timed out on this iPhone simulator. Please use email login here, or test Google Sign-In on a real iPhone.');
       }
-      return 'Google Sign-In timed out. Please try again.';
+      return tr('Google Sign-In timed out. Please try again.');
     }
 
     return message;

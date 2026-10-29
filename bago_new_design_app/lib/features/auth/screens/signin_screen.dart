@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:io';
 
@@ -105,25 +106,27 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Complete your profile'),
+        title: Text(AppLocalizations.of(context).uiCompleteYourProfile),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Please enter your name so we know what to call you.',
+            Text(AppLocalizations.of(context).uiPleaseEnterYourNameSoWe,
                 style: TextStyle(fontSize: 13)),
             const SizedBox(height: 16),
             TextField(
               controller: firstCtrl,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                  labelText: 'First name', border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context).firstNameHint,
+                  border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: lastCtrl,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                  labelText: 'Last name', border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context).lastNameHint,
+                  border: OutlineInputBorder()),
             ),
           ],
         ),
@@ -140,7 +143,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       } catch (_) {}
                       if (ctx2.mounted) Navigator.of(ctx2).pop();
                     },
-                    child: const Text('Save'),
+                    child: Text(AppLocalizations.of(context).uiSave),
                   )),
         ],
       ),
@@ -200,7 +203,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         normalized.contains('service unavailable') ||
         normalized.contains('bad gateway') ||
         normalized.contains('gateway timeout')) {
-      return 'Bago is temporarily unavailable. Please try again in a few minutes.';
+      return tr('Bago is temporarily unavailable. Please try again in a few minutes.');
     }
 
     if (raw.startsWith('Exception: ')) {
@@ -279,7 +282,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                               'assets/images/bago-logo-white.png',
                               height: 32,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Text('Bago',
+                              errorBuilder: (_, __, ___) => Text(
+                                  AppLocalizations.of(context).appTitle,
                                   style: AppTextStyles.h2.copyWith(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w900)),
@@ -379,7 +383,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   if (Platform.isIOS) ...[
                     const SizedBox(height: 12),
                     _AppleBtn(
-                      label: 'Continue with Apple',
+                      label: AppLocalizations.of(context).uiContinueWithApple,
                       isLoading: isLoading,
                       onPressed: isLoading ? null : _appleSignIn,
                     ),
@@ -388,7 +392,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   if (Platform.isIOS && !kReleaseMode) ...[
                     const SizedBox(height: 10),
                     Text(
-                      'Google Sign-In can be unreliable on the iPhone simulator. If it hangs, use email login here and test Google on a real device.',
+                      AppLocalizations.of(context)
+                          .uiGoogleSignInCanBeUnreliable,
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppPalette.of(context).gray500),
                     ),
@@ -439,7 +444,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     child: TextButton(
                       onPressed: () => context.go('/home'),
                       child: Text(
-                        'Continue as guest',
+                        AppLocalizations.of(context).uiContinueAsGuest,
                         style: AppTextStyles.bodyMd.copyWith(
                           color: AppPalette.of(context).gray500,
                           decoration: TextDecoration.underline,
@@ -513,7 +518,7 @@ class _GoogleBtn extends StatelessWidget {
         child: ElevatedButton(
           onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
+            backgroundColor: AppPalette.of(context).white,
             foregroundColor: const Color(0xFF1F1F1F),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),

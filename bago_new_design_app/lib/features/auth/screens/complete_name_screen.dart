@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,7 +36,7 @@ class _CompleteNameScreenState extends ConsumerState<CompleteNameScreen> {
     if (first.isEmpty || last.isEmpty) {
       AppSnackBar.show(
         context,
-        message: 'Please enter your first and last name',
+        message: AppLocalizations.of(context).uiPleaseEnterYourFirstAndLast,
         type: SnackBarType.error,
       );
       return;
@@ -44,7 +45,7 @@ class _CompleteNameScreenState extends ConsumerState<CompleteNameScreen> {
     if (first.length < 2 || last.length < 2) {
       AppSnackBar.show(
         context,
-        message: 'Name must be at least 2 characters',
+        message: AppLocalizations.of(context).uiNameMustBeAtLeast2,
         type: SnackBarType.error,
       );
       return;
@@ -61,7 +62,7 @@ class _CompleteNameScreenState extends ConsumerState<CompleteNameScreen> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'Failed to save name. Please try again.',
+        message: AppLocalizations.of(context).uiFailedToSaveNamePleaseTry,
         type: SnackBarType.error,
       );
     } finally {
@@ -80,30 +81,31 @@ class _CompleteNameScreenState extends ConsumerState<CompleteNameScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 40),
-              Text('What\'s your name?', style: AppTextStyles.h2),
+              Text(AppLocalizations.of(context).signupStepNameTitle,
+                  style: AppTextStyles.h2),
               const SizedBox(height: 8),
               Text(
-                'Please enter your real name so others know who they\'re working with.',
+                AppLocalizations.of(context).uiPleaseEnterYourRealNameSo,
                 style: AppTextStyles.bodyMd
                     .copyWith(color: AppPalette.of(context).gray500),
               ),
               const SizedBox(height: 40),
               _NameField(
                 controller: _firstNameCtrl,
-                label: 'First name',
-                hint: 'e.g. John',
+                label: AppLocalizations.of(context).firstNameHint,
+                hint: AppLocalizations.of(context).uiEGJohn,
               ),
               const SizedBox(height: 16),
               _NameField(
                 controller: _lastNameCtrl,
-                label: 'Last name',
-                hint: 'e.g. Doe',
+                label: AppLocalizations.of(context).lastNameHint,
+                hint: AppLocalizations.of(context).uiEGDoe,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _save(),
               ),
               const Spacer(),
               AppButton(
-                label: 'Continue',
+                label: AppLocalizations.of(context).continueLabel,
                 isLoading: _isLoading,
                 onPressed: _save,
               ),

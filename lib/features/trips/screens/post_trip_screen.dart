@@ -43,6 +43,10 @@ class PostTripScreen extends ConsumerStatefulWidget {
 }
 
 class _PostTripScreenState extends ConsumerState<PostTripScreen> {
+  // Trip proof is an individual-traveler requirement only. Business accounts
+  // are proof-exempt on the backend, so they never see or need the upload.
+  bool get _requiresTripProof => ref.read(authProvider).user?.isCompany != true;
+
   int _step = 0;
   int _minStep = 0; // steps below this are skipped in back navigation
   bool _loading = false;
@@ -394,6 +398,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       if (_time.isEmpty) _time = '$_hour:$_minute $_period';
     }
     if (_step == 5 &&
+        _requiresTripProof &&
         _travelDocumentFile == null &&
         (_existingTravelDocument == null || _existingTravelDocument!.isEmpty)) {
       AppSnackBar.show(context,
@@ -481,7 +486,8 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       if (travelMeans.trim().isEmpty) {
         throw Exception(l10n.chooseTravelType);
       }
-      if (_travelDocumentFile == null &&
+      if (_requiresTripProof &&
+          _travelDocumentFile == null &&
           (_existingTravelDocument == null ||
               _existingTravelDocument!.isEmpty)) {
         throw Exception(l10n.uploadProofOfTrip);
@@ -517,7 +523,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
             'landmark': landmark,
             'status': 'pending_admin_review',
           },
-          travelDocument: _travelDocumentFile,
+          travelDocument: _requiresTripProof ? _travelDocumentFile : null,
         );
       } else {
         await TripService.instance.createTrip(
@@ -532,7 +538,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           travelMeans: travelMeans,
           arrivalDate: departureIso,
           landmark: landmark,
-          travelDocument: _travelDocumentFile,
+          travelDocument: _requiresTripProof ? _travelDocumentFile : null,
         );
       }
       await ref.read(tripProvider.notifier).loadMyTrips();
@@ -1013,6 +1019,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
       case 5:
         return _TravelProofStep(
           travelMeans: _travelMeans,
+          showProofUpload: _requiresTripProof,
           hasProof: _travelDocumentFile != null ||
               (_existingTravelDocument?.isNotEmpty == true),
           proofName: _travelDocumentFile?.path.split('/').last ??
@@ -1049,6 +1056,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
           capacity: _capacity,
           price: _price,
           currency: currentCurrency,
+          showProof: _requiresTripProof,
           hasProof: _travelDocumentFile != null ||
               (_existingTravelDocument?.isNotEmpty == true),
         );
@@ -2689,6 +2697,7 @@ class _CounterBtn extends StatelessWidget {
 class _TravelProofStep extends StatelessWidget {
   const _TravelProofStep({
     required this.travelMeans,
+    required this.showProofUpload,
     required this.hasProof,
     required this.proofName,
     required this.onTravelMeansChanged,
@@ -2696,6 +2705,7 @@ class _TravelProofStep extends StatelessWidget {
   });
 
   final String travelMeans;
+  final bool showProofUpload;
   final bool hasProof;
   final String? proofName;
   final void Function(String) onTravelMeansChanged;
@@ -2714,12 +2724,14 @@ class _TravelProofStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Trip Proof',
+          Text(showProofUpload ? 'Trip Proof' : 'Travel Type',
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900, color: AppColors.black)),
           const SizedBox(height: 6),
           Text(
-            'Choose how you are traveling and upload your ticket or booking proof. This is required for approval.',
+            showProofUpload
+                ? 'Choose how you are traveling and upload your ticket or booking proof. This is required for approval.'
+                : 'Choose how this shipment route travels.',
             style: AppTextStyles.bodyMd
                 .copyWith(color: AppColors.gray500, height: 1.5),
           ),
@@ -2753,59 +2765,62 @@ class _TravelProofStep extends StatelessWidget {
               );
             }).toList(),
           ),
-          const SizedBox(height: 24),
-          Text('Proof of trip',
-              style:
-                  AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: onPickProof,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color:
-                    hasProof ? AppColors.primarySoft : const Color(0xFFF7F7F8),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: hasProof ? AppColors.primary : AppColors.border,
-                  width: 1.5,
+          if (showProofUpload) ...[
+            const SizedBox(height: 24),
+            Text('Proof of trip',
+                style: AppTextStyles.labelMd
+                    .copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: onPickProof,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: hasProof
+                      ? AppColors.primarySoft
+                      : const Color(0xFFF7F7F8),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: hasProof ? AppColors.primary : AppColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasProof
+                          ? Icons.check_circle_rounded
+                          : Icons.upload_file_rounded,
+                      color: hasProof ? AppColors.primary : AppColors.gray500,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasProof
+                                ? 'Proof uploaded'
+                                : 'Upload ticket or booking screenshot',
+                            style: AppTextStyles.labelMd
+                                .copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            proofName ??
+                                'Flight ticket, bus ticket, train ticket, or booking confirmation',
+                            style: AppTextStyles.bodySm
+                                .copyWith(color: AppColors.gray600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    hasProof
-                        ? Icons.check_circle_rounded
-                        : Icons.upload_file_rounded,
-                    color: hasProof ? AppColors.primary : AppColors.gray500,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          hasProof
-                              ? 'Proof uploaded'
-                              : 'Upload ticket or booking screenshot',
-                          style: AppTextStyles.labelMd
-                              .copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          proofName ??
-                              'Flight ticket, bus ticket, train ticket, or booking confirmation',
-                          style: AppTextStyles.bodySm
-                              .copyWith(color: AppColors.gray600),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -3100,11 +3115,13 @@ class _ReviewStep extends StatelessWidget {
     required this.capacity,
     required this.price,
     required this.currency,
+    required this.showProof,
     required this.hasProof,
   });
   final String from, to, date, time, price, currency;
   final String travelMeans;
   final int capacity;
+  final bool showProof;
   final bool hasProof;
 
   @override
@@ -3167,13 +3184,15 @@ class _ReviewStep extends StatelessWidget {
                   label: 'Travel Type',
                   value: travelMeans,
                 ),
-                const Divider(height: 24, color: AppColors.border),
-                _ReviewRow(
-                  leading: const Icon(Icons.verified_outlined,
-                      color: AppColors.primary, size: 20),
-                  label: 'Proof',
-                  value: hasProof ? 'Attached' : 'Missing',
-                ),
+                if (showProof) ...[
+                  const Divider(height: 24, color: AppColors.border),
+                  _ReviewRow(
+                    leading: const Icon(Icons.verified_outlined,
+                        color: AppColors.primary, size: 20),
+                    label: 'Proof',
+                    value: hasProof ? 'Attached' : 'Missing',
+                  ),
+                ],
                 const Divider(height: 24, color: AppColors.border),
                 _ReviewRow(
                   leading: const Icon(Icons.scale_rounded,

@@ -1,3 +1,4 @@
+import '../../l10n/app_localizations.dart';
 import '../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -60,12 +61,12 @@ class _AuthRequiredSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Sign in to continue',
+              AppLocalizations.of(context).uiSignInToContinue,
               style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
-              'Create a free account or sign in to book a carrier and ship your package.',
+              AppLocalizations.of(context).uiCreateAFreeAccountOrSign,
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500),
               textAlign: TextAlign.center,
@@ -85,7 +86,7 @@ class _AuthRequiredSheet extends StatelessWidget {
                   shape: const StadiumBorder(),
                   elevation: 0,
                 ),
-                child: Text('Sign In',
+                child: Text(AppLocalizations.of(context).uiSignIn,
                     style: AppTextStyles.labelLg.copyWith(
                         color: Colors.white, fontWeight: FontWeight.w800)),
               ),
@@ -104,7 +105,7 @@ class _AuthRequiredSheet extends StatelessWidget {
                   side: const BorderSide(color: AppColors.primary),
                   shape: const StadiumBorder(),
                 ),
-                child: Text('Create Account',
+                child: Text(AppLocalizations.of(context).uiCreateAccount,
                     style: AppTextStyles.labelLg.copyWith(
                         color: AppColors.primary, fontWeight: FontWeight.w800)),
               ),
@@ -112,7 +113,7 @@ class _AuthRequiredSheet extends StatelessWidget {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Continue browsing',
+              child: Text(AppLocalizations.of(context).uiContinueBrowsing,
                   style: AppTextStyles.labelMd
                       .copyWith(color: AppPalette.of(context).gray500)),
             ),

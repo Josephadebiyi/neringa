@@ -120,7 +120,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: 'A new verification code was sent to ${widget.email}.',
+          message: AppLocalizations.of(context)
+              .uiFANewVerificationCodeWasSent(widget.email),
           type: SnackBarType.success,
         );
       }

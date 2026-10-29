@@ -1,24 +1,11 @@
 import { query, queryOne } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 import { createAuditLog } from '../lib/postgres/audit.js';
-import twilio from 'twilio';
+import { getTwilioClient } from '../services/twilioSmsService.js';
 
 const CURRENT_TERMS_VERSION = '1.0';
 
-function getTwilioClient() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_FROM_NUMBER;
 
-  if (!accountSid || !authToken || !fromNumber) {
-    return null;
-  }
-
-  return {
-    client: twilio(accountSid, authToken),
-    fromNumber,
-  };
-}
 
 // ─── Shipment Terms ──────────────────────────────────────────────────────────
 
@@ -117,7 +104,7 @@ export async function sendPhoneVerificationOtp(req, res) {
 
     await sms.client.messages.create({
       body: `Your Bago verification code is: ${otp}. Expires in 15 minutes.`,
-      from: sms.fromNumber,
+      ...sms.senderOptions,
       to: phone.trim(),
     });
 

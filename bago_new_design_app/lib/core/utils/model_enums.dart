@@ -1,3 +1,4 @@
+import '../../l10n/runtime_tr.dart';
 import 'package:flutter/material.dart';
 
 enum PackageStatus {
@@ -18,12 +19,12 @@ enum PackageStatus {
       };
 
   String get label => switch (this) {
-        PackageStatus.draft => 'Draft',
-        PackageStatus.pending => 'Pending',
-        PackageStatus.matched => 'Matched',
-        PackageStatus.inTransit => 'In Transit',
-        PackageStatus.delivered => 'Delivered',
-        PackageStatus.cancelled => 'Cancelled',
+        PackageStatus.draft => tr('Draft'),
+        PackageStatus.pending => tr('Pending'),
+        PackageStatus.matched => tr('Matched'),
+        PackageStatus.inTransit => tr('In Transit'),
+        PackageStatus.delivered => tr('Delivered'),
+        PackageStatus.cancelled => tr('Cancelled'),
       };
 
   String get apiValue => switch (this) {
@@ -121,30 +122,30 @@ enum RequestStatus {
         role?.toLowerCase() == 'traveler' || role?.toLowerCase() == 'carrier';
     return switch (this) {
       RequestStatus.pending =>
-        isTraveler ? 'Booking Received' : 'Awaiting Carrier',
+        isTraveler ? tr('Booking Received') : tr('Awaiting Carrier'),
       RequestStatus.accepted =>
-        isTraveler ? 'Booking Confirmed' : 'Carrier Confirmed',
+        isTraveler ? tr('Booking Confirmed') : tr('Carrier Confirmed'),
       RequestStatus.acceptedAwaitingInspection =>
-        'Accepted — Awaiting Package Inspection',
-      RequestStatus.inspectionInProgress => 'Inspection in Progress',
-      RequestStatus.inspectionCompleted => 'Inspection Completed',
+        tr('Accepted — Awaiting Package Inspection'),
+      RequestStatus.inspectionInProgress => tr('Inspection in Progress'),
+      RequestStatus.inspectionCompleted => tr('Inspection Completed'),
       RequestStatus.rejectedAtInspectionUnderReview =>
-        'Rejected at Inspection — Under Review',
-      RequestStatus.approvedForTrip => 'Approved for Trip',
-      RequestStatus.refundApproved => 'Refund Approved',
-      RequestStatus.partialRefundApproved => 'Partial Refund Approved',
-      RequestStatus.refundDeclined => 'Refund Declined',
+        tr('Rejected at Inspection — Under Review'),
+      RequestStatus.approvedForTrip => tr('Approved for Trip'),
+      RequestStatus.refundApproved => tr('Refund Approved'),
+      RequestStatus.partialRefundApproved => tr('Partial Refund Approved'),
+      RequestStatus.refundDeclined => tr('Refund Declined'),
       RequestStatus.rejected =>
-        isTraveler ? 'Booking Declined' : 'Request Declined',
-      RequestStatus.packageReceived => 'Package Received',
-      RequestStatus.deliveryStarted => 'Delivery Started',
+        isTraveler ? tr('Booking Declined') : tr('Request Declined'),
+      RequestStatus.packageReceived => tr('Package Received'),
+      RequestStatus.deliveryStarted => tr('Delivery Started'),
       RequestStatus.intransit =>
-        isTraveler ? 'Carrying Package' : 'Package In Transit',
-      RequestStatus.arrivedAtHub => 'Arrived at Hub',
+        isTraveler ? tr('Carrying Package') : tr('Package In Transit'),
+      RequestStatus.arrivedAtHub => tr('Arrived at Hub'),
       RequestStatus.delivering =>
-        isTraveler ? 'Delivering Now' : 'Out for Delivery',
-      RequestStatus.completed => 'Delivered',
-      RequestStatus.cancelled => 'Cancelled',
+        isTraveler ? tr('Delivering Now') : tr('Out for Delivery'),
+      RequestStatus.completed => tr('Delivered'),
+      RequestStatus.cancelled => tr('Cancelled'),
     };
   }
 

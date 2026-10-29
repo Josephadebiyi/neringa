@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
@@ -82,7 +83,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
     if (_firstNameCtrl.text.isEmpty || _lastNameCtrl.text.isEmpty) {
       AppSnackBar.show(
         context,
-        message: 'Please fill all required fields',
+        message: AppLocalizations.of(context).uiPleaseFillAllRequiredFields,
         type: SnackBarType.error,
       );
       return;
@@ -91,7 +92,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
     if (!kycLocked && _dobCtrl.text.trim().isEmpty) {
       AppSnackBar.show(
         context,
-        message: 'Please enter your date of birth',
+        message: AppLocalizations.of(context).uiPleaseEnterYourDateOfBirth,
         type: SnackBarType.error,
       );
       return;
@@ -115,13 +116,13 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
 
       AppSnackBar.show(
         context,
-        message: 'Profile updated successfully',
+        message: AppLocalizations.of(context).uiProfileUpdatedSuccessfully,
         type: SnackBarType.success,
       );
     } catch (e) {
       AppSnackBar.show(
         context,
-        message: 'Failed to update profile',
+        message: AppLocalizations.of(context).uiFailedToUpdateProfile,
         type: SnackBarType.error,
       );
     } finally {
@@ -157,7 +158,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                 margin: const EdgeInsets.only(bottom: 24),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.warningLight,
+                  color: AppPalette.of(context).soft(AppColors.warningLight),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.warning),
                 ),
@@ -165,7 +166,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Name and date of birth are locked after KYC approval.',
+                      AppLocalizations.of(context).uiNameAndDateOfBirthAre,
                       style: AppTextStyles.labelMd.copyWith(
                         fontWeight: FontWeight.w700,
                         color: AppPalette.of(context).black,
@@ -176,7 +177,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
               ),
             // Personal Information Section
             Text(
-              'PERSONAL INFORMATION',
+              AppLocalizations.of(context).uiPersonalInformation,
               style: AppTextStyles.labelMd.copyWith(
                 color: AppPalette.of(context).gray500,
                 fontWeight: FontWeight.w700,
@@ -189,7 +190,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
               controller: _firstNameCtrl,
               enabled: !kycLocked,
               decoration: InputDecoration(
-                labelText: 'First Name *',
+                labelText: AppLocalizations.of(context).uiFirstName,
                 prefixIcon: const Icon(Icons.person_outline_rounded),
                 suffixIcon: kycLocked
                     ? Icon(Icons.lock_rounded,
@@ -207,7 +208,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
               controller: _lastNameCtrl,
               enabled: !kycLocked,
               decoration: InputDecoration(
-                labelText: 'Last Name *',
+                labelText: AppLocalizations.of(context).uiLastName,
                 prefixIcon: const Icon(Icons.person_outline_rounded),
                 suffixIcon: kycLocked
                     ? Icon(Icons.lock_rounded,
@@ -225,9 +226,9 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
               enabled: !kycLocked,
               readOnly: kycLocked,
               decoration: InputDecoration(
-                labelText: 'Date of Birth *',
+                labelText: AppLocalizations.of(context).uiDateOfBirth2,
                 prefixIcon: const Icon(Icons.cake_outlined),
-                hintText: 'YYYY-MM-DD',
+                hintText: AppLocalizations.of(context).uiYyyyMmDd,
                 suffixIcon: kycLocked
                     ? Icon(Icons.lock_rounded,
                         color: AppPalette.of(context).gray400)
@@ -241,7 +242,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
 
             // Account Information Section
             Text(
-              'ACCOUNT INFORMATION',
+              AppLocalizations.of(context).uiAccountInformation,
               style: AppTextStyles.labelMd.copyWith(
                 color: AppPalette.of(context).gray500,
                 fontWeight: FontWeight.w700,
@@ -255,7 +256,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
               readOnly: true,
               onTap: () => context.push('/profile/change-email'),
               decoration: InputDecoration(
-                labelText: 'Email Address',
+                labelText: AppLocalizations.of(context).uiEmailAddress,
                 prefixIcon: const Icon(Icons.mail_outline_rounded),
                 suffixIcon: Icon(Icons.chevron_right_rounded,
                     color: AppPalette.of(context).gray400),
@@ -267,7 +268,8 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'Email changes are handled through verification.',
+                AppLocalizations.of(context)
+                    .uiEmailChangesAreHandledThroughVerification,
                 style: AppTextStyles.caption
                     .copyWith(color: AppPalette.of(context).gray500),
               ),
@@ -280,7 +282,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
               readOnly: true,
               onTap: () => context.push('/profile/change-phone'),
               decoration: InputDecoration(
-                labelText: 'Phone Number',
+                labelText: AppLocalizations.of(context).phoneNumberTitle,
                 prefixIcon: const Icon(Icons.phone_outlined),
                 suffixIcon: Icon(Icons.chevron_right_rounded,
                     color: AppPalette.of(context).gray400),
@@ -292,7 +294,8 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'Phone number changes are confirmed with an OTP sent to your email.',
+                AppLocalizations.of(context)
+                    .uiPhoneNumberChangesAreConfirmedWith,
                 style: AppTextStyles.caption
                     .copyWith(color: AppPalette.of(context).gray500),
               ),
@@ -301,7 +304,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
 
             // Location Information
             Text(
-              'LOCATION INFORMATION',
+              AppLocalizations.of(context).uiLocationInformation,
               style: AppTextStyles.labelMd.copyWith(
                 color: AppPalette.of(context).gray500,
                 fontWeight: FontWeight.w700,
@@ -315,7 +318,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
               readOnly: true,
               onTap: _pickLocation,
               decoration: InputDecoration(
-                labelText: 'City, Country',
+                labelText: AppLocalizations.of(context).uiCityCountry,
                 prefixIcon: const Icon(Icons.location_on_outlined),
                 suffixIcon: Icon(Icons.search_rounded,
                     color: AppPalette.of(context).gray400),
@@ -357,8 +360,8 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                       children: [
                         Text(
                           kycLocked
-                              ? 'Identity Verified'
-                              : 'Identity Not Verified',
+                              ? tr('Identity Verified')
+                              : tr('Identity Not Verified'),
                           style: AppTextStyles.labelMd.copyWith(
                             fontWeight: FontWeight.w600,
                             color: kycLocked
@@ -369,8 +372,8 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
                         const SizedBox(height: 4),
                         Text(
                           kycLocked
-                              ? 'Your legal name and date of birth are locked to your verified identity.'
-                              : 'Complete KYC to unlock higher limits',
+                              ? tr('Your legal name and date of birth are locked to your verified identity.')
+                              : tr('Complete KYC to unlock higher limits'),
                           style: AppTextStyles.bodySm.copyWith(
                             color: AppPalette.of(context).gray400,
                           ),
@@ -385,7 +388,7 @@ class _EditDetailsScreenState extends ConsumerState<EditDetailsScreen> {
 
             // Save Button
             AppButton(
-              label: 'Save Changes',
+              label: AppLocalizations.of(context).saveChanges,
               isLoading: _isLoading,
               onPressed: _saveChanges,
             ),
@@ -508,7 +511,7 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    'Search city and country',
+                    AppLocalizations.of(context).uiSearchCityAndCountry,
                     style:
                         AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
                   ),
@@ -526,7 +529,7 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               height: 52,
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F8),
+                color: AppPalette.of(context).gray100,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -538,8 +541,9 @@ class _LocationSearchSheetState extends State<_LocationSearchSheet> {
                     child: TextField(
                       controller: _ctrl,
                       autofocus: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Type city or country',
+                      decoration: InputDecoration(
+                        hintText:
+                            AppLocalizations.of(context).uiTypeCityOrCountry,
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.zero,

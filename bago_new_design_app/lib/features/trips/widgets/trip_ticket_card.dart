@@ -1,3 +1,6 @@
+import 'package:intl/intl.dart';
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +46,9 @@ class TripTicketCard extends ConsumerWidget {
         opacity: isHistory ? 0.62 : 1,
         child: Container(
           decoration: BoxDecoration(
-            color: isHistory ? AppPalette.of(context).gray100 : AppColors.white,
+            color: isHistory
+                ? AppPalette.of(context).gray100
+                : AppPalette.of(context).white,
             borderRadius: BorderRadius.circular(24),
             border: isHistory
                 ? Border.all(color: AppPalette.of(context).border)
@@ -71,11 +76,11 @@ class TripTicketCard extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             trip.isBusinessService && !ownerView
-                                ? '${trip.serviceName ?? 'Service'} · ${NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Business')}'
+                                ? '${trip.serviceName ?? tr('Service')} · ${NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Business')}'
                                 : ownerView && tripNumber.isNotEmpty
-                                    ? 'Trip #$tripNumber · ${isHistory ? 'History' : formatTripStatusLabel(trip.status)}'
+                                    ? '${tr('Trip')} #$tripNumber · ${isHistory ? tr('History') : tr(formatTripStatusLabel(trip.status))}'
                                     : ownerView
-                                        ? formatTripStatusLabel(trip.status)
+                                        ? tr(formatTripStatusLabel(trip.status))
                                         : NameFormatter.firstNameOnly(
                                             trip.carrierName,
                                             fallback: 'Traveler',
@@ -112,7 +117,8 @@ class TripTicketCard extends ConsumerWidget {
                               size: 18, color: AppPalette.of(context).gray400),
                           const SizedBox(width: 8),
                           Text(
-                            'Ships to any destination',
+                            AppLocalizations.of(context)
+                                .uiShipsToAnyDestination,
                             style: AppTextStyles.bodySm.copyWith(
                               color: AppPalette.of(context).gray500,
                               fontWeight: FontWeight.w700,
@@ -164,7 +170,11 @@ class TripTicketCard extends ConsumerWidget {
                 ),
               ),
               CustomPaint(
-                painter: _TicketDividerPainter(),
+                painter: _TicketDividerPainter(
+                  line: AppPalette.of(context).border,
+                  // Notches show the page behind the card.
+                  cutout: AppPalette.of(context).pageBackground,
+                ),
                 child: const SizedBox(height: 18, width: double.infinity),
               ),
               Padding(
@@ -177,20 +187,22 @@ class TripTicketCard extends ConsumerWidget {
                         runSpacing: 8,
                         children: [
                           if (trip.isBusinessService)
-                            const _MiniPill(
+                            _MiniPill(
                               icon: Icons.all_inclusive_rounded,
-                              label: 'Unlimited capacity',
+                              label: AppLocalizations.of(context)
+                                  .uiUnlimitedCapacity,
                             )
                           else
                             _MiniPill(
                               icon: Icons.luggage_rounded,
-                              label:
-                                  '${trip.availableKg.toStringAsFixed(0)} kg free',
+                              label: AppLocalizations.of(context).uiFKgFree(
+                                  trip.availableKg.toStringAsFixed(0)),
                             ),
                           if (ownerView && !trip.isBusinessService)
                             _MiniPill(
                               icon: Icons.inventory_2_outlined,
-                              label: '${bookedKg.toStringAsFixed(0)} kg booked',
+                              label: AppLocalizations.of(context)
+                                  .uiFKgBooked2(bookedKg.toStringAsFixed(0)),
                             )
                           else if (trip.averageRating != null)
                             _MiniPill(
@@ -204,7 +216,7 @@ class TripTicketCard extends ConsumerWidget {
                                   : Icons.person_add_alt_1_rounded,
                               label: trip.completedTripCount > 0
                                   ? '${trip.completedTripCount} completed ${trip.completedTripCount == 1 ? 'trip' : 'trips'}'
-                                  : 'New traveler',
+                                  : tr('New traveler'),
                             ),
                         ],
                       ),
@@ -214,12 +226,15 @@ class TripTicketCard extends ConsumerWidget {
                       height: 38,
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: AppPalette.of(context).black,
+                        // Black pill in light mode, brand purple in dark.
+                        color: AppPalette.of(context).dark
+                            ? AppColors.primary
+                            : AppColors.black,
                         borderRadius: BorderRadius.circular(18),
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        actionLabel ?? (ownerView ? 'Details' : 'Select'),
+                        actionLabel ?? (ownerView ? tr('Details') : tr('Select')),
                         style: AppTextStyles.labelSm.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -256,21 +271,7 @@ class TripTicketCard extends ConsumerWidget {
   static String _formatDate(String raw) {
     try {
       final dt = DateTime.parse(raw).toLocal();
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+      return DateFormat.yMMMd().format(dt);
     } catch (_) {
       return raw;
     }
@@ -316,7 +317,7 @@ class _ModeBadge extends StatelessWidget {
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: const Color(0xFFEFFBF8),
+        color: AppPalette.of(context).tint(const Color(0xFFEFFBF8)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Icon(icon, color: AppPalette.of(context).primary, size: 22),
@@ -443,7 +444,7 @@ class _MiniPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA),
+        color: AppPalette.of(context).tint(const Color(0xFFF7F8FA)),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -489,10 +490,15 @@ class _DashedLinePainter extends CustomPainter {
 }
 
 class _TicketDividerPainter extends CustomPainter {
+  _TicketDividerPainter({required this.line, required this.cutout});
+
+  final Color line;
+  final Color cutout;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE5E7EB)
+      ..color = line
       ..strokeWidth = 1
       ..strokeCap = StrokeCap.round;
     var x = 22.0;
@@ -501,11 +507,12 @@ class _TicketDividerPainter extends CustomPainter {
           Offset((x + 5).clamp(0, size.width - 22), size.height / 2), paint);
       x += 10;
     }
-    final cutoutPaint = Paint()..color = const Color(0xFFF4F5F7);
+    final cutoutPaint = Paint()..color = cutout;
     canvas.drawCircle(Offset(0, size.height / 2), 11, cutoutPaint);
     canvas.drawCircle(Offset(size.width, size.height / 2), 11, cutoutPaint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _TicketDividerPainter oldDelegate) =>
+      oldDelegate.line != line || oldDelegate.cutout != cutout;
 }

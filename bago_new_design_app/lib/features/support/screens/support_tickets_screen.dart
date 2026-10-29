@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,7 +66,7 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
     return Scaffold(
       backgroundColor: AppPalette.of(context).pageBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F7FC),
+        backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
         leading: GestureDetector(
           onTap: () => context.pop(),
@@ -82,11 +84,12 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
         title: Column(
           children: [
             Text(
-              'Support inbox',
+              AppLocalizations.of(context).uiSupportInbox,
               style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
             ),
             Text(
-              '${state.tickets.length} conversation${state.tickets.length == 1 ? '' : 's'}',
+              AppLocalizations.of(context)
+                  .uiFOtherConversations(state.tickets.length),
               style: AppTextStyles.labelXs
                   .copyWith(color: AppPalette.of(context).gray500),
             ),
@@ -99,7 +102,7 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
         backgroundColor: AppColors.primary,
         icon: const Icon(Icons.edit_outlined, color: AppColors.white),
         label: Text(
-          'New conversation',
+          AppLocalizations.of(context).uiNewConversation,
           style: AppTextStyles.labelMd
               .copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
         ),
@@ -135,7 +138,8 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Your messages with Bago support',
+                              AppLocalizations.of(context)
+                                  .uiYourMessagesWithBagoSupport,
                               style: AppTextStyles.labelMd.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: AppPalette.of(context).black,
@@ -143,7 +147,8 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Everything stays in one thread so users can return any time, just like a messenger inbox.',
+                              AppLocalizations.of(context)
+                                  .uiEverythingStaysInOneThreadSo,
                               style: AppTextStyles.bodySm.copyWith(
                                   color: AppPalette.of(context).gray600),
                             ),
@@ -156,7 +161,7 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
                 const SizedBox(height: 14),
                 AppTextField(
                   controller: _searchCtrl,
-                  hint: 'Search conversations',
+                  hint: AppLocalizations.of(context).uiSearchConversations,
                   prefixIcon: Icon(Icons.search_rounded,
                       color: AppPalette.of(context).primary),
                   onChanged: (_) => setState(() {}),
@@ -179,7 +184,7 @@ class _SupportTicketsScreenState extends ConsumerState<SupportTicketsScreen> {
                             decoration: BoxDecoration(
                               color: selected
                                   ? AppColors.primary
-                                  : AppColors.white,
+                                  : AppPalette.of(context).white,
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
                                 color: selected
@@ -289,16 +294,16 @@ class _EmptyInbox extends StatelessWidget {
               const SizedBox(height: 18),
               Text(
                 hasSearch
-                    ? 'No matching conversations'
-                    : 'Your support inbox is empty',
+                    ? tr('No matching conversations')
+                    : tr('Your support inbox is empty'),
                 style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 hasSearch
-                    ? 'Try another search term or filter.'
-                    : 'Start a conversation and it will appear here with future replies from the team.',
+                    ? tr('Try another search term or filter.')
+                    : tr('Start a conversation and it will appear here with future replies from the team.'),
                 style: AppTextStyles.bodyMd
                     .copyWith(color: AppPalette.of(context).gray500),
                 textAlign: TextAlign.center,
@@ -316,7 +321,7 @@ class _EmptyInbox extends StatelessWidget {
                           borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
-                      'Start conversation',
+                      AppLocalizations.of(context).uiStartConversation,
                       style: AppTextStyles.labelMd.copyWith(
                         color: AppColors.white,
                         fontWeight: FontWeight.w700,
@@ -345,12 +350,12 @@ class _InboxCard extends StatelessWidget {
         ? lastMsg!.content
         : ticket.description;
     final senderLabel = lastMsg == null
-        ? 'Ticket created'
+        ? tr('Ticket created')
         : lastMsg.isAdmin
             ? (lastMsg.senderName?.isNotEmpty == true
                 ? lastMsg.senderName!
-                : 'Support team')
-            : 'You';
+                : tr('Support team'))
+            : tr('You');
 
     return GestureDetector(
       onTap: () => context.push('/profile/support/ticket/${ticket.id}'),
@@ -507,10 +512,26 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, background) = switch (status) {
-      'OPEN' => ('Open', AppColors.info, const Color(0xFFEAF3FF)),
-      'IN_PROGRESS' => ('Waiting', AppColors.warning, const Color(0xFFFFF6E8)),
-      'RESOLVED' => ('Resolved', AppColors.success, const Color(0xFFEAFBF1)),
-      _ => ('Closed', AppPalette.of(context).gray500, const Color(0xFFF2F4F7)),
+      'OPEN' => (
+          'Open',
+          AppColors.info,
+          AppPalette.of(context).tint(const Color(0xFFEAF3FF))
+        ),
+      'IN_PROGRESS' => (
+          'Waiting',
+          AppColors.warning,
+          AppPalette.of(context).tint(const Color(0xFFFFF6E8))
+        ),
+      'RESOLVED' => (
+          'Resolved',
+          AppColors.success,
+          AppPalette.of(context).tint(const Color(0xFFEAFBF1))
+        ),
+      _ => (
+          'Closed',
+          AppPalette.of(context).gray500,
+          AppPalette.of(context).tint(const Color(0xFFF2F4F7))
+        ),
     };
 
     return Container(

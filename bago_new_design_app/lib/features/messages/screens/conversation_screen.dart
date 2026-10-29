@@ -1,3 +1,6 @@
+import '../../../shared/services/api_service.dart';
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 import 'dart:io';
@@ -106,7 +109,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final currentUserId = currentUser?.id ?? '';
     final currentUserName = (currentUser?.fullName.trim().isNotEmpty ?? false)
         ? currentUser!.fullName.trim()
-        : (currentUser?.email ?? 'You');
+        : (currentUser?.email ?? tr('You'));
 
     // React to new messages
     ref.listen<MessageState>(messageProvider, (previous, next) {
@@ -139,7 +142,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           end: Alignment.bottomRight,
           colors: [
             AppPalette.of(context).pageTint,
-            const Color(0xFFEFF5FB),
+            AppPalette.of(context).dark
+                ? const Color(0xFF181B28)
+                : AppPalette.of(context).tint(const Color(0xFFEFF5FB)),
             AppPalette.of(context).pageBackground
           ],
         ),
@@ -193,7 +198,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         overflow: TextOverflow.ellipsis),
                     if (state.isOtherTyping)
                       Text(
-                        'typing…',
+                        AppLocalizations.of(context).uiTyping,
                         style: AppTextStyles.captionBold
                             .copyWith(color: AppColors.primary),
                       ),
@@ -371,8 +376,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     if (isClosed) {
       AppSnackBar.show(
         context,
-        message:
-            'This shipment chat is closed. Please contact support or open a dispute if needed.',
+        message: AppLocalizations.of(context).uiThisShipmentChatIsClosedPlease,
         type: SnackBarType.info,
       );
       return;
@@ -433,8 +437,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message:
-              'Shipment reported. Support can now review the chat history.',
+          message: AppLocalizations.of(context)
+              .uiShipmentReportedSupportCanNowReview,
           type: SnackBarType.success,
         );
       }
@@ -473,7 +477,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Add more kg',
+                  AppLocalizations.of(context).uiAddMoreKg,
                   style: AppTextStyles.h2.copyWith(
                     color: AppPalette.of(context).black,
                     fontWeight: FontWeight.w900,
@@ -481,7 +485,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This adds weight to the active shipment in this chat. Receiver details stay the same.',
+                  AppLocalizations.of(context).uiThisAddsWeightToTheActive,
                   style: AppTextStyles.bodySm.copyWith(
                     color: AppPalette.of(context).gray500,
                     height: 1.35,
@@ -494,7 +498,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: 'Additional weight',
+                    labelText: AppLocalizations.of(context).uiAdditionalWeight,
                     suffixText: 'kg',
                     filled: true,
                     fillColor: AppPalette.of(context).gray50,
@@ -525,7 +529,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       if (kg <= 0) {
                         AppSnackBar.show(
                           sheetContext,
-                          message: 'Enter the additional kg.',
+                          message: AppLocalizations.of(context)
+                              .uiEnterTheAdditionalKg,
                           type: SnackBarType.error,
                         );
                         return;
@@ -536,14 +541,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             await ShipmentService.instance.getRequestDetails(
                           requestId.trim(),
                         );
-                        final existingWeight = request.packageWeight ?? 0;
-                        final pricePerKg = existingWeight > 0
-                            ? request.agreedPrice / existingWeight
-                            : 0.0;
-                        final estimatedShipping = pricePerKg > 0
-                            ? double.parse((kg * pricePerKg).toStringAsFixed(2))
-                            : 0.0;
+                        final response = await ApiService.instance.post(
+                          '/api/checkout/additional-weight-preview',
+                          data: {'requestId': request.id, 'additionalKg': kg},
+                        );
+                        final quote =
+                            Map<String, dynamic>.from(response.data['preview']);
                         final draft = {
+                          ...quote,
                           'type': 'additional_kg',
                           'additionalKg': kg,
                           'additionalRequestId': request.id,
@@ -553,9 +558,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           'currency': request.currency.isNotEmpty
                               ? request.currency
                               : 'USD',
-                          'shippingAmount': estimatedShipping,
+                          'shippingAmount': quote['shippingAmount'],
                           'insuranceAmount': 0.0,
-                          'totalAmount': estimatedShipping,
+                          'totalAmount': quote['totalAmount'],
                           'insurance': false,
                           'fromLocation':
                               request.fromLocation ?? conversation.routeLabel,
@@ -573,8 +578,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         if (!mounted) return;
                         AppSnackBar.show(
                           context,
-                          message:
-                              'Could not load shipment details. Please try again.',
+                          message: AppLocalizations.of(context)
+                              .uiCouldNotLoadShipmentDetailsPlease,
                           type: SnackBarType.error,
                         );
                       }
@@ -588,7 +593,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       ),
                     ),
                     child: Text(
-                      'Send kg request',
+                      AppLocalizations.of(context).uiSendKgRequest,
                       style: AppTextStyles.buttonLg.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
@@ -612,7 +617,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final messages = ref.read(messageProvider).messages;
     final otherName = conversation.otherUserName.trim().isNotEmpty
         ? conversation.otherUserName.trim()
-        : 'Other party';
+        : tr('Other party');
     final currentUserId = ref.read(authProvider).user?.id ?? '';
     final recent = messages.take(12).map((msg) {
       final speaker =
@@ -623,8 +628,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final isClosed = conversation.isClosed == true;
     return [
       isClosed
-          ? 'Shipment dispute opened from a completed shipment chat.'
-          : 'Shipment issue reported from an active shipment chat.',
+          ? tr('Shipment dispute opened from a completed shipment chat.')
+          : tr('Shipment issue reported from an active shipment chat.'),
       'Request ID: ${conversation.requestId ?? 'unknown'}',
       if ((conversation.tripId ?? '').isNotEmpty)
         'Trip ID: ${conversation.tripId}',
@@ -659,10 +664,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               ListTile(
                 leading: Icon(Icons.support_agent_rounded,
                     color: AppPalette.of(context).primary),
-                title: const Text('Contact support'),
+                title: Text(AppLocalizations.of(context).uiContactSupport2),
                 subtitle: Text(isClosed
-                    ? 'Get help with a completed shipment'
-                    : 'Get help with this shipment'),
+                    ? tr('Get help with a completed shipment')
+                    : tr('Get help with this shipment')),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.push('/profile/support');
@@ -672,10 +677,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ListTile(
                   leading:
                       const Icon(Icons.flag_outlined, color: AppColors.error),
-                  title: const Text('Report shipment'),
+                  title: Text(AppLocalizations.of(context).uiReportShipment),
                   subtitle: Text(isClosed
-                      ? 'Open a dispute for this request'
-                      : 'Report an issue with this shipment'),
+                      ? tr('Open a dispute for this request')
+                      : tr('Report an issue with this shipment')),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _reportShipment(
@@ -966,7 +971,7 @@ class _ActiveShipmentChatCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Active shipment',
+                            AppLocalizations.of(context).uiActiveShipment,
                             style: AppTextStyles.captionBold.copyWith(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w900,
@@ -986,7 +991,8 @@ class _ActiveShipmentChatCard extends StatelessWidget {
                             Padding(
                               padding: const EdgeInsets.only(top: 3),
                               child: Text(
-                                'Tracking: $tracking',
+                                AppLocalizations.of(context)
+                                    .uiFTracking(tracking),
                                 style: AppTextStyles.captionBold.copyWith(
                                   color: AppPalette.of(context).gray500,
                                 ),
@@ -1008,7 +1014,7 @@ class _ActiveShipmentChatCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onOpen,
                         icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                        label: const Text('View'),
+                        label: Text(AppLocalizations.of(context).uiView),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: BorderSide(
@@ -1026,7 +1032,7 @@ class _ActiveShipmentChatCard extends StatelessWidget {
                         child: FilledButton.icon(
                           onPressed: onAddKg,
                           icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Add kg'),
+                          label: Text(AppLocalizations.of(context).uiAddKg),
                           style: FilledButton.styleFrom(
                             backgroundColor: isClosed
                                 ? AppPalette.of(context).gray300
@@ -1104,13 +1110,13 @@ class _DateSeparator extends StatelessWidget {
     if (date.year == now.year &&
         date.month == now.month &&
         date.day == now.day) {
-      return 'Today';
+      return tr('Today');
     }
     final yesterday = now.subtract(const Duration(days: 1));
     if (date.year == yesterday.year &&
         date.month == yesterday.month &&
         date.day == yesterday.day) {
-      return 'Yesterday';
+      return tr('Yesterday');
     }
     return '${date.day}/${date.month}/${date.year}';
   }
@@ -1230,7 +1236,7 @@ class _MessageBubble extends StatelessWidget {
             BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isMe ? null : AppColors.white,
+          color: isMe ? null : AppPalette.of(context).white,
           gradient: isMe
               ? const LinearGradient(
                   colors: [AppColors.primaryLight, AppColors.primary],
@@ -1280,7 +1286,7 @@ class _MessageBubble extends StatelessWidget {
                         : AppPalette.of(context).gray100,
                     alignment: Alignment.center,
                     child: Text(
-                      'Image unavailable',
+                      AppLocalizations.of(context).uiImageUnavailable,
                       style: AppTextStyles.bodySm.copyWith(
                         color: isMe
                             ? AppColors.white
@@ -1411,7 +1417,7 @@ class _ShipmentRequestMessageCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'New shipment',
+                      AppLocalizations.of(context).uiNewShipment,
                       style: AppTextStyles.labelMd.copyWith(
                         color: AppPalette.of(context).black,
                         fontWeight: FontWeight.w900,
@@ -1439,7 +1445,7 @@ class _ShipmentRequestMessageCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'View shipment details',
+                    AppLocalizations.of(context).uiViewShipmentDetails,
                     style: AppTextStyles.labelSm.copyWith(
                       color: AppPalette.of(context).primary,
                       fontWeight: FontWeight.w900,
@@ -1513,7 +1519,7 @@ class _MessageInput extends StatelessWidget {
               onChanged: (_) => onTyping(),
               style: AppTextStyles.bodyMd,
               decoration: InputDecoration(
-                hintText: 'Type a message...',
+                hintText: AppLocalizations.of(context).uiTypeAMessage,
                 filled: true,
                 fillColor: AppPalette.of(context).pageBackground,
                 contentPadding:
@@ -1605,12 +1611,13 @@ class _ClosedChatBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Chat closed',
+            AppLocalizations.of(context).uiChatClosed,
             style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           Text(
-            'Shipment $status. Need help? Contact support or report an issue.',
+            AppLocalizations.of(context)
+                .uiFShipmentNeedHelpContactSupportOr(status),
             style: AppTextStyles.bodySm
                 .copyWith(color: AppPalette.of(context).gray600, height: 1.3),
           ),
@@ -1624,7 +1631,7 @@ class _ClosedChatBanner extends StatelessWidget {
                       minimumSize: const Size(0, 40),
                       textStyle: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w600)),
-                  child: const Text('Contact support'),
+                  child: Text(AppLocalizations.of(context).uiContactSupport2),
                 ),
               ),
               if (onReportShipment != null) ...[
@@ -1635,7 +1642,7 @@ class _ClosedChatBanner extends StatelessWidget {
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.error,
                     ),
-                    child: const Text('Report issue'),
+                    child: Text(AppLocalizations.of(context).uiReportIssue),
                   ),
                 ),
               ],

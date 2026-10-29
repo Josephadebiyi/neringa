@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -176,7 +177,7 @@ class _TripsTabState extends ConsumerState<_TripsTab> {
               Icon(Icons.wifi_off_rounded,
                   size: 48, color: AppPalette.of(context).gray300),
               const SizedBox(height: 16),
-              Text('Could not load trips',
+              Text(AppLocalizations.of(context).uiCouldNotLoadTrips,
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
@@ -186,7 +187,7 @@ class _TripsTabState extends ConsumerState<_TripsTab> {
                   textAlign: TextAlign.center),
               const SizedBox(height: 24),
               AppButton(
-                label: 'Retry',
+                label: AppLocalizations.of(context).retry,
                 onPressed: () => ref.read(tripProvider.notifier).loadMyTrips(),
               ),
             ],
@@ -296,19 +297,19 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Discard draft?'),
-        content: const Text(
-          'This will remove this draft shipment immediately. You can start again anytime.',
+        title: Text(AppLocalizations.of(context).uiDiscardDraft),
+        content: Text(
+          AppLocalizations.of(context).uiThisWillRemoveThisDraftShipment,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Keep'),
+            child: Text(AppLocalizations.of(context).uiKeep),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Discard'),
+            child: Text(AppLocalizations.of(context).uiDiscard),
           ),
         ],
       ),
@@ -355,7 +356,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
               Icon(Icons.wifi_off_rounded,
                   size: 48, color: AppPalette.of(context).gray300),
               const SizedBox(height: 16),
-              Text('Could not load shipments',
+              Text(AppLocalizations.of(context).uiCouldNotLoadShipments,
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
@@ -365,7 +366,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
                   textAlign: TextAlign.center),
               const SizedBox(height: 24),
               AppButton(
-                label: 'Retry',
+                label: AppLocalizations.of(context).retry,
                 onPressed: () =>
                     ref.read(shipmentProvider.notifier).loadMyPackages(),
               ),
@@ -385,7 +386,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
             _EmptyState(
               icon: Icons.inventory_2_outlined,
               title: l10n.noShipmentsYet,
-              subtitle: 'Find a traveler to carry your package.',
+              subtitle: AppLocalizations.of(context).uiFindATravelerToCarryYour,
               cta: AppButton(
                 label: l10n.findTraveler,
                 onPressed: () => context.go('/home'),
@@ -528,7 +529,7 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
               Icon(Icons.wifi_off_rounded,
                   size: 48, color: AppPalette.of(context).gray300),
               const SizedBox(height: 16),
-              Text('Could not load requests',
+              Text(AppLocalizations.of(context).uiCouldNotLoadRequests,
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
@@ -538,7 +539,7 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
                   textAlign: TextAlign.center),
               const SizedBox(height: 24),
               AppButton(
-                label: 'Retry',
+                label: AppLocalizations.of(context).retry,
                 onPressed: () =>
                     ref.read(shipmentProvider.notifier).loadIncomingRequests(),
               ),
@@ -677,7 +678,7 @@ class _TripCard extends StatelessWidget {
             trip: trip,
             onTap: onTap,
             ownerView: true,
-            actionLabel: 'Manage',
+            actionLabel: AppLocalizations.of(context).uiManage,
           ),
           if (isPendingReview) ...[
             const SizedBox(height: 10),
@@ -685,7 +686,7 @@ class _TripCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
+                color: AppPalette.of(context).warningSoft,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
@@ -696,9 +697,11 @@ class _TripCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Under review — senders cannot see this trip yet. We\'ll activate it once approved.',
+                      AppLocalizations.of(context)
+                          .uiUnderReviewSendersCannotSeeThis,
                       style: AppTextStyles.labelXs.copyWith(
-                        color: const Color(0xFF92400E),
+                        color:
+                            AppPalette.of(context).ink(const Color(0xFF92400E)),
                         fontWeight: FontWeight.w600,
                         height: 1.4,
                       ),
@@ -851,13 +854,14 @@ class _PackageCard extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.payment_rounded,
-                        size: 15, color: Color(0xFF6B7280)),
+                    Icon(Icons.payment_rounded,
+                        size: 15, color: AppPalette.of(context).gray500),
                     const SizedBox(width: 6),
                     Text(
-                      'Awaiting payment — tap to continue',
+                      AppLocalizations.of(context)
+                          .uiAwaitingPaymentTapToContinue,
                       style: AppTextStyles.labelSm.copyWith(
-                        color: const Color(0xFF6B7280),
+                        color: AppPalette.of(context).gray500,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1034,7 +1038,7 @@ class _RequestCardState extends State<_RequestCard> {
                   if (widget.onReject != null)
                     Expanded(
                       child: _InlineActionButton(
-                        label: 'Reject',
+                        label: AppLocalizations.of(context).uiReject,
                         icon: Icons.close_rounded,
                         foreground: AppColors.error,
                         background: AppColors.errorLight,
@@ -1056,7 +1060,7 @@ class _RequestCardState extends State<_RequestCard> {
                   if (widget.onAccept != null)
                     Expanded(
                       child: _InlineActionButton(
-                        label: 'Accept',
+                        label: AppLocalizations.of(context).uiAccept,
                         icon: Icons.check_rounded,
                         foreground: Colors.white,
                         background: AppColors.primary,
@@ -1241,7 +1245,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayLabel = formatFrontendStatus(label);
+    final displayLabel = tr(formatFrontendStatus(label));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

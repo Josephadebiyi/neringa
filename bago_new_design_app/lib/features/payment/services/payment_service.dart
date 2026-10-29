@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -144,12 +145,14 @@ class PaymentService {
     final path = e.requestOptions.path;
     final statusCode = e.response?.statusCode;
     if (statusCode == 502 || statusCode == 503 || statusCode == 504) {
-      return 'Payment methods are temporarily unavailable. Please try again in a few minutes.';
+      return tr(
+          'Payment methods are temporarily unavailable. Please try again in a few minutes.');
     }
     final message = ApiService.parseError(e);
     if (e.response?.statusCode == 404 &&
         path.startsWith(ApiConstants.paymentMethods)) {
-      return 'Saved cards are not available right now. Please try again later.';
+      return tr(
+          'Saved cards are not available right now. Please try again later.');
     }
     return message;
   }
@@ -248,6 +251,8 @@ class PaymentService {
     required String tripId,
     required double amount,
     required String currency,
+    String? additionalRequestId,
+    double? additionalKg,
     bool insurance = false,
     double insuranceCost = 0,
   }) async {
@@ -259,6 +264,8 @@ class PaymentService {
           'currency': currency,
           'packageId': packageId,
           'tripId': tripId,
+          if (additionalRequestId != null) 'requestId': additionalRequestId,
+          if (additionalKg != null) 'additionalKg': additionalKg,
           'platform': 'mobile',
           'metadata': {
             'insurance': insurance,

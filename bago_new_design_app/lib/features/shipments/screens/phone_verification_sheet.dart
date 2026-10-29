@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
@@ -105,7 +107,7 @@ class _PhoneVerificationSheetState
               child: TextField(
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Search country…',
+                  hintText: AppLocalizations.of(context).uiSearchCountry2,
                   prefixIcon: Icon(Icons.search_rounded,
                       color: AppPalette.of(context).gray400),
                   filled: true,
@@ -214,7 +216,7 @@ class _PhoneVerificationSheetState
           ),
           const SizedBox(height: 14),
           Text(
-            _step == 0 ? 'Verify your phone number' : 'Enter the code',
+            _step == 0 ? tr('Verify your phone number') : tr('Enter the code'),
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
@@ -266,7 +268,7 @@ class _PhoneVerificationSheetState
                     style: AppTextStyles.bodyMd
                         .copyWith(fontWeight: FontWeight.w700),
                     decoration: InputDecoration(
-                      hintText: 'Phone number',
+                      hintText: AppLocalizations.of(context).uiPhoneNumber,
                       hintStyle: AppTextStyles.bodyMd
                           .copyWith(color: AppPalette.of(context).gray400),
                       filled: true,
@@ -296,7 +298,7 @@ class _PhoneVerificationSheetState
             ),
             const SizedBox(height: 20),
             AppButton(
-              label: 'Send Code',
+              label: AppLocalizations.of(context).uiSendCode,
               isLoading: _isLoading,
               isDisabled: _phoneCtrl.text.trim().isEmpty,
               onPressed: _phoneCtrl.text.trim().isNotEmpty ? _sendOtp : null,
@@ -349,14 +351,14 @@ class _PhoneVerificationSheetState
                           _step = 0;
                           _otpCtrl.clear();
                         }),
-                child: Text('Change number',
+                child: Text(AppLocalizations.of(context).uiChangeNumber,
                     style: AppTextStyles.labelMd
                         .copyWith(color: AppColors.primary)),
               ),
             ),
             const SizedBox(height: 8),
             AppButton(
-              label: 'Verify Phone',
+              label: AppLocalizations.of(context).uiVerifyPhone,
               isLoading: _isLoading,
               isDisabled: _otpCtrl.text.trim().length < 6,
               onPressed: _otpCtrl.text.trim().length >= 6 ? _verifyOtp : null,

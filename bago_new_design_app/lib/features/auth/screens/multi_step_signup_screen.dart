@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,7 +64,8 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (_authMethod == null) {
           AppSnackBar.show(
             context,
-            message: 'Please select an authentication method',
+            message: AppLocalizations.of(context)
+                .uiPleaseSelectAnAuthenticationMethod,
             type: SnackBarType.error,
           );
           return;
@@ -74,7 +76,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (_fullNameCtrl.text.isEmpty) {
           AppSnackBar.show(
             context,
-            message: 'Please enter your full name',
+            message: AppLocalizations.of(context).uiPleaseEnterYourFullName,
             type: SnackBarType.error,
           );
           return;
@@ -86,7 +88,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (_emailCtrl.text.isEmpty) {
           AppSnackBar.show(
             context,
-            message: 'Please enter your email',
+            message: AppLocalizations.of(context).pleaseEnterYourEmail,
             type: SnackBarType.error,
           );
           return;
@@ -98,7 +100,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (_passwordCtrl.text.isEmpty) {
           AppSnackBar.show(
             context,
-            message: 'Please enter your password',
+            message: AppLocalizations.of(context).pleaseEnterYourPassword,
             type: SnackBarType.error,
           );
           return;
@@ -110,7 +112,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (_phoneCtrl.text.isEmpty) {
           AppSnackBar.show(
             context,
-            message: 'Please enter your phone number',
+            message: AppLocalizations.of(context).uiPleaseEnterYourPhoneNumber,
             type: SnackBarType.error,
           );
           return;
@@ -122,7 +124,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (_otpCtrl.text.isEmpty || _otpCtrl.text.length < 4) {
           AppSnackBar.show(
             context,
-            message: 'Please enter a valid OTP',
+            message: AppLocalizations.of(context).uiPleaseEnterAValidOtp,
             type: SnackBarType.error,
           );
           return;
@@ -134,7 +136,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (_dobCtrl.text.isEmpty) {
           AppSnackBar.show(
             context,
-            message: 'Please enter your date of birth',
+            message: AppLocalizations.of(context).uiPleaseEnterYourDateOfBirth,
             type: SnackBarType.error,
           );
           return;
@@ -146,7 +148,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         if (!_gdprConsent) {
           AppSnackBar.show(
             context,
-            message: 'Please agree to the terms and conditions',
+            message: AppLocalizations.of(context).uiPleaseAgreeToTheTermsAnd,
             type: SnackBarType.error,
           );
           return;
@@ -178,7 +180,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       // TODO: Implement actual OTP sending via API
       AppSnackBar.show(
         context,
-        message: 'OTP sent to $_phone',
+        message: AppLocalizations.of(context).uiFOtpSentTo(_phone ?? ''),
         type: SnackBarType.success,
       );
       setState(() {
@@ -199,7 +201,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
     if (_selectedRole == null) {
       AppSnackBar.show(
         context,
-        message: 'Please select a role',
+        message: AppLocalizations.of(context).uiPleaseSelectARole,
         type: SnackBarType.error,
       );
       return;
@@ -239,7 +241,9 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
                   height: 44,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppPalette.of(context).gray800,
+                    color: AppPalette.of(context).dark
+                        ? const Color(0xFF2A2546)
+                        : AppColors.gray800,
                   ),
                   child: const Icon(
                     Icons.arrow_back,
@@ -308,7 +312,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Create your\naccount',
+          AppLocalizations.of(context).uiCreateYourAccount,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -316,7 +320,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'How would you like to sign up?',
+          AppLocalizations.of(context).uiHowWouldYouLikeToSign,
           style: AppTextStyles.bodyMd.copyWith(
             color: AppPalette.of(context).gray400,
           ),
@@ -341,7 +345,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
                 const Icon(Icons.email, color: AppColors.white, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  'Email',
+                  AppLocalizations.of(context).emailLabel,
                   style: AppTextStyles.labelMd.copyWith(
                     color: AppColors.white,
                   ),
@@ -370,7 +374,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
                 const Icon(Icons.phone, color: AppColors.white, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  'Phone Number',
+                  AppLocalizations.of(context).phoneNumberTitle,
                   style: AppTextStyles.labelMd.copyWith(
                     color: AppColors.white,
                   ),
@@ -390,7 +394,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'What\'s your\nfull name?',
+          AppLocalizations.of(context).uiWhatSYourFullName,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -399,8 +403,8 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         const SizedBox(height: 48),
         AppTextField(
           controller: _fullNameCtrl,
-          label: 'Full Name',
-          hint: 'John Doe',
+          label: AppLocalizations.of(context).uiFullName,
+          hint: AppLocalizations.of(context).uiJohnDoe,
           prefixIcon:
               Icon(Icons.person_outline, color: AppPalette.of(context).gray400),
           textInputAction: TextInputAction.done,
@@ -417,7 +421,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Enter your\nemail',
+          AppLocalizations.of(context).uiEnterYourEmail,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -426,7 +430,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         const SizedBox(height: 48),
         AppTextField(
           controller: _emailCtrl,
-          label: 'Email',
+          label: AppLocalizations.of(context).emailLabel,
           hint: 'you@example.com',
           keyboardType: TextInputType.emailAddress,
           prefixIcon:
@@ -445,7 +449,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Create a\npassword',
+          AppLocalizations.of(context).uiCreateAPassword,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -453,7 +457,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'At least 8 characters',
+          AppLocalizations.of(context).uiAtLeast8Characters,
           style: AppTextStyles.bodyMd.copyWith(
             color: AppPalette.of(context).gray400,
           ),
@@ -464,8 +468,8 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
           children: [
             AppTextField(
               controller: _passwordCtrl,
-              label: 'Password',
-              hint: 'Enter your password',
+              label: AppLocalizations.of(context).passwordLabel,
+              hint: AppLocalizations.of(context).enterYourPasswordTitle,
               obscureText: !_showPassword,
               prefixIcon: Icon(Icons.lock_outlined,
                   color: AppPalette.of(context).gray400),
@@ -496,7 +500,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Enter your\nphone number',
+          AppLocalizations.of(context).uiEnterYourPhoneNumber,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -505,7 +509,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         const SizedBox(height: 48),
         AppTextField(
           controller: _phoneCtrl,
-          label: 'Phone',
+          label: AppLocalizations.of(context).phoneLabel,
           hint: '+1 (555) 000-0000',
           keyboardType: TextInputType.phone,
           prefixIcon:
@@ -524,7 +528,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Enter the OTP\nsent to $_phone',
+          AppLocalizations.of(context).uiFEnterTheOtpSentTo(_phone ?? ''),
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -552,7 +556,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'What\'s your\ndate of birth?',
+          AppLocalizations.of(context).uiWhatSYourDateOfBirth,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -561,8 +565,8 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         const SizedBox(height: 48),
         AppTextField(
           controller: _dobCtrl,
-          label: 'Date of Birth',
-          hint: 'MM/DD/YYYY',
+          label: AppLocalizations.of(context).uiDateOfBirth,
+          hint: AppLocalizations.of(context).uiMmDdYyyy,
           keyboardType: TextInputType.none,
           prefixIcon:
               Icon(Icons.calendar_today, color: AppPalette.of(context).gray400),
@@ -590,7 +594,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Please review\nour policies',
+          AppLocalizations.of(context).uiPleaseReviewOurPolicies,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -607,7 +611,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Required agreements:',
+                AppLocalizations.of(context).uiRequiredAgreements2,
                 style: AppTextStyles.labelMd.copyWith(
                   color: AppColors.white,
                 ),
@@ -632,7 +636,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Optional:',
+                AppLocalizations.of(context).uiOptional2,
                 style: AppTextStyles.labelMd.copyWith(
                   color: AppColors.white,
                 ),
@@ -650,7 +654,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'I understand and agree to all terms',
+          AppLocalizations.of(context).uiIUnderstandAndAgreeToAll,
           style: AppTextStyles.bodyMd.copyWith(
             color: AppColors.white,
           ),
@@ -686,7 +690,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'What\'s your\nrole?',
+          AppLocalizations.of(context).uiWhatSYourRole,
           style: AppTextStyles.h2.copyWith(
             color: AppColors.white,
             fontWeight: FontWeight.w700,
@@ -694,7 +698,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'You can change this later',
+          AppLocalizations.of(context).uiYouCanChangeThisLater,
           style: AppTextStyles.bodyMd.copyWith(
             color: AppPalette.of(context).gray400,
           ),
@@ -719,7 +723,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
                 const Icon(Icons.flight, color: AppColors.white, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  'Traveller',
+                  AppLocalizations.of(context).uiTraveller,
                   style: AppTextStyles.labelMd.copyWith(
                     color: AppColors.white,
                   ),
@@ -749,7 +753,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
                     color: AppColors.white, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  'Sender',
+                  AppLocalizations.of(context).senderLabel,
                   style: AppTextStyles.labelMd.copyWith(
                     color: AppColors.white,
                   ),
@@ -779,7 +783,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
                       ),
                     )
                   : Text(
-                      'Complete Signup',
+                      AppLocalizations.of(context).uiCompleteSignup,
                       style: AppTextStyles.labelMd.copyWith(
                         color: AppColors.white,
                       ),

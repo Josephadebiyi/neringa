@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +50,7 @@ class KycVerificationRequiredDialog extends StatelessWidget {
           Icon(Icons.shield_outlined, color: AppPalette.of(context).primary),
           SizedBox(width: 8),
           Expanded(
-            child: Text('Account Verification'),
+            child: Text(AppLocalizations.of(context).uiAccountVerification),
           ),
         ],
       ),
@@ -58,7 +59,7 @@ class KycVerificationRequiredDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'To unlock all features, please complete identity verification.',
+            AppLocalizations.of(context).uiToUnlockAllFeaturesPleaseComplete,
             style: AppTextStyles.bodyMd,
           ),
           const SizedBox(height: 12),
@@ -72,7 +73,7 @@ class KycVerificationRequiredDialog extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Status:',
+                  AppLocalizations.of(context).uiStatus,
                   style: AppTextStyles.bodySm.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppPalette.of(context).gray600,
@@ -91,7 +92,7 @@ class KycVerificationRequiredDialog extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            "This is a secure process that takes just a few minutes. We'll verify your identity and activate your account.",
+            AppLocalizations.of(context).uiThisIsASecureProcessThat,
             style: AppTextStyles.muted(AppTextStyles.bodySm),
           ),
         ],
@@ -99,10 +100,10 @@ class KycVerificationRequiredDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => context.pop(false),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context).cancel),
         ),
         AppButton(
-          label: 'Start Verification',
+          label: AppLocalizations.of(context).startVerification,
           onPressed: () async {
             context.pop();
             final verified = await context.push<bool?>(

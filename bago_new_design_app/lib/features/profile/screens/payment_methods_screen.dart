@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 
@@ -16,7 +17,7 @@ class PaymentMethodsScreen extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'Payment Methods',
+          AppLocalizations.of(context).paymentMethods,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         leading: IconButton(
@@ -66,7 +67,7 @@ class _PaymentMethodNotice extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Cards are saved during checkout',
+            AppLocalizations.of(context).uiCardsAreSavedDuringCheckout,
             style: AppTextStyles.h2.copyWith(
               color: AppPalette.of(context).black,
               fontWeight: FontWeight.w900,
@@ -74,7 +75,7 @@ class _PaymentMethodNotice extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Bago uses Flutterwave for secure checkout. When you pay by card, Apple Pay, bank transfer, or mobile money, Flutterwave securely handles and stores the payment details. Bago never receives raw card numbers.',
+            AppLocalizations.of(context).uiBagoUsesFlutterwaveForSecureCheckout,
             style: AppTextStyles.bodyMd.copyWith(
               color: AppPalette.of(context).gray600,
               height: 1.4,
@@ -97,7 +98,7 @@ class _PaymentMethodNotice extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Use secure checkout to pay by card, Apple Pay, bank transfer, or mobile money.',
+                    AppLocalizations.of(context).uiUseSecureCheckoutToPayBy,
                     style: AppTextStyles.bodySm.copyWith(
                       color: AppPalette.of(context).gray600,
                       fontWeight: FontWeight.w700,
@@ -134,7 +135,8 @@ class _SecurityNote extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Payment details are processed by Flutterwave. Bago stores only safe payment references for support, refunds, and shipment tracking.',
+              AppLocalizations.of(context)
+                  .uiPaymentDetailsAreProcessedByFlutterwave,
               style: AppTextStyles.bodySm.copyWith(color: AppColors.primary),
             ),
           ),

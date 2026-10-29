@@ -443,7 +443,8 @@ class _HomeScreenRedesignedState extends ConsumerState<HomeScreenRedesigned> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.successLight,
+                        color:
+                            AppPalette.of(context).soft(AppColors.successLight),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -118,14 +117,19 @@ class _BannerCard extends StatelessWidget {
     return _BannerFrame(
       child: url.isEmpty
           ? _BannerFallback(title: banner.title)
-          : CachedNetworkImage(
-              imageUrl: url,
+          // Image.network rather than CachedNetworkImage: the cache manager's
+          // download could stall indefinitely, leaving the "loading" fallback
+          // card on screen forever. Banners are small and Flutter's image
+          // cache still keeps them in memory between rebuilds.
+          : Image.network(
+              url,
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
-              fadeInDuration: Duration.zero,
-              placeholder: (context, _) => _BannerFallback(title: banner.title),
-              errorWidget: (_, __, ___) => _BannerFallback(title: banner.title),
+              gaplessPlayback: true,
+              loadingBuilder: (_, child, progress) =>
+                  progress == null ? child : _BannerFallback(title: banner.title),
+              errorBuilder: (_, __, ___) => _BannerFallback(title: banner.title),
             ),
     );
   }

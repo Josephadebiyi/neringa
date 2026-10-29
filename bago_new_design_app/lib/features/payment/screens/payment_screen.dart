@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import '../../../shared/widgets/app_loading.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../services/payment_service.dart';
 import '../services/paid_booking_service.dart';
+import '../services/checkout_cost_breakdown.dart';
 import '../services/shipment_checkout_service.dart';
 import '../services/stripe_checkout_service.dart';
 import '../../shipments/services/shipment_service.dart';
@@ -76,11 +78,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isLoadingDraft = false;
       });
       if (draft != null) {
-        // Flutterwave's hosted checkout needs no client-side priming (unlike
-        // PayPal's config/eligibility fetch) — ready as soon as the draft loads.
-        if (mounted) setState(() => _isSdkReady = true);
-        if (PaidBookingService.canResume(draft)) return;
-        _loadStripeOptions(_asString(draft['currency'], 'USD'));
+        if (PaidBookingService.canResume(draft)) {
+          setState(() => _isSdkReady = true);
+          return;
+        }
+        await _loadStripeOptions(_asString(draft['currency'], 'USD'));
         // Fire compliance check in background — never blocks checkout
         _fetchCompliance(draft);
       }
@@ -103,16 +105,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _stripeAvailable = true;
         _applePayAvailable = true;
         _method = _PayMethod.applePay;
+        _isSdkReady = true;
       });
       return;
     }
     final stripe = StripeCheckoutService.instance;
-    if (!stripe.supportsCurrency(currency)) return;
+    if (!stripe.supportsCurrency(currency)) {
+      if (mounted) setState(() => _isSdkReady = true);
+      return;
+    }
     final config = await stripe.loadConfig();
-    if (config == null || !mounted) return;
+    if (!mounted) return;
+    if (config == null) {
+      setState(() {
+        _initError =
+            'International card payments are temporarily unavailable. Please try again later.';
+      });
+      return;
+    }
     final applePay = await stripe.isApplePayAvailable();
     if (!mounted) return;
     setState(() {
+      _isSdkReady = true;
       _stripeAvailable = true;
       _applePayAvailable = applePay;
       _method = applePay ? _PayMethod.applePay : _PayMethod.card;
@@ -120,7 +134,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _pay() {
-    if (_isProcessing) return;
+    if (_isProcessing || !_isSdkReady || _initError != null) return;
     if (_draft != null && PaidBookingService.canResume(_draft!)) {
       _finalizePaidBooking(_draft!['paidProvider'].toString(),
           _draft!['paidReference'].toString());
@@ -151,7 +165,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (mounted) setState(() => _isProcessing = false);
       if (e.error.code == FailureCode.Canceled) return;
       _failWithDraft('stripe',
-          e.error.localizedMessage ?? e.error.message ?? 'Payment failed.');
+          e.error.localizedMessage ?? e.error.message ?? tr('Payment failed.'));
       return;
     } catch (e) {
       if (mounted) setState(() => _isProcessing = false);
@@ -185,8 +199,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
             estimatedArrival: draft['estimatedArrival']?.toString(),
             paymentReference: reference,
             paymentProvider: provider,
+            additionalRequestId: draft['additionalRequestId']?.toString(),
+            additionalKg: draft['additionalKg'] == null
+                ? null
+                : _asDouble(draft['additionalKg']),
             message: draft['message']?.toString(),
             travelerPayout: _asDouble(draft['travelerPayout']),
+            platformCommission: CheckoutCostBreakdown(draft).commission,
+            processingFee: CheckoutCostBreakdown(draft).value('processingFee'),
+            fxBuffer: CheckoutCostBreakdown(draft).value('fxBuffer'),
+            senderShippingFee: _asDouble(draft['shippingAmount']),
+            bagoNetRevenue:
+                CheckoutCostBreakdown(draft).value('bagoNetRevenue'),
           );
           if (request == null || request['paymentPending'] == true) {
             throw StateError('Booking is awaiting confirmation.');
@@ -267,6 +291,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         currency: currency,
         insurance: insurance,
         insuranceCost: insuranceCost,
+        additionalRequestId: draft['additionalRequestId']?.toString(),
+        additionalKg: draft['additionalKg'] == null
+            ? null
+            : _asDouble(draft['additionalKg']),
       );
 
       if (!mounted) return;
@@ -317,8 +345,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (result.success) {
         await _finalizePaidBooking('flutterwave', reference);
       } else {
-        _failWithDraft(
-            'flutterwave', result.message ?? 'Payment verification failed.');
+        _failWithDraft('flutterwave',
+            result.message ?? tr('Payment verification failed.'));
       }
     } catch (e) {
       _failWithDraft(
@@ -358,55 +386,62 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   String _publicPaymentError(String errorMsg) {
     final normalized = errorMsg.toLowerCase();
-    if (normalized.contains('cancel')) return 'Payment was cancelled.';
+    if (normalized.contains('cancel')) return tr('Payment was cancelled.');
     if (normalized.contains('country of residence') ||
         normalized.contains('residence currency') ||
         normalized.contains('currency mismatch')) {
-      return 'Your payment currency does not match your country of residence. Update it in Profile → Currency and retry checkout.';
+      return tr(
+          'Your payment currency does not match your country of residence. Update it in Profile → Currency and retry checkout.');
     }
     if (normalized.contains('kyc') ||
         normalized.contains('identity verification')) {
-      return 'Complete identity verification before making this payment.';
+      return tr('Complete identity verification before making this payment.');
     }
     if (normalized.contains('not enabled') && normalized.contains('checkout')) {
-      return 'This currency is not enabled on Bago’s payment account yet. Please contact support or use the regional fallback shown in your profile.';
+      return tr(
+          'This currency is not enabled on Bago’s payment account yet. Please contact support or use the regional fallback shown in your profile.');
     }
     if (normalized.contains('not configured correctly')) {
-      return 'Payments are temporarily unavailable because the payment provider needs attention. Please contact Bago support.';
+      return tr(
+          'Payments are temporarily unavailable because the payment provider needs attention. Please contact Bago support.');
     }
     if (normalized.contains('could not authorize')) {
-      return 'Flutterwave could not authorize this payment. Try another available payment method.';
+      return tr(
+          'Flutterwave could not authorize this payment. Try another available payment method.');
     }
     if (normalized.contains('insufficient_funds')) {
-      return 'The card has insufficient funds.';
+      return tr('The card has insufficient funds.');
     }
     if (normalized.contains('card_declined') ||
         normalized.contains('generic_decline')) {
-      return 'The card was declined. Please use another payment method.';
+      return tr('The card was declined. Please use another payment method.');
     }
     if (normalized.contains('incorrect_cvc') ||
         normalized.contains('invalid_cvc')) {
-      return 'The security code is incorrect.';
+      return tr('The security code is incorrect.');
     }
     if (normalized.contains('expired_card')) {
-      return 'The card has expired.';
+      return tr('The card has expired.');
     }
     if (normalized.contains('incorrect_number') ||
         normalized.contains('invalid_number')) {
-      return 'The card number is incorrect.';
+      return tr('The card number is incorrect.');
     }
     if (normalized.contains('authentication_required') ||
         normalized.contains('three_d_secure') ||
         normalized.contains('requires_action')) {
-      return 'Your bank needs extra verification. Please try again.';
+      return tr('Your bank needs extra verification. Please try again.');
     }
     if (normalized.contains('apple pay')) {
-      return 'Apple Pay could not be completed. Please try again or use card payment.';
+      return tr(
+          'Apple Pay could not be completed. Please try again or use card payment.');
     }
     if (normalized.contains('bizum')) {
-      return 'Bizum could not be completed. Please try again or use card payment.';
+      return tr(
+          'Bizum could not be completed. Please try again or use card payment.');
     }
-    return 'Payment could not be completed. Please try again or use another method.';
+    return tr(
+        'Payment could not be completed. Please try again or use another method.');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -428,8 +463,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final l10n = AppLocalizations.of(context);
 
     if (_isLoadingDraft) {
-      return const BagoSubPageScaffold(
-        title: 'Secure checkout',
+      return BagoSubPageScaffold(
+        title: AppLocalizations.of(context).uiSecureCheckout,
         backFallbackPath: '/activity',
         child: Center(child: AppLoading()),
       );
@@ -446,6 +481,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
     }
 
+    final breakdown = CheckoutCostBreakdown(draft);
     final currency = _asString(draft['currency'], 'USD');
     final totalAmount = _asDouble(draft['totalAmount']);
     final shippingAmount = _asDouble(draft['shippingAmount']);
@@ -455,7 +491,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     String money(double v) => '$currency ${v.toStringAsFixed(2)}';
 
     return BagoSubPageScaffold(
-      title: 'Payment Method',
+      title: AppLocalizations.of(context).paymentMethod,
       backFallbackPath: '/activity',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +520,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             BagoInfoBanner(
               icon: Icons.timer_off_outlined,
               color: AppColors.error,
-              backgroundColor: AppColors.errorLight,
+              backgroundColor:
+                  AppPalette.of(context).soft(AppColors.errorLight),
               message: l10n.paymentDraftExpired,
             ),
             const SizedBox(height: 16),
@@ -493,7 +530,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             BagoInfoBanner(
               icon: Icons.error_outline_rounded,
               color: AppColors.error,
-              backgroundColor: AppColors.errorLight,
+              backgroundColor:
+                  AppPalette.of(context).soft(AppColors.errorLight),
               message: _initError!,
             ),
             const SizedBox(height: 16),
@@ -506,22 +544,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(child: AppLoading()),
               )
-            // African currencies (and any currency while card checkout is
-            // off) skip the method list: one Pay button opens Flutterwave.
+            // Local currencies use Flutterwave. International checkout waits
+            // for Stripe and stays blocked if its configuration is unavailable.
             else if (_isSdkReady && _stripeAvailable) ...[
               if (_applePayAvailable)
                 _MethodTile(
                   leading: const _ApplePayMark(),
-                  title: 'Apple Pay',
-                  subtitle: 'Face ID or Touch ID',
+                  title: AppLocalizations.of(context).uiApplePay,
+                  subtitle: AppLocalizations.of(context).uiFaceIdOrTouchId,
                   selected: _method == _PayMethod.applePay,
                   onTap: () => setState(() => _method = _PayMethod.applePay),
                 ),
               if (_stripeAvailable)
                 _MethodTile(
                   leading: const _CardBrandsMark(),
-                  title: 'Credit / Debit Card',
-                  subtitle: 'Visa, Mastercard, Amex',
+                  title: AppLocalizations.of(context).uiCreditDebitCard,
+                  subtitle: AppLocalizations.of(context).uiVisaMastercardAmex,
                   selected: _method == _PayMethod.card,
                   onTap: () => setState(() => _method = _PayMethod.card),
                 ),
@@ -541,7 +579,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
           // ── Amount summary ──────────────────────────────────────────────
           const SizedBox(height: 24),
-          _SummaryRow(label: l10n.shippingFee, value: money(shippingAmount)),
+          if (breakdown.available) ...[
+            _SummaryRow(
+                label: AppLocalizations.of(context).deliveryLabel,
+                value: money(breakdown.delivery)),
+            const SizedBox(height: 12),
+            _SummaryRow(
+                label: AppLocalizations.of(context).uiBagoCommission,
+                value: money(breakdown.commission)),
+            if (breakdown.otherFees.abs() >= .005) ...[
+              const SizedBox(height: 12),
+              _SummaryRow(
+                  label:
+                      AppLocalizations.of(context).uiPaymentAndConversionFees,
+                  value: money(breakdown.otherFees)),
+            ],
+          ] else
+            _SummaryRow(label: l10n.shippingFee, value: money(shippingAmount)),
           const SizedBox(height: 12),
           _SummaryRow(label: l10n.insurance, value: money(insuranceAmount)),
           const SizedBox(height: 14),
@@ -552,6 +606,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
             value: money(totalAmount),
             emphasize: true,
           ),
+          const SizedBox(height: 12),
+          Text(AppLocalizations.of(context).uiFChargedIn(currency),
+              style: AppTextStyles.bodySm),
+          if (breakdown.conversion != null) ...[
+            const SizedBox(height: 6),
+            Text(
+                '${breakdown.estimatedRate ? tr('Estimated rate: ') : tr('Exchange rate: ')}${breakdown.conversion}',
+                style: AppTextStyles.muted(AppTextStyles.bodySm)),
+          ],
           const SizedBox(height: 28),
 
           // ── Pay button ───────────────────────────────────────────────────
@@ -585,7 +648,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ],
                           Text(
                             PaidBookingService.canResume(draft)
-                                ? 'Finish booking'
+                                ? tr('Finish booking')
                                 : 'Pay ${money(totalAmount)}',
                             style: AppTextStyles.labelLg.copyWith(
                                 color: AppColors.white,
@@ -606,8 +669,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               const SizedBox(width: 4),
               Text(
                 _method == _PayMethod.local
-                    ? 'Secured by Flutterwave'
-                    : 'Secured by Stripe',
+                    ? tr('Secured by Flutterwave')
+                    : tr('Secured by Stripe'),
                 style: AppTextStyles.labelXs
                     .copyWith(color: AppPalette.of(context).gray400),
               ),
@@ -661,14 +724,15 @@ class _ApplePayMark extends StatelessWidget {
         color: AppPalette.of(context).black,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.apple_rounded, color: AppColors.white, size: 16),
-          SizedBox(width: 1),
-          Text('Pay',
+          Icon(Icons.apple_rounded,
+              color: AppPalette.of(context).white, size: 16),
+          const SizedBox(width: 1),
+          Text(AppLocalizations.of(context).pay,
               style: TextStyle(
-                  color: AppColors.white,
+                  color: AppPalette.of(context).white,
                   fontSize: 12,
                   fontWeight: FontWeight.w700)),
         ],
@@ -847,9 +911,11 @@ class _ComplianceBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final isHigh = risk == 'high';
     final color = isHigh ? const Color(0xFFDC2626) : const Color(0xFFD97706);
-    final bg = isHigh ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB);
+    final bg = isHigh
+        ? AppPalette.of(context).tint(const Color(0xFFFEF2F2))
+        : AppPalette.of(context).tint(const Color(0xFFFFFBEB));
     final icon = isHigh ? Icons.warning_rounded : Icons.info_outline_rounded;
-    final label = isHigh ? 'Customs alert' : 'Customs notice';
+    final label = isHigh ? tr('Customs alert') : tr('Customs notice');
 
     return Container(
       padding: const EdgeInsets.all(14),

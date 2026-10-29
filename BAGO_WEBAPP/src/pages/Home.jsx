@@ -5,7 +5,7 @@ import {
     Search, MapPin, Calendar, Package, Plane, CheckCircle, ChevronDown,
     Globe, PlusCircle, UserCircle, ArrowRight, Bus, ShieldCheck, Check,
     Menu, X, AlertCircle, Calculator, CreditCard, Headphones,
-    Plus, Minus, Star
+    Plus, Minus, Star, Building2, Truck
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../AuthContext';
@@ -1143,6 +1143,7 @@ const FeaturesSection = () => {
                             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-white/70">
                                 <ShieldCheck size={13} />
                                 Trust built in
+
                             </span>
                             <h2 className="mt-6 text-3xl md:text-5xl font-extrabold leading-[1.02]">
                                 Ship with people, keep the process clear.
@@ -1241,6 +1242,51 @@ const TripTypeSection = () => {
                         </div>
                     </button>
                 ))}
+                </div>
+            </div>
+        </section>
+    );
+};
+
+/* ─────────────────────────────────────────────
+   SHIPPING PARTNERS SECTION
+───────────────────────────────────────────── */
+const ShippingPartnersSection = () => {
+    const navigate = useNavigate();
+
+    return (
+        <section className="bg-[#F8F6F3] px-6 py-20 md:px-12">
+            <div className="mx-auto max-w-[1200px]">
+                <div className="flex flex-col items-start gap-10 rounded-[32px] bg-[#012126] px-8 py-12 text-white md:flex-row md:items-center md:justify-between md:px-14 md:py-14">
+                    <div className="max-w-xl">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-extrabold uppercase tracking-widest text-white/70">
+                            <Building2 size={14} />
+                            Beyond solo travelers
+                        </span>
+                        <h2 className="mt-5 text-3xl font-extrabold leading-[1.08] md:text-4xl">
+                            We also partner with shipping companies on Bago.
+                        </h2>
+                        <p className="mt-4 max-w-md text-sm font-medium leading-relaxed text-white/65">
+                            Bago isn't just individual travelers carrying packages — registered shipping and
+                            logistics companies list capacity, manage bulk routes, and get paid out through
+                            Bago too.
+                        </p>
+                    </div>
+                    <div className="flex w-full flex-col gap-4 md:w-auto">
+                        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-4">
+                            <Truck size={20} className="text-[#5845D8]" />
+                            <span className="text-sm font-semibold text-white/85">Bulk routes &amp; fleet capacity</span>
+                        </div>
+                        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-4">
+                            <ShieldCheck size={20} className="text-[#5845D8]" />
+                            <span className="text-sm font-semibold text-white/85">Verified business payouts</span>
+                        </div>
+                        <button onClick={() => navigate('/business')}
+                            className="mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-[#5845D8] px-7 py-4 text-sm font-extrabold text-white transition hover:bg-[#4838B5]">
+                            Partner with Bago
+                            <ArrowRight size={16} />
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -1600,6 +1646,7 @@ export default function Home() {
             <ProtectionPolicySection />
             <AppSection />
             <TripTypeSection />
+            <ShippingPartnersSection />
             <CountrySlider />
             <FeaturesSection />
             <TransparentPricingSection />

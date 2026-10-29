@@ -1,3 +1,5 @@
+import '../../l10n/runtime_tr.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -203,7 +205,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
               size: 18, color: AppPalette.of(context).primary),
           const SizedBox(width: 8),
           Text(
-            'Journey Map',
+            AppLocalizations.of(context).uiJourneyMap,
             style: AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w700),
           ),
         ]),
@@ -242,7 +244,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
                   strokeWidth: 2, color: AppColors.primary),
               const SizedBox(height: 12),
               Text(
-                'Loading map...',
+                AppLocalizations.of(context).uiLoadingMap,
                 style: TextStyle(
                     color: AppPalette.of(context).gray500, fontSize: 13),
               ),
@@ -263,7 +265,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
                     size: 48, color: AppPalette.of(context).gray400),
                 const SizedBox(height: 10),
                 Text(
-                  'Could not load map',
+                  AppLocalizations.of(context).uiCouldNotLoadMap,
                   style: AppTextStyles.labelMd
                       .copyWith(color: AppPalette.of(context).gray700),
                 ),
@@ -284,8 +286,8 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
                       color: AppPalette.of(context).primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'Retry',
+                    child: Text(
+                      AppLocalizations.of(context).retry,
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -363,7 +365,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2.5),
+            border: Border.all(color: AppPalette.of(context).white, width: 2.5),
             boxShadow: [
               BoxShadow(
                   color: color.withOpacity(0.4), blurRadius: 4, spreadRadius: 1)
@@ -458,7 +460,7 @@ class _JourneyMapWidgetState extends State<JourneyMapWidget>
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    _simulating ? 'Stop' : 'Simulate journey',
+                    _simulating ? tr('Stop') : tr('Simulate journey'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,

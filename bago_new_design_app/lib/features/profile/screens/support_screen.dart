@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,7 +75,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     return Scaffold(
       backgroundColor: AppPalette.of(context).pageBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F7FC),
+        backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
         leading: GestureDetector(
           onTap: () => context.pop(),
@@ -118,8 +119,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             const SizedBox(height: 24),
             _SectionHeader(
               eyebrow: 'Recent conversations',
-              title: 'Pick up where you left off',
-              actionLabel: recentTickets.isEmpty ? null : 'See all',
+              title: AppLocalizations.of(context).uiPickUpWhereYouLeftOff,
+              actionLabel: recentTickets.isEmpty ? null : tr('See all'),
               onAction: recentTickets.isEmpty ? null : _openMessenger,
             ),
             const SizedBox(height: 12),
@@ -172,7 +173,7 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF5FF),
+                color: AppPalette.of(context).tint(const Color(0xFFEEF5FF)),
                 borderRadius: BorderRadius.circular(22),
               ),
               child: Row(
@@ -193,7 +194,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Support replies around the clock',
+                          AppLocalizations.of(context)
+                              .uiSupportRepliesAroundTheClock,
                           style: AppTextStyles.labelMd.copyWith(
                             fontWeight: FontWeight.w800,
                             color: AppPalette.of(context).black,
@@ -201,7 +203,8 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Start a conversation any time and keep the full thread in one place.',
+                          AppLocalizations.of(context)
+                              .uiStartAConversationAnyTimeAnd,
                           style: AppTextStyles.bodySm
                               .copyWith(color: AppPalette.of(context).gray600),
                         ),
@@ -273,7 +276,7 @@ class _HeroPanel extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    'Open inbox',
+                    AppLocalizations.of(context).uiOpenInbox,
                     style: AppTextStyles.labelSm.copyWith(
                       color: AppColors.white,
                       fontWeight: FontWeight.w700,
@@ -285,7 +288,7 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'Support that feels like a conversation',
+            AppLocalizations.of(context).uiSupportThatFeelsLikeAConversation,
             style: AppTextStyles.displaySm.copyWith(
               color: AppColors.white,
               fontWeight: FontWeight.w800,
@@ -294,20 +297,26 @@ class _HeroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Browse quick answers, start a live chat, or return to an existing thread without losing context.',
+            AppLocalizations.of(context).uiBrowseQuickAnswersStartALive,
             style: AppTextStyles.bodyMd.copyWith(
               color: AppColors.white.withValues(alpha: 0.82),
               height: 1.45,
             ),
           ),
           const SizedBox(height: 18),
-          const Wrap(
+          Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              _HeroPill(label: 'Usually replies in minutes'),
-              _HeroPill(label: 'All conversations stay synced'),
-              _HeroPill(label: 'Tickets and chat in one flow'),
+              _HeroPill(
+                  label:
+                      AppLocalizations.of(context).uiUsuallyRepliesInMinutes),
+              _HeroPill(
+                  label: AppLocalizations.of(context)
+                      .uiAllConversationsStaySynced),
+              _HeroPill(
+                  label:
+                      AppLocalizations.of(context).uiTicketsAndChatInOneFlow),
             ],
           ),
         ],
@@ -328,7 +337,8 @@ class _HeroPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppPalette.of(context).white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.white.withValues(alpha: 0.12)),
+        border: Border.all(
+            color: AppPalette.of(context).white.withValues(alpha: 0.12)),
       ),
       child: Text(
         label,
@@ -359,9 +369,9 @@ class _QuickActions extends StatelessWidget {
         Expanded(
           child: _ActionCard(
             icon: Icons.bolt_rounded,
-            title: 'Live chat',
-            subtitle: 'Talk to support now',
-            background: const Color(0xFFEBF1FF),
+            title: AppLocalizations.of(context).uiLiveChat2,
+            subtitle: AppLocalizations.of(context).uiTalkToSupportNow,
+            background: AppPalette.of(context).tint(const Color(0xFFEBF1FF)),
             accent: AppColors.info,
             onTap: onChat,
           ),
@@ -370,9 +380,9 @@ class _QuickActions extends StatelessWidget {
         Expanded(
           child: _ActionCard(
             icon: Icons.note_alt_outlined,
-            title: 'New ticket',
-            subtitle: 'For complex issues',
-            background: const Color(0xFFEFFBF4),
+            title: AppLocalizations.of(context).uiNewTicket,
+            subtitle: AppLocalizations.of(context).uiForComplexIssues,
+            background: AppPalette.of(context).tint(const Color(0xFFEFFBF4)),
             accent: AppColors.success,
             onTap: onTicket,
           ),
@@ -381,9 +391,9 @@ class _QuickActions extends StatelessWidget {
         Expanded(
           child: _ActionCard(
             icon: Icons.inbox_rounded,
-            title: 'Inbox',
-            subtitle: 'See every thread',
-            background: const Color(0xFFF4F0FF),
+            title: AppLocalizations.of(context).uiInbox,
+            subtitle: AppLocalizations.of(context).uiSeeEveryThread,
+            background: AppPalette.of(context).tint(const Color(0xFFF4F0FF)),
             accent: AppColors.primary,
             onTap: onInbox,
           ),
@@ -539,7 +549,7 @@ class _EmptyRecentCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'No active conversations yet',
+            AppLocalizations.of(context).uiNoActiveConversationsYet,
             style: AppTextStyles.labelMd.copyWith(
               fontWeight: FontWeight.w800,
               color: AppPalette.of(context).black,
@@ -547,7 +557,7 @@ class _EmptyRecentCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Start a live chat and your messages will appear here like a shared support inbox.',
+            AppLocalizations.of(context).uiStartALiveChatAndYour,
             style: AppTextStyles.bodySm
                 .copyWith(color: AppPalette.of(context).gray600),
           ),
@@ -561,7 +571,7 @@ class _EmptyRecentCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
             child: Text(
-              'Start conversation',
+              AppLocalizations.of(context).uiStartConversation,
               style: AppTextStyles.labelMd.copyWith(
                 color: AppColors.white,
                 fontWeight: FontWeight.w700,
@@ -587,10 +597,10 @@ class _RecentConversationCard extends StatelessWidget {
         ? lastMessage!.content
         : ticket.description;
     final byline = lastMessage == null
-        ? 'Ticket created'
+        ? tr('Ticket created')
         : lastMessage.isAdmin
-            ? 'Support replied'
-            : 'You replied';
+            ? tr('Support replied')
+            : tr('You replied');
 
     return GestureDetector(
       onTap: () => context.push('/profile/support/ticket/${ticket.id}'),
@@ -672,7 +682,7 @@ class _RecentConversationCard extends StatelessWidget {
 }
 
 class _ConversationAvatar extends StatelessWidget {
-  const _ConversationAvatar({required this.ticket});
+  _ConversationAvatar({required this.ticket});
 
   final SupportTicket ticket;
 
@@ -689,8 +699,11 @@ class _ConversationAvatar extends StatelessWidget {
       width: 46,
       height: 46,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFEEEAFE), Color(0xFFDDEBFF)],
+        gradient: LinearGradient(
+          colors: [
+            AppPalette.of(context).tint(Color(0xFFEEEAFE)),
+            AppPalette.of(context).tint(const Color(0xFFDDEBFF))
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -709,10 +722,26 @@ class _TicketStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, background) = switch (status) {
-      'OPEN' => ('Open', AppColors.info, const Color(0xFFEAF3FF)),
-      'IN_PROGRESS' => ('Waiting', AppColors.warning, const Color(0xFFFFF6E8)),
-      'RESOLVED' => ('Resolved', AppColors.success, const Color(0xFFEAFBF1)),
-      _ => ('Closed', AppPalette.of(context).gray500, const Color(0xFFF2F4F7)),
+      'OPEN' => (
+          'Open',
+          AppColors.info,
+          AppPalette.of(context).tint(const Color(0xFFEAF3FF))
+        ),
+      'IN_PROGRESS' => (
+          'Waiting',
+          AppColors.warning,
+          AppPalette.of(context).tint(const Color(0xFFFFF6E8))
+        ),
+      'RESOLVED' => (
+          'Resolved',
+          AppColors.success,
+          AppPalette.of(context).tint(const Color(0xFFEAFBF1))
+        ),
+      _ => (
+          'Closed',
+          AppPalette.of(context).gray500,
+          AppPalette.of(context).tint(const Color(0xFFF2F4F7))
+        ),
     };
 
     return Container(
@@ -746,7 +775,7 @@ class _NoSearchResults extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'No help articles matched that search',
+            AppLocalizations.of(context).uiNoHelpArticlesMatchedThatSearch,
             style: AppTextStyles.labelMd.copyWith(
               fontWeight: FontWeight.w800,
               color: AppPalette.of(context).black,
@@ -754,7 +783,7 @@ class _NoSearchResults extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Try a different keyword or start a support conversation so the team can help directly.',
+            AppLocalizations.of(context).uiTryADifferentKeywordOrStart,
             style: AppTextStyles.bodySm
                 .copyWith(color: AppPalette.of(context).gray600),
           ),

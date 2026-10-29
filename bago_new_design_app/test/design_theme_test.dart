@@ -1,6 +1,7 @@
 import 'package:bago_app/core/theme/app_palette.dart';
 import 'package:bago_app/core/theme/app_theme.dart';
 import 'package:bago_app/features/home/widgets/home_hero_header.dart';
+import 'package:bago_app/l10n/app_localizations.dart';
 import 'package:bago_app/shared/widgets/country_flag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,8 @@ void main() {
       (tester) async {
     var swaps = 0;
     await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: AppTheme.light,
         home: Scaffold(
             body: HomeHeroHeader(
@@ -29,7 +32,7 @@ void main() {
                 onSearch: () {}))));
     expect(tester.getCenter(find.text('Lagos')).dy,
         lessThan(tester.getCenter(find.text('London')).dy));
-    await tester.tap(find.byTooltip('Swap cities'));
+    await tester.tap(find.bySemanticsLabel('Swap cities'));
     expect(swaps, 1);
     expect(find.text('Find a Route'), findsOneWidget);
     expect(tester.getCenter(find.text('Find a Route')).dy,

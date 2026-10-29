@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -24,10 +25,12 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
       if (!mounted) return;
       CelebrationNotificationService.showFlightSuccess(
         context,
-        title: 'Payment secured',
+        title: widget.extra?['paymentPending'] == true
+            ? tr('Booking confirmation pending')
+            : tr('Payment secured'),
         message: widget.extra?['paymentPending'] == true
-            ? 'Finish your booking using the existing payment.'
-            : 'Your shipment request has started smoothly.',
+            ? tr('Finish your booking using the existing payment.')
+            : tr('Your shipment request has started smoothly.'),
       );
     });
   }
@@ -42,29 +45,30 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
       backgroundColor: AppPalette.of(context).pageBackground,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 width: 100,
                 height: 100,
-                decoration: const BoxDecoration(
-                    color: AppColors.successLight, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                    color: AppPalette.of(context).soft(AppColors.successLight),
+                    shape: BoxShape.circle),
                 child: const Icon(Icons.check_rounded,
                     color: AppColors.success, size: 52),
               ),
               const SizedBox(height: 24),
               Text(
                   paymentPending
-                      ? 'Finish your booking'
+                      ? tr('Finish your booking')
                       : l10n.shipmentRequestedTitle,
                   style: AppTextStyles.h1,
                   textAlign: TextAlign.center),
               const SizedBox(height: 10),
               Text(
                 paymentPending
-                    ? 'Your payment is secured, but the booking could not be completed yet. Retry below using the same payment. You will not be charged again.'
+                    ? tr('Your payment reference is saved. We are confirming the payment and completing your shipment. Retry below using the same reference; no new payment will be started.')
                     : l10n.shipmentCreatedSentTraveler,
                 style: AppTextStyles.muted(AppTextStyles.bodyMd),
                 textAlign: TextAlign.center,
@@ -79,7 +83,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
               ],
               const SizedBox(height: 40),
               AppButton(
-                  label: paymentPending ? 'Finish booking' : l10n.viewShipments,
+                  label: paymentPending ? tr('Finish booking') : l10n.viewShipments,
                   onPressed: () => paymentPending
                       ? context.go('/payment', extra: widget.extra)
                       : context.go('/activity')),

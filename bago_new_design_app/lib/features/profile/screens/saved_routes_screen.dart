@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 
@@ -22,13 +23,12 @@ class _SavedRoutesScreenState extends State<SavedRoutesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Route'),
-        content:
-            const Text('Are you sure you want to delete this saved route?'),
+        title: Text(AppLocalizations.of(context).uiDeleteRoute),
+        content: Text(AppLocalizations.of(context).uiAreYouSureYouWantTo),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () {
@@ -36,11 +36,12 @@ class _SavedRoutesScreenState extends State<SavedRoutesScreen> {
               Navigator.pop(context);
               AppSnackBar.show(
                 context,
-                message: 'Route deleted',
+                message: AppLocalizations.of(context).uiRouteDeleted,
                 type: SnackBarType.success,
               );
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context).delete,
+                style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -52,7 +53,8 @@ class _SavedRoutesScreenState extends State<SavedRoutesScreen> {
     return Scaffold(
       backgroundColor: AppPalette.of(context).pageBackground,
       appBar: AppBar(
-        title: Text('Saved routes', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).savedRoutes,
+            style: AppTextStyles.h3),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -61,7 +63,7 @@ class _SavedRoutesScreenState extends State<SavedRoutesScreen> {
       body: routes.isEmpty
           ? Center(
               child: Text(
-                'No saved routes found.',
+                AppLocalizations.of(context).uiNoSavedRoutesFound,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppPalette.of(context).gray400,
                 ),
@@ -135,7 +137,7 @@ class _SavedRoutesScreenState extends State<SavedRoutesScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Divider(color: AppColors.white, height: 1),
+                      Divider(color: AppPalette.of(context).white, height: 1),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -162,7 +164,7 @@ class _SavedRoutesScreenState extends State<SavedRoutesScreen> {
                             child: Row(
                               children: [
                                 Text(
-                                  'Search Again',
+                                  AppLocalizations.of(context).uiSearchAgain,
                                   style: AppTextStyles.labelSm.copyWith(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w700,

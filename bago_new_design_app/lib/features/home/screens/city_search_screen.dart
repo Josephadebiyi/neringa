@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
@@ -172,7 +174,7 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
         elevation: 0,
         automaticallyImplyLeading: true,
         title: Text(
-          widget.isFromCity ? 'From where?' : 'To where?',
+          widget.isFromCity ? tr('From where?') : tr('To where?'),
           style: AppTextStyles.h3.copyWith(
             color: AppPalette.of(context).black,
           ),
@@ -185,8 +187,8 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
             padding: const EdgeInsets.all(16.0),
             child: AppTextField(
               controller: _searchCtrl,
-              label: 'Search city',
-              hint: 'e.g. Lagos, Accra',
+              label: AppLocalizations.of(context).uiSearchCity,
+              hint: AppLocalizations.of(context).uiEGLagosAccra,
               prefixIcon:
                   Icon(Icons.search, color: AppPalette.of(context).gray400),
               onChanged: _performSearch,
@@ -224,7 +226,7 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'No recent searches',
+                  AppLocalizations.of(context).uiNoRecentSearches,
                   style: AppTextStyles.bodyMd.copyWith(
                     color: AppPalette.of(context).gray500,
                   ),
@@ -236,7 +238,7 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
             padding: const EdgeInsets.all(16.0),
             children: [
               Text(
-                'Recent Searches',
+                AppLocalizations.of(context).uiRecentSearches,
                 style: AppTextStyles.labelMd.copyWith(
                   color: AppPalette.of(context).black,
                 ),
@@ -260,7 +262,7 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'No cities found',
+                  AppLocalizations.of(context).uiNoCitiesFound,
                   style: AppTextStyles.bodyMd.copyWith(
                     color: AppPalette.of(context).gray500,
                   ),
@@ -272,7 +274,7 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
             padding: const EdgeInsets.all(16.0),
             children: [
               Text(
-                'Search Results',
+                AppLocalizations.of(context).searchResultsTitle,
                 style: AppTextStyles.labelMd.copyWith(
                   color: AppPalette.of(context).black,
                 ),

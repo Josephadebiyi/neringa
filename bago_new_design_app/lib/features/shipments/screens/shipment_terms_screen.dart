@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 
@@ -27,28 +28,28 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
 
   bool get _allChecked => _checked.every((v) => v);
 
-  static final _terms = [
-    (
-      icon: Icons.block_rounded,
-      color: AppColors.error,
-      title: 'No prohibited items',
-      body: 'My shipment does not contain any prohibited or restricted items.',
-    ),
-    (
-      icon: Icons.search_rounded,
-      color: AppColors.primary,
-      title: 'Open to inspection',
-      body:
-          'I understand the traveler may inspect the contents for safety and compliance.',
-    ),
-    (
-      icon: Icons.gavel_rounded,
-      color: AppColors.warning,
-      title: 'Bago guidelines',
-      body:
-          'I agree to follow Bago\'s guidelines and take responsibility for my shipment.',
-    ),
-  ];
+  List<({IconData icon, Color color, String title, String body})> _terms(
+          BuildContext context) =>
+      [
+        (
+          icon: Icons.block_rounded,
+          color: AppColors.error,
+          title: AppLocalizations.of(context).uiNoProhibitedItems,
+          body: AppLocalizations.of(context).uiMyShipmentDoesNotContainAny,
+        ),
+        (
+          icon: Icons.search_rounded,
+          color: AppColors.primary,
+          title: AppLocalizations.of(context).uiOpenToInspection,
+          body: AppLocalizations.of(context).uiIUnderstandTheTravelerMayInspect,
+        ),
+        (
+          icon: Icons.gavel_rounded,
+          color: AppColors.warning,
+          title: AppLocalizations.of(context).uiBagoGuidelines,
+          body: AppLocalizations.of(context).uiIAgreeToFollowBagoS,
+        ),
+      ];
 
   Future<void> _accept() async {
     if (!_allChecked || _isAccepting) return;
@@ -84,7 +85,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
           onPressed: () => Navigator.of(context).pop(false),
         ),
         title: Text(
-          'Agreement & Shipping Confirmation',
+          AppLocalizations.of(context).uiAgreementShippingConfirmation,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -126,7 +127,8 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'By continuing, I confirm that:',
+                          AppLocalizations.of(context)
+                              .uiByContinuingIConfirmThat,
                           style: AppTextStyles.h3.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w900,
@@ -134,7 +136,8 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Please read and confirm each statement before sending your shipment.',
+                          AppLocalizations.of(context)
+                              .uiPleaseReadAndConfirmEachStatement,
                           style: AppTextStyles.bodyMd.copyWith(
                             color: Colors.white.withValues(alpha: 0.85),
                             height: 1.5,
@@ -146,7 +149,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                   const SizedBox(height: 20),
 
                   // ── Checkboxes ──────────────────────────────────────────
-                  ..._terms.asMap().entries.map((entry) {
+                  ..._terms(context).asMap().entries.map((entry) {
                     final i = entry.key;
                     final term = entry.value;
                     return Padding(
@@ -183,7 +186,8 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${_checked.where((v) => v).length} of 3 confirmed',
+                    AppLocalizations.of(context)
+                        .uiFOfConfirmed(_checked.where((v) => v).length),
                     style: AppTextStyles.labelSm
                         .copyWith(color: AppPalette.of(context).gray500),
                   ),
@@ -208,7 +212,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
               ],
             ),
             child: AppButton(
-              label: 'Accept & Continue',
+              label: AppLocalizations.of(context).uiAcceptContinue,
               isLoading: _isAccepting,
               isDisabled: !_allChecked,
               onPressed: _allChecked ? _accept : null,

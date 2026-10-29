@@ -5,6 +5,8 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getUserAccountCurrency } from '../utils/userCurrency';
+import { buildShipmentPackage, validateShipmentPackage } from '../utils/shipmentPackage';
+import { customerError } from '../utils/customerErrors';
 import {
     Package,
     ChevronLeft,
@@ -60,25 +62,7 @@ const readPreviewNumber = (preview, key) => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const checkoutErrorMessage = (error, fallback = 'Checkout price could not be calculated. Please try again.') => {
-    const d = error?.response?.data;
-    const raw = d?.message || d?.error || (Array.isArray(d?.errors) ? d.errors[0]?.message || d.errors[0] : null) || error?.message || fallback;
-    const value = String(raw || '').toLowerCase();
-    if (
-        d?.code === 'EXCHANGE_RATE_EXPIRED' ||
-        d?.code === 'EXCHANGE_RATE_MISSING' ||
-        value.includes('exchange rates are stale') ||
-        value.includes('exchange rates are not available') ||
-        value.includes('exchange rate refresh failed') ||
-        value.includes('exchange rate missing')
-    ) {
-        return 'Pricing is temporarily unavailable while exchange rates refresh. Please try again in a few minutes.';
-    }
-    if (error?.response?.status === 413) {
-        return 'The item image is too large. Please upload a smaller photo.';
-    }
-    return raw;
-};
+const checkoutErrorMessage = (error, fallback = 'Checkout price could not be calculated. Please try again.') => customerError(error, fallback);
 
 const getCountryFromCity = (cityName) => {
     if (!cityName) return '';
@@ -145,7 +129,7 @@ const Navbar = () => {
 };
 
 export default function SendPackage() {
-    const { user, isAuthenticated } = useAuth();
+    const { user, isAuthenticated, loading: authLoading } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
     const location = useLocation();
@@ -155,6 +139,7 @@ export default function SendPackage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
     const [currency, setCurrency] = useState(() => getUserAccountCurrency(user));
     const [kycStatus, setKycStatus] = useState(user?.kycStatus || 'not_started');
     const [phoneVerified, setPhoneVerified] = useState(user?.phoneVerified === true);
@@ -165,6 +150,8 @@ export default function SendPackage() {
     const [termsAccepted, setTermsAccepted] = useState([false, false, false]);
 
     const [formData, setFormData] = useState({
+        contents: '',
+        declaration: {},
         packageValue: '',
         packageWeight: initialWeight,
         fromCity: '', fromCountry: '', toCity: '', toCountry: '',
@@ -201,20 +188,23 @@ export default function SendPackage() {
     }, [selectedTrip]);
 
     useEffect(() => {
+        if (authLoading) return;
         if (!isAuthenticated) { navigate('/login'); return; }
         if (!selectedTrip) { navigate('/search', { replace: true }); return; }
         checkVerificationStatus();
-    }, [isAuthenticated, navigate]);
+    }, [authLoading, isAuthenticated, navigate, selectedTrip]);
 
     useEffect(() => { if (user?.preferredCurrency) setCurrency(user.preferredCurrency); }, [user?.preferredCurrency]);
 
     useEffect(() => {
-        if (selectedTrip) {
+        if (selectedTrip && !authLoading && isAuthenticated) {
             const timer = setTimeout(() => { fetchPricing(); }, 350);
             return () => clearTimeout(timer);
         }
     }, [
         selectedTrip,
+        authLoading,
+        isAuthenticated,
         formData.packageWeight,
         formData.packageValue,
         formData.insuranceProtection,
@@ -311,6 +301,7 @@ export default function SendPackage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setFieldErrors({});
         setLoading(true);
 
         if (kycStatus !== 'approved' && user?.kycStatus !== 'approved') {
@@ -323,18 +314,20 @@ export default function SendPackage() {
             navigate('/dashboard?tab=settings', { state: { message: 'Please verify your phone number to send a package.' } });
             return;
         }
-        if (!formData.packageImage) { setError('Please upload an image of the item.'); setLoading(false); return; }
-        if (!formData.packageValue || parseFloat(formData.packageValue) <= 0) { setError('Please enter the item value.'); setLoading(false); return; }
-        if (parseFloat(formData.packageWeight) <= 0 || parseFloat(formData.packageWeight) > 50) { setError('Package weight must be between 0.1 and 50 kg.'); setLoading(false); return; }
-        if (!formData.receiverName.trim() || !formData.receiverPhone.trim() || !formData.deliveryAddress.trim()) { setError('Please fill in all receiver details.'); setLoading(false); return; }
-        if (!termsAccepted.every(Boolean)) { setError('You must confirm all shipping agreement items.'); setLoading(false); return; }
-        if (!formData.fromCountry?.trim() || !formData.toCountry?.trim() || !formData.fromCity?.trim() || !formData.toCity?.trim()) { setError('Missing location data. Please go back and select a trip.'); setLoading(false); return; }
+        const validation = validateShipmentPackage(formData, termsAccepted);
+        if (Object.keys(validation).length) {
+            setFieldErrors(validation);
+            setError('Please check the shipment details listed above before continuing.');
+            setLoading(false);
+            requestAnimationFrame(() => document.getElementById('shipment-validation')?.focus());
+            return;
+        }
 
         try {
-            // The agreement sits on the same page as a live, debounced quote.
-            // Reuse that quote instead of making the user wait for the identical
-            // pricing request a second time when they press the checkout button.
-            const preview = checkoutPreview || await fetchPricing({ silent: true });
+            // Refresh before submission so a stale preview cannot create a
+            // package and then fail with a different price at payment.
+            const displayedTotal = checkoutPreview ? readPreviewNumber(checkoutPreview, 'totalAmount') : null;
+            const preview = await fetchPricing({ silent: true });
             if (!preview) {
                 setError(previewError || 'Checkout price could not be calculated. Please try again.');
                 setLoading(false);
@@ -343,6 +336,11 @@ export default function SendPackage() {
             const checkoutCurrency = (preview.senderCurrency || preview.senderPaymentCurrency || currency || 'USD').toUpperCase();
             const checkoutTotal = readPreviewNumber(preview, 'totalAmount');
             const checkoutInsurance = readPreviewNumber(preview, 'insuranceAmount');
+            if (displayedTotal !== null && Math.abs(displayedTotal - checkoutTotal) > 0.011) {
+                setError('The shipment price changed. Review the updated total, then continue.');
+                setLoading(false);
+                return;
+            }
             if (checkoutTotal <= 0) {
                 setError('Checkout price could not be calculated. Please try again.');
                 setLoading(false);
@@ -351,37 +349,18 @@ export default function SendPackage() {
 
             let packageId = '';
             try {
-                const pkgRes = await api.post('/api/bago/createPackage', {
-                    from_city: formData.fromCity.trim(), from_country: formData.fromCountry.trim(),
-                    to_city: formData.toCity.trim(), to_country: formData.toCountry.trim(),
-                    package_details: {
-                        package_name: formData.category,
-                        package_description: formData.specialInstructions.trim() || formData.category,
-                        package_weight: parseFloat(formData.packageWeight) || 1,
-                        package_value: formData.packageValue || 0,
-                        package_image: formData.packageImage,
-                        category: formData.category,
-                    },
-                    recipient_details: {
-                        receiver_name: formData.receiverName.trim(),
-                        receiver_phone: formData.receiverPhone.trim(),
-                        receiver_phone_country_code: receiverPhoneCountry.toUpperCase(),
-                        receiver_email: '',
-                    },
-                    deliveryAddress: formData.deliveryAddress.trim(),
-                    specialInstructions: formData.specialInstructions.trim(),
-                });
-                if (![200, 201].includes(pkgRes.status) || !pkgRes.data?.package?._id) throw new Error(pkgRes.data?.message || 'Package could not be created.');
-                packageId = pkgRes.data.package._id;
+                const payload = buildShipmentPackage(formData, termsAccepted, receiverPhoneCountry);
+                const pkgRes = await api.post('/api/bago/createPackage', payload);
+                if (![200, 201].includes(pkgRes.status) || !(pkgRes.data?.package?._id || pkgRes.data?.package?.id)) throw new Error(pkgRes.data?.message || 'Package could not be created.');
+                packageId = pkgRes.data.package._id || pkgRes.data.package.id;
             } catch (err) {
                 showPaymentError(setError, 'We could not create this shipment request. Please check the details and try again.', err);
                 setLoading(false);
                 return;
             }
 
-            // Flutterwave is the sole active payment provider — every currency now
-            // routes through the same hosted-checkout page instead of branching
-            // African currencies into an inline Paystack new-tab flow.
+            // Checkout selects the same payment provider as the mobile app.
+            // The user’s saved payment currency determines the provider.
             const params = new URLSearchParams({
                 packageId,
                 tripId: tripIdFrom(selectedTrip),
@@ -518,7 +497,11 @@ export default function SendPackage() {
                 )}
 
                 {/* ── Main grid: form (left) + summary sidebar (right on desktop) ── */}
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} noValidate>
+                    {Object.keys(fieldErrors).length > 0 && <div id="shipment-validation" role="alert" tabIndex={-1} className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 focus:outline-none">
+                        <p className="font-bold">Please check these shipment details:</p>
+                        <ul className="mt-2 list-disc space-y-1 pl-5">{Object.entries(fieldErrors).map(([field, message]) => <li key={field}>{message}</li>)}</ul>
+                    </div>}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-7 items-start">
 
                         {/* ── LEFT: form sections ── */}
@@ -536,10 +519,10 @@ export default function SendPackage() {
                                 {/* Weight + Value */}
                                 <div className="grid grid-cols-2 gap-3 mb-5">
                                     <div>
-                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Weight (kg)</label>
+                                        <label htmlFor="shipment-packageWeight" className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Weight (kg)</label>
                                         <input
                                             required type="number"
-                                            name="packageWeight"
+                                            id="shipment-packageWeight" name="packageWeight" aria-invalid={Boolean(fieldErrors.packageWeight)}
                                             min="0.1" max="50" step="0.1"
                                             placeholder="e.g. 2.5"
                                             className={field}
@@ -548,10 +531,10 @@ export default function SendPackage() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Item Value ({currency})</label>
+                                        <label htmlFor="shipment-packageValue" className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Item Value ({currency})</label>
                                         <input
                                             required type="number"
-                                            name="packageValue"
+                                            id="shipment-packageValue" name="packageValue" aria-invalid={Boolean(fieldErrors.packageValue)}
                                             placeholder="Estimated value"
                                             min="1"
                                             className={field}
@@ -584,6 +567,33 @@ export default function SendPackage() {
                                         })}
                                     </div>
                                 </div>
+
+                                <div className="mb-5">
+                                    <label htmlFor="shipment-contents" className="mb-2 block text-xs font-semibold text-[#171B22]">Package contents <span className="text-red-600">*</span></label>
+                                    <textarea id="shipment-contents" name="contents" required rows={4}
+                                        value={formData.contents} onChange={handleChange}
+                                        aria-invalid={Boolean(fieldErrors.contents)} aria-describedby="shipment-contents-help shipment-contents-error"
+                                        placeholder={'2 cotton shirts\n1 pair of shoes'} className={field} />
+                                    <p id="shipment-contents-help" className="mt-1 text-xs text-gray-500">List every item and its quantity, one per line. A category alone is not enough.</p>
+                                    {fieldErrors.contents && <p id="shipment-contents-error" className="mt-1 text-xs text-red-600">{fieldErrors.contents}</p>}
+                                </div>
+                                <fieldset className="mb-5">
+                                    <legend className="mb-2 text-xs font-semibold">Item and packaging details — select all that apply</legend>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        {[
+                                            ['factorySealed', 'Factory-sealed packaging'], ['personalSealed', 'Personally sealed packaging'],
+                                            ['wrapped', 'Wrapped items'], ['hasBatteries', 'Contains batteries'],
+                                            ['hasLiquids', 'Contains liquids'], ['fragile', 'Fragile items'],
+                                            ['hasPrescriptionMedicine', 'Contains prescription medicine'],
+                                            ['receiptProvided', 'Receipt included with item'], ['productLabelProvided', 'Product label included'],
+                                            ['barcodeProvided', 'Barcode included'],
+                                        ].map(([key, label]) => <label key={key} className="flex items-start gap-2 text-xs text-gray-600">
+                                            <input type="checkbox" checked={formData.declaration[key] === true}
+                                                onChange={event => setFormData(previous => ({ ...previous, declaration: { ...previous.declaration, [key]: event.target.checked } }))} />
+                                            <span>{label}</span>
+                                        </label>)}
+                                    </div>
+                                </fieldset>
 
                                 {/* Image picker */}
                                 <div>
@@ -632,10 +642,10 @@ export default function SendPackage() {
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Full Name</label>
+                                        <label htmlFor="shipment-receiverName" className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Full Name</label>
                                         <input
                                             required type="text"
-                                            name="receiverName"
+                                            id="shipment-receiverName" name="receiverName" aria-invalid={Boolean(fieldErrors.receiverName)}
                                             placeholder="Receiver's full name"
                                             className={field}
                                             value={formData.receiverName}
@@ -644,13 +654,13 @@ export default function SendPackage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Phone Number</label>
+                                        <label htmlFor="shipment-receiverPhone" className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Phone Number</label>
                                         <PhoneInput
                                             country={receiverPhoneCountry}
                                             value={formData.receiverPhone}
                                             onChange={handleReceiverPhoneChange}
                                             enableSearch disableSearchIcon
-                                            inputProps={{ name: 'receiverPhone', required: true }}
+                                            inputProps={{ id: 'shipment-receiverPhone', name: 'receiverPhone', required: true, 'aria-invalid': Boolean(fieldErrors.receiverPhone) }}
                                             containerClass="!w-full"
                                             inputClass="!w-full !h-[50px] !pl-[68px] !pr-4 !rounded-[14px] !border !border-[#ECEBF3] !bg-[#F5F4FC] focus:!bg-white focus:!border-[#5845D8]/30 !outline-none !text-sm !font-bold !text-[#171B22]"
                                             buttonClass="!h-[50px] !w-[60px] !rounded-l-[14px] !border !border-[#ECEBF3] !border-r-0 !bg-white/70 hover:!bg-white"
@@ -660,10 +670,10 @@ export default function SendPackage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Delivery Address</label>
+                                        <label htmlFor="shipment-deliveryAddress" className="block text-xs font-semibold text-[#171B22] mb-1.5 ml-0.5">Delivery Address</label>
                                         <textarea
                                             required
-                                            name="deliveryAddress"
+                                            id="shipment-deliveryAddress" name="deliveryAddress" aria-invalid={Boolean(fieldErrors.deliveryAddress)}
                                             placeholder="Full drop-off address"
                                             rows="2"
                                             className={`${field} resize-none`}
@@ -722,17 +732,16 @@ export default function SendPackage() {
                             <div className="lg:hidden bg-white rounded-[20px] p-5 border border-[#ECEBF3] shadow-sm space-y-2.5">
                                 <p className="text-xs font-semibold text-[#6B7280] mb-1">Shipping Agreement</p>
                                 {['My shipment does not contain any prohibited or restricted items.',
-                                  'I understand the traveler may inspect the contents for safety.',
+                                  'I agree that the traveller may inspect my package contents before collection.',
                                   "I agree to follow Bago's guidelines and take responsibility for my shipment.",
                                 ].map((label, i) => (
-                                    <div key={i} className="flex items-start gap-3 cursor-pointer group" onClick={() => setTermsAccepted(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}>
-                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                                            termsAccepted[i] ? 'bg-[#5845D8] text-white' : 'bg-gray-100 text-transparent border border-gray-200 group-hover:bg-gray-200'
-                                        }`}>
-                                            <Check size={11} />
-                                        </div>
-                                        <p className="text-xs font-medium text-[#6B7280] leading-relaxed group-hover:text-[#171B22] transition-colors">{label}</p>
-                                    </div>
+                                    <label key={i} className="flex items-start gap-3 cursor-pointer group">
+                                            <input type="checkbox" checked={termsAccepted[i]}
+                                                aria-invalid={i === 1 && Boolean(fieldErrors.inspection)}
+                                                onChange={event => setTermsAccepted(previous => previous.map((value, index) => index === i ? event.target.checked : value))}
+                                                className="mt-0.5 h-5 w-5 shrink-0 accent-[#5845D8]" />
+                                            <span className="text-xs font-medium leading-relaxed text-[#6B7280]">{label}</span>
+                                        </label>
                                 ))}
                             </div>
 
@@ -824,17 +833,16 @@ export default function SendPackage() {
                                 <div className="bg-white rounded-[20px] p-5 border border-[#ECEBF3] shadow-sm space-y-2.5">
                                     <p className="text-xs font-semibold text-[#6B7280] mb-1">Agreement</p>
                                     {['My shipment does not contain any prohibited or restricted items.',
-                                      'I understand the traveler may inspect the contents for safety.',
+                                      'I agree that the traveller may inspect my package contents before collection.',
                                       "I agree to follow Bago's guidelines and take responsibility.",
                                     ].map((label, i) => (
-                                        <div key={i} className="flex items-start gap-3 cursor-pointer group" onClick={() => setTermsAccepted(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}>
-                                            <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                                                termsAccepted[i] ? 'bg-[#5845D8] text-white' : 'bg-gray-100 text-transparent border border-gray-200 group-hover:bg-gray-200'
-                                            }`}>
-                                                <Check size={11} />
-                                            </div>
-                                            <p className="text-[13px] font-medium text-[#6B7280] leading-relaxed group-hover:text-[#171B22] transition-colors">{label}</p>
-                                        </div>
+                                        <label key={i} className="flex items-start gap-3 cursor-pointer group">
+                                            <input type="checkbox" checked={termsAccepted[i]}
+                                                aria-invalid={i === 1 && Boolean(fieldErrors.inspection)}
+                                                onChange={event => setTermsAccepted(previous => previous.map((value, index) => index === i ? event.target.checked : value))}
+                                                className="mt-0.5 h-5 w-5 shrink-0 accent-[#5845D8]" />
+                                            <span className="text-xs font-medium leading-relaxed text-[#6B7280]">{label}</span>
+                                        </label>
                                     ))}
                                 </div>
 

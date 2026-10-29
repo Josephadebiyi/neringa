@@ -41,6 +41,9 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
   bool _waitingForResult = false;
 
   Timer? _pollTimer;
+  Timer? _resultDeadlineTimer;
+  bool _syncInProgress = false;
+  bool _finishing = false;
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _resultDeadlineTimer?.cancel();
     super.dispose();
   }
 
@@ -138,20 +142,22 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
   }
 
   void _onSdkComplete(Map<String, dynamic> response) {
-    if (!mounted) return;
+    if (!mounted || _waitingForResult || _finishing) return;
     setState(() => _waitingForResult = true);
     // Poll backend — Prembly webhook may arrive slightly after the SDK callback
     _syncResult(response);
     _pollTimer =
         Timer.periodic(const Duration(seconds: 4), (_) => _syncResult());
     // Safety: if still waiting after 3 min, treat as pending
-    Timer(const Duration(minutes: 3), () {
+    _resultDeadlineTimer = Timer(const Duration(minutes: 3), () {
       _pollTimer?.cancel();
       if (mounted && _waitingForResult) _finishWithStatus('pending');
     });
   }
 
   Future<void> _syncResult([Map<String, dynamic>? sdkResponse]) async {
+    if (!mounted || !_waitingForResult || _syncInProgress || _finishing) return;
+    _syncInProgress = true;
     try {
       final deviceFingerprint =
           await StorageService.instance.getDeviceFingerprint();
@@ -168,19 +174,28 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
             'deviceFingerprint': deviceFingerprint,
           'syncedAt': DateTime.now().toUtc().toIso8601String(),
         },
-      }).timeout(const Duration(seconds: 10));
+      }).timeout(const Duration(seconds: 15));
 
+      if (!mounted || !_waitingForResult || _finishing) return;
       final status = res.data?['kycStatus']?.toString() ?? '';
       if (status == 'approved' ||
           status == 'declined' ||
           status == 'blocked_duplicate') {
         _pollTimer?.cancel();
-        if (mounted) _finishWithStatus(status);
+        if (mounted) await _finishWithStatus(status);
       }
-    } catch (_) {}
+    } catch (_) {
+      // The next poll retries transient network failures.
+    } finally {
+      _syncInProgress = false;
+    }
   }
 
   Future<void> _finishWithStatus(String finalStatus) async {
+    if (_finishing || !mounted) return;
+    _finishing = true;
+    _pollTimer?.cancel();
+    _resultDeadlineTimer?.cancel();
     _waitingForResult = false;
     await ref
         .read(authProvider.notifier)
@@ -213,6 +228,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
 
   Future<void> _retry() async {
     _pollTimer?.cancel();
+    _resultDeadlineTimer?.cancel();
+    _finishing = false;
     setState(() {
       _hasError = false;
       _errorMessage = null;

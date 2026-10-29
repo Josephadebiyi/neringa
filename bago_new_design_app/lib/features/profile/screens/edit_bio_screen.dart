@@ -37,7 +37,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
     if (bio.isEmpty) {
       AppSnackBar.show(
         context,
-        message: 'Bio cannot be empty',
+        message: AppLocalizations.of(context).uiBioCannotBeEmpty,
         type: SnackBarType.error,
       );
       return;
@@ -51,7 +51,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
 
       AppSnackBar.show(
         context,
-        message: 'Bio updated successfully',
+        message: AppLocalizations.of(context).uiBioUpdatedSuccessfully,
         type: SnackBarType.success,
       );
       Navigator.pop(context);
@@ -59,7 +59,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'Failed to update bio',
+        message: AppLocalizations.of(context).uiFailedToUpdateBio,
         type: SnackBarType.error,
       );
     } finally {
@@ -94,7 +94,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
                         ),
                       )
                     : Text(
-                        'Save',
+                        AppLocalizations.of(context).uiSave,
                         style: AppTextStyles.labelMd.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700,
@@ -111,7 +111,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'WHAT WOULD YOU LIKE MEMBERS TO KNOW ABOUT YOU?',
+              AppLocalizations.of(context).uiWhatWouldYouLikeMembersTo,
               style: AppTextStyles.labelMd.copyWith(
                 color: AppPalette.of(context).gray500,
                 fontWeight: FontWeight.w700,
@@ -131,7 +131,8 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   border: InputBorder.none,
-                  hintText: 'Write a short bio about yourself...',
+                  hintText: AppLocalizations.of(context)
+                      .uiWriteAShortBioAboutYourself,
                   hintStyle: AppTextStyles.bodyMd.copyWith(
                     color: AppPalette.of(context).gray400,
                   ),
@@ -144,7 +145,8 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                '${_bioCtrl.text.length}/250 characters',
+                AppLocalizations.of(context)
+                    .uiFCharacters(_bioCtrl.text.length),
                 style: AppTextStyles.caption.copyWith(
                   color: AppPalette.of(context).gray400,
                 ),
@@ -174,7 +176,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Why a bio?',
+                          AppLocalizations.of(context).uiWhyABio,
                           style: AppTextStyles.labelMd.copyWith(
                             color: AppColors.white,
                             fontWeight: FontWeight.w700,
@@ -182,7 +184,7 @@ class _EditBioScreenState extends ConsumerState<EditBioScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Members with a bio are 3x more likely to have their shipments or trips booked. A complete profile builds trust in the Bago community.',
+                          AppLocalizations.of(context).uiMembersWithABioAre3x,
                           style: AppTextStyles.bodySm.copyWith(
                             color: AppColors.white.withValues(alpha: 0.9),
                             height: 1.5,

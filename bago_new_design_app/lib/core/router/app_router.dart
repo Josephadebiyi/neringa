@@ -176,7 +176,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             replayDurationMs: int.tryParse(
                   state.uri.queryParameters['duration'] ?? '',
                 ) ??
-                3000,
+                1200,
           ),
         ),
       ),
@@ -352,11 +352,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/trips-list',
         builder: (context, state) {
+          // extra from in-app search; query params let links open it too.
           final extra = state.extra as Map<String, dynamic>? ?? {};
+          final q = state.uri.queryParameters;
           return SearchResultsScreen(
-            fromCity: extra['from'] as String?,
-            toCity: extra['to'] as String?,
-            date: extra['date'] as String?,
+            fromCity: extra['from'] as String? ?? q['from'],
+            toCity: extra['to'] as String? ?? q['to'],
+            date: extra['date'] as String? ?? q['date'],
           );
         },
       ),

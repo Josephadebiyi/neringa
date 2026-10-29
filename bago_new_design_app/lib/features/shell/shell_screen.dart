@@ -1,3 +1,5 @@
+import '../../l10n/runtime_tr.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/theme/app_palette.dart';
 import 'dart:async';
 
@@ -39,22 +41,25 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   static final _publishPath = '';
 
   List<_TabItem> _tabs() => [
-        const _TabItem(icon: Icons.home_rounded, label: 'Home', path: '/home'),
+        _TabItem(
+            icon: Icons.home_rounded,
+            label: AppLocalizations.of(context).navHome,
+            path: '/home'),
         _TabItem(
             icon: Icons.add_circle_rounded,
-            label: 'Publish',
+            label: AppLocalizations.of(context).uiPublish,
             path: _publishPath),
-        const _TabItem(
+        _TabItem(
             icon: Icons.local_shipping_rounded,
-            label: 'Activity',
+            label: AppLocalizations.of(context).activityTitle,
             path: '/activity'),
-        const _TabItem(
+        _TabItem(
             icon: Icons.chat_bubble_outline_rounded,
-            label: 'Inbox',
+            label: AppLocalizations.of(context).uiInbox,
             path: '/messages'),
-        const _TabItem(
+        _TabItem(
             icon: Icons.person_outline_rounded,
-            label: 'Profile',
+            label: AppLocalizations.of(context).navProfile,
             path: '/profile'),
       ];
 
@@ -202,7 +207,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
               if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Request accepted')),
+                  SnackBar(
+                      content:
+                          Text(AppLocalizations.of(context).uiRequestAccepted)),
                 );
               }
             } catch (e) {
@@ -226,7 +233,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
               if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Request declined')),
+                  SnackBar(
+                      content:
+                          Text(AppLocalizations.of(context).uiRequestDeclined)),
                 );
               }
             } catch (e) {
@@ -295,14 +304,15 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'New shipment request',
+                                AppLocalizations.of(context)
+                                    .uiNewShipmentRequest,
                                 style: AppTextStyles.h3
                                     .copyWith(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 request.senderName ??
-                                    'A sender wants to ship with you',
+                                    tr('A sender wants to ship with you'),
                                 style: AppTextStyles.bodySm.copyWith(
                                     color: AppPalette.of(context).gray500),
                               ),
@@ -332,7 +342,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                       const SizedBox(height: 16),
                     ],
                     _QuickDetail(
-                        label: 'Route',
+                        label: AppLocalizations.of(context).route,
                         value: [
                           if ((request.fromLocation ?? '').isNotEmpty)
                             request.fromLocation!,
@@ -340,22 +350,23 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                             request.toLocation!,
                         ].join(' → ')),
                     _QuickDetail(
-                        label: 'Package',
-                        value: request.packageTitle ?? 'Shipment request'),
+                        label: AppLocalizations.of(context).uiPackage,
+                        value: request.packageTitle ?? tr('Shipment request')),
                     _QuickDetail(
-                      label: 'Price',
+                      label: AppLocalizations.of(context).priceLabel,
                       value:
                           '${request.currency} ${request.amountForRole('traveler').toStringAsFixed(2)}',
                     ),
                     if ((request.message ?? '').trim().isNotEmpty)
                       _QuickDetail(
-                          label: 'Message', value: request.message!.trim()),
+                          label: AppLocalizations.of(context).uiMessage,
+                          value: request.message!.trim()),
                     const SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(
                           child: AppButton(
-                            label: 'View details',
+                            label: AppLocalizations.of(context).uiViewDetails,
                             variant: AppButtonVariant.outline,
                             onPressed: () {
                               Navigator.of(sheetContext).pop();
@@ -377,7 +388,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                       children: [
                         Expanded(
                           child: AppButton(
-                            label: 'Reject',
+                            label: AppLocalizations.of(context).uiReject,
                             variant: AppButtonVariant.outline,
                             onPressed: rejecting ? null : reject,
                           ),
@@ -385,7 +396,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: AppButton(
-                            label: 'Accept',
+                            label: AppLocalizations.of(context).uiAccept,
                             isLoading: accepting,
                             onPressed: accepting ? null : accept,
                           ),
@@ -490,15 +501,22 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                             children: [
                               for (var i = 0; i < tabs.length; i++)
                                 if (tabs[i].path.isNotEmpty)
-                                  _PillNavItem(
-                                    tab: tabs[i],
-                                    selected: i == currentIndex,
-                                    badgeCount: tabs[i].path == '/messages'
-                                        ? unreadCount
-                                        : (tabs[i].path == '/activity'
-                                            ? pendingCount
-                                            : 0),
-                                    onTap: () => onTabTap(i),
+                                  // Only the selected pill flexes: it takes
+                                  // what its label needs and shrinks (with an
+                                  // ellipsis) for long translations instead
+                                  // of overflowing the bar.
+                                  Flexible(
+                                    flex: i == currentIndex ? 1 : 0,
+                                    child: _PillNavItem(
+                                      tab: tabs[i],
+                                      selected: i == currentIndex,
+                                      badgeCount: tabs[i].path == '/messages'
+                                          ? unreadCount
+                                          : (tabs[i].path == '/activity'
+                                              ? pendingCount
+                                              : 0),
+                                      onTap: () => onTabTap(i),
+                                    ),
                                   ),
                             ],
                           ),
@@ -509,7 +527,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                       // floating "Post trip" label above it.
                       Semantics(
                         button: true,
-                        label: 'Post trip',
+                        label: AppLocalizations.of(context).uiPostTrip,
                         child: GestureDetector(
                           onTap: publishIndex < 0
                               ? null
@@ -521,13 +539,13 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
-                                  color: AppColors.black,
+                                  color: AppPalette.of(context).black,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Text(
-                                  'Post trip',
+                                child: Text(
+                                  AppLocalizations.of(context).uiPostTrip,
                                   style: TextStyle(
-                                    color: AppColors.white,
+                                    color: AppPalette.of(context).white,
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -598,7 +616,7 @@ class _PillNavItem extends StatelessWidget {
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           height: 50,
-          padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 13),
+          padding: EdgeInsets.symmetric(horizontal: selected ? 14 : 10),
           decoration: BoxDecoration(
             color: selected
                 ? AppPalette.of(context).primarySoft
@@ -623,12 +641,22 @@ class _PillNavItem extends StatelessWidget {
               ),
               if (selected) ...[
                 const SizedBox(width: 6),
-                Text(
-                  tab.label,
-                  style: TextStyle(
-                    color: AppPalette.of(context).primary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                Flexible(
+                  // Scale long translated labels down a touch rather than
+                  // cutting them off.
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      tab.label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: AppPalette.of(context).primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -669,7 +697,8 @@ class _NavTabIcon extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.error,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.white, width: 1.5),
+                border:
+                    Border.all(color: AppPalette.of(context).white, width: 1.5),
               ),
               child: badgeCount > 0
                   ? Center(

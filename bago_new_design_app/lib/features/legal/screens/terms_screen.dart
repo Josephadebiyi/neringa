@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -66,7 +67,7 @@ class TermsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
-        title: Text('Terms of Service',
+        title: Text(AppLocalizations.of(context).termsOfService,
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
         leading: GestureDetector(
@@ -96,7 +97,8 @@ class TermsScreen extends StatelessWidget {
                     color: AppPalette.of(context).primary, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text('Last updated: July 15, 2026',
+                  child: Text(
+                      AppLocalizations.of(context).uiLastUpdatedJuly152026,
                       style: AppTextStyles.bodySm.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600)),
@@ -104,8 +106,7 @@ class TermsScreen extends StatelessWidget {
               ]),
             ),
             const SizedBox(height: 20),
-            Text(
-                'Please read these Terms of Service carefully before using Bago. These terms govern your use of our platform and services.',
+            Text(AppLocalizations.of(context).uiPleaseReadTheseTermsOfService,
                 style: AppTextStyles.bodyMd.copyWith(
                     color: AppPalette.of(context).gray600,
                     height: 1.6,

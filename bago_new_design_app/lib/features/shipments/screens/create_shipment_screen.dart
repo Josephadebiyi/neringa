@@ -1,3 +1,6 @@
+import '../../../shared/utils/localized_dates.dart';
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
@@ -302,7 +305,8 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
 
     if (_step == 0 && _locationsMatch(_from, _to)) {
       AppSnackBar.show(context,
-          message: 'Pickup and destination cities must be different.',
+          message:
+              AppLocalizations.of(context).uiPickupAndDestinationCitiesMustBe,
           type: SnackBarType.error);
       return;
     }
@@ -472,7 +476,7 @@ class _CreateShipmentScreenState extends ConsumerState<CreateShipmentScreen>
         onPressed: _onBack,
       ),
       title: Text(
-        showStep ? _steps[_step.clamp(0, _steps.length - 1)] : 'Send a Package',
+        showStep ? _steps[_step.clamp(0, _steps.length - 1)] : tr('Send a Package'),
         style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
       ),
       centerTitle: true,
@@ -648,7 +652,7 @@ class _BottomNav extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               ),
-              child: Text('Back',
+              child: Text(AppLocalizations.of(context).uiBack,
                   style: AppTextStyles.labelMd.copyWith(
                       color: AppPalette.of(context).gray700,
                       fontWeight: FontWeight.w700)),
@@ -669,7 +673,7 @@ class _BottomNav extends StatelessWidget {
                   elevation: 0,
                 ),
                 child: Text(
-                  step == 2 ? 'Find Travelers' : 'Continue',
+                  step == 2 ? tr('Find Travelers') : tr('Continue'),
                   style: AppTextStyles.labelLg.copyWith(
                       color: Colors.white, fontWeight: FontWeight.w800),
                 ),
@@ -701,8 +705,8 @@ class _RouteStep extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _LocationPickerSheet(
-        title: isFrom ? 'Pickup Location' : 'Delivery Location',
-        hintText: isFrom ? 'Search pickup city' : 'Search destination city',
+        title: isFrom ? tr('Pickup Location') : tr('Delivery Location'),
+        hintText: isFrom ? tr('Search pickup city') : tr('Search destination city'),
         onSelect: isFrom ? onFromChanged : onToChanged,
       ),
     );
@@ -724,11 +728,10 @@ class _RouteStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _StepHeader(
+          _StepHeader(
             icon: Icons.route_rounded,
-            title: 'Where are you sending?',
-            subtitle:
-                'Tell us the pickup and delivery locations for your shipment.',
+            title: AppLocalizations.of(context).uiWhereAreYouSending,
+            subtitle: AppLocalizations.of(context).uiTellUsThePickupAndDelivery,
           ),
           const SizedBox(height: 20),
           Container(
@@ -747,8 +750,8 @@ class _RouteStep extends StatelessWidget {
               children: [
                 _InputRow(
                   icon: Icons.trip_origin_rounded,
-                  label: from.isEmpty ? 'Enter pickup city' : from,
-                  sublabel: from.isEmpty ? 'Pickup Location' : null,
+                  label: from.isEmpty ? tr('Enter pickup city') : from,
+                  sublabel: from.isEmpty ? tr('Pickup Location') : null,
                   hasValue: from.isNotEmpty,
                   onTap: () => _openLocation(context, true),
                 ),
@@ -759,8 +762,8 @@ class _RouteStep extends StatelessWidget {
                     endIndent: 20),
                 _InputRow(
                   icon: Icons.location_on_outlined,
-                  label: to.isEmpty ? 'Enter destination' : to,
-                  sublabel: to.isEmpty ? 'Delivery Location' : null,
+                  label: to.isEmpty ? tr('Enter destination') : to,
+                  sublabel: to.isEmpty ? tr('Delivery Location') : null,
                   hasValue: to.isNotEmpty,
                   onTap: () => _openLocation(context, false),
                 ),
@@ -771,8 +774,8 @@ class _RouteStep extends StatelessWidget {
                     endIndent: 20),
                 _InputRow(
                   icon: Icons.calendar_month_rounded,
-                  label: date.isEmpty ? 'Any available date' : date,
-                  sublabel: date.isEmpty ? 'Travel Date (optional)' : null,
+                  label: date.isEmpty ? tr('Any available date') : localizeEnglishDate(date),
+                  sublabel: date.isEmpty ? tr('Travel Date (optional)') : null,
                   hasValue: date.isNotEmpty,
                   onTap: () => _openCalendar(context),
                 ),
@@ -820,16 +823,16 @@ class _ItemStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _StepHeader(
+          _StepHeader(
             icon: Icons.inventory_2_rounded,
-            title: 'What are you sending?',
+            title: AppLocalizations.of(context).uiWhatAreYouSending,
             subtitle:
-                'Describe your item so your traveler knows what to expect.',
+                AppLocalizations.of(context).uiDescribeYourItemSoYourTraveler,
           ),
           const SizedBox(height: 20),
 
           // ── Category ───────────────────────────────────────────────────
-          Text('Item Category',
+          Text(AppLocalizations.of(context).uiItemCategory,
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
@@ -855,7 +858,9 @@ class _ItemStep extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: sel ? AppColors.primary : AppColors.white,
+                      color: sel
+                          ? AppColors.primary
+                          : AppPalette.of(context).white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                           color: sel
@@ -902,7 +907,7 @@ class _ItemStep extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.warningLight,
+                color: AppPalette.of(context).soft(AppColors.warningLight),
                 borderRadius: BorderRadius.circular(12),
                 border:
                     Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
@@ -914,7 +919,8 @@ class _ItemStep extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'This category requires extra care. Your traveler may request additional details.',
+                      AppLocalizations.of(context)
+                          .uiThisCategoryRequiresExtraCareYour,
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppColors.warning),
                     ),
@@ -927,7 +933,7 @@ class _ItemStep extends StatelessWidget {
 
           // ── Item name ──────────────────────────────────────────────────
           _FieldCard(
-            label: 'Item Description',
+            label: AppLocalizations.of(context).uiItemDescription,
             child: TextField(
               controller: itemNameCtrl,
               textCapitalization: TextCapitalization.sentences,
@@ -944,7 +950,7 @@ class _ItemStep extends StatelessWidget {
             children: [
               Expanded(
                 child: _FieldCard(
-                  label: 'Weight (kg)*',
+                  label: AppLocalizations.of(context).uiWeightKg,
                   child: TextField(
                     controller: weightCtrl,
                     keyboardType:
@@ -963,7 +969,7 @@ class _ItemStep extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _FieldCard(
-                  label: 'Declared Value',
+                  label: AppLocalizations.of(context).declaredValueLabel,
                   child: TextField(
                     controller: valueCtrl,
                     keyboardType:
@@ -1016,7 +1022,8 @@ class _ItemStep extends StatelessWidget {
                               color: AppPalette.of(context).primary, size: 22),
                         ),
                         const SizedBox(height: 8),
-                        Text('Add item photo (optional)',
+                        Text(
+                            AppLocalizations.of(context).uiAddItemPhotoOptional,
                             style: AppTextStyles.labelSm.copyWith(
                                 color: AppPalette.of(context).gray500,
                                 fontWeight: FontWeight.w700)),
@@ -1028,7 +1035,7 @@ class _ItemStep extends StatelessWidget {
 
           // ── Note ───────────────────────────────────────────────────────
           _FieldCard(
-            label: 'Note for traveler (optional)',
+            label: AppLocalizations.of(context).uiNoteForTravelerOptional,
             child: TextField(
               controller: descCtrl,
               maxLines: 2,
@@ -1087,11 +1094,11 @@ class _SafetyStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _StepHeader(
+          _StepHeader(
             icon: Icons.shield_rounded,
-            title: 'Safety Check',
-            subtitle:
-                'Review your shipment details and confirm your item is safe to send.',
+            title: AppLocalizations.of(context).uiSafetyCheck,
+            subtitle: AppLocalizations.of(context)
+                .uiReviewYourShipmentDetailsAndConfirm,
           ),
           const SizedBox(height: 20),
 
@@ -1106,35 +1113,37 @@ class _SafetyStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Shipment Summary',
+                Text(AppLocalizations.of(context).uiShipmentSummary,
                     style: AppTextStyles.labelMd
                         .copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 14),
                 _SummaryRow(
                     icon: Icons.trip_origin_rounded,
-                    label: 'From',
+                    label: AppLocalizations.of(context).fromLabel,
                     value: from),
                 const SizedBox(height: 8),
                 _SummaryRow(
-                    icon: Icons.location_on_rounded, label: 'To', value: to),
+                    icon: Icons.location_on_rounded,
+                    label: AppLocalizations.of(context).toLabel,
+                    value: to),
                 if (date.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   _SummaryRow(
                       icon: Icons.calendar_today_rounded,
-                      label: 'Date',
-                      value: date),
+                      label: AppLocalizations.of(context).uiDate,
+                      value: localizeEnglishDate(date)),
                 ],
                 Divider(height: 20, color: AppPalette.of(context).gray100),
                 _SummaryRow(
                   icon: Icons.inventory_2_rounded,
-                  label: 'Category',
+                  label: AppLocalizations.of(context).uiCategory2,
                   value: catName.isEmpty ? '—' : catName,
                   valueColor: catRisk == 'medium' ? AppColors.warning : null,
                 ),
                 const SizedBox(height: 8),
                 _SummaryRow(
                     icon: Icons.scale_rounded,
-                    label: 'Weight',
+                    label: AppLocalizations.of(context).weightLabel,
                     value: weight.isEmpty ? '—' : '${weight} kg'),
               ],
             ),
@@ -1145,7 +1154,7 @@ class _SafetyStep extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.errorLight,
+              color: AppPalette.of(context).soft(AppColors.errorLight),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
             ),
@@ -1157,7 +1166,7 @@ class _SafetyStep extends StatelessWidget {
                     const Icon(Icons.block_rounded,
                         color: AppColors.error, size: 16),
                     const SizedBox(width: 8),
-                    Text('Prohibited Items',
+                    Text(AppLocalizations.of(context).uiProhibitedItems,
                         style: AppTextStyles.labelSm.copyWith(
                           color: AppColors.error,
                           fontWeight: FontWeight.w900,
@@ -1190,19 +1199,19 @@ class _SafetyStep extends StatelessWidget {
               Expanded(
                   child: _TrustBadge(
                       icon: Icons.verified_user_rounded,
-                      label: 'Community\nVerified',
+                      label: AppLocalizations.of(context).uiCommunityVerified,
                       color: AppPalette.of(context).primary)),
               SizedBox(width: 10),
               Expanded(
                   child: _TrustBadge(
                       icon: Icons.location_on_rounded,
-                      label: 'Real-Time\nTracking',
+                      label: AppLocalizations.of(context).uiRealTimeTracking,
                       color: AppColors.success)),
               SizedBox(width: 10),
               Expanded(
                   child: _TrustBadge(
                       icon: Icons.security_rounded,
-                      label: 'Insured\nDelivery',
+                      label: AppLocalizations.of(context).uiInsuredDelivery,
                       color: AppColors.info)),
             ],
           ),
@@ -1248,7 +1257,7 @@ class _SafetyStep extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'I confirm that my shipment does not contain any prohibited items and complies with Bago\'s item policy.',
+                      AppLocalizations.of(context).uiIConfirmThatMyShipmentDoes,
                       style: AppTextStyles.bodySm.copyWith(
                           color: AppPalette.of(context).gray700, height: 1.5),
                     ),
@@ -1292,7 +1301,7 @@ class _TravelerStep extends StatelessWidget {
           children: [
             const AppLoading(),
             const SizedBox(height: 16),
-            Text('Finding travelers on this route…',
+            Text(AppLocalizations.of(context).uiFindingTravelersOnThisRoute,
                 style: TextStyle(
                     color: AppPalette.of(context).gray500,
                     fontSize: 14,
@@ -1313,13 +1322,13 @@ class _TravelerStep extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                    color: AppColors.errorLight,
+                    color: AppPalette.of(context).soft(AppColors.errorLight),
                     borderRadius: BorderRadius.circular(20)),
                 child: const Icon(Icons.wifi_off_rounded,
                     color: AppColors.error, size: 32),
               ),
               const SizedBox(height: 16),
-              const Text('Connection error',
+              Text(AppLocalizations.of(context).uiConnectionError,
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text(searchErr!,
@@ -1330,7 +1339,7 @@ class _TravelerStep extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Try Again'),
+                label: Text(AppLocalizations.of(context).uiTryAgain),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -1360,11 +1369,12 @@ class _TravelerStep extends StatelessWidget {
                     size: 36, color: AppPalette.of(context).primary),
               ),
               const SizedBox(height: 20),
-              const Text('No travelers yet',
+              Text(AppLocalizations.of(context).uiNoTravelersYet,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text(
-                  'No travelers are heading from $from to $to right now. Check back soon!',
+                  AppLocalizations.of(context)
+                      .uiFNoTravelersAreHeadingFromTo(from, to),
                   style: TextStyle(
                       color: AppPalette.of(context).gray500,
                       fontSize: 14,
@@ -1374,7 +1384,7 @@ class _TravelerStep extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Refresh'),
+                label: Text(AppLocalizations.of(context).uiRefresh),
                 style: OutlinedButton.styleFrom(
                     side: BorderSide(color: AppPalette.of(context).primary),
                     foregroundColor: AppColors.primary,
@@ -1457,7 +1467,7 @@ class _TravelerResultCard extends StatelessWidget {
                           Text(
                             ((trip.averageRating ?? 0) > 0)
                                 ? trip.averageRating!.toStringAsFixed(1)
-                                : 'New',
+                                : tr('New'),
                             style: AppTextStyles.bodySm.copyWith(
                                 color: AppPalette.of(context).gray600,
                                 fontWeight: FontWeight.w700),
@@ -1471,7 +1481,8 @@ class _TravelerResultCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                      color: AppColors.successLight,
+                      color:
+                          AppPalette.of(context).soft(AppColors.successLight),
                       borderRadius: BorderRadius.circular(10)),
                   child: Text(trip.statusLabel,
                       style: AppTextStyles.labelXs.copyWith(
@@ -1511,12 +1522,12 @@ class _TravelerResultCard extends StatelessWidget {
               children: [
                 Expanded(
                     child: _InfoPill(
-                        label: 'Available',
+                        label: AppLocalizations.of(context).uiAvailable,
                         value: '${trip.availableKg.toStringAsFixed(0)} kg')),
                 const SizedBox(width: 10),
                 Expanded(
                     child: _InfoPill(
-                        label: 'Rate',
+                        label: AppLocalizations.of(context).rateLabel,
                         value: priceDisplay.primary,
                         highlighted: true)),
               ],
@@ -1537,7 +1548,9 @@ class _TravelerResultCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                        'Send with ${NameFormatter.firstNameOnly(trip.carrierName, fallback: 'Traveler')}',
+                        AppLocalizations.of(context).uiFSendWith(
+                            NameFormatter.firstNameOnly(trip.carrierName,
+                                fallback: 'Traveler')),
                         style: AppTextStyles.labelMd.copyWith(
                             color: Colors.white, fontWeight: FontWeight.w800)),
                     const SizedBox(width: 6),
@@ -1603,20 +1616,20 @@ class _EmailGate extends StatelessWidget {
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                    color: AppColors.infoLight,
+                    color: AppPalette.of(context).soft(AppColors.infoLight),
                     borderRadius: BorderRadius.circular(24)),
                 child: const Icon(Icons.mark_email_unread_outlined,
                     size: 36, color: AppColors.info),
               ),
               const SizedBox(height: 20),
-              Text('Verify your email first',
+              Text(AppLocalizations.of(context).uiVerifyYourEmailFirst,
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: AppPalette.of(context).black)),
               const SizedBox(height: 10),
               Text(
-                'Check your inbox for the verification email we sent when you signed up. Once verified, you\'re good to go.',
+                AppLocalizations.of(context).uiCheckYourInboxForTheVerification,
                 style: TextStyle(
                     color: AppPalette.of(context).gray500,
                     fontSize: 14,
@@ -1633,7 +1646,7 @@ class _EmailGate extends StatelessWidget {
                     shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: Text('Go back',
+                  child: Text(AppLocalizations.of(context).goBack,
                       style: TextStyle(
                           color: AppPalette.of(context).gray700,
                           fontWeight: FontWeight.w800)),
@@ -1666,14 +1679,14 @@ class _PhoneGate extends StatelessWidget {
                     size: 36, color: AppPalette.of(context).primary),
               ),
               const SizedBox(height: 20),
-              Text('Verify your phone number',
+              Text(AppLocalizations.of(context).uiVerifyYourPhoneNumber,
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: AppPalette.of(context).black)),
               const SizedBox(height: 10),
               Text(
-                'Since you signed up with Google/Apple, we need to verify your phone number before you can send a shipment.',
+                AppLocalizations.of(context).uiSinceYouSignedUpWithGoogle,
                 style: TextStyle(
                     color: AppPalette.of(context).gray500,
                     fontSize: 14,
@@ -1692,7 +1705,7 @@ class _PhoneGate extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     elevation: 0,
                   ),
-                  child: const Text('Verify Phone Number',
+                  child: Text(AppLocalizations.of(context).uiVerifyPhoneNumber,
                       style:
                           TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 ),
@@ -1700,7 +1713,7 @@ class _PhoneGate extends StatelessWidget {
               const SizedBox(height: 12),
               TextButton(
                   onPressed: onBack,
-                  child: Text('Not now',
+                  child: Text(AppLocalizations.of(context).uiNotNow,
                       style: TextStyle(color: AppPalette.of(context).gray500))),
             ],
           ),
@@ -1743,8 +1756,8 @@ class _KycGate extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               isPending
-                  ? 'Verification Under Review'
-                  : 'Identity Verification Required',
+                  ? tr('Verification Under Review')
+                  : tr('Identity Verification Required'),
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -1754,8 +1767,8 @@ class _KycGate extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               isPending
-                  ? 'Your documents are being reviewed. You\'ll be notified within 1–2 business days. You can send shipments once approved.'
-                  : 'All senders must verify their identity before creating a shipment. It only takes a few minutes.',
+                  ? tr('Your documents are being reviewed. You\'ll be notified within 1–2 business days. You can send shipments once approved.')
+                  : tr('All senders must verify their identity before creating a shipment. It only takes a few minutes.'),
               style: TextStyle(
                   color: AppPalette.of(context).gray500,
                   fontSize: 14,
@@ -1775,7 +1788,7 @@ class _KycGate extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     elevation: 0,
                   ),
-                  child: const Text('Verify Identity',
+                  child: Text(AppLocalizations.of(context).uiVerifyIdentity,
                       style:
                           TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 ),
@@ -1783,7 +1796,7 @@ class _KycGate extends StatelessWidget {
             const SizedBox(height: 12),
             TextButton(
                 onPressed: onBack,
-                child: Text('Not now',
+                child: Text(AppLocalizations.of(context).uiNotNow,
                     style: TextStyle(color: AppPalette.of(context).gray500))),
           ],
         ),
@@ -1918,24 +1931,24 @@ class _TrustBadge extends StatelessWidget {
 
 class _TrustBadgesRow extends StatelessWidget {
   @override
-  Widget build(BuildContext context) => const Row(
+  Widget build(BuildContext context) => Row(
         children: [
           Expanded(
               child: _TrustBadge(
                   icon: Icons.people_rounded,
-                  label: '1,000+\nDeliveries',
+                  label: AppLocalizations.of(context).ui1000Deliveries,
                   color: AppColors.primary)),
           SizedBox(width: 10),
           Expanded(
               child: _TrustBadge(
                   icon: Icons.verified_user_rounded,
-                  label: 'ID\nVerified',
+                  label: AppLocalizations.of(context).uiIdVerified,
                   color: AppColors.success)),
           SizedBox(width: 10),
           Expanded(
               child: _TrustBadge(
                   icon: Icons.support_agent_rounded,
-                  label: '24/7\nSupport',
+                  label: AppLocalizations.of(context).ui247Support,
                   color: AppColors.info)),
         ],
       );
@@ -2114,7 +2127,7 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 height: 50,
                 decoration: BoxDecoration(
-                    color: const Color(0xFFF7F7F8),
+                    color: AppPalette.of(context).gray100,
                     borderRadius: BorderRadius.circular(16)),
                 child: Row(
                   children: [
@@ -2156,7 +2169,9 @@ class _LocationPickerSheetState extends State<_LocationPickerSheet> {
                   ? Center(
                       child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text('Search for a city or airport',
+                      child: Text(
+                          AppLocalizations.of(context)
+                              .uiSearchForACityOrAirport,
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodyMd.copyWith(
                               color: AppPalette.of(context).gray500,
@@ -2199,20 +2214,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
   DateTime _currentMonth = DateTime.now();
   DateTime? _selected;
 
-  String _monthName(int m) => [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December'
-      ][m - 1];
+  String _monthName(int m) => monthLong(m);
 
   @override
   Widget build(BuildContext context) {
@@ -2243,7 +2245,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
             child: Row(
               children: [
                 Expanded(
-                    child: Text('Select Date',
+                    child: Text(AppLocalizations.of(context).selectDate,
                         style: AppTextStyles.h3
                             .copyWith(fontWeight: FontWeight.w800))),
                 GestureDetector(
@@ -2355,7 +2357,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                     ? null
                     : () {
                         final f =
-                            '${_monthName(_selected!.month).substring(0, 3)} ${_selected!.day}, ${_selected!.year}';
+                            '${englishShortMonth(_selected!.month)} ${_selected!.day}, ${_selected!.year}';
                         widget.onSelect(f);
                         Navigator.pop(context);
                       },
@@ -2365,7 +2367,7 @@ class _CalendarSheetState extends State<_CalendarSheet> {
                   shape: const StadiumBorder(),
                   elevation: 0,
                 ),
-                child: Text('Confirm Date',
+                child: Text(AppLocalizations.of(context).confirmDate,
                     style: AppTextStyles.labelLg.copyWith(
                         color: Colors.white, fontWeight: FontWeight.w800)),
               ),

@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,18 +74,18 @@ class _BusinessServicesScreenState
     final confirmed = await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('Remove service'),
-            content: Text(
-                'Remove "${service.serviceName}"? Senders will no longer see it in search.'),
+            title: Text(AppLocalizations.of(context).uiRemoveService),
+            content: Text(AppLocalizations.of(context)
+                .uiFRemoveSendersWillNoLongerSee(service.serviceName ?? '')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
+                child: Text(AppLocalizations.of(context).cancel),
               ),
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child:
-                    const Text('Remove', style: TextStyle(color: Colors.red)),
+                child: Text(AppLocalizations.of(context).uiRemove,
+                    style: TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -93,7 +95,8 @@ class _BusinessServicesScreenState
     try {
       await TripService.instance.deleteBusinessService(service.id);
       if (!mounted) return;
-      AppSnackBar.show(context, message: 'Service removed');
+      AppSnackBar.show(context,
+          message: AppLocalizations.of(context).uiServiceRemoved);
       _load();
     } catch (e) {
       if (!mounted) return;
@@ -107,16 +110,17 @@ class _BusinessServicesScreenState
     final isCompany = ref.watch(authProvider).user?.isCompany == true;
 
     return BagoSubPageScaffold(
-      title: 'Business services',
+      title: AppLocalizations.of(context).uiBusinessServices,
       trailing: IconButton(
         icon: Icon(Icons.add_circle_rounded,
             color: AppPalette.of(context).primary),
         onPressed: isCompany ? () => _openEditor() : null,
       ),
       child: !isCompany
-          ? const _InfoState(
+          ? _InfoState(
               icon: Icons.storefront_outlined,
-              message: 'Business services are available to business accounts.',
+              message: AppLocalizations.of(context)
+                  .uiBusinessServicesAreAvailableToBusiness,
             )
           : _isLoading
               ? const Padding(
@@ -129,10 +133,10 @@ class _BusinessServicesScreenState
                   : (_services?.isEmpty ?? true)
                       ? _InfoState(
                           icon: Icons.storefront_outlined,
-                          message:
-                              'No services yet. Add a named rate like "Express" or "Standard" — senders will see it priced the same way as any trip, everywhere in the app.',
+                          message: AppLocalizations.of(context)
+                              .uiNoServicesYetAddANamed,
                           action: AppButton(
-                            label: 'Add a service',
+                            label: AppLocalizations.of(context).uiAddAService,
                             onPressed: () => _openEditor(),
                           ),
                         )
@@ -220,13 +224,13 @@ class _ServiceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(service.serviceName ?? 'Service',
+                Text(service.serviceName ?? tr('Service'),
                     style: AppTextStyles.labelMd
                         .copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
                 Text(
                   '${service.currency} ${service.pricePerKg.toStringAsFixed(2)}/kg'
-                  '${isPending ? ' · Pending admin approval' : ''}',
+                  '${isPending ? ' · ${tr('Pending admin approval')}' : ''}',
                   style: AppTextStyles.bodySm.copyWith(
                     color: isPending
                         ? AppColors.warning
@@ -283,11 +287,11 @@ class _ServiceEditorSheetState extends ConsumerState<_ServiceEditorSheet> {
     final name = _nameCtrl.text.trim();
     final price = double.tryParse(_priceCtrl.text.trim());
     if (name.isEmpty) {
-      setState(() => _error = 'Enter a service name, e.g. "Express".');
+      setState(() => _error = tr('Enter a service name, e.g. "Express".'));
       return;
     }
     if (price == null || price <= 0) {
-      setState(() => _error = 'Enter a valid price per kg.');
+      setState(() => _error = tr('Enter a valid price per kg.'));
       return;
     }
 
@@ -296,7 +300,7 @@ class _ServiceEditorSheetState extends ConsumerState<_ServiceEditorSheet> {
       _error = null;
     });
     try {
-      final currency = ref.read(authProvider).user?.preferredCurrency ?? 'USD';
+      final currency = ref.read(authProvider).user?.preferredCurrency ?? tr('USD');
       if (widget.existing != null) {
         await TripService.instance.updateBusinessService(
           id: widget.existing!.id,
@@ -338,19 +342,19 @@ class _ServiceEditorSheetState extends ConsumerState<_ServiceEditorSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.existing != null ? 'Edit service' : 'Add a service',
+              widget.existing != null ? tr('Edit service') : tr('Add a service'),
               style: AppTextStyles.h3,
             ),
             const SizedBox(height: 16),
             AppTextField(
               controller: _nameCtrl,
-              label: 'Service name',
-              hint: 'e.g. Express, Standard',
+              label: AppLocalizations.of(context).uiServiceName,
+              hint: AppLocalizations.of(context).uiEGExpressStandard,
             ),
             const SizedBox(height: 14),
             AppTextField(
               controller: _priceCtrl,
-              label: 'Price per kg',
+              label: AppLocalizations.of(context).uiPricePerKg,
               hint: '0.00',
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -361,7 +365,7 @@ class _ServiceEditorSheetState extends ConsumerState<_ServiceEditorSheet> {
             ],
             const SizedBox(height: 20),
             AppButton(
-              label: widget.existing != null ? 'Save changes' : 'Add service',
+              label: widget.existing != null ? tr('Save changes') : tr('Add service'),
               isLoading: _isSaving,
               onPressed: _isSaving ? null : _save,
             ),

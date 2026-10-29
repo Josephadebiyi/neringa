@@ -1,3 +1,4 @@
+import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
 import crypto from 'crypto';
 import {
   isFlutterwaveConfigured,
@@ -24,7 +25,9 @@ import {
   getFlutterwavePaymentCurrencyForCountry,
   convertCurrency,
 } from '../services/currencyConverter.js';
-import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail } from '../services/emailNotifications.js';
+import { generateOtpEmailHtml, sendWithdrawalSubmittedEmail, sendWithdrawalAdminNotification } from '../services/emailNotifications.js';
+import { sendPushNotification } from '../services/pushNotificationService.js';
+import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { resend } from '../services/resendClient.js';
 import { assertNoActiveWithdrawal } from '../services/withdrawalSafety.js';
 import { getBusinessRestrictionState, BUSINESS_MIN_PAYOUT_NGN } from '../services/businessRestrictionService.js';
@@ -61,9 +64,20 @@ async function ensurePayoutAccountOtpColumns() {
 // Recipient + Transfer Sender + payment_instruction transfer) instead of the
 // flat account_bank/account_number call used for African bank corridors.
 const ORCHESTRATED_TRANSFER_CURRENCIES = new Set(['EUR']);
+// Major-currency payouts (USD/EUR by default) are not sent through
+// Flutterwave: the request is queued for the Bago accounts team, who pay the
+// user's bank manually and update the status from the admin dashboard.
+// Extend with MANUAL_PAYOUT_CURRENCIES (e.g. "USD,EUR,GBP,INR").
+export const MANUAL_PAYOUT_CURRENCIES = new Set(
+  String(process.env.MANUAL_PAYOUT_CURRENCIES || 'USD,EUR')
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean),
+);
 const SUPPORTED_BANK_PAYOUT_CURRENCIES = new Set([
   'EUR', 'GBP', 'GHS', 'KES', 'MWK', 'NGN', 'SLL', 'TZS', 'UGX',
   'USD', 'XAF', 'XOF', 'ZAR', 'ZMW',
+  ...MANUAL_PAYOUT_CURRENCIES,
 ]);
 
 // Minimal calling-code lookup for splitting a stored "+<code><number>" phone
@@ -155,6 +169,12 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
     }
 
     let authoritativePreview = null;
+    if (requestId) {
+      authoritativePreview = await buildAdditionalWeightQuote({requestId, senderId: user.id, additionalKg, currency: normalizedCurrency});
+      numericAmount = authoritativePreview.totalAmount;
+      if (Math.abs(requestedAmount - numericAmount) > .011) return res.status(409).json({success: false, code: 'CHECKOUT_PRICE_CHANGED', message: 'Refresh the additional weight quote before paying.', preview: authoritativePreview});
+    }
+
     if (!requestId && packageId && tripId) {
       const packageRow = await queryOne(
         `select package_weight, declared_value
@@ -247,7 +267,7 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       userId: user.id,
       amount: numericAmount,
       currency: normalizedCurrency,
-      rawResponse: { packageId, tripId, requestId, additionalKg, authoritativePreview },
+      rawResponse: { packageId: authoritativePreview?.packageId || packageId, tripId: authoritativePreview?.tripId || tripId, requestId, additionalKg, authoritativePreview },
     }).catch((e) => console.warn('Failed to record payment_intent:', e.message));
 
     return res.status(200).json({
@@ -394,13 +414,15 @@ export const resolveFlutterwaveAccount = async (req, res, next) => {
 
 export const connectFlutterwaveBeneficiary = async (req, res, next) => {
   try {
-    if (!requireConfigured(res)) return;
     const user = req.user;
     const {
       accountNumber, bankCode, bankName, accountHolderName, iban, swiftBic, currency,
       addressLine1, addressLine2, city, state, postalCode, addressCountry,
+      routingNumber, accountType,
     } = req.body || {};
     const normalizedCurrency = CurrencyService.normalizeCurrency(currency || 'USD');
+    const isManualPayout = MANUAL_PAYOUT_CURRENCIES.has(normalizedCurrency);
+    if (!isManualPayout && !requireConfigured(res)) return;
     if (!SUPPORTED_BANK_PAYOUT_CURRENCIES.has(normalizedCurrency)) {
       return res.status(400).json({
         success: false,
@@ -408,9 +430,24 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
       });
     }
     const isIban = Boolean(iban);
-    const needsOrchestration = ORCHESTRATED_TRANSFER_CURRENCIES.has(normalizedCurrency);
+    const needsOrchestration = !isManualPayout && ORCHESTRATED_TRANSFER_CURRENCIES.has(normalizedCurrency);
 
-    if (isIban) {
+    if (isManualPayout) {
+      // Paid by hand from the admin dashboard, so collect what a bank wire
+      // needs rather than a Flutterwave bank code.
+      if (!accountHolderName) {
+        return res.status(400).json({ success: false, message: 'Account holder name is required.' });
+      }
+      // bankCode keeps the shipped app's bank-picker submissions valid.
+      if (isIban ? !swiftBic : (!accountNumber || !(routingNumber || swiftBic || bankCode))) {
+        return res.status(400).json({
+          success: false,
+          message: isIban
+            ? 'IBAN and SWIFT/BIC are required.'
+            : 'Account number and routing number (or SWIFT/BIC) are required.',
+        });
+      }
+    } else if (isIban) {
       if (!accountHolderName || !iban || !swiftBic) {
         return res.status(400).json({ success: false, message: 'Account holder name, IBAN, and SWIFT/BIC are required.' });
       }
@@ -545,7 +582,7 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
       type: isIban ? 'iban' : 'bank',
       accountHolderName,
       accountNumber,
-      bankCode,
+      bankCode: bankCode || routingNumber || null,
       bankName,
       iban,
       swiftCode: swiftBic,
@@ -561,11 +598,30 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
             payout_status = 'active',
             payout_method_status = 'connected',
             payout_currency = $2,
-            bank_details = jsonb_build_object('bankName', $3::text, 'accountNumber', $4::text, 'accountHolderName', $5::text),
+            bank_details = jsonb_strip_nulls(jsonb_build_object(
+              'bankName', $3::text, 'accountNumber', $4::text, 'accountHolderName', $5::text,
+              'currency', $2::text, 'iban', $7::text, 'swiftBic', $8::text,
+              'routingNumber', $9::text, 'accountType', $10::text, 'address', $11::jsonb,
+              'payoutMode', $6::text
+            )),
             updated_at = timezone('utc', now())
         where id = $1
       `,
-      [user.id, normalizedCurrency, bankName || null, accountNumber || iban || null, accountHolderName || null],
+      [
+        user.id,
+        normalizedCurrency,
+        bankName || null,
+        accountNumber || iban || null,
+        accountHolderName || null,
+        // payout_provider stays 'flutterwave' (the "bank linked" marker the
+        // shipped app checks); manual handling is recorded as payoutMode.
+        isManualPayout ? 'manual' : 'automatic',
+        iban || null,
+        swiftBic || null,
+        routingNumber || null,
+        accountType || null,
+        JSON.stringify(addressLine1 ? { addressLine1, addressLine2, city, state, postalCode, country: addressCountry } : null),
+      ],
     );
     if (req.payoutAccountOtpVerified) {
       await pgQuery(
@@ -629,9 +685,6 @@ export const verifyFlutterwaveBankOtp = async (req, res) => {
 
 export const withdrawFundsFlutterwave = async (req, res) => {
   try {
-    if (!isFlutterwaveConfigured()) {
-      return res.status(503).json({ success: false, message: 'Withdrawals are temporarily unavailable. Please try again shortly.' });
-    }
     const { amount, currency } = req.body;
     const user = req.user;
 
@@ -656,6 +709,10 @@ export const withdrawFundsFlutterwave = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Demo accounts cannot withdraw funds.' });
     }
     const walletCurrency = CurrencyService.normalizeCurrency(profile?.currency || currency || 'USD');
+    const isManualPayout = MANUAL_PAYOUT_CURRENCIES.has(walletCurrency);
+    if (!isManualPayout && !isFlutterwaveConfigured()) {
+      return res.status(503).json({ success: false, message: 'Withdrawals are temporarily unavailable. Please try again shortly.' });
+    }
     const requestedCurrency = currency ? CurrencyService.normalizeCurrency(currency) : walletCurrency;
     if (requestedCurrency !== walletCurrency) {
       return res.status(400).json({ success: false, message: `Withdraw in your wallet currency (${walletCurrency}).` });
@@ -748,6 +805,12 @@ export const withdrawFundsFlutterwave = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
 
+    if (isManualPayout) {
+      return queueManualPayoutWithdrawal(res, {
+        user, profile, beneficiary, reference, amount: withdrawalAmount, currency: walletCurrency,
+      });
+    }
+
     await pgQuery(
       `INSERT INTO public.wallet_transactions
         (wallet_id, user_id, type, amount, currency, status, description, metadata)
@@ -811,3 +874,84 @@ export const withdrawFundsFlutterwave = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Withdrawal could not be completed. Please try again.' });
   }
 };
+
+// Queues a USD/EUR (manual-currency) withdrawal for the accounts team. The
+// wallet has already been debited by the caller; the admin dashboard either
+// marks it paid (user emailed) or rejects it (balance refunded).
+async function queueManualPayoutWithdrawal(res, { user, profile, beneficiary, reference, amount, currency }) {
+  const userName = [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+  const payoutAccount = {
+    accountHolderName: beneficiary.account_holder_name || null,
+    bankName: beneficiary.bank_name || null,
+    accountNumber: beneficiary.account_number || null,
+    iban: beneficiary.iban || null,
+    swiftBic: beneficiary.swift_code || null,
+    routingNumber: beneficiary.bank_code || null,
+    country: beneficiary.country || null,
+    currency,
+  };
+  try {
+    await pgQuery(
+      `INSERT INTO public.wallet_transactions
+        (wallet_id, user_id, type, amount, currency, status, description, metadata)
+       VALUES ($1, $2, 'withdrawal', $3, $4, 'pending_admin_approval', $5, $6)`,
+      [
+        profile.wallet_id,
+        user.id,
+        amount,
+        currency,
+        `${currency} bank withdrawal (manual payout)`,
+        {
+          provider: 'manual_bank_transfer',
+          method: 'manual_bank_transfer',
+          reference,
+          manualReviewRequired: true,
+          manualReviewReason: `${currency} payouts are paid manually by the Bago accounts team.`,
+          payoutAccount,
+        },
+      ],
+    );
+  } catch (error) {
+    // Never leave the user debited without a withdrawal record.
+    await pgQuery(
+      `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1 AND currency = $3`,
+      [user.id, amount, currency],
+    ).catch(() => {});
+    throw error;
+  }
+
+  const adminEmails = new Set(
+    [process.env.FINANCE_NOTIFICATION_EMAIL, ...(await listActiveAdminEmails().catch(() => []))].filter(Boolean),
+  );
+  await Promise.all(
+    [...adminEmails].map((email) =>
+      sendWithdrawalAdminNotification(email, {
+        userName: userName || 'Bago user',
+        userEmail: profile.email || user.email,
+        amount,
+        currency,
+        method: 'Manual bank transfer',
+        reference,
+      }).catch(() => {}),
+    ),
+  );
+  await sendWithdrawalSubmittedEmail(
+    profile.email || user.email,
+    userName,
+    { amount, currency, reference, method: 'bank transfer (processed by the Bago accounts team)' },
+  ).catch(() => {});
+  await sendPushNotification(
+    user.id,
+    'Withdrawal requested',
+    `Your ${currency} ${Number(amount).toFixed(2)} withdrawal is with our accounts team. We'll notify you when it's paid.`,
+    { type: 'withdrawal', reference },
+  ).catch(() => {});
+
+  return res.status(200).json({
+    success: true,
+    manual: true,
+    status: 'pending_admin_approval',
+    reference,
+    message: 'Withdrawal requested. Our accounts team will pay it to your bank account and notify you.',
+  });
+}

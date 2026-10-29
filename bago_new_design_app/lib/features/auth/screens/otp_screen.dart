@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 
@@ -55,7 +56,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     final otp = _otpCtrl.text.trim();
     if (otp.length < 6) {
       AppSnackBar.show(context,
-          message: 'Please enter the 6-digit code', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiPleaseEnterThe6DigitCode,
+          type: SnackBarType.error);
       return;
     }
     try {
@@ -78,7 +80,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       _startCountdown();
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'A new code has been sent', type: SnackBarType.success);
+            message: AppLocalizations.of(context).uiANewCodeHasBeenSent,
+            type: SnackBarType.success);
       }
     } catch (e) {
       if (mounted) {
@@ -132,13 +135,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               ),
 
               const SizedBox(height: 20),
-              Text('Verify your email', style: AppTextStyles.displaySm),
+              Text(AppLocalizations.of(context).verifyYourEmail,
+                  style: AppTextStyles.displaySm),
               const SizedBox(height: 8),
               RichText(
                 text: TextSpan(
                   style: AppTextStyles.muted(AppTextStyles.bodyMd),
                   children: [
-                    const TextSpan(text: "We've sent a 6-digit code to "),
+                    TextSpan(
+                        text: AppLocalizations.of(context).uiWeVeSentA6Digit),
                     TextSpan(
                       text: widget.email,
                       style: AppTextStyles.labelMd
@@ -175,7 +180,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               const SizedBox(height: 32),
 
               AppButton(
-                label: 'Verify Email',
+                label: AppLocalizations.of(context).uiVerifyEmail,
                 onPressed: _verify,
                 isLoading: isLoading,
               ),
@@ -185,13 +190,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               Center(
                 child: _resendCountdown > 0
                     ? Text(
-                        'Resend code in ${_resendCountdown}s',
+                        AppLocalizations.of(context)
+                            .uiFResendCodeInS(_resendCountdown),
                         style: AppTextStyles.muted(AppTextStyles.bodyMd),
                       )
                     : GestureDetector(
                         onTap: _resend,
                         child: Text(
-                          'Resend code',
+                          AppLocalizations.of(context).resendCode,
                           style: AppTextStyles.primary(AppTextStyles.labelMd),
                         ),
                       ),

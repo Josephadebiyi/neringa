@@ -1,3 +1,4 @@
+import '../../l10n/app_localizations.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -35,7 +36,7 @@ class TappableImage extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: 'View image',
+      label: AppLocalizations.of(context).uiViewImage,
       child: GestureDetector(
         onTap: url.trim().isEmpty
             ? null
@@ -119,7 +120,7 @@ class _ImageContent extends StatelessWidget {
   Widget get _fallback =>
       placeholder ??
       Container(
-        color: AppColors.gray100,
+        color: AppColors.gray400.withValues(alpha: 0.18),
         alignment: Alignment.center,
         child: const Icon(Icons.image_not_supported_rounded,
             color: AppColors.gray300, size: 40),

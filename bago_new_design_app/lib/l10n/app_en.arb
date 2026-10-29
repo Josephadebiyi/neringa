@@ -336,7 +336,6 @@
   "deliveryLabel": "Delivery",
   "nameLabel": "Name",
   "phoneLabel": "Phone",
-  "emailLabel": "Email",
   "itemImagesLabel": "Item Images",
   "notProvidedLabel": "Not provided",
   "receiverInfo": "Receiver Information",
@@ -551,7 +550,11 @@
   "preferredCurrencyTitle": "Preferred Currency",
   "currencyScreenInfo": "Choose the currency you want to see across the app. This updates your wallet display, payouts, and pricing preferences. Trip listings keep their original currency, but rates are shown using in-app reference conversions.",
   "currencyUpdatedTo": "Preferred currency updated to {currency}",
-  "@currencyUpdatedTo": { "placeholders": { "currency": {} } },
+  "@currencyUpdatedTo": {
+    "placeholders": {
+      "currency": {}
+    }
+  },
   "referenceRates": "Reference Rates",
   "referenceRatesInfo": "These are the conversion rates currently used inside the app for supported currencies.",
   "escrowProtectionTitle": "Escrow Protection",
@@ -565,7 +568,6 @@
   "searchHelpHint": "Search help topics...",
   "noRatingsYet": "You haven't left any ratings yet.",
   "setCurrencyFirst": "Please set your preferred currency in profile settings before managing payout methods.",
-  "addMiniBio": "Add a mini bio",
   "activityTitle": "Activity",
   "activityTabTrips": "Trips",
   "activityTabShipments": "Shipments",
@@ -587,7 +589,9 @@
   "activeShipmentsCount": "{count, plural, one {1 active shipment} other {{count} active shipments}}",
   "@activeShipmentsCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "kgFreeLabel": "{kg} kg free",
@@ -602,7 +606,9 @@
   "reviewsCount": "{count, plural, one {1 review} other {{count} reviews}}",
   "@reviewsCount": {
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "requestsSectionCarry": "Packages to carry",
@@ -617,5 +623,1204 @@
   "activeShipmentsSection": "Active",
   "pastShipmentsSection": "Past",
   "searchTripsHint": "Search by route, date or status...",
-  "searchShipmentsHint": "Search by package, city or traveler..."
+  "searchShipmentsHint": "Search by package, city or traveler...",
+  "uiIncludingProcessingByOurIdentityVerification": ", including processing by our identity verification partner.",
+  "ui1000Deliveries": "1,000+\nDeliveries",
+  "ui247Support": "24/7\nSupport",
+  "ui6DigitCode": "6-digit code",
+  "ui9DigitAbaRoutingNumber": "9-digit ABA routing number",
+  "uiAClearPhotoHelpsTheTraveler": "A clear photo helps the traveler identify your item",
+  "uiANewCodeHasBeenSent": "A new code has been sent",
+  "uiAccountDetails": "ACCOUNT DETAILS",
+  "uiAccountInformation": "ACCOUNT INFORMATION",
+  "uiAccept": "Accept",
+  "uiAcceptContinue": "Accept & Continue",
+  "uiAcceptRequest": "Accept Request",
+  "uiAccountHolderName": "Account Holder Name",
+  "uiAccountHolderName2": "Account Holder Name *",
+  "uiAccountNumber": "Account Number",
+  "uiAccountNumber2": "Account Number *",
+  "uiAccountSuspended": "Account Suspended",
+  "uiAccountVerification": "Account Verification",
+  "uiAccountCreated": "Account created",
+  "uiAccountHolder": "Account holder",
+  "uiAccountNumberMustBe10Digits": "Account number must be 10 digits.",
+  "uiActionNeeded": "Action needed",
+  "uiActiveShipment": "Active shipment",
+  "uiActiveShipments": "Active shipments",
+  "uiAdd24PhotosAndAccept": "Add 2–4 photos and accept all agreements.",
+  "uiAddBankAccount": "Add Bank Account",
+  "uiAddAService": "Add a service",
+  "uiAddAnItemImageBeforeContinuing": "Add an item image before continuing.",
+  "uiAddItemPhoto": "Add item photo",
+  "uiAddItemPhotoOptional": "Add item photo (optional)",
+  "uiAddKg": "Add kg",
+  "uiAddMoreKg": "Add more kg",
+  "uiAddPhoto": "Add photo",
+  "uiAddYourPayoutAccountSoYou": "Add your payout account so you can receive money from deliveries.",
+  "uiAdditionalWeight": "Additional weight",
+  "uiAddressLine1": "Address Line 1 *",
+  "uiAddressLine2": "Address Line 2",
+  "uiAfterDelivery": "After delivery",
+  "uiAgeVerification": "Age Verification *",
+  "uiAgreementShippingConfirmation": "Agreement & Shipping Confirmation",
+  "uiAllConversationsStaySynced": "All conversations stay synced",
+  "uiAllow": "Allow",
+  "uiAllowNotifications": "Allow notifications?",
+  "uiAmount": "Amount",
+  "uiAnAgentWillJoinShortlyYou": "An agent will join shortly. You can send a message below.",
+  "uiAnySpecialRequirementsOrInstructions": "Any special requirements or instructions...",
+  "uiApartmentSuiteEtcOptional": "Apartment, suite, etc. (optional)",
+  "uiAppPasscode": "App passcode",
+  "uiAppPasscodeRemoved": "App passcode removed.",
+  "uiAppPasscodeSaved": "App passcode saved.",
+  "uiApplePay": "Apple Pay",
+  "uiApplySuggestion": "Apply suggestion",
+  "uiAreYouSigningUpAsAn": "Are you signing up as an individual or a company?",
+  "uiAreYouSureYouWantTo": "Are you sure you want to delete this saved route?",
+  "uiArrival": "Arrival",
+  "uiAskTheSenderOrReceiverFor": "Ask the sender or receiver for their 4-digit handover PIN to confirm delivery and release your payment instantly.",
+  "uiAtLeast8Characters": "At least 8 characters",
+  "uiAvailable": "Available",
+  "uiAvailableBalance": "Available Balance",
+  "uiAvailableCapacity": "Available Capacity",
+  "uiAvailableNow": "Available now",
+  "uiAwaitingPaymentTapToContinue": "Awaiting payment — tap to continue",
+  "uiBillingAddress": "BILLING ADDRESS",
+  "uiBack": "Back",
+  "uiBackToApp": "Back to App",
+  "uiBagoCommission": "Bago commission",
+  "uiBagoFee": "Bago fee",
+  "uiBagoGuidelines": "Bago guidelines",
+  "uiBagoUsesFlutterwaveForSecureCheckout": "Bago uses Flutterwave for secure checkout. When you pay by card, Apple Pay, bank transfer, or mobile money, Flutterwave securely handles and stores the payment details. Bago never receives raw card numbers.",
+  "uiBagoWillUseThisCountryTo": "Bago will use this country to set your wallet currency before KYC.",
+  "uiBank": "Bank",
+  "uiBankCountry": "Bank Country",
+  "uiBankName": "Bank Name",
+  "uiBankName2": "Bank Name *",
+  "uiBankAccountAddedSuccessfully": "Bank account added successfully!",
+  "uiBankAccountLinkedSuccessfully": "Bank account linked successfully!",
+  "uiBankAccountSetupCouldNotBe": "Bank account setup could not be completed. Please try again.",
+  "uiBankCountry2": "Bank country *",
+  "uiBioCannotBeEmpty": "Bio cannot be empty",
+  "uiBioUpdatedSuccessfully": "Bio updated successfully",
+  "uiBiometricUnlockFailed": "Biometric unlock failed.",
+  "uiBookings": "Bookings",
+  "uiBriefSummaryOfYourIssue": "Brief summary of your issue",
+  "uiBrowseQuickAnswersStartALive": "Browse quick answers, start a live chat, or return to an existing thread without losing context.",
+  "uiBusinessOrOrganisation": "Business or organisation",
+  "uiBusinessServices": "Business services",
+  "uiBusinessServicesAreAvailableToBusiness": "Business services are available to business accounts.",
+  "uiBuyItemsAbroad": "Buy Items Abroad",
+  "uiBuyItemsAbroadIsNotLive": "Buy Items Abroad is not live yet. We will implement it soon.",
+  "uiByContinuingIConfirmThat": "By continuing, I confirm that:",
+  "uiBySubmittingYouConfirmThisTrip": "By submitting, you confirm this trip is accurate. Trips with new or edited details are sent to the support team again for approval before going live.",
+  "uiCategory": "CATEGORY",
+  "uiCalculatingCheckoutTotal": "Calculating checkout total...",
+  "uiCanTFindItCheckYour": "Can't find it? Check your spam or junk folder.",
+  "uiCardsAreSavedDuringCheckout": "Cards are saved during checkout",
+  "uiCarrierLogisticsCompanyName": "Carrier / logistics company name",
+  "uiCategory2": "Category",
+  "uiChange": "Change",
+  "uiChangeNumber": "Change number",
+  "uiChangingThisAccountRequiresAConfirmation": "Changing this account requires a confirmation code sent to your email.",
+  "uiChatClosed": "Chat closed",
+  "uiChatIsNotAvailableForThis": "Chat is not available for this shipment yet.",
+  "uiChatSafelyByStayingWithinBago": "Chat safely by staying within Bago. We protect your payments and data.",
+  "uiChatWithSupport": "Chat with support",
+  "uiCheckYourInboxForTheVerification": "Check your inbox for the verification email we sent when you signed up. Once verified, you're good to go.",
+  "uiChooseFromLibrary": "Choose from library",
+  "uiChooseYourEarningCurrencyThisWill": "Choose your earning currency. This will be locked once confirmed and can only be changed by support.",
+  "uiCity": "City *",
+  "uiCityCountry": "City, Country",
+  "uiCityAirportStation": "City, airport, station...",
+  "uiComingSoon": "Coming soon",
+  "uiCommunication": "Communication",
+  "uiCommunityVerified": "Community\nVerified",
+  "uiCompany": "Company",
+  "uiCompleteSignup": "Complete Signup",
+  "uiCompleteIdentityVerificationBeforeAddingA": "Complete identity verification before adding a payout account.",
+  "uiCompleteIdentityVerificationBeforeChangingPayout": "Complete identity verification before changing payout currency.",
+  "uiCompleteYourProfile": "Complete your profile",
+  "uiConfirm": "Confirm",
+  "uiConfirmBankAccount": "Confirm Bank Account",
+  "uiConfirmDeliveryGetPaid": "Confirm Delivery & Get Paid",
+  "uiConfirmUkBankAccount": "Confirm UK Bank Account",
+  "uiConfirmUsdBankAccount": "Confirm USD Bank Account",
+  "uiConfirmCountry": "Confirm country",
+  "uiConfirmDelivery": "Confirm delivery",
+  "uiConfirmDeliveryToReleaseThePayment": "Confirm delivery to release the payment.",
+  "uiConfirmDelivery2": "Confirm delivery?",
+  "uiConfirmPasscode": "Confirm passcode",
+  "uiConfirmThisOnlyAfterThePackage": "Confirm this only after the package is in your hands. This will release payment to the traveler.",
+  "uiConfirmWithdrawal": "Confirm withdrawal",
+  "uiConfirmYourBank": "Confirm your bank",
+  "uiConfirmYourCountry": "Confirm your country",
+  "uiConfirmationCodeCopied": "Confirmation code copied.",
+  "uiConfirmingReceiptWillReleasePaymentTo": "Confirming receipt will release payment to the traveler. Only do this once you have the package.",
+  "uiConnectionError": "Connection error",
+  "uiContactSupport": "Contact Support",
+  "uiContactSupport2": "Contact support",
+  "uiContinueAsGuest": "Continue as guest",
+  "uiContinueBrowsing": "Continue browsing",
+  "uiContinueToPayment": "Continue to Payment",
+  "uiContinueWithApple": "Continue with Apple",
+  "uiConversationWithBagoSupport": "Conversation with Bago support",
+  "uiCouldNotConfirmTheCodePlease": "Could not confirm the code. Please try again.",
+  "uiCouldNotLoadBanksPleaseTry": "Could not load banks. Please try again.",
+  "uiCouldNotLoadMap": "Could not load map",
+  "uiCouldNotLoadRequests": "Could not load requests",
+  "uiCouldNotLoadShipmentDetailsPlease": "Could not load shipment details. Please try again.",
+  "uiCouldNotLoadShipments": "Could not load shipments",
+  "uiCouldNotLoadTrips": "Could not load trips",
+  "uiCouldNotSendTheRequestPlease": "Could not send the request. Please try again.",
+  "uiCouldNotUpdateWalletCurrencyPlease": "Could not update wallet currency. Please try again.",
+  "uiCountryOfResidence": "Country of residence",
+  "uiCreateAccount": "Create Account",
+  "uiCreateGroupShipment": "Create Group Shipment",
+  "uiCreateAPassword": "Create a\npassword",
+  "uiCreateAFreeAccountOrSign": "Create a free account or sign in to book a carrier and ship your package.",
+  "uiCreateAGroupShippingRequest": "Create a group shipping request",
+  "uiCreateYourAccount": "Create your\naccount",
+  "uiCreditDebitCard": "Credit / Debit Card",
+  "uiCurrency": "Currency",
+  "uiCurrencyNotSet": "Currency Not Set",
+  "uiCurrentLocationOptional": "Current location (optional)",
+  "uiCurrentShipments": "Current shipments",
+  "uiDataProtectionConsent": "Data Protection & Consent",
+  "uiDate": "Date",
+  "uiDateOfBirth": "Date of Birth",
+  "uiDateOfBirth2": "Date of Birth *",
+  "uiDecline": "Decline",
+  "uiDeleteRoute": "Delete Route",
+  "uiDeliveryAddress": "Delivery address",
+  "uiDeliveryConfirmedPaymentReleasedToTraveler": "Delivery confirmed! Payment released to traveler.",
+  "uiDepartureTime": "Departure Time",
+  "uiDescribeYourItemSoYourTraveler": "Describe your item so your traveler knows what to expect.",
+  "uiDiscard": "Discard",
+  "uiDiscardDraft": "Discard draft?",
+  "uiDocumentsSubmitted": "Documents Submitted",
+  "uiDropOffAddress": "Drop-off address",
+  "uiEarnByCarryingPackagesOnYour": "Earn by carrying packages on your trip",
+  "uiEditBio": "Edit bio",
+  "uiEmailAddress": "Email Address",
+  "uiEmailNotifications": "Email Notifications",
+  "uiEmailSupport": "Email Support",
+  "uiEmailChangesAreHandledThroughVerification": "Email changes are handled through verification.",
+  "uiEnter48Digits": "Enter 4-8 digits",
+  "uiEnterAValidPhoneNumber5": "Enter a valid phone number (5–15 digits, numbers only).",
+  "uiEnterAValidShipmentWeight": "Enter a valid shipment weight.",
+  "uiEnterAccountNumber": "Enter account number",
+  "uiEnterAll4Digits": "Enter all 4 digits",
+  "uiEnterAmount": "Enter amount",
+  "uiEnterTheCode": "Enter the Code",
+  "uiEnterTheAdditionalKg": "Enter the additional kg.",
+  "uiEnterWithdrawalCode": "Enter withdrawal code",
+  "uiEnterYourEmail": "Enter your\nemail",
+  "uiEnterYourPhoneNumber": "Enter your\nphone number",
+  "uiEnterYourAppPasscode": "Enter your app passcode.",
+  "uiEnterYourEmailAndWeWill": "Enter your email and we will send you a 6-digit verification code to reset your password.",
+  "uiEnterYourPasscode": "Enter your passcode",
+  "uiEnterYourRegisteredBusinessName": "Enter your registered business name",
+  "uiEnterYourRouteToSeeAvailable": "Enter your route to see available travelers.",
+  "uiEverythingLookRightPublishWhenReady": "Everything look right? Publish when ready.",
+  "uiEverythingStaysInOneThreadSo": "Everything stays in one thread so users can return any time, just like a messenger inbox.",
+  "uiExplainWhyYouAreRejectingThe": "Explain why you are rejecting the package.",
+  "uiExternalCarrierTracking": "External Carrier Tracking",
+  "uiFrequentlyAskedQuestions": "FREQUENTLY ASKED QUESTIONS",
+  "uiFaceIdOrTouchId": "Face ID or Touch ID",
+  "uiFactorySealedEvidence": "Factory-sealed evidence",
+  "uiFailedToSaveNamePleaseTry": "Failed to save name. Please try again.",
+  "uiFailedToUpdateBio": "Failed to update bio",
+  "uiFailedToUpdatePreferences": "Failed to update preferences",
+  "uiFailedToUpdateProfile": "Failed to update profile",
+  "uiFindARoute": "Find a Route",
+  "uiFindATravelerToCarryYour": "Find a traveler to carry your package.",
+  "uiFindAnswersToCommonQuestionsBelow": "Find answers to common questions below.",
+  "uiFindingTravelersOnThisRoute": "Finding travelers on this route…",
+  "uiFirstName": "First Name *",
+  "uiForComplexIssues": "For complex issues",
+  "uiForYourSafetyTheSenderMust": "For your safety, the sender must open the package and allow you to inspect all items before collection.\n\nDo not accept sealed packages or items that you have not personally inspected.",
+  "uiForYourSecurityPleaseUnlockThe": "For your security, please unlock the app to continue.",
+  "uiFromGallery": "From Gallery",
+  "uiFromWizard": "From wizard",
+  "uiFullName": "Full Name",
+  "uiFullName2": "Full name",
+  "uiFullNameOnTheAccount": "Full name on the account",
+  "uiFullNameOnTheBankAccount": "Full name on the bank account",
+  "uiGbpPayoutsUseAUkSort": "GBP payouts use a UK sort code and account number.",
+  "uiGetInstantUpdatesAboutMessagesShipment": "Get instant updates about messages, shipment activity, and delivery progress.",
+  "uiGetMatchedWithACarrierTogether": "Get matched with a carrier together",
+  "uiGiftItemsIsNotLiveYet": "Gift items is not live yet. We will implement it soon.",
+  "uiGoogleSignInCanBeUnreliable": "Google Sign-In can be unreliable on the iPhone simulator. If it hangs, use email login here and test Google on a real device.",
+  "uiGotIt": "Got it",
+  "uiGroupShipping": "Group Shipping",
+  "uiGroupShippingRequestCreatedShareWith": "Group shipping request created! Share with your group to join.",
+  "uiHowItWorks": "HOW IT WORKS",
+  "uiHandoverPin": "Handover PIN",
+  "uiHandoverConfirmedFundsReleased": "Handover confirmed! Funds released.",
+  "uiHowCanWeHelp": "How can we help?",
+  "uiHowManyKgCanYouCarry": "How many kg can you carry?",
+  "uiHowWeUseIt": "How we use it",
+  "uiHowWouldYouLikeToSign": "How would you like to sign up?",
+  "uiIReceivedMyPackage": "I Received My Package",
+  "uiIAcceptResponsibilityForThisPackage": "I accept responsibility for this package once I collect it and understand this agreement will be electronically signed and kept with the order.",
+  "uiIAcknowledgeThatMyPersonalData": "I acknowledge that my personal data will be processed according to the privacy policy.",
+  "uiIAgreeToFollowBagoS": "I agree to follow Bago's guidelines and take responsibility for my shipment.",
+  "uiIAgreeToThePlatformS": "I agree to the platform's terms and conditions for using Bago.",
+  "uiIAgreeStartVerification": "I agree — Start Verification",
+  "uiIConfirmThatIAm18": "I confirm that I am 18 years of age or older.",
+  "uiIConfirmThatMyShipmentDoes": "I confirm that my shipment does not contain any prohibited items and complies with Bago's item policy.",
+  "uiIConsentToTheCollectionAnd": "I consent to the collection and processing of my personal data as described in the ",
+  "uiIHavePersonallyInspectedTheContents": "I have personally inspected the contents and confirm the items match the delivery description.",
+  "uiIHaveReadAndAgreeTo": "I have read and agree to the ",
+  "uiIUnderstandAndAgreeToAll": "I understand and agree to all terms",
+  "uiIUnderstandThatIMustNot": "I understand that I must not transport illegal, dangerous, restricted, undisclosed, or suspicious items.",
+  "uiIUnderstandTheTravelerMayInspect": "I understand the traveler may inspect the contents for safety and compliance.",
+  "uiIWouldLikeToReceivePromotional": "I would like to receive promotional offers and updates via email.",
+  "uiIban": "IBAN *",
+  "uiIdVerified": "ID\nVerified",
+  "uiIdentityVerificationRequired": "Identity Verification Required",
+  "uiIdentityVerificationApproved": "Identity verification approved!",
+  "uiImageUnavailable": "Image unavailable",
+  "uiInEscrow": "In escrow",
+  "uiInbox": "Inbox",
+  "uiIndividual": "Individual",
+  "uiInsufficientBalance": "Insufficient balance.",
+  "uiInsuranceIncluded": "Insurance included",
+  "uiInsuredDelivery": "Insured\nDelivery",
+  "uiInviteOthersWithTheSameDestination": "Invite others with the same destination",
+  "uiItemCategory": "Item Category",
+  "uiItemDescription": "Item Description",
+  "uiJohnDoe": "John Doe",
+  "uiJourneyMap": "Journey Map",
+  "uiKeep": "Keep",
+  "uiKeepTheSenderUpdatedOnThe": "Keep the sender updated on the shipment progress.",
+  "uiLinkedPayoutAccount": "LINKED PAYOUT ACCOUNT",
+  "uiLocationInformation": "LOCATION INFORMATION",
+  "uiLastName": "Last Name *",
+  "uiLastUpdatedJuly152026": "Last updated: July 15, 2026",
+  "uiLastUpdatedJuly172026": "Last updated: July 17, 2026",
+  "uiLinkBankAccount": "Link Bank Account",
+  "uiListTheItemsYouWantTo": "List the items you want to ship...",
+  "uiLiveChat": "Live Chat",
+  "uiLiveChat2": "Live chat",
+  "uiLivenessCheck": "Liveness Check",
+  "uiLoadingMap": "Loading map...",
+  "uiLocked": "Locked",
+  "uiLogout": "Logout",
+  "uiMmDdYyyy": "MM/DD/YYYY",
+  "uiMyBio": "MY BIO",
+  "uiMakeSureAllTextIsClearly": "Make sure all text is clearly visible and there's no glare.",
+  "uiManage": "Manage",
+  "uiMarketingCommunications": "Marketing Communications",
+  "uiMembersWithABioAre3x": "Members with a bio are 3x more likely to have their shipments or trips booked. A complete profile builds trust in the Bago community.",
+  "uiMessage": "Message",
+  "uiMethod": "Method",
+  "uiMinimum": "Minimum",
+  "uiMyShipmentDoesNotContainAny": "My shipment does not contain any prohibited or restricted items.",
+  "uiNotificationSettings": "NOTIFICATION SETTINGS",
+  "uiNameAndDateOfBirthAre": "Name and date of birth are locked after KYC approval.",
+  "uiNameMustBeAtLeast2": "Name must be at least 2 characters",
+  "uiNewConversation": "New conversation",
+  "uiNewShipment": "New shipment",
+  "uiNewShipmentRequest": "New shipment request",
+  "uiNewTicket": "New ticket",
+  "uiNoActiveConversationsYet": "No active conversations yet",
+  "uiNoBanksFound": "No banks found",
+  "uiNoCitiesFound": "No cities found",
+  "uiNoHelpArticlesMatchedThatSearch": "No help articles matched that search",
+  "uiNoPayoutMethodLinked": "No payout method linked",
+  "uiNoProhibitedItems": "No prohibited items",
+  "uiNoRecentSearches": "No recent searches",
+  "uiNoReferredUsersYet": "No referred users yet.",
+  "uiNoSavedRoutesFound": "No saved routes found.",
+  "uiNoServicesYetAddANamed": "No services yet. Add a named rate like \"Express\" or \"Standard\" — senders will see it priced the same way as any trip, everywhere in the app.",
+  "uiNoTravelersYet": "No travelers yet",
+  "uiNone": "None",
+  "uiNotNow": "Not now",
+  "uiNoteForTravelerOptional": "Note for traveler (optional)",
+  "uiNoteToTraveler": "Note to traveler",
+  "uiNotesOptional": "Notes (optional)",
+  "uiOpen": "Open",
+  "uiOpenBoxInspectionRequired": "Open Box Inspection Required",
+  "uiOpenChat": "Open Chat",
+  "uiOpenSettings": "Open Settings",
+  "uiOpenInbox": "Open inbox",
+  "uiOpenToInspection": "Open to inspection",
+  "uiOpenWebSupport": "Open web support",
+  "uiOptional": "Optional",
+  "uiOptionalPreferences": "Optional Preferences",
+  "uiOptionalHandlingInstructions": "Optional handling instructions…",
+  "uiOptionalSkipIfYourIdHas": "Optional — skip if your ID has no back side",
+  "uiOptional2": "Optional:",
+  "uiOriginCountry": "Origin country",
+  "uiOurTeamWillReviewYourIdentity": "Our team will review your identity documents within 1–2 business days. You'll receive a notification when it's done.",
+  "uiPackageDeclaration": "PACKAGE DECLARATION",
+  "uiPersonalInformation": "PERSONAL INFORMATION",
+  "uiPopularCities": "POPULAR CITIES",
+  "uiProofOfCollectionRequired": "PROOF OF COLLECTION REQUIRED",
+  "uiPackage": "Package",
+  "uiPackageUnderReviewDoNotTransport": "Package Under Review\nDo not transport or collect this package while Bago reviews the evidence.",
+  "uiPasscode": "Passcode",
+  "uiPasscodesDoNotMatch": "Passcodes do not match.",
+  "uiPaymentAndConversionFees": "Payment and conversion fees",
+  "uiPaymentDetailsAreProcessedByFlutterwave": "Payment details are processed by Flutterwave. Bago stores only safe payment references for support, refunds, and shipment tracking.",
+  "uiPayoutCurrency": "Payout currency",
+  "uiPayoutStatus": "Payout status",
+  "uiPayoutStatusRefreshed": "Payout status refreshed.",
+  "uiPayoutsReleaseAfterDeliveryIsComplete": "Payouts release after delivery is complete, confirmed, and cleared.",
+  "uiPersonalAccount": "Personal account",
+  "uiPhoneNumberUpdated": "Phone Number Updated!",
+  "uiPhoneNumber": "Phone number",
+  "uiPhoneNumberChangesAreConfirmedWith": "Phone number changes are confirmed with an OTP sent to your email.",
+  "uiPickUpWhereYouLeftOff": "Pick up where you left off",
+  "uiPickupAndDestinationCitiesMustBe": "Pickup and destination cities must be different.",
+  "uiPleaseAcceptAllRequiredTerms": "Please accept all required terms",
+  "uiPleaseAgreeToTheTermsAnd": "Please agree to the terms and conditions",
+  "uiPleaseConfirmYourLegalNameAnd": "Please confirm your legal name and date of birth exactly as they appear on your ID document. These must match for verification to succeed.",
+  "uiPleaseDescribeYourIssue": "Please describe your issue",
+  "uiPleaseEnterAValid10Digit": "Please enter a valid 10-digit account number",
+  "uiPleaseEnterAValidIban": "Please enter a valid IBAN.",
+  "uiPleaseEnterAValidOtp": "Please enter a valid OTP",
+  "uiPleaseEnterAValidAccountNumber": "Please enter a valid account number.",
+  "uiPleaseEnterAValidAmount": "Please enter a valid amount.",
+  "uiPleaseEnterThe6DigitCode": "Please enter the 6-digit code",
+  "uiPleaseEnterThe6DigitCode2": "Please enter the 6-digit code.",
+  "uiPleaseEnterTheSwiftBicCode": "Please enter the SWIFT/BIC code.",
+  "uiPleaseEnterTheAccountHolderName": "Please enter the account holder name.",
+  "uiPleaseEnterYourDateOfBirth": "Please enter your date of birth",
+  "uiPleaseEnterYourFirstAndLast": "Please enter your first and last name",
+  "uiPleaseEnterYourFullName": "Please enter your full name",
+  "uiPleaseEnterYourNameSoWe": "Please enter your name so we know what to call you.",
+  "uiPleaseEnterYourPhoneNumber": "Please enter your phone number",
+  "uiPleaseEnterYourRealNameSo": "Please enter your real name so others know who they're working with.",
+  "uiPleaseFillAllRequiredFields": "Please fill all required fields",
+  "uiPleaseFillInAllReceiverDetails": "Please fill in all receiver details.",
+  "uiPleaseFillInTheRequiredFields": "Please fill in the required fields",
+  "uiPleaseFillInYourAddressStreet": "Please fill in your address (street, city, postal code, and country).",
+  "uiPleaseLinkABankAccountBefore": "Please link a bank account before withdrawing.",
+  "uiPleaseReadAndConfirmEachStatement": "Please read and confirm each statement before sending your shipment.",
+  "uiPleaseReadTheseTermsOfService": "Please read these Terms of Service carefully before using Bago. These terms govern your use of our platform and services.",
+  "uiPleaseReviewOurPolicies": "Please review\nour policies",
+  "uiPleaseSelectABank": "Please select a bank",
+  "uiPleaseSelectABankAndEnter": "Please select a bank and enter account number.",
+  "uiPleaseSelectARole": "Please select a role",
+  "uiPleaseSelectAnAuthenticationMethod": "Please select an authentication method",
+  "uiPleaseSetYourPreferredCurrencyIn": "Please set your preferred currency in profile settings before continuing.",
+  "uiPleaseSetYourPreferredCurrencyIn2": "Please set your preferred currency in profile settings before requesting shipping.",
+  "uiPleaseSetYourPreferredCurrencyIn3": "Please set your preferred currency in profile settings before withdrawing.",
+  "uiPleaseVerifyYourPhoneNumberBefore": "Please verify your phone number before posting a trip.",
+  "uiPleaseWaitForAccountVerification": "Please wait for account verification",
+  "uiPoolYourShipmentWithOthersGoing": "Pool your shipment with others going to the same destination to split costs and get cheaper rates.",
+  "uiPostTrip": "Post trip",
+  "uiPostalCode": "Postal Code *",
+  "uiPressAndHoldThisDraftTo": "Press and hold this draft to delete it",
+  "uiPricePerKg": "Price per kg",
+  "uiPrivacyConsent": "Privacy & Consent",
+  "uiPrivacyPolicy": "Privacy Policy *",
+  "uiProcessingYourVerification": "Processing your verification…",
+  "uiProfilePhotoUpdated": "Profile photo updated",
+  "uiProfileUpdatedSuccessfully": "Profile updated successfully",
+  "uiProhibitedItems": "Prohibited Items",
+  "uiProof": "Proof",
+  "uiProofOfTrip": "Proof of trip",
+  "uiProtectMyItem": "Protect my item",
+  "uiProtectedByBankGradeEncryption": "Protected by bank-grade encryption",
+  "uiPublish": "Publish",
+  "uiPushNotifications": "Push Notifications",
+  "uiQualifiedShipment": "Qualified shipment",
+  "uiQuickUnlockAfterInactivity": "Quick unlock after inactivity",
+  "uiRateThisShipmentExperienceAndAdd": "Rate this shipment experience and add a short comment.",
+  "uiReEnterPasscode": "Re-enter passcode",
+  "uiReadyToWithdraw": "Ready to withdraw",
+  "uiReadyToWithdrawHeldInEscrow": "Ready to withdraw + held in escrow",
+  "uiRealTimeTracking": "Real-Time\nTracking",
+  "uiReason": "Reason",
+  "uiReceiverDetails": "Receiver Details",
+  "uiRecentSearches": "Recent Searches",
+  "uiReferralEarnings": "Referral earnings",
+  "uiReferrals": "Referrals",
+  "uiReferredUsers": "Referred users",
+  "uiRefresh": "Refresh",
+  "uiRefreshWallet": "Refresh wallet",
+  "uiReject": "Reject",
+  "uiRejectPackage": "Reject Package",
+  "uiRejectionReasonIfRejecting": "Rejection reason (if rejecting)",
+  "uiRemaining": "Remaining",
+  "uiRemove": "Remove",
+  "uiRemoveAppPasscode": "Remove app passcode",
+  "uiRemoveFromHistory": "Remove from history?",
+  "uiRemoveService": "Remove service",
+  "uiReplyToSupport": "Reply to support…",
+  "uiReportIssue": "Report issue",
+  "uiReportShipment": "Report shipment",
+  "uiRequestShipment": "Request Shipment",
+  "uiRequestACurrencyChange": "Request a currency change",
+  "uiRequestAccepted": "Request accepted",
+  "uiRequestAccepted2": "Request accepted!",
+  "uiRequestDeclined": "Request declined",
+  "uiRequestDeclined2": "Request declined.",
+  "uiRequestNotFound": "Request not found",
+  "uiRequestSentSupportWillUpdateYou": "Request sent. Support will update you in your tickets.",
+  "uiRequestsWillAppearHereWhenSenders": "Requests will appear here when senders ask you to carry a package.",
+  "uiRequiredAgreements": "Required Agreements",
+  "uiRequiredAgreements2": "Required agreements:",
+  "uiRequiredByOurPayoutProviderTo": "Required by our payout provider to verify EUR/GBP transfers.",
+  "uiReserved": "Reserved",
+  "uiRetake": "Retake",
+  "uiReviewYourTrip": "Review Your Trip",
+  "uiReviewPackageRequestsFromSendersWaiting": "Review package requests from senders waiting for your trip.",
+  "uiReviewYourShipmentDetailsAndConfirm": "Review your shipment details and confirm your item is safe to send.",
+  "uiRewardRules": "Reward rules",
+  "uiRouteDeleted": "Route deleted",
+  "uiRoutingNumberUsBanks": "Routing Number (US banks)",
+  "uiStillNeedHelp": "STILL NEED HELP?",
+  "uiSubject": "SUBJECT",
+  "uiSwiftBicBanksOutsideTheUs": "SWIFT / BIC (banks outside the US)",
+  "uiSwiftBic": "SWIFT/BIC",
+  "uiSwiftBic2": "SWIFT/BIC *",
+  "uiSafetyCheck": "Safety Check",
+  "uiSave": "Save",
+  "uiSaveBankAccount": "Save Bank Account",
+  "uiSearchAgain": "Search Again",
+  "uiSearchTravelers": "Search Travelers",
+  "uiSearchBank": "Search bank...",
+  "uiSearchBanks": "Search banks...",
+  "uiSearchChatsNamesOrRoutes": "Search chats, names, or routes",
+  "uiSearchCity": "Search city",
+  "uiSearchCityAndCountry": "Search city and country",
+  "uiSearchConversations": "Search conversations",
+  "uiSearchCountry": "Search country",
+  "uiSearchCountryOrCurrency": "Search country or currency",
+  "uiSearchCountryOrDialCode": "Search country or dial code…",
+  "uiSearchCountry2": "Search country…",
+  "uiSearchForACityOrAirport": "Search for a city or airport",
+  "uiSearchForACityOrCountry": "Search for a city or country",
+  "uiSecureCheckout": "Secure checkout",
+  "uiSeeAll": "See all",
+  "uiSeeEveryThread": "See every thread",
+  "uiSelectBank": "Select Bank",
+  "uiSelectBank2": "Select Bank *",
+  "uiSelectARejectionReason": "Select a rejection reason.",
+  "uiSelectEveryItemContainedInThe": "Select every item contained in the package.",
+  "uiSelectTheCountryThatIssuedThe": "Select the country that issued the ID you'll use — this decides which document types the verification widget accepts.",
+  "uiSelectYourIdType": "Select your ID type",
+  "uiSelected": "Selected",
+  "uiSendCode": "Send Code",
+  "uiSendAGift": "Send a Gift",
+  "uiSendAPackageWithATraveler": "Send a package with a traveler",
+  "uiSendKgRequest": "Send kg request",
+  "uiSendPackage": "Send package",
+  "uiSendRequest": "Send request",
+  "uiSendersWillSeeYourAvailableKg": "Senders will see your available kg and match accordingly.",
+  "uiServiceName": "Service name",
+  "uiServiceRemoved": "Service removed",
+  "uiSetAnAppPasscodeOrEnable": "Set an app passcode or enable biometrics first before turning on quick unlock.",
+  "uiSetCountryCurrency": "Set country & currency",
+  "uiSetUpWithdrawals": "Set up\nwithdrawals",
+  "uiSetUpAccount": "Set up account",
+  "uiSetUpPayoutMethod": "Set up payout method →",
+  "uiSetYourCountryAndCurrencyFirst": "Set your country and currency first — it only takes a moment.",
+  "uiSetYourCountryOfResidenceBefore": "Set your country of residence before paying. Your payment currency is assigned from that country.",
+  "uiSetYourRateCompetitivePricingAttracts": "Set your rate. Competitive pricing attracts more senders.",
+  "uiShareHowTheShipmentWentSo": "Share how the shipment went so others can make better decisions.",
+  "uiShareTheShippingCostSaveUp": "Share the shipping cost — save up to 60%",
+  "uiShareThisPinWithTheTraveler": "Share this PIN with the traveler to confirm handover.",
+  "uiShareTrip": "Share trip",
+  "uiShareWhatWentWellOrWhat": "Share what went well or what could improve...",
+  "uiShipmentRequest": "Shipment Request",
+  "uiShipmentSummary": "Shipment Summary",
+  "uiShipmentHasBeenDeliveredWaitingFor": "Shipment has been delivered. Waiting for sender confirmation.",
+  "uiShipmentReportedSupportCanNowReview": "Shipment reported. Support can now review the chat history.",
+  "uiShipmentStarted": "Shipment started",
+  "uiShippingFee": "Shipping fee",
+  "uiShipsToAnyDestination": "Ships to any destination",
+  "uiSignIn": "Sign In",
+  "uiSignInToContinue": "Sign in to continue",
+  "uiSimulatorCode": "Simulator code",
+  "uiSinceYouSignedUpWithGoogle": "Since you signed up with Google/Apple, we need to verify your phone number before you can send a shipment.",
+  "uiSkipBackPhoto": "Skip back photo",
+  "uiSkipForNow": "Skip for now",
+  "uiSold": "Sold",
+  "uiSomethingWentWrongPleaseTryAgain": "Something went wrong. Please try again.",
+  "uiSortCode": "Sort Code *",
+  "uiStartAConversationAnyTimeAnd": "Start a conversation any time and keep the full thread in one place.",
+  "uiStartALiveChatAndYour": "Start a live chat and your messages will appear here like a shared support inbox.",
+  "uiStartConversation": "Start conversation",
+  "uiStartingVerification": "Starting verification…",
+  "uiStateRegion": "State / Region",
+  "uiStatusUpdated": "Status updated!",
+  "uiStatus": "Status:",
+  "uiStreetAddress": "Street address",
+  "uiSubmissionFailedPleaseTryAgain": "Submission failed. Please try again.",
+  "uiSubmitForReview": "Submit for Review",
+  "uiSupport": "Support",
+  "uiSupportChatIsTemporarilyUnavailablePlease": "Support chat is temporarily unavailable.\nPlease email support@sendwithbago.com",
+  "uiSupportInbox": "Support inbox",
+  "uiSupportRepliesAroundTheClock": "Support replies around the clock",
+  "uiSupportThatFeelsLikeAConversation": "Support that feels like a conversation",
+  "uiSupportingExplanation": "Supporting explanation",
+  "uiSwapCities": "Swap cities",
+  "uiSystemAlerts": "System Alerts",
+  "uiTakePhoto": "Take Photo",
+  "uiTakeAClearPhotoOfThe": "Take a clear photo of the back side.",
+  "uiTakePhoto2": "Take photo",
+  "uiTalkToSupportNow": "Talk to support now",
+  "uiTapToAddPhoto": "Tap to add photo",
+  "uiTapToCopyThisTestCode": "Tap to copy this test code if the email does not arrive.",
+  "uiTapToReRecord": "Tap to re-record",
+  "uiTellUsThePickupAndDelivery": "Tell us the pickup and delivery locations for your shipment.",
+  "uiTermsConditions": "Terms & Conditions",
+  "uiTermsOfService": "Terms of Service *",
+  "uiThanksForSharingYourFeedbackIt": "Thanks for sharing your feedback. It helps other users trust the marketplace.",
+  "uiThatPasscodeIsNotCorrect": "That passcode is not correct.",
+  "uiThePackageIsNowInTransit": "The package is now in transit.",
+  "uiTheRequestDetailsAreNotAvailable": "The request details are not available right now. Please refresh and try again.",
+  "uiTheTravelerHasMarkedThisPackage": "The traveler has marked this package as delivered. Please confirm you've received it to release the payment.",
+  "uiTheTravelerMarkedThisShipmentAs": "The traveler marked this shipment as delivered. Confirm receipt here to release the payment.",
+  "uiTheTravellerMustBeAllowedTo": "The traveller must be allowed to inspect the package.",
+  "uiThisAddsWeightToTheActive": "This adds weight to the active shipment in this chat. Receiver details stay the same.",
+  "uiThisBecomesYourWalletDisplayAnd": "This becomes your wallet display and payout currency.",
+  "uiThisCategoryRequiresExtraCareYour": "This category requires extra care. Your traveler may request additional details.",
+  "uiThisConversationHasBeenClosedStart": "This conversation has been closed. Start a new ticket if you still need help.",
+  "uiThisDeterminesWhichDocumentTypesThe": "This determines which document types the verification widget shows you.",
+  "uiThisIsASecureProcessThat": "This is a secure process that takes just a few minutes. We'll verify your identity and activate your account.",
+  "uiThisShipmentChatIsClosedPlease": "This shipment chat is closed. Please contact support or open a dispute if needed.",
+  "uiThisWillPermanentlyRemoveThisItem": "This will permanently remove this item from your history.",
+  "uiThisWillRemoveThisDraftShipment": "This will remove this draft shipment immediately. You can start again anytime.",
+  "uiThisWillRemoveYourSavedShipment": "This will remove your saved shipment draft. You'll need to start over if you want to send this package.",
+  "uiThisWillRemoveYourSavedShipment2": "This will remove your saved shipment draft. You'll need to start over.",
+  "uiTicketNotFound": "Ticket not found",
+  "uiTicketSubmittedWeLlGetBack": "Ticket submitted! We'll get back to you soon.",
+  "uiTicketsAndChatInOneFlow": "Tickets and chat in one flow",
+  "uiTime": "Time",
+  "uiToGetYourShipmentPayoutsTell": "To get your shipment payouts, tell us where you want Bago to send the money.",
+  "uiToUnlockAllFeaturesPleaseComplete": "To unlock all features, please complete identity verification.",
+  "uiToVerifyYourIdentityWeCollect": "To verify your identity we collect and process your personal data including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.",
+  "uiTotal": "Total",
+  "uiTotalSpace": "Total space",
+  "uiTotalWallet": "Total wallet",
+  "uiTrackingNumber": "Tracking number",
+  "uiTravelDate": "Travel Date",
+  "uiTravelType": "Travel Type",
+  "uiTraveller": "Traveller",
+  "uiTripNumber": "Trip number",
+  "uiTryAgain": "Try Again",
+  "uiTryADifferentKeywordOrStart": "Try a different keyword or start a support conversation so the team can help directly.",
+  "uiTryAgain2": "Try again",
+  "uiTypeAMessage": "Type a message...",
+  "uiTypeCityOrCountry": "Type city or country",
+  "uiUkBankAccount": "UK BANK ACCOUNT",
+  "uiUkAccountNumbersMustContain8": "UK account numbers must contain 8 digits.",
+  "uiUkSortCodesMustContain6": "UK sort codes must contain 6 digits.",
+  "uiUsdBankAccount": "USD BANK ACCOUNT",
+  "uiUnableToLoadMessages": "Unable to load messages",
+  "uiUnderReviewSendersCannotSeeThis": "Under review — senders cannot see this trip yet. We'll activate it once approved.",
+  "uiUnlimitedCapacity": "Unlimited capacity",
+  "uiUnlockBago": "Unlock Bago",
+  "uiUnlockWithPasscode": "Unlock with Passcode",
+  "uiUnverified": "Unverified",
+  "uiUpdateStatus": "Update Status",
+  "uiUploadingDocuments": "Uploading documents…",
+  "uiUseA4To8Digit": "Use a 4 to 8 digit app passcode.",
+  "uiUseSecureCheckoutToPayBy": "Use secure checkout to pay by card, Apple Pay, bank transfer, or mobile money.",
+  "uiUsuallyRepliesInMinutes": "Usually replies in minutes",
+  "uiValue": "Value",
+  "uiVerificationCodeSentViaSms": "Verification code sent via SMS.",
+  "uiVerifyEmail": "Verify Email",
+  "uiVerifyIdentity": "Verify Identity",
+  "uiVerifyPhone": "Verify Phone",
+  "uiVerifyPhoneNumber": "Verify Phone Number",
+  "uiVerifyYourEmailFirst": "Verify your email first",
+  "uiVerifyYourPhoneNumber": "Verify your phone number",
+  "uiView": "View",
+  "uiViewDetails": "View details",
+  "uiViewImage": "View image",
+  "uiViewShipmentDetails": "View shipment details",
+  "uiVisaMastercardAmex": "Visa, Mastercard, Amex",
+  "uiWhatWouldYouLikeMembersTo": "WHAT WOULD YOU LIKE MEMBERS TO KNOW ABOUT YOU?",
+  "uiWaitingForAnAgent": "Waiting for an agent",
+  "uiWeLlReviewYourDocumentsWithin": "We'll review your documents within 1–2 business days and notify you of the result.",
+  "uiWeVeSentA6Digit": "We've sent a 6-digit code to ",
+  "uiWeightKg": "Weight (kg)*",
+  "uiWhatAreYouSending": "What are you sending?",
+  "uiWhatHappensNext": "What happens next?",
+  "uiWhatIsInside": "What is inside?",
+  "uiWhatWeCollect": "What we collect",
+  "uiWhatWouldYouLikeToDo": "What would you like to do?",
+  "uiWhatSYourDateOfBirth": "What's your\ndate of birth?",
+  "uiWhatSYourFullName": "What's your\nfull name?",
+  "uiWhatSYourRole": "What's your\nrole?",
+  "uiWhenAreYouTravelling": "When are you travelling?",
+  "uiWhenDoesYourJourneyBegin": "When does your journey begin?",
+  "uiWhereAreYouSending": "Where are you sending?",
+  "uiWhichCountryIssuedYourId": "Which country issued your ID?",
+  "uiWhoReceivesThis": "Who receives this?",
+  "uiWhyABio": "Why a bio?",
+  "uiWhyDoYouNeedToChange": "Why do you need to change it? (e.g. moved country)",
+  "uiWithdrawEarnings": "Withdraw Earnings",
+  "uiWithdrawFunds": "Withdraw Funds",
+  "uiWithdrawAll": "Withdraw all",
+  "uiWithdrawalRequest": "Withdrawal Request",
+  "uiWithdrawalSubmitted": "Withdrawal Submitted",
+  "uiWithdrawalCouldNotBeSubmittedPlease": "Withdrawal could not be submitted. Please try again.",
+  "uiWrappedOrSealedPackagesAreNot": "Wrapped or sealed packages are not rejected, but they must be inspected before collection.",
+  "uiWriteAShortBioAboutYourself": "Write a short bio about yourself...",
+  "uiYyyyMmDd": "YYYY-MM-DD",
+  "uiYouCanChangeThisLater": "You can change this later",
+  "uiYouCanTrackTheStatusIn": "You can track the status in your transaction history.",
+  "uiYourDetails": "Your Details",
+  "uiYourPrivacyRights": "Your Privacy Rights",
+  "uiYourUsdAccountNumber": "Your USD account number",
+  "uiYourAccountDoesnTHavePermission": "Your account doesn't have permission to withdraw funds. Ask the business owner to enable it.",
+  "uiYourAccountHasBeenSuspendedDue": "Your account has been suspended due to a violation of our Terms of Service.",
+  "uiYourBankDetailsAreEncryptedAnd": "Your bank details are encrypted and securely stored. Used strictly for traveler payouts.",
+  "uiYourDataIsProcessedSecurelyAnd": "Your data is processed securely and will not be shared with third parties without your consent.",
+  "uiYourDataIsProcessedSolelyTo": "Your data is processed solely to verify your identity and comply with anti-money-laundering (AML) and know-your-customer (KYC) regulations. It is not sold to third parties.",
+  "uiYourEarningAndPayoutCurrencyIs": "Your earning and payout currency is locked. To change it, send a change request below or chat with support.",
+  "uiYourEarnings": "Your earnings",
+  "uiYourIssue": "Your issue:",
+  "uiYourItemsWeight": "Your items' weight",
+  "uiYourMessagesWithBagoSupport": "Your messages with Bago support",
+  "uiYourPhoneNumberHasBeenSuccessfully": "Your phone number has been successfully verified and updated on your account.",
+  "uiYourPrivacyMattersToUsThis": "Your privacy matters to us. This Privacy Policy explains how Bago collects, uses, and protects your personal information.",
+  "uiEGLagosFriendsGroup": "e.g. \"Lagos Friends Group\"",
+  "uiEGAcmeLogisticsLtd": "e.g. Acme Logistics Ltd",
+  "uiEGBago12345678": "e.g. BAGO-12345678",
+  "uiEGBarclaysLloydsMonzo": "e.g. Barclays, Lloyds, Monzo",
+  "uiEGBerlin": "e.g. Berlin",
+  "uiEGChasus33": "e.g. CHASUS33",
+  "uiEGChaseBankOfAmerica": "e.g. Chase, Bank of America, Wise",
+  "uiEGDoe": "e.g. Doe",
+  "uiEGExpressStandard": "e.g. Express, Standard",
+  "uiEGJohn": "e.g. John",
+  "uiEGLt12345678901234": "e.g. LT12 3456 7890 1234 5678",
+  "uiEGLagosAccra": "e.g. Lagos, Accra",
+  "uiEGRevolt21": "e.g. REVOLT21",
+  "uiEGRevolutN26Wise": "e.g. Revolut, N26, Wise",
+  "uiEGUnitedStates": "e.g. United States",
+  "uiKg": "kg",
+  "uiOr": "or",
+  "uiTyping": "typing…",
+  "uiFUse": "Use {p0}",
+  "@uiFUse": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFWalletCurrencySetTo": "Wallet currency set to {p0}.",
+  "@uiFWalletCurrencySetTo": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFWeSentADigitVerificationCode": "We sent a 6-digit verification code to {p0}. Enter it on the next screen to set a new password.",
+  "@uiFWeSentADigitVerificationCode": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFOtpSentTo": "OTP sent to {p0}",
+  "@uiFOtpSentTo": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFEnterTheOtpSentTo": "Enter the OTP\nsent to {p0}",
+  "@uiFEnterTheOtpSentTo": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFResendCodeInS": "Resend code in {p0}s",
+  "@uiFResendCodeInS": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFANewVerificationCodeWasSent": "A new verification code was sent to {p0}.",
+  "@uiFANewVerificationCodeWasSent": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFHeldInEscrow": "{p0} {p1} held in escrow",
+  "@uiFHeldInEscrow": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFShipmentProgressStepOf": "Shipment progress, step {p0} of 4",
+  "@uiFShipmentProgressStepOf": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFFrontOf": "Front of {p0}",
+  "@uiFFrontOf": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFBackOf": "Back of {p0}",
+  "@uiFBackOf": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFTracking": "Tracking: {p0}",
+  "@uiFTracking": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFShipmentNeedHelpContactSupportOr": "Shipment {p0}. Need help? Contact support or report an issue.",
+  "@uiFShipmentNeedHelpContactSupportOr": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFChargedIn": "Charged in {p0}",
+  "@uiFChargedIn": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFUnableToLoadBanksRightNow": "Unable to load banks right now: {p0}",
+  "@uiFUnableToLoadBanksRightNow": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFWithdrawalsArePaidByTheBago": "{p0} withdrawals are paid by the Bago accounts team by bank transfer, usually within 1–3 business days. You'll get an email and a notification at each step.",
+  "@uiFWithdrawalsArePaidByTheBago": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFWeSentADigitCodeTo": "We sent a 6-digit code to {p0}{p1} via SMS. Enter it below.",
+  "@uiFWeSentADigitCodeTo": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFPaymentCurrency": "Payment currency: {p0}",
+  "@uiFPaymentCurrency": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFCurrentOurTeamReviewsRequestsWithin": "Current: {p0}. Our team reviews requests within 1–2 business days.",
+  "@uiFCurrentOurTeamReviewsRequestsWithin": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFWillUseForPayments": "{p0} {p1} will use {p2} for payments.",
+  "@uiFWillUseForPayments": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      },
+      "p2": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFCharacters": "{p0}/250 characters",
+  "@uiFCharacters": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFPayoutSetupWasNotCompletedCurrency": "Payout setup was not completed. Currency restored to {p0}.",
+  "@uiFPayoutSetupWasNotCompletedCurrency": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFPayoutAccountLinked": "{p0} payout account linked.",
+  "@uiFPayoutAccountLinked": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFCurrencyRestoredTo": "{p0} Currency restored to {p1}.",
+  "@uiFCurrencyRestoredTo": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFSetUpPayouts": "Set up {p0} payouts?",
+  "@uiFSetUpPayouts": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFYouMustLinkAPayoutAccount": "You must link a {p0} payout account to use this currency. If setup is cancelled, Bago will keep {p1}.",
+  "@uiFYouMustLinkAPayoutAccount": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFKeep": "Keep {p0}",
+  "@uiFKeep": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFDataAreCollectedByBagoAnd": "Data are collected by Bago and transmitted to our payout provider only to enable payouts. {p0} By proceeding, you confirm this payout account belongs to you.",
+  "@uiFDataAreCollectedByBagoAnd": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFCopied": "{p0} copied",
+  "@uiFCopied": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFYouAndYourFriendEachGet": "You and your friend each get {p0} after signup",
+  "@uiFYouAndYourFriendEachGet": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFEarnAnotherWhenTheySendAn": "Earn another {p0} when they send an item over {p1}",
+  "@uiFEarnAnotherWhenTheySendAn": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFEarned": "{p0} {p1} earned",
+  "@uiFEarned": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFYourBalanceIsBelowTheMinimum": "Your balance is below the minimum withdrawal amount of {p0} {p1}.",
+  "@uiFYourBalanceIsBelowTheMinimum": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFMinimumWithdrawalIsAcrossAllCurrencies": "Minimum withdrawal is {p0} {p1} across all currencies.",
+  "@uiFMinimumWithdrawalIsAcrossAllCurrencies": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFWithdrawalsArePaidToYourBank": "{p0} withdrawals are paid to your bank by the Bago accounts team, usually within 1–3 business days. We'll email and notify you when it's approved and paid.",
+  "@uiFWithdrawalsArePaidToYourBank": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFNoTravelersAreHeadingFromTo": "No travelers are heading from {p0} to {p1} right now. Check back soon!",
+  "@uiFNoTravelersAreHeadingFromTo": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFSendWith": "Send with {p0}",
+  "@uiFSendWith": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFDone": "Done ({p0})",
+  "@uiFDone": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFKgFree": "{p0} kg free",
+  "@uiFKgFree": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFDeparts": "Departs {p0}",
+  "@uiFDeparts": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFValue": "Value: {p0} {p1}",
+  "@uiFValue": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFOtherRequestsWaiting": "{count, plural, =1{1 request waiting} other{{count} requests waiting}}",
+  "@uiFOtherRequestsWaiting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uiFSender": "Sender: {p0}",
+  "@uiFSender": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFCreated": "Created {p0}",
+  "@uiFCreated": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFUpdateShipmentTo": "Update shipment to \"{p0}\"?",
+  "@uiFUpdateShipmentTo": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFTravelerInspectionPhotos": "Traveler inspection photos ({p0}/4)",
+  "@uiFTravelerInspectionPhotos": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFOfConfirmed": "{p0} of 3 confirmed",
+  "@uiFOfConfirmed": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFTrips": "{p0} trips",
+  "@uiFTrips": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFKgBooked": "{p0}kg booked",
+  "@uiFKgBooked": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFKgLeft": "{p0}kg left",
+  "@uiFKgLeft": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFActive": "{p0} active",
+  "@uiFActive": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFOtherConversations": "{count, plural, =1{1 conversation} other{{count} conversations}}",
+  "@uiFOtherConversations": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uiFCategoryPriority": "Category: {p0}  •  Priority: {p1}",
+  "@uiFCategoryPriority": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFRemoveSendersWillNoLongerSee": "Remove \"{p0}\"? Senders will no longer see it in search.",
+  "@uiFRemoveSendersWillNoLongerSee": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFSelected": "Selected: {p0}",
+  "@uiFSelected": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFTypicalRatesRangeFromPerKg": "Typical rates range from {p0} 5 - {p1} 20 per kg depending on the route.",
+  "@uiFTypicalRatesRangeFromPerKg": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFAiSuggestsKg": "AI suggests {p0} {p1}–{p2}/kg",
+  "@uiFAiSuggestsKg": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      },
+      "p1": {
+        "type": "Object"
+      },
+      "p2": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFKgBooked2": "{p0} kg booked",
+  "@uiFKgBooked2": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  },
+  "uiFAppearance": "{p0} appearance",
+  "@uiFAppearance": {
+    "placeholders": {
+      "p0": {
+        "type": "Object"
+      }
+    }
+  }
 }

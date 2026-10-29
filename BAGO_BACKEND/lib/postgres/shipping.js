@@ -1,3 +1,4 @@
+import { ensureTrackingNumber } from '../../services/trackingNumber.js';
 import { randomInt } from 'crypto';
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
@@ -975,10 +976,12 @@ export async function createConversationForRequest(requestId, senderId, traveler
               updated_at = timezone('utc', now()),
               unread_count_traveler = unread_count_traveler + 1,
               deleted_by_sender = false,
-              deleted_by_traveler = false
+              deleted_by_traveler = false,
+              request_id = $3,
+              trip_id = $4
           where id = $1
         `,
-        [conversationId, systemText],
+        [conversationId, systemText, requestId, tripId],
       );
       return conversationId;
     }
@@ -1192,25 +1195,6 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
     let normalizedStatus = (status === 'completed' || status === 'delivered') ? 'delivering' : status;
     if (normalizedStatus === 'accepted') normalizedStatus = 'accepted_awaiting_inspection';
 
-    if (normalizedStatus === 'intransit') {
-      const inspection = request.inspection_data || {};
-      const senderPhotos = Array.isArray(inspection.senderPhotos) ? inspection.senderPhotos : [];
-      const travelerPhotos = Array.isArray(inspection.travelerPhotos) ? inspection.travelerPhotos : [];
-      if (
-        request.status !== 'approved_for_trip' ||
-        senderPhotos.length < 2 ||
-        travelerPhotos.length < 2 ||
-        inspection.inspectionConfirmed !== true ||
-        inspection.safetyConfirmed !== true ||
-        inspection.responsibilityAccepted !== true ||
-        inspection.rejected === true
-      ) {
-        const error = new Error('Package inspection must be completed and approved before the trip can start');
-        error.code = 'INSPECTION_REQUIRED';
-        throw error;
-      }
-    }
-
     let movementTracking = Array.isArray(request.movement_tracking) ? request.movement_tracking : [];
     if (['package_received', 'delivery_started', 'intransit', 'arrived_at_hub', 'delivering', 'completed'].includes(normalizedStatus) || status === 'delivered') {
       movementTracking = [
@@ -1226,7 +1210,7 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
 
     let trackingNumber = request.tracking_number;
     if ((status === 'accepted' || status === 'intransit') && !trackingNumber) {
-      trackingNumber = `BAGO-${String(Date.now( )).toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      trackingNumber = await ensureTrackingNumber(requestId, client);
     }
 
     await client.query(
@@ -1268,7 +1252,7 @@ export async function updateShipmentRequestStatus({ requestId, travelerId, statu
       },
     });
 
-    if (normalizedStatus === 'accepted') {
+    if (normalizedStatus === 'accepted_awaiting_inspection') {
       await createConversationForRequest(requestId, request.sender_id, request.traveler_id, client);
       const handoverPin = String(randomInt(1000, 10000));
       await client.query(

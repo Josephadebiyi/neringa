@@ -1,17 +1,13 @@
 import axios from 'axios';
 import { query } from '../lib/postgres/db.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
+import { getTripById } from '../lib/postgres/shipping.js';
 import { convertDeclaredValueToNgn } from './myCoverPricing.js';
 
-const MYCOVER_SECRET_KEY = process.env.MYCOVER_SECRET_KEY;
 export const MYCOVER_CAPPED_GIT_PRODUCT_ID =
   '4ca89151-78e9-4cda-9a3b-20f759f89a41';
 const MYCOVER_PRODUCT_ID =
   process.env.MYCOVER_GIT_CAPPED_PRODUCT_ID || MYCOVER_CAPPED_GIT_PRODUCT_ID;
-const MYCOVER_BASE_URL =
-  process.env.MYCOVER_API_URL || 'https://api.mycover.ai';
-const MYCOVER_GIT_PATH =
-  process.env.MYCOVER_GIT_PATH || '/v1/products/sti/buy-git-ondemand';
 
 function isoDate(value, fallback = new Date()) {
   const date = value ? new Date(value) : fallback;
@@ -53,17 +49,40 @@ function findIdentityValue(value, keys, seen = new Set()) {
   return '';
 }
 
-function senderGender(sender) {
-  const raw = cleanText(
-    sender?.gender ||
-      findIdentityValue(sender?.kycVerifiedData || sender?.kyc_verified_data, [
-        'gender',
-        'sex',
-      ]),
-  ).toLowerCase();
+function normalizeGender(value) {
+  if (value && typeof value === 'object') {
+    for (const key of ['value', 'label', 'name', 'result']) {
+      const normalized = normalizeGender(value[key]);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+  const raw = cleanText(value).toLowerCase();
   if (['male', 'm'].includes(raw)) return 'Male';
   if (['female', 'f'].includes(raw)) return 'Female';
   return '';
+}
+
+function genderFromIdentity(value, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return '';
+  seen.add(value);
+  for (const [key, field] of Object.entries(value)) {
+    if (['gender', 'sex'].includes(key.toLowerCase())) {
+      const normalized = normalizeGender(field);
+      if (normalized) return normalized;
+    }
+  }
+  for (const nested of Object.values(value)) {
+    const normalized = genderFromIdentity(nested, seen);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function senderGender(sender, request) {
+  return normalizeGender(sender?.gender) ||
+    genderFromIdentity(sender?.kycVerifiedData || sender?.kyc_verified_data) ||
+    normalizeGender(request?.insurancePolicyData?.customerDetails?.gender);
 }
 
 function senderDateOfBirth(sender) {
@@ -126,7 +145,7 @@ export async function policyPayload({ request, sender, traveler }) {
     ? packageModel.images.find((image) => cleanText(image))
     : packageModel.image;
   const tracking = cleanText(request.trackingNumber || request.id);
-  const gender = senderGender(sender);
+  const gender = senderGender(sender, request);
   const dateOfBirth = senderDateOfBirth(sender);
   const phoneNumber = cleanText(sender?.phone || request.senderPhone);
 
@@ -136,7 +155,7 @@ export async function policyPayload({ request, sender, traveler }) {
   if (!gender) missing.push('gender');
   if (!dateOfBirth) missing.push('date_of_birth');
   if (missing.length) {
-    throw new Error(`MyCover required sender fields are missing: ${missing.join(', ')}`);
+    throw Object.assign(new Error(`MyCover required sender fields are missing: ${missing.join(', ')}`), {code: 'INSURANCE_CUSTOMER_DETAILS_REQUIRED', missingFields: missing});
   }
 
   return {
@@ -151,7 +170,7 @@ export async function policyPayload({ request, sender, traveler }) {
     pickup_location: fromRoute,
     drop_off_location: toRoute,
     shipping_date: isoDate(
-      request.estimatedDeparture || request.createdAt || undefined,
+      request.estimatedDeparture || request.trip?.departureDate || request.createdAt || undefined,
     ),
     vehicle_plate_number: cleanText(
       request.vehiclePlateNumber ||
@@ -212,12 +231,12 @@ function extractPolicy(responseData) {
       essential.policy_id ||
       responseData?.data?.policy_id ||
       responseData?.policy_id ||
-      responseData?.data?.id ||
       null,
     purchaseId:
       policy.purchase_id ||
       responseData?.data?.purchase_id ||
       responseData?.purchase_id ||
+      responseData?.data?.id ||
       null,
     policyNumber:
       meta.policy_number ||
@@ -263,60 +282,83 @@ async function updateInsuranceState(requestId, fields) {
  * show insurance_status instead of assuming protection is active.
  */
 export async function purchaseMyCoverPolicy(request) {
+  if (!request?.id) throw new Error('Shipment request id is required');
   if (!request?.insurance || Number(request.insuranceCost || 0) <= 0) {
     await updateInsuranceState(request.id, { status: 'not_selected' });
     return null;
   }
 
-  if (!MYCOVER_SECRET_KEY) {
+  const existing = await query(`
+    SELECT insurance_policy_id, insurance_policy_data, insurance_status
+    FROM public.shipment_requests WHERE id = $1
+  `, [request.id]);
+  const stored = existing.rows?.[0];
+  if (stored?.insurance_policy_id || request.insurancePolicyId) {
+    return stored?.insurance_policy_id || request.insurancePolicyId;
+  }
+  const storedData = stored?.insurance_policy_data;
+  if (storedData?.submittedAt || storedData?.purchaseId || storedData?.response || (stored?.insurance_status === 'pending_purchase' && storedData?.payload)) return null;
+
+  const secretKey = process.env.MYCOVER_SECRET_KEY;
+  if (!secretKey) {
     const error = 'MYCOVER_SECRET_KEY is not configured';
     await updateInsuranceState(request.id, { status: 'failed', error });
     console.warn(`MyCover: ${error}`);
     return null;
   }
 
-  if (request.insurancePolicyId) {
-    await updateInsuranceState(request.id, {
-      status: 'active',
-      policyId: request.insurancePolicyId,
-      purchasedAt: new Date(),
-    });
-    return request.insurancePolicyId;
+  let payload;
+  try {
+    const [sender, traveler, trip] = await Promise.all([
+      findProfileById(request.senderId),
+      findProfileById(request.travelerId),
+      request.tripId ? getTripById(request.tripId) : Promise.resolve(request.trip),
+    ]);
+    if (!sender) throw new Error(`Sender profile not found for id ${request.senderId}`);
+    payload = await policyPayload({ request: { ...request, insurancePolicyData: stored?.insurance_policy_data || request.insurancePolicyData, trip }, sender, traveler });
+  } catch (error) {
+    await updateInsuranceState(request.id, { status: 'failed', error: error.message });
+    throw error;
   }
 
-  await updateInsuranceState(request.id, { status: 'pending_purchase' });
-
-  const [sender, traveler] = await Promise.all([
-    findProfileById(request.senderId),
-    findProfileById(request.travelerId),
-  ]);
-  if (!sender) {
-    const error = `Sender profile not found for id ${request.senderId}`;
-    await updateInsuranceState(request.id, { status: 'failed', error });
-    throw new Error(`MyCover: ${error}`);
-  }
-
-  const payload = await policyPayload({ request, sender, traveler });
+  // A durable claim prevents concurrent acceptance requests (or a repeat after
+  // a timeout) from buying a second policy against the funded wallet.
+  const claimed = await query(`
+    UPDATE public.shipment_requests
+    SET insurance_status = 'pending_purchase', insurance_error = NULL,
+        insurance_policy_data = $2::jsonb, updated_at = timezone('utc', now())
+    WHERE id = $1 AND NULLIF(insurance_policy_id, '') IS NULL
+      AND insurance_policy_data->>'submittedAt' IS NULL
+    RETURNING id
+  `, [request.id, JSON.stringify({ provider: 'mycover', payload, submittedAt: new Date().toISOString() })]);
+  if (!claimed.rows?.length) return null;
 
   let responseData;
   try {
-    const url = `${MYCOVER_BASE_URL.replace(/\/$/, '')}${MYCOVER_GIT_PATH}`;
+    const baseUrl = process.env.MYCOVER_API_URL || 'https://api.mycover.ai';
+    const path = process.env.MYCOVER_GIT_PATH || '/v1/products/sti/buy-git-ondemand';
+    const url = `${baseUrl.replace(/\/$/, '')}${path}`;
     const { data } = await axios.post(url, payload, {
       headers: {
-        Authorization: `Bearer ${MYCOVER_SECRET_KEY}`,
+        Authorization: `Bearer ${secretKey}`,
         'Content-Type': 'application/json',
       },
       timeout: 15000,
     });
     responseData = data;
+    if (data?.responseCode === 0 || data?.success === false) {
+      const rejection = new Error(data.responseText || data.message || 'Policy purchase rejected');
+      rejection.response = { data, status: 400 };
+      throw rejection;
+    }
   } catch (err) {
     const detail = err.response?.data
       ? JSON.stringify(err.response.data)
       : err.message;
     await updateInsuranceState(request.id, {
-      status: 'failed',
+      status: err.response ? 'failed' : 'pending_purchase',
       error: detail,
-      policyData: { payload, error: err.response?.data || err.message },
+      policyData: { provider: 'mycover', payload, submittedAt: new Date().toISOString(), error: err.response?.data || err.message },
     });
     throw new Error(`MyCover API error: ${detail}`);
   }
@@ -324,6 +366,7 @@ export async function purchaseMyCoverPolicy(request) {
   const extracted = extractPolicy(responseData);
   const policyData = {
     provider: 'mycover',
+    submittedAt: new Date().toISOString(),
     payload,
     response: responseData,
     purchaseId: extracted.purchaseId,

@@ -621,11 +621,11 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
           sr.id, sr.sender_id, sr.traveler_id, sr.trip_id, sr.amount, sr.currency,
           sr.tracking_number, sr.payment_info, sr.insurance_cost, sr.traveler_payout,
           sr.platform_commission, sr.processing_fee, sr.fx_buffer,
-          p.package_weight, t.price_per_kg
+          p.package_weight, t.price_per_kg, t.currency as trip_currency
         from public.shipment_requests sr
         join public.packages p on p.id = sr.package_id
         left join public.trips t on t.id = sr.trip_id
-        where sr.id = $1 for update
+        where sr.id = $1 for update of sr
       `,
       [requestId],
     );
@@ -685,6 +685,7 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       const rawAmount = toNumber(request.amount);
       const insuranceFee = toNumber(request.insurance_cost);
       const storedTravelerPayout = toNumber(request.traveler_payout);
+      let travelerEarningCurrency = (request.trip_currency || requestCurrency).toUpperCase();
       let travelerEarningAmount = storedTravelerPayout;
       if (travelerEarningAmount <= 0) {
         const weight = toNumber(request.package_weight);
@@ -698,14 +699,17 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
             (1 +
               Number(config.processingFeePercent || 0) / 100 +
               Number(config.fxBufferPercent || 0) / 100);
+          travelerEarningCurrency = requestCurrency;
           travelerEarningAmount = Number(((rawAmount - insuranceFee) / surchargeMultiplier).toFixed(2));
         }
       }
-      const commissionAmount = toNumber(request.platform_commission ?? Math.max(0, rawAmount - insuranceFee - travelerEarningAmount));
+      const commissionAmount = request.platform_commission != null ? toNumber(request.platform_commission)
+        : Math.max(0, rawAmount - insuranceFee - (travelerEarningCurrency === requestCurrency
+          ? travelerEarningAmount : await convertCurrency(travelerEarningAmount, travelerEarningCurrency, requestCurrency)));
       const paymentProcessingFee = toNumber(request.processing_fee);
       const conversionFee = toNumber(request.fx_buffer);
-      const escrowAmount = requestCurrency !== walletCurrency
-        ? await convertCurrency(travelerEarningAmount, requestCurrency, walletCurrency)
+      const escrowAmount = travelerEarningCurrency !== walletCurrency
+        ? await convertCurrency(travelerEarningAmount, travelerEarningCurrency, walletCurrency)
         : travelerEarningAmount;
       const exchangeRate = travelerEarningAmount > 0 ? escrowAmount / travelerEarningAmount : 1;
 

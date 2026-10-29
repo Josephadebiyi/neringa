@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -71,11 +73,11 @@ class _HelpScreenState extends State<HelpScreen> {
   Widget build(BuildContext context) {
     final faqs = _topicFaqs[widget.topic] ?? _defaultFaqs;
     final title = switch (widget.topic) {
-      'shipments' => 'Shipments Help',
-      'trips' => 'Trips Help',
-      'payments' => 'Payments Help',
-      'account' => 'Account Help',
-      _ => 'Help & Support',
+      'shipments' => tr('Shipments Help'),
+      'trips' => tr('Trips Help'),
+      'payments' => tr('Payments Help'),
+      'account' => tr('Account Help'),
+      _ => tr('Help & Support'),
     };
 
     return Scaffold(
@@ -118,12 +120,14 @@ class _HelpScreenState extends State<HelpScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('How can we help?',
+                        Text(AppLocalizations.of(context).uiHowCanWeHelp,
                             style: AppTextStyles.h4.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: AppPalette.of(context).black)),
                         const SizedBox(height: 4),
-                        Text('Find answers to common questions below.',
+                        Text(
+                            AppLocalizations.of(context)
+                                .uiFindAnswersToCommonQuestionsBelow,
                             style: AppTextStyles.bodySm.copyWith(
                                 color: AppPalette.of(context).gray600)),
                       ],
@@ -134,7 +138,7 @@ class _HelpScreenState extends State<HelpScreen> {
             ),
             const SizedBox(height: 24),
 
-            Text('FREQUENTLY ASKED QUESTIONS',
+            Text(AppLocalizations.of(context).uiFrequentlyAskedQuestions,
                 style: AppTextStyles.labelXs.copyWith(
                     color: AppPalette.of(context).gray400,
                     fontWeight: FontWeight.w800,
@@ -165,7 +169,7 @@ class _HelpScreenState extends State<HelpScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('STILL NEED HELP?',
+                  Text(AppLocalizations.of(context).uiStillNeedHelp,
                       style: AppTextStyles.labelXs.copyWith(
                           color: AppPalette.of(context).gray400,
                           fontWeight: FontWeight.w800,
@@ -173,14 +177,14 @@ class _HelpScreenState extends State<HelpScreen> {
                   const SizedBox(height: 14),
                   _ContactRow(
                     icon: Icons.chat_bubble_outline_rounded,
-                    label: 'Live Chat',
+                    label: AppLocalizations.of(context).uiLiveChat,
                     sub: 'Avg response: 5 min',
                     onTap: () => context.push('/profile/support'),
                   ),
                   Divider(height: 1, color: AppPalette.of(context).gray100),
                   _ContactRow(
                     icon: Icons.mail_outline_rounded,
-                    label: 'Email Support',
+                    label: AppLocalizations.of(context).uiEmailSupport,
                     sub: 'help@sendwithbago.com',
                     onTap: () {},
                   ),

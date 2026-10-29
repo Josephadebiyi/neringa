@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -33,7 +34,7 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
     if (!ok) {
       AppSnackBar.show(
         context,
-        message: 'Biometric unlock failed.',
+        message: AppLocalizations.of(context).uiBiometricUnlockFailed,
         type: SnackBarType.error,
       );
     }
@@ -44,7 +45,7 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
     if (passcode.length < 4) {
       AppSnackBar.show(
         context,
-        message: 'Enter your app passcode.',
+        message: AppLocalizations.of(context).uiEnterYourAppPasscode,
         type: SnackBarType.error,
       );
       return;
@@ -57,7 +58,7 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
     if (!ok) {
       AppSnackBar.show(
         context,
-        message: 'That passcode is not correct.',
+        message: AppLocalizations.of(context).uiThatPasscodeIsNotCorrect,
         type: SnackBarType.error,
       );
       return;
@@ -79,7 +80,7 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
             children: [
               const Spacer(),
               Text(
-                'Unlock Bago',
+                AppLocalizations.of(context).uiUnlockBago,
                 style: AppTextStyles.displaySm.copyWith(
                   color: AppColors.white,
                   fontWeight: FontWeight.w800,
@@ -87,7 +88,7 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
               ),
               const SizedBox(height: 12),
               Text(
-                'For your security, please unlock the app to continue.',
+                AppLocalizations.of(context).uiForYourSecurityPleaseUnlockThe,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppColors.white.withValues(alpha: 0.82),
                   fontWeight: FontWeight.w600,
@@ -97,8 +98,8 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
               if (appLock.hasPasscode) ...[
                 AppTextField(
                   controller: _passcodeCtrl,
-                  label: 'App passcode',
-                  hint: 'Enter your passcode',
+                  label: AppLocalizations.of(context).uiAppPasscode,
+                  hint: AppLocalizations.of(context).uiEnterYourPasscode,
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.done,
@@ -106,7 +107,7 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
                 ),
                 const SizedBox(height: 16),
                 AppButton(
-                  label: 'Unlock with Passcode',
+                  label: AppLocalizations.of(context).uiUnlockWithPasscode,
                   isLoading: _busy,
                   onPressed: _busy ? null : _unlockWithPasscode,
                 ),
@@ -114,7 +115,7 @@ class _AppUnlockGateState extends ConsumerState<AppUnlockGate> {
               ],
               if (appLock.biometricEnabled)
                 AppButton(
-                  label: 'Use Face ID / Fingerprint',
+                  label: AppLocalizations.of(context).useBiometric,
                   variant: AppButtonVariant.outline,
                   isLoading: _busy,
                   onPressed: _busy ? null : _unlockWithBiometrics,

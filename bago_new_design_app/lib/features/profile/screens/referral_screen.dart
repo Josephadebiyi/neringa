@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -51,7 +53,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
       if (mounted) {
         final message = error is DioException
             ? ApiService.parseError(error)
-            : 'Could not load referrals.';
+            : tr('Could not load referrals.');
         AppSnackBar.show(context, message: message, type: SnackBarType.error);
       }
     } finally {
@@ -107,7 +109,8 @@ class _ReferralScreenState extends State<ReferralScreen> {
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
     AppSnackBar.show(context,
-        message: '$label copied', type: SnackBarType.success);
+        message: AppLocalizations.of(context).uiFCopied(label),
+        type: SnackBarType.success);
   }
 
   @override
@@ -118,7 +121,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
         backgroundColor: AppPalette.of(context).background,
         elevation: 0,
         foregroundColor: AppPalette.of(context).black,
-        title: const Text('Referrals'),
+        title: Text(AppLocalizations.of(context).uiReferrals),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -138,7 +141,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
                   const SizedBox(height: 16),
                   _RulesCard(settings: _settings, displayCurrency: _currency),
                   const SizedBox(height: 20),
-                  Text('Referred users',
+                  Text(AppLocalizations.of(context).uiReferredUsers,
                       style: AppTextStyles.h3.copyWith(
                           color: AppPalette.of(context).black,
                           fontWeight: FontWeight.w800)),
@@ -179,7 +182,9 @@ class _HeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppPalette.of(context).black,
+        color: AppPalette.of(context).dark
+            ? const Color(0xFF2A2546)
+            : AppColors.black,
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
@@ -188,7 +193,7 @@ class _HeroCard extends StatelessWidget {
           const Icon(Icons.card_giftcard_rounded,
               color: AppColors.white, size: 30),
           const SizedBox(height: 18),
-          Text('Referral earnings',
+          Text(AppLocalizations.of(context).uiReferralEarnings,
               style: AppTextStyles.labelMd.copyWith(
                   color: AppColors.white.withOpacity(0.55),
                   fontWeight: FontWeight.w800)),
@@ -202,12 +207,12 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _CopyButton(
-            label: code.isEmpty ? 'Generating referral code...' : code,
+            label: code.isEmpty ? tr('Generating referral code...') : code,
             onTap: code.isEmpty ? null : onCopyCode,
           ),
           const SizedBox(height: 10),
           _CopyButton(
-            label: link.isEmpty ? 'Referral link will appear when ready' : link,
+            label: link.isEmpty ? tr('Referral link will appear when ready') : link,
             onTap: link.isEmpty ? null : onCopyLink,
           ),
         ],
@@ -232,7 +237,8 @@ class _CopyButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppPalette.of(context).white.withOpacity(0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.white.withOpacity(0.12)),
+          border:
+              Border.all(color: AppPalette.of(context).white.withOpacity(0.12)),
         ),
         child: Row(
           children: [
@@ -300,15 +306,17 @@ class _RulesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Reward rules',
+          Text(AppLocalizations.of(context).uiRewardRules,
               style: AppTextStyles.h4.copyWith(
                   color: AppPalette.of(context).black,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
-          _RuleLine(text: 'You and your friend each get $welcome after signup'),
           _RuleLine(
-              text:
-                  'Earn another $shipment when they send an item over $threshold'),
+              text: AppLocalizations.of(context)
+                  .uiFYouAndYourFriendEachGet(welcome)),
+          _RuleLine(
+              text: AppLocalizations.of(context)
+                  .uiFEarnAnotherWhenTheySendAn(shipment, threshold)),
         ],
       ),
     );
@@ -387,9 +395,16 @@ class _ReferralUserTile extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _StageChip(label: 'Account created', done: signupComplete),
-              _StageChip(label: 'Qualified shipment', done: shipmentComplete),
-              _StageChip(label: '$earnedCurrency $earned earned', done: true),
+              _StageChip(
+                  label: AppLocalizations.of(context).uiAccountCreated,
+                  done: signupComplete),
+              _StageChip(
+                  label: AppLocalizations.of(context).uiQualifiedShipment,
+                  done: shipmentComplete),
+              _StageChip(
+                  label: AppLocalizations.of(context)
+                      .uiFEarned(earnedCurrency, earned),
+                  done: true),
             ],
           ),
         ],
@@ -434,7 +449,7 @@ class _EmptyCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppPalette.of(context).gray100),
       ),
-      child: Text('No referred users yet.',
+      child: Text(AppLocalizations.of(context).uiNoReferredUsersYet,
           textAlign: TextAlign.center,
           style: AppTextStyles.bodyMd
               .copyWith(color: AppPalette.of(context).gray500)),

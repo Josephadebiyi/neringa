@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
@@ -99,7 +100,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
               child: TextField(
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Search country…',
+                  hintText: AppLocalizations.of(context).uiSearchCountry2,
                   prefixIcon: Icon(Icons.search_rounded,
                       color: AppPalette.of(context).gray400),
                   filled: true,
@@ -191,7 +192,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       setState(() => _step = 2);
       AppSnackBar.show(
         context,
-        message: 'Verification code sent via SMS.',
+        message: AppLocalizations.of(context).uiVerificationCodeSentViaSms,
         type: SnackBarType.success,
       );
     } catch (e) {
@@ -256,7 +257,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
           ),
         ),
         title: Text(
-          _isVerifyMode ? 'Verify Phone Number' : l10n.changePhoneNumberTitle,
+          _isVerifyMode ? tr('Verify Phone Number') : l10n.changePhoneNumberTitle,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -284,7 +285,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       ),
       const SizedBox(height: 24),
       Text(
-        _isVerifyMode ? 'Verify Your Phone Number' : l10n.updateYourPhoneNumber,
+        _isVerifyMode ? tr('Verify Your Phone Number') : l10n.updateYourPhoneNumber,
         style: AppTextStyles.displaySm.copyWith(
             fontWeight: FontWeight.w900, color: AppPalette.of(context).black),
         textAlign: TextAlign.center,
@@ -292,8 +293,8 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       const SizedBox(height: 10),
       Text(
         _isVerifyMode
-            ? 'Confirm your existing number with a one-time code sent via SMS.'
-            : 'Enter your new phone number. A code will be sent via SMS to confirm the change.',
+            ? tr('Confirm your existing number with a one-time code sent via SMS.')
+            : tr('Enter your new phone number. A code will be sent via SMS to confirm the change.'),
         style: AppTextStyles.bodyMd
             .copyWith(color: AppPalette.of(context).gray500, height: 1.5),
         textAlign: TextAlign.center,
@@ -305,7 +306,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F8),
+              color: AppPalette.of(context).gray100,
               border:
                   Border.all(color: AppPalette.of(context).border, width: 1.5),
               borderRadius: BorderRadius.circular(14),
@@ -327,7 +328,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
           child: AppTextField(
             controller: _phoneCtrl,
             label:
-                _isVerifyMode ? 'Your Phone Number' : l10n.newPhoneNumberLabel,
+                _isVerifyMode ? tr('Your Phone Number') : l10n.newPhoneNumberLabel,
             hint: '800 000 0000',
             keyboardType: TextInputType.phone,
           ),
@@ -358,14 +359,15 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       ),
       const SizedBox(height: 24),
       Text(
-        'Enter the Code',
+        AppLocalizations.of(context).uiEnterTheCode,
         style: AppTextStyles.displaySm.copyWith(
             fontWeight: FontWeight.w900, color: AppPalette.of(context).black),
         textAlign: TextAlign.center,
       ),
       const SizedBox(height: 10),
       Text(
-        'We sent a 6-digit code to ${_country.dialCode}${_phoneCtrl.text.trim()} via SMS. Enter it below.',
+        AppLocalizations.of(context)
+            .uiFWeSentADigitCodeTo(_country.dialCode, _phoneCtrl.text.trim()),
         style: AppTextStyles.bodyMd
             .copyWith(color: AppPalette.of(context).gray500, height: 1.5),
         textAlign: TextAlign.center,
@@ -383,7 +385,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
       _PrimaryBtn(
         label: _loading
             ? null
-            : (_isVerifyMode ? 'Verify Phone Number' : l10n.updatePhoneNumber),
+            : (_isVerifyMode ? tr('Verify Phone Number') : l10n.updatePhoneNumber),
         isLoading: _loading,
         onPressed: _verify,
       ),
@@ -422,28 +424,29 @@ class _SuccessScreen extends StatelessWidget {
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAF9F0),
+                    color: AppPalette.of(context).tint(const Color(0xFFEAF9F0)),
                     borderRadius: BorderRadius.circular(50),
                   ),
                   child: const Icon(Icons.check_circle_rounded,
                       color: Color(0xFF22C55E), size: 56),
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  'Phone Number Updated!',
+                Text(
+                  AppLocalizations.of(context).uiPhoneNumberUpdated,
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF0A0A0A),
+                    color: AppPalette.of(context).black,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Your phone number has been successfully verified and updated on your account.',
+                Text(
+                  AppLocalizations.of(context)
+                      .uiYourPhoneNumberHasBeenSuccessfully,
                   style: TextStyle(
                     fontSize: 15,
-                    color: Color(0xFF6B7280),
+                    color: AppPalette.of(context).gray500,
                     height: 1.6,
                   ),
                   textAlign: TextAlign.center,
@@ -460,8 +463,8 @@ class _SuccessScreen extends StatelessWidget {
                       shape: const StadiumBorder(),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Back to App',
+                    child: Text(
+                      AppLocalizations.of(context).uiBackToApp,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,

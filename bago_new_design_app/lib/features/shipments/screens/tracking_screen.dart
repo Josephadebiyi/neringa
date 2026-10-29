@@ -104,7 +104,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 const SizedBox(height: 32),
                 AppTextField(
                   label: l10n.trackingNumberLabel,
-                  hint: 'e.g. BAGO-12345678',
+                  hint: AppLocalizations.of(context).uiEGBago12345678,
                   controller: _trackingCtrl,
                 ),
                 const SizedBox(height: 24),

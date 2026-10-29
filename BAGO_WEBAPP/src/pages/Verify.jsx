@@ -1023,8 +1023,8 @@ function ReviewCard({ navigate }) {
                 </div>
                 <p className="text-xs text-gray-500 font-medium text-center leading-relaxed">
                     If you believe this is a mistake, please contact{' '}
-                    <a href="mailto:support@sendwithbago.com" className="text-[#5845D8] font-bold hover:underline">
-                        support@sendwithbago.com
+                    <a href="mailto:send@sendwithbago.com" className="text-[#5845D8] font-bold hover:underline">
+                        send@sendwithbago.com
                     </a>
                 </p>
                 <button onClick={() => navigate('/dashboard')} className="w-full bg-[#012126] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0a262c] transition-all">
@@ -1055,8 +1055,8 @@ function BlockedCard({ navigate }) {
                 </div>
                 <p className="text-xs text-gray-500 font-medium text-center leading-relaxed">
                     If you believe this is a mistake, please contact{' '}
-                    <a href="mailto:support@sendwithbago.com" className="text-[#5845D8] font-bold hover:underline">
-                        support@sendwithbago.com
+                    <a href="mailto:send@sendwithbago.com" className="text-[#5845D8] font-bold hover:underline">
+                        send@sendwithbago.com
                     </a>
                 </p>
                 <button onClick={() => navigate('/dashboard')} className="w-full bg-[#012126] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0a262c] transition-all">

@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -304,21 +305,7 @@ class _ReviewCard extends StatelessWidget {
   String _formatDate(String raw) {
     try {
       final dt = DateTime.parse(raw);
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ];
-      return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+      return DateFormat.yMMMd().format(dt);
     } catch (_) {
       return raw;
     }

@@ -1,3 +1,5 @@
+import '../../../shared/utils/localized_dates.dart';
+import '../../../l10n/runtime_tr.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
@@ -333,18 +335,18 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Discard draft?'),
-        content: const Text(
-            'This will remove your saved shipment draft. You\'ll need to start over if you want to send this package.'),
+        title: Text(AppLocalizations.of(context).uiDiscardDraft),
+        content: Text(
+            AppLocalizations.of(context).uiThisWillRemoveYourSavedShipment),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Keep'),
+            child: Text(AppLocalizations.of(context).uiKeep),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.accentCoral),
-            child: const Text('Discard'),
+            child: Text(AppLocalizations.of(context).uiDiscard),
           ),
         ],
       ),
@@ -474,7 +476,7 @@ class _PendingPaymentDraftCardState extends State<_PendingPaymentDraftCard> {
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        'Press and hold this draft to delete it',
+                        AppLocalizations.of(context).uiPressAndHoldThisDraftTo,
                         style: AppTextStyles.labelXs
                             .copyWith(color: AppPalette.of(context).gray400),
                       ),
@@ -506,19 +508,19 @@ class _PackageCard extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Discard draft?'),
-        content: const Text(
-          'This will remove this draft shipment immediately. You can start again anytime.',
+        title: Text(AppLocalizations.of(context).uiDiscardDraft),
+        content: Text(
+          AppLocalizations.of(context).uiThisWillRemoveThisDraftShipment,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Keep'),
+            child: Text(AppLocalizations.of(context).uiKeep),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Discard'),
+            child: Text(AppLocalizations.of(context).uiDiscard),
           ),
         ],
       ),
@@ -547,7 +549,7 @@ class _PackageCard extends ConsumerWidget {
                 _TypeBadge(
                     label: package.category.isNotEmpty
                         ? package.category
-                        : 'Package',
+                        : tr('Package'),
                     isCarrier: false),
                 const Spacer(),
                 Text(
@@ -838,13 +840,13 @@ class _RequestCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      request.senderName ?? 'Unknown sender',
+                      request.senderName ?? tr('Unknown sender'),
                       style: AppTextStyles.labelMd
                           .copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      request.packageTitle ?? 'Shipment request',
+                      request.packageTitle ?? tr('Shipment request'),
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppPalette.of(context).gray500),
                     ),
@@ -881,7 +883,8 @@ class _RequestCard extends ConsumerWidget {
           if (request.createdAt.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              'Created ${_shortDateTime(request.createdAt)}',
+              AppLocalizations.of(context)
+                  .uiFCreated(_shortDateTime(request.createdAt)),
               style: AppTextStyles.captionBold
                   .copyWith(color: AppPalette.of(context).gray400),
             ),
@@ -907,7 +910,8 @@ class _RequestCard extends ConsumerWidget {
                         if (context.mounted) {
                           AppSnackBar.show(
                             context,
-                            message: 'Request declined',
+                            message:
+                                AppLocalizations.of(context).uiRequestDeclined,
                             type: SnackBarType.success,
                           );
                         }
@@ -926,7 +930,7 @@ class _RequestCard extends ConsumerWidget {
                       side: const BorderSide(color: AppColors.error),
                       shape: const StadiumBorder(),
                     ),
-                    child: const Text('Decline'),
+                    child: Text(AppLocalizations.of(context).uiDecline),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -940,7 +944,8 @@ class _RequestCard extends ConsumerWidget {
                         if (context.mounted) {
                           AppSnackBar.show(
                             context,
-                            message: 'Request accepted',
+                            message:
+                                AppLocalizations.of(context).uiRequestAccepted,
                             type: SnackBarType.success,
                           );
                         }
@@ -960,7 +965,7 @@ class _RequestCard extends ConsumerWidget {
                       shape: const StadiumBorder(),
                       elevation: 0,
                     ),
-                    child: const Text('Accept'),
+                    child: Text(AppLocalizations.of(context).uiAccept),
                   ),
                 ),
               ],
@@ -1022,7 +1027,7 @@ class _SenderRequestCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      request.packageTitle ?? 'Shipment request',
+                      request.packageTitle ?? tr('Shipment request'),
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppPalette.of(context).gray500),
                     ),
@@ -1059,7 +1064,8 @@ class _SenderRequestCard extends StatelessWidget {
           if (request.createdAt.trim().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              'Created ${_shortDateTime(request.createdAt)}',
+              AppLocalizations.of(context)
+                  .uiFCreated(_shortDateTime(request.createdAt)),
               style: AppTextStyles.captionBold
                   .copyWith(color: AppPalette.of(context).gray400),
             ),
@@ -1084,7 +1090,7 @@ class _SenderRequestCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Action needed',
+                    AppLocalizations.of(context).uiActionNeeded,
                     style: AppTextStyles.labelSm.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w800,
@@ -1092,7 +1098,8 @@ class _SenderRequestCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Confirm delivery to release the payment.',
+                    AppLocalizations.of(context)
+                        .uiConfirmDeliveryToReleaseThePayment,
                     style: AppTextStyles.bodySm.copyWith(
                       color: AppPalette.of(context).gray700,
                       fontWeight: FontWeight.w600,
@@ -1109,7 +1116,7 @@ class _SenderRequestCard extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text('Confirm delivery'),
+                    child: Text(AppLocalizations.of(context).uiConfirmDelivery),
                   ),
                 ],
               ),
@@ -1126,7 +1133,7 @@ class _SenderRequestCard extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text('Leave feedback'),
+              child: Text(AppLocalizations.of(context).leaveFeedback),
             ),
           ],
         ],
@@ -1172,7 +1179,7 @@ class _OpenShipmentChatButton extends ConsumerWidget {
           }
         },
         icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-        label: const Text('Open Chat'),
+        label: Text(AppLocalizations.of(context).uiOpenChat),
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
           padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
@@ -1193,13 +1200,12 @@ class _TripCard extends StatelessWidget {
     return TripTicketCard(
       trip: trip,
       ownerView: true,
-      actionLabel: 'Manage',
+      actionLabel: AppLocalizations.of(context).uiManage,
       onTap: () {
         if (tripId.isEmpty) {
           AppSnackBar.show(
             context,
-            message:
-                'This trip is missing its details reference. Please refresh and try again.',
+            message: AppLocalizations.of(context).tripMissingReference,
             type: SnackBarType.error,
           );
           return;
@@ -1241,14 +1247,20 @@ class _TripSummaryStrip extends StatelessWidget {
         spacing: 10,
         runSpacing: 10,
         children: [
-          _InfoChip(label: '$totalTrips trips'),
-          _InfoChip(label: '${totalKgSold.toStringAsFixed(0)}kg booked'),
-          _InfoChip(label: '${totalKgRemaining.toStringAsFixed(0)}kg left'),
-          if (activeShipmentCount > 0)
-            _InfoChip(label: '$activeShipmentCount active'),
+          _InfoChip(label: AppLocalizations.of(context).uiFTrips(totalTrips)),
           _InfoChip(
-              label:
-                  '$earningsCurrency ${totalEarnings.toStringAsFixed(2)} earned'),
+              label: AppLocalizations.of(context)
+                  .uiFKgBooked(totalKgSold.toStringAsFixed(0))),
+          _InfoChip(
+              label: AppLocalizations.of(context)
+                  .uiFKgLeft(totalKgRemaining.toStringAsFixed(0))),
+          if (activeShipmentCount > 0)
+            _InfoChip(
+                label: AppLocalizations.of(context)
+                    .uiFActive(activeShipmentCount)),
+          _InfoChip(
+              label: AppLocalizations.of(context).uiFEarned(
+                  earningsCurrency, totalEarnings.toStringAsFixed(2))),
         ],
       ),
     );
@@ -1274,7 +1286,8 @@ class _RouteRow extends StatelessWidget {
               Text(from,
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
-              Text('Departure', style: AppTextStyles.captionBold),
+              Text(AppLocalizations.of(context).departureLabelShort,
+                  style: AppTextStyles.captionBold),
             ],
           ),
         ),
@@ -1296,7 +1309,8 @@ class _RouteRow extends StatelessWidget {
               Text(to,
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
-              Text('Arrival', style: AppTextStyles.captionBold),
+              Text(AppLocalizations.of(context).uiArrival,
+                  style: AppTextStyles.captionBold),
             ],
           ),
         ),
@@ -1552,18 +1566,18 @@ Future<bool> _confirmDelete(BuildContext context) async {
   return await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Remove from history?'),
-          content: const Text(
-              'This will permanently remove this item from your history.'),
+          title: Text(AppLocalizations.of(context).uiRemoveFromHistory),
+          content: Text(
+              AppLocalizations.of(context).uiThisWillPermanentlyRemoveThisItem),
           actions: [
             TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel')),
+                child: Text(AppLocalizations.of(context).cancel)),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               style:
                   TextButton.styleFrom(foregroundColor: AppColors.accentCoral),
-              child: const Text('Remove'),
+              child: Text(AppLocalizations.of(context).uiRemove),
             ),
           ],
         ),
@@ -1577,7 +1591,7 @@ String _shortDateTime(String raw) {
     final now = DateTime.now();
     final date =
         dt.year == now.year && dt.month == now.month && dt.day == now.day
-            ? 'Today'
+            ? tr('Today')
             : '${dt.day}/${dt.month}/${dt.year}';
     final hh = dt.hour.toString().padLeft(2, '0');
     final mm = dt.minute.toString().padLeft(2, '0');
@@ -1719,7 +1733,7 @@ class _CarrierOrSenderSheet extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'What would you like to do?',
+            AppLocalizations.of(context).uiWhatWouldYouLikeToDo,
             style: AppTextStyles.labelLg.copyWith(
               fontWeight: FontWeight.w800,
               color: AppPalette.of(context).black,
@@ -1744,7 +1758,8 @@ class _CarrierOrSenderSheet extends StatelessWidget {
             title: Text(l10n.postTripTitle,
                 style: AppTextStyles.labelMd
                     .copyWith(fontWeight: FontWeight.w700)),
-            subtitle: Text('Earn by carrying packages on your trip',
+            subtitle: Text(
+                AppLocalizations.of(context).uiEarnByCarryingPackagesOnYour,
                 style: AppTextStyles.bodyXs
                     .copyWith(color: AppPalette.of(context).gray500)),
             contentPadding: EdgeInsets.zero,
@@ -1773,7 +1788,8 @@ class _CarrierOrSenderSheet extends StatelessWidget {
             title: Text(l10n.findTraveler,
                 style: AppTextStyles.labelMd
                     .copyWith(fontWeight: FontWeight.w700)),
-            subtitle: Text('Send a package with a traveler',
+            subtitle: Text(
+                AppLocalizations.of(context).uiSendAPackageWithATraveler,
                 style: AppTextStyles.bodyXs
                     .copyWith(color: AppPalette.of(context).gray500)),
             contentPadding: EdgeInsets.zero,
@@ -1806,8 +1822,8 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _CityPickerSheet(
-        title: isFrom ? 'Departure City' : 'Destination City',
-        hint: isFrom ? 'Search departure city…' : 'Search destination city…',
+        title: isFrom ? tr('Departure City') : tr('Destination City'),
+        hint: isFrom ? tr('Search departure city…') : tr('Search destination city…'),
       ),
     );
     if (result != null && mounted) {
@@ -1836,20 +1852,7 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
       ),
     );
     if (picked != null && mounted) {
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ];
+      final months = [for (var m = 1; m <= 12; m++) englishShortMonth(m)];
       setState(() =>
           _date = '${months[picked.month - 1]} ${picked.day}, ${picked.year}');
     }
@@ -1892,10 +1895,10 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Find a Traveler',
+          Text(AppLocalizations.of(context).findTraveler,
               style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w900)),
           const SizedBox(height: 4),
-          Text('Enter your route to see available travelers.',
+          Text(AppLocalizations.of(context).uiEnterYourRouteToSeeAvailable,
               style: AppTextStyles.bodySm
                   .copyWith(color: AppPalette.of(context).gray500)),
           const SizedBox(height: 20),
@@ -1909,7 +1912,7 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
               children: [
                 _SheetRouteRow(
                   icon: Icons.trip_origin_rounded,
-                  label: _from.isEmpty ? 'Departure city' : _from,
+                  label: _from.isEmpty ? tr('Departure city') : _from,
                   hasValue: _from.isNotEmpty,
                   onTap: () => _pickCity(true),
                 ),
@@ -1920,7 +1923,7 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
                     endIndent: 20),
                 _SheetRouteRow(
                   icon: Icons.location_on_rounded,
-                  label: _to.isEmpty ? 'Destination city' : _to,
+                  label: _to.isEmpty ? tr('Destination city') : _to,
                   hasValue: _to.isNotEmpty,
                   onTap: () => _pickCity(false),
                 ),
@@ -1931,7 +1934,9 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
                     endIndent: 20),
                 _SheetRouteRow(
                   icon: Icons.calendar_month_rounded,
-                  label: _date.isEmpty ? 'Any date (optional)' : _date,
+                  label: _date.isEmpty
+                      ? tr('Any date (optional)')
+                      : localizeEnglishDate(_date),
                   hasValue: _date.isNotEmpty,
                   onTap: _pickDate,
                 ),
@@ -1948,7 +1953,7 @@ class _SenderRouteSheetState extends State<_SenderRouteSheet> {
               child: ElevatedButton.icon(
                 onPressed: _canSearch ? _search : null,
                 icon: const Icon(Icons.search_rounded, size: 20),
-                label: const Text('Search Travelers'),
+                label: Text(AppLocalizations.of(context).uiSearchTravelers),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   disabledBackgroundColor: AppColors.primary,
@@ -2133,7 +2138,7 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               height: 50,
               decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F8),
+                  color: AppPalette.of(context).gray100,
                   borderRadius: BorderRadius.circular(16)),
               child: Row(
                 children: [
@@ -2176,7 +2181,8 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
                 ? Center(
                     child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text('Search for a city or country',
+                    child: Text(
+                        AppLocalizations.of(context).uiSearchForACityOrCountry,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.bodyMd.copyWith(
                             color: AppPalette.of(context).gray500,

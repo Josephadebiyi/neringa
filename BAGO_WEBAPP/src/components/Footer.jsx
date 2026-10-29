@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { ChevronDown } from 'lucide-react';
+import { businessContact } from '../config/publicPolicies';
 
 export default function Footer() {
     const { t, currentLanguage, setLanguage, languages } = useLanguage();
@@ -17,6 +18,11 @@ export default function Footer() {
                     <p className="text-gray-500 text-sm font-medium leading-relaxed max-w-xs mb-6">
                         Building the most human-centric logistics network in the world. Ship fast, send anywhere.
                     </p>
+                    <div className="space-y-2 text-sm">
+                        <p className="font-bold">{businessContact.name}</p>
+                        <a className="block text-[#5845D8] underline" href={`mailto:${businessContact.email}`}>{businessContact.email}</a>
+                        {businessContact.phones.map(phone => <a key={phone.href} className="block text-gray-600" href={phone.href}>{phone.label}</a>)}
+                    </div>
 
                     {/* App Store Buttons */}
                     <div className="flex flex-col gap-3 mt-6">
@@ -55,6 +61,8 @@ export default function Footer() {
                         <Link to="/help" className="hover:text-[#5845D8] transition-colors">Help Centre</Link>
                         <Link to="/terms" className="hover:text-[#5845D8] transition-colors">Terms and Conditions</Link>
                         <Link to="/privacy" className="hover:text-[#5845D8] transition-colors">Privacy Policy</Link>
+                        <a href="/refund-policy/" className="hover:text-[#5845D8] transition-colors">Refund and Cancellation Policy</a>
+                        <a href="/contact/" className="hover:text-[#5845D8] transition-colors">Contact us</a>
                         <Link to="/business" className="hover:text-[#5845D8] transition-colors">Business partnership</Link>
                     </div>
                 </div>

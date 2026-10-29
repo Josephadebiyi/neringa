@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
-import twilio from 'twilio';
+import { getTwilioClient } from '../services/twilioSmsService.js';
 
 import { Resend } from 'resend';
 import {
@@ -48,20 +48,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const IOS_BUNDLE_ID = 'com.deracali.boltexponativewind';
 const APPLE_AUDIENCE = process.env.APPLE_AUDIENCE || process.env.APPLE_BUNDLE_ID || '';
 
-function getTwilioClient() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_FROM_NUMBER;
 
-  if (!accountSid || !authToken || !fromNumber) {
-    return null;
-  }
-
-  return {
-    client: twilio(accountSid, authToken),
-    fromNumber,
-  };
-}
 
 function getAllowedAppleAudiences() {
   return [
@@ -1381,7 +1368,7 @@ export async function requestPhoneChange(req, res) {
 
     await sms.client.messages.create({
       body: `Your Bago verification code is: ${otp}. Expires in 15 minutes.`,
-      from: sms.fromNumber,
+      ...sms.senderOptions,
       to: newPhone.trim(),
     });
 
@@ -1417,7 +1404,7 @@ export async function sendPhoneVerificationOtp(req, res) {
 
     await sms.client.messages.create({
       body: `Your Bago verification code is: ${otp}. Expires in 15 minutes.`,
-      from: sms.fromNumber,
+      ...sms.senderOptions,
       to: normalizedPhone,
     });
 

@@ -95,8 +95,10 @@ export const AddAtrip = async (req, res, next) => {
     }
     const { parsedDates, price, weight } = validation;
 
-    // Upload travel document to Cloudinary once — reused for every trip created below.
-    const travelDocumentUrl = travelDocument
+    // Trip proof is collected from individual travelers only — business
+    // accounts are proof-exempt, so any file they send is ignored rather than
+    // stored. Uploaded once and reused for every trip created below.
+    const travelDocumentUrl = travelDocument && !isBusinessAccount
       ? await uploadTravelDocument(travelDocument, userid)
       : null;
 
@@ -247,7 +249,8 @@ export const UpdateTrip = async (req, res, next) => {
 
     // Handle travel document update
     const { travelDocument: travelDocRaw } = req.body;
-    if (travelDocRaw) {
+    const editor = travelDocRaw ? await findProfileById(userId) : null;
+    if (travelDocRaw && editor?.accountType !== 'company') {
       updates.travel_document_url = await uploadTravelDocument(travelDocRaw, userId);
       updates.travel_document_uploaded_at = new Date();
     }

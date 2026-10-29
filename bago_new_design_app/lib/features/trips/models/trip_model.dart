@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/utils/json_parser.dart';
 import '../../../shared/utils/avatar_url_parser.dart';
 import '../../../shared/utils/status_formatter.dart';
@@ -124,7 +125,7 @@ class TripModel {
     return numeric.toString().padLeft(4, '0');
   }
 
-  String get statusLabel => formatTripStatusLabel(status);
+  String get statusLabel => tr(formatTripStatusLabel(status));
   double get remainingKg => availableKg;
   bool get isPubliclyVisible =>
       ['active', 'verified', 'approved', 'live']

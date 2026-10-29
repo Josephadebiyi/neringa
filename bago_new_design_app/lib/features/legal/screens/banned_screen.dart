@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -57,14 +58,14 @@ class BannedScreen extends StatelessWidget {
               const SizedBox(height: 24),
               // Title
               Text(
-                'Account Suspended',
+                AppLocalizations.of(context).uiAccountSuspended,
                 style: AppTextStyles.h2,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               // Message
               Text(
-                'Your account has been suspended due to a violation of our Terms of Service.',
+                AppLocalizations.of(context).uiYourAccountHasBeenSuspendedDue,
                 style: AppTextStyles.bodyMd
                     .copyWith(color: AppPalette.of(context).gray600),
                 textAlign: TextAlign.center,
@@ -83,7 +84,7 @@ class BannedScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Reason',
+                        AppLocalizations.of(context).uiReason,
                         style: AppTextStyles.labelMd
                             .copyWith(color: AppPalette.of(context).gray500),
                       ),
@@ -110,15 +111,15 @@ class BannedScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'What happens next?',
+                      AppLocalizations.of(context).uiWhatHappensNext,
                       style: AppTextStyles.h5,
                     ),
                     const SizedBox(height: 12),
-                    _buildInfoBullet(
+                    _buildInfoBullet(context,
                         'You will not be able to log in to your account'),
-                    _buildInfoBullet(
+                    _buildInfoBullet(context,
                         'Any active shipments or trips have been cancelled'),
-                    _buildInfoBullet(
+                    _buildInfoBullet(context,
                         'You may appeal this decision by contacting support'),
                   ],
                 ),
@@ -126,12 +127,12 @@ class BannedScreen extends StatelessWidget {
               const Spacer(),
               // Buttons
               AppButton(
-                label: 'Contact Support',
+                label: AppLocalizations.of(context).uiContactSupport,
                 onPressed: _contactSupport,
               ),
               const SizedBox(height: 12),
               AppButton(
-                label: 'Logout',
+                label: AppLocalizations.of(context).uiLogout,
                 variant: AppButtonVariant.secondary,
                 onPressed: () => _logout(context),
               ),
@@ -142,21 +143,23 @@ class BannedScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoBullet(String text) {
+  Widget _buildInfoBullet(BuildContext context, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 4),
-            child: Icon(Icons.circle, size: 6, color: AppColors.gray600),
+            child: Icon(Icons.circle,
+                size: 6, color: AppPalette.of(context).gray600),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: AppTextStyles.bodyMd.copyWith(color: AppColors.gray700),
+              style: AppTextStyles.bodyMd
+                  .copyWith(color: AppPalette.of(context).gray700),
             ),
           ),
         ],

@@ -119,7 +119,7 @@ export default function Shipments({ onNavigateToChat }) {
     const [deletingDraft, setDeletingDraft] = useState(null);
     const holdTimer = useRef(null);
 
-    useEffect(() => { fetchMyRequests(); }, []);
+    useEffect(() => { fetchMyRequests(); }, [location.search]);
 
     // Lets a transaction row elsewhere (Wallet & Earnings) deep-link into a
     // specific shipment via /dashboard?tab=shipments&requestId=<id> instead
@@ -560,7 +560,9 @@ export default function Shipments({ onNavigateToChat }) {
     );
 }
 
-function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateToChat, onDispute, onConfirmDelivery, confirming, getReceiverInfo }) {
+function ShipmentDetailPage({ req: initialRequest, onBack, onDownload, downloading, onNavigateToChat, onDispute, onConfirmDelivery, confirming, getReceiverInfo }) {
+    const [req, setReq] = useState(initialRequest);
+    useEffect(() => { setReq(initialRequest); }, [initialRequest]);
     const [imgFullscreen, setImgFullscreen] = useState(false);
     const id = rid(req);
     const imgUrl = packageImage(req);
@@ -802,6 +804,9 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                             }`}>
                                 {protection.label}
                             </div>
+                            {['failed', 'pending_purchase'].includes(String(req.insuranceStatus || '').toLowerCase()) && req.status !== 'pending' && !req.insurancePolicyData?.submittedAt && !req.insurancePolicyData?.purchaseId && !req.insurancePolicyData?.payload && (
+                                <InsuranceActivation request={req} onUpdated={setReq} />
+                            )}
                         </div>
                     )}
 
@@ -858,5 +863,43 @@ function ShipmentDetailPage({ req, onBack, onDownload, downloading, onNavigateTo
                 </div>
             )}
         </div>
+    );
+}
+
+function InsuranceActivation({ request, onUpdated }) {
+    const [gender, setGender] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState('');
+    const insuranceError = request.insuranceError || request.insurance_error || '';
+    const needsGender = !insuranceError || /gender/i.test(insuranceError);
+    const activate = async (event) => {
+        event.preventDefault();
+        setSaving(true);
+        setMessage('');
+        try {
+            const response = await api.post(`/api/bago/request/${encodeURIComponent(rid(request))}/insurance-details`, needsGender ? {gender} : {});
+            const updated = response.data?.data;
+            if (!updated) throw new Error('Insurance status could not be refreshed.');
+            onUpdated(updated);
+            setMessage(updated.insuranceError || (updated.insuranceStatus === 'active' ? 'Insurance is active.' : 'Your application is awaiting insurance provider confirmation.'));
+        } catch (error) {
+            setMessage(error.response?.data?.message || error.message || 'Insurance could not be activated. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+    return (
+        <form onSubmit={activate} className="mt-4 space-y-3">
+            <p className="text-sm text-gray-600">{needsGender ? 'The insurer needs your gender to activate protection for this shipment. Please provide your own details below.' : 'Insurance has not activated yet. Retry after confirming your sender details are complete.'}</p>
+            {needsGender && <label className="block text-sm font-semibold text-gray-700">Gender for insurance
+                <select required value={gender} onChange={(event) => setGender(event.target.value)} className="mt-2 block w-full rounded-xl border border-gray-200 bg-white p-3">
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+            </label>}
+            <button type="submit" disabled={saving || (needsGender && !gender)} className="rounded-full bg-[#5845D8] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Activating…' : needsGender ? 'Save and activate insurance' : 'Retry insurance activation'}</button>
+            {message && <p role="status" className="text-sm text-gray-700">{message}</p>}
+        </form>
     );
 }

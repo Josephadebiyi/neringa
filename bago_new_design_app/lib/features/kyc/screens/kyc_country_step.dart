@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
@@ -35,7 +37,7 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
     // IP/phone detection) with no way to correct it, which is what got
     // people stuck when that country was wrong.
     final profileCode =
-        (ref.read(authProvider).user?.country ?? 'GB').toUpperCase();
+        (ref.read(authProvider).user?.country ?? tr('GB')).toUpperCase();
     _selected = CurrencyConversionHelper.allCountries.firstWhere(
       (c) => c.code == profileCode,
       orElse: () => CurrencyConversionHelper.allCountries.first,
@@ -55,12 +57,13 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Which country issued your ID?',
+                AppLocalizations.of(context).uiWhichCountryIssuedYourId,
                 style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 4),
               Text(
-                'This determines which document types the verification widget shows you.',
+                AppLocalizations.of(context)
+                    .uiThisDeterminesWhichDocumentTypesThe,
                 style: AppTextStyles.bodySm
                     .copyWith(color: AppPalette.of(context).gray500),
               ),
@@ -160,7 +163,8 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
           color: AppPalette.of(context).black,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Identity Verification', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).identityVerification,
+            style: AppTextStyles.h3),
       ),
       body: _proceeding ? _buildLoading() : _buildPicker(),
     );
@@ -174,7 +178,7 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
           const CircularProgressIndicator(
               color: AppColors.primary, strokeWidth: 3),
           const SizedBox(height: 20),
-          Text('Starting verification…',
+          Text(AppLocalizations.of(context).uiStartingVerification,
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500)),
           if (_error != null) ...[
@@ -188,7 +192,7 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => setState(() => _proceeding = false),
-              child: const Text('Try Again'),
+              child: Text(AppLocalizations.of(context).uiTryAgain),
             ),
           ],
         ],
@@ -202,10 +206,11 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Confirm your country', style: AppTextStyles.h2),
+          Text(AppLocalizations.of(context).uiConfirmYourCountry,
+              style: AppTextStyles.h2),
           const SizedBox(height: 8),
           Text(
-            "Select the country that issued the ID you'll use — this decides which document types the verification widget accepts.",
+            AppLocalizations.of(context).uiSelectTheCountryThatIssuedThe,
             style: AppTextStyles.bodyMd
                 .copyWith(color: AppPalette.of(context).gray500),
           ),
@@ -245,7 +250,7 @@ class _KycCountryStepState extends ConsumerState<KycCountryStep> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
               ),
-              child: const Text('Continue'),
+              child: Text(AppLocalizations.of(context).continueLabel),
             ),
           ),
         ],

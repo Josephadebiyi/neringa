@@ -26,11 +26,21 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _fadeIn;
-  late final Animation<double> _logoScale;
-  late final Animation<double> _logoGlow;
-  late final Animation<double> _streakTravel;
+  // Airbnb-style: the logo on the brand colour, one quiet fade-and-settle,
+  // then straight into the app. No looping effects.
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 450),
+  );
+  late final Animation<double> _fade =
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+  late final Animation<double> _scale = Tween<double>(begin: 0.94, end: 1)
+      .animate(
+          CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+
+  /// How long the splash stays up on a cold start, at minimum.
+  static const _minVisibleMs = 900;
+
   Timer? _failsafeTimer;
   late final bool _isReplaySplash;
   bool _navigationScheduled = false;
@@ -40,25 +50,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void initState() {
     super.initState();
     _isReplaySplash = widget.forceReplay || widget.nextRoute != null;
+    _controller.forward();
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1450),
-    );
-    _fadeIn = Tween<double>(begin: 0.82, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _logoScale = Tween<double>(begin: 0.94, end: 1.03).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-    _logoGlow = Tween<double>(begin: 16, end: 34).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-    _streakTravel = Tween<double>(begin: -40, end: 40).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
-    );
-
-    _controller.repeat(reverse: true);
     if (_isReplaySplash) {
       Future.delayed(Duration(milliseconds: widget.replayDurationMs), () {
         if (mounted && widget.autoNavigate) {
@@ -78,12 +71,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.stop();
-      _controller.value = 1;
-    } else if (!_controller.isAnimating) {
-      _controller.repeat(reverse: true);
-    }
+    if (MediaQuery.disableAnimationsOf(context)) _controller.value = 1;
   }
 
   @override
@@ -103,70 +91,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            return Opacity(
-              opacity: _fadeIn.value,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 164,
-                    height: 164,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0.20),
-                          Colors.white.withValues(alpha: 0.02),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                  Transform.translate(
-                    offset: Offset(_streakTravel.value, 0),
-                    child: Container(
-                      width: 144,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            Colors.white.withValues(alpha: 0.0),
-                            Colors.white.withValues(alpha: 0.85),
-                            Colors.white.withValues(alpha: 0.0),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Transform.scale(
-                    scale: _logoScale.value,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withValues(alpha: 0.30),
-                            blurRadius: _logoGlow.value,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Image.asset(
-                        'assets/images/bago-logo-white.png',
-                        height: 62,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+        child: FadeTransition(
+          opacity: _fade,
+          child: ScaleTransition(
+            scale: _scale,
+            child: Image.asset(
+              'assets/images/bago-logo-white.png',
+              height: 56,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
       ),
     );
@@ -175,8 +109,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void _scheduleHomeNavigation() {
     if (_navigationScheduled) return;
     _navigationScheduled = true;
-    final remaining = 1100 - _entranceClock.elapsedMilliseconds;
-    Future.delayed(Duration(milliseconds: remaining.clamp(0, 1100)), () {
+    final remaining = _minVisibleMs - _entranceClock.elapsedMilliseconds;
+    Future.delayed(Duration(milliseconds: remaining.clamp(0, _minVisibleMs)),
+        () {
       if (mounted) context.go('/home');
     });
   }

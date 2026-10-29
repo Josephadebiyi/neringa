@@ -3,6 +3,26 @@ import { sendWithdrawalProcessedEmail } from '../../services/emailNotifications.
 import { convertCurrency } from '../../services/currencyConverter.js';
 import { initiateTransfer, initiateOrchestratedTransfer, getTransferStatus } from '../../services/flutterwaveService.js';
 import { getActiveBeneficiary } from '../../lib/postgres/flutterwavePayments.js';
+import { sendPushNotification } from '../../services/pushNotificationService.js';
+
+const MANUAL_PROVIDER = 'manual_bank_transfer';
+
+const USER_STATUS_MESSAGES = {
+  processing: (amt) => ['Withdrawal approved', `Your ${amt} withdrawal was approved and is being paid to your bank account.`],
+  approved: (amt) => ['Withdrawal approved', `Your ${amt} withdrawal was approved and is being paid to your bank account.`],
+  completed: (amt) => ['Withdrawal paid', `Your ${amt} withdrawal has been paid to your bank account.`],
+  paid: (amt) => ['Withdrawal paid', `Your ${amt} withdrawal has been paid to your bank account.`],
+  rejected: (amt) => ['Withdrawal declined', `Your ${amt} withdrawal was declined and the funds are back in your Bago wallet.`],
+  failed: (amt) => ['Withdrawal failed', `Your ${amt} withdrawal could not be paid. The funds are back in your Bago wallet.`],
+  cancelled: (amt) => ['Withdrawal cancelled', `Your ${amt} withdrawal was cancelled and the funds are back in your Bago wallet.`],
+};
+
+function notifyUserOfWithdrawalStatus(userId, status, amount, currency) {
+  const build = USER_STATUS_MESSAGES[status];
+  if (!userId || !build) return Promise.resolve();
+  const [title, body] = build(`${currency || ''} ${Number(amount || 0).toFixed(2)}`.trim());
+  return sendPushNotification(userId, title, body, { type: 'withdrawal', status }).catch(() => {});
+}
 
 const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected', 'cancelled']);
 const REFUNDABLE_STATUSES = new Set(['pending', 'pending_admin_approval', 'processing', 'approved']);
@@ -34,6 +54,9 @@ function normalizeWithdrawalRow(row) {
   const bankDetails = parseJsonObject(row.bank_details);
   const transferError = metadata.transferError || metadata.payoutError || null;
   const provider = metadata.provider || row.payout_provider || row.payout_method || row.provider || null;
+  // Manual (USD/EUR) payouts snapshot the destination at request time so the
+  // accounts team pays exactly what the user confirmed, even if it changes later.
+  const account = metadata.payoutAccount || {};
   const failureReason =
     row.failure_reason ||
     metadata.failure_reason ||
@@ -52,11 +75,14 @@ function normalizeWithdrawalRow(row) {
       status: row.payout_method_status || row.payout_status || null,
       currency: row.payout_currency || row.currency || bankDetails.currency || null,
       reference: metadata.reference || row.reference || null,
-      bankName: bankDetails.bankName || bankDetails.bank_name || null,
+      bankName: account.bankName || bankDetails.bankName || bankDetails.bank_name || null,
       bankCode: bankDetails.bankCode || bankDetails.bank_code || null,
-      accountNumber: bankDetails.accountNumber || bankDetails.account_number || null,
-      accountName: bankDetails.accountName || bankDetails.account_name || bankDetails.accountHolderName || null,
-      iban: bankDetails.iban || null,
+      accountNumber: account.accountNumber || bankDetails.accountNumber || bankDetails.account_number || null,
+      accountName: account.accountHolderName || bankDetails.accountName || bankDetails.account_name || bankDetails.accountHolderName || null,
+      iban: account.iban || bankDetails.iban || null,
+      swiftBic: account.swiftBic || bankDetails.swiftBic || null,
+      routingNumber: account.routingNumber || bankDetails.routingNumber || null,
+      country: account.country || null,
     },
     manualReviewRequired: metadata.manualReviewRequired === true,
     manualReviewReason: metadata.manualReviewReason || null,
@@ -304,6 +330,10 @@ export const updateWithdrawalStatus = async (req, res, next) => {
       ).catch(() => {});
     }
 
+    if (nextStatus !== String(updated.previousStatus || '').toLowerCase()) {
+      await notifyUserOfWithdrawalStatus(updated.row.user_id, nextStatus, updated.row.amount, updated.row.currency);
+    }
+
     res.status(200).json({
       success: true,
       message: `Withdrawal status updated to ${nextStatus}`,
@@ -463,6 +493,21 @@ export const approveWithdrawal = async (req, res, next) => {
     const metadata = typeof tx.metadata === 'object' ? tx.metadata : JSON.parse(tx.metadata || '{}');
     const amount = Number(tx.amount);
     const currency = tx.currency;
+
+    // Manual payouts are sent by the accounts team outside the app — approving
+    // only moves them to "processing"; "Mark Paid" completes them afterwards.
+    if (metadata.provider === MANUAL_PROVIDER) {
+      await query(
+        `UPDATE public.wallet_transactions
+         SET status = 'processing',
+             metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+             updated_at = timezone('utc', now())
+         WHERE id = $1`,
+        [transactionId, { adminApproved: true, adminId, approvedAt: new Date().toISOString() }],
+      );
+      await notifyUserOfWithdrawalStatus(tx.user_id, 'processing', amount, currency);
+      return res.json({ success: true, message: 'Approved. Send the bank transfer, then mark it as paid.' });
+    }
 
     // Lock it to processing so duplicate admin clicks can't double-send
     await query(

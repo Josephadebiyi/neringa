@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -41,14 +43,15 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Set your country and currency first — it only takes a moment.',
+                    AppLocalizations.of(context)
+                        .uiSetYourCountryAndCurrencyFirst,
                     style: AppTextStyles.bodyLg.copyWith(
                         color: AppPalette.of(context).gray400, height: 1.5),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   AppButton(
-                    label: 'Set country & currency',
+                    label: AppLocalizations.of(context).uiSetCountryCurrency,
                     onPressed: () async {
                       await context.push('/profile/currency');
                       if (mounted) setState(() {});
@@ -82,13 +85,13 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'Set up\nwithdrawals',
+                AppLocalizations.of(context).uiSetUpWithdrawals,
                 style: AppTextStyles.h1.copyWith(
                     color: AppColors.white, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
               Text(
-                'Add your payout account so you can receive money from deliveries.',
+                AppLocalizations.of(context).uiAddYourPayoutAccountSoYou,
                 style: AppTextStyles.bodyLg.copyWith(
                     color: AppPalette.of(context).gray400, height: 1.5),
               ),
@@ -100,7 +103,7 @@ class _WithdrawalSetupScreenState extends ConsumerState<WithdrawalSetupScreen> {
               TextButton(
                 onPressed: () => context.go('/home'),
                 child: Text(
-                  'Skip for now',
+                  AppLocalizations.of(context).uiSkipForNow,
                   style: AppTextStyles.bodyMd.copyWith(
                       color: AppPalette.of(context).gray500,
                       decoration: TextDecoration.underline),
@@ -179,18 +182,20 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
     final accountHolder = _accountHolderCtrl.text.trim();
     if (accountHolder.isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please enter the account holder name.',
+          message:
+              AppLocalizations.of(context).uiPleaseEnterTheAccountHolderName,
           type: SnackBarType.error);
       return;
     }
     if (!_isValidIban(iban)) {
       AppSnackBar.show(context,
-          message: 'Please enter a valid IBAN.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiPleaseEnterAValidIban,
+          type: SnackBarType.error);
       return;
     }
     if (_swiftCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please enter the SWIFT/BIC code.',
+          message: AppLocalizations.of(context).uiPleaseEnterTheSwiftBicCode,
           type: SnackBarType.error);
       return;
     }
@@ -204,7 +209,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
                 'iban': iban.replaceAll(' ', '').toUpperCase(),
                 'bankName': _ibanBankNameCtrl.text.trim(),
                 'swiftBic': _swiftCtrl.text.trim().toUpperCase(),
-                'country': _ibanCountryMap[currency] ?? 'LT',
+                'country': _ibanCountryMap[currency] ?? tr('LT'),
                 'currency': currency,
               },
               options: Options(
@@ -227,7 +232,8 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
               message: _otpMessage!, type: SnackBarType.success);
         } else {
           AppSnackBar.show(context,
-              message: 'Bank account added successfully!',
+              message:
+                  AppLocalizations.of(context).uiBankAccountAddedSuccessfully,
               type: SnackBarType.success);
           setState(() => _isSubmitting = false);
         }
@@ -236,7 +242,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
       if (mounted) {
         final msg = e.response?.data is Map
             ? (e.response!.data['message'] ?? 'Failed to save account')
-            : 'Failed to save account';
+            : tr('Failed to save account');
         AppSnackBar.show(context,
             message: msg.toString(), type: SnackBarType.error);
         setState(() => _isSubmitting = false);
@@ -244,7 +250,8 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
     } catch (_) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Something went wrong. Please try again.',
+            message:
+                AppLocalizations.of(context).uiSomethingWentWrongPleaseTryAgain,
             type: SnackBarType.error);
         setState(() => _isSubmitting = false);
       }
@@ -280,7 +287,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
       if (mounted) {
         setState(() => _isLoadingBanks = false);
         AppSnackBar.show(context,
-            message: 'Could not load banks. Please try again.',
+            message: AppLocalizations.of(context).uiCouldNotLoadBanksPleaseTry,
             type: SnackBarType.error);
       }
     }
@@ -312,7 +319,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
           : null;
       if (mounted) {
         setState(() {
-          _accountName = name ?? 'Account verified';
+          _accountName = name ?? tr('Account verified');
           _isResolving = false;
         });
       }
@@ -320,7 +327,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
       if (mounted) {
         final msg = e.response?.data is Map
             ? (e.response!.data['message'] ?? 'Could not verify account')
-            : 'Could not verify account number';
+            : tr('Could not verify account number');
         setState(() => _isResolving = false);
         AppSnackBar.show(context,
             message: msg.toString(), type: SnackBarType.error);
@@ -335,18 +342,20 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
   Future<void> _submit() async {
     if (_selectedBank == null) {
       AppSnackBar.show(context,
-          message: 'Please select a bank', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiPleaseSelectABank,
+          type: SnackBarType.error);
       return;
     }
     if (_accountCtrl.text.trim().length != 10) {
       AppSnackBar.show(context,
-          message: 'Please enter a valid 10-digit account number',
+          message: AppLocalizations.of(context).uiPleaseEnterAValid10Digit,
           type: SnackBarType.error);
       return;
     }
     if (_accountName == null) {
       AppSnackBar.show(context,
-          message: 'Please wait for account verification',
+          message:
+              AppLocalizations.of(context).uiPleaseWaitForAccountVerification,
           type: SnackBarType.error);
       return;
     }
@@ -385,7 +394,8 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
           );
         } else {
           AppSnackBar.show(context,
-              message: 'Bank account added successfully!',
+              message:
+                  AppLocalizations.of(context).uiBankAccountAddedSuccessfully,
               type: SnackBarType.success);
           setState(() => _isSubmitting = false);
         }
@@ -394,7 +404,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
       if (mounted) {
         final msg = e.response?.data is Map
             ? (e.response!.data['message'] ?? 'Failed to save account')
-            : 'Failed to save account';
+            : tr('Failed to save account');
         AppSnackBar.show(context,
             message: msg.toString(), type: SnackBarType.error);
         setState(() => _isSubmitting = false);
@@ -402,7 +412,8 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
     } catch (_) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Something went wrong. Please try again.',
+            message:
+                AppLocalizations.of(context).uiSomethingWentWrongPleaseTryAgain,
             type: SnackBarType.error);
         setState(() => _isSubmitting = false);
       }
@@ -412,7 +423,8 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
   Future<void> _verifyOtp() async {
     if (_otpCtrl.text.trim().length != 6) {
       AppSnackBar.show(context,
-          message: 'Please enter the 6-digit code.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiPleaseEnterThe6DigitCode2,
+          type: SnackBarType.error);
       return;
     }
     setState(() => _isSubmitting = true);
@@ -426,7 +438,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: 'Bank account linked successfully!',
+        message: AppLocalizations.of(context).uiBankAccountLinkedSuccessfully,
         type: SnackBarType.success,
       );
       context.go('/home');
@@ -434,14 +446,15 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
       if (mounted) {
         final msg = e.response?.data is Map
             ? (e.response!.data['message'] ?? 'Failed to verify code')
-            : 'Failed to verify code';
+            : tr('Failed to verify code');
         AppSnackBar.show(context,
             message: msg.toString(), type: SnackBarType.error);
       }
     } catch (_) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Something went wrong. Please try again.',
+            message:
+                AppLocalizations.of(context).uiSomethingWentWrongPleaseTryAgain,
             type: SnackBarType.error);
       }
     } finally {
@@ -472,7 +485,9 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: AppPalette.of(context).gray900,
+              color: AppPalette.of(context).dark
+                  ? const Color(0xFF2A2546)
+                  : AppColors.gray900,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: _selectedBank != null
@@ -496,7 +511,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
                           _selectedBank != null
                               ? (_selectedBank!['name']?.toString() ??
                                   'Bank selected')
-                              : 'Select your bank',
+                              : tr('Select your bank'),
                           style: AppTextStyles.bodyMd.copyWith(
                             color: _selectedBank != null
                                 ? AppColors.white
@@ -514,7 +529,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
         // Account number
         AppTextField(
           controller: _accountCtrl,
-          label: 'Account Number',
+          label: AppLocalizations.of(context).uiAccountNumber,
           hint: '0123456789',
           keyboardType: TextInputType.number,
           maxLength: 10,
@@ -558,7 +573,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
         ],
         const SizedBox(height: 32),
         AppButton(
-          label: 'Save Bank Account',
+          label: AppLocalizations.of(context).uiSaveBankAccount,
           isLoading: _isSubmitting,
           onPressed: _isSubmitting ? null : _submit,
         ),
@@ -575,8 +590,8 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
         const SizedBox(height: 24),
         AppTextField(
           controller: _accountHolderCtrl,
-          label: 'Account Holder Name',
-          hint: 'Full name on the account',
+          label: AppLocalizations.of(context).uiAccountHolderName,
+          hint: AppLocalizations.of(context).uiFullNameOnTheAccount,
           prefixIcon:
               Icon(Icons.person_outline, color: AppPalette.of(context).gray400),
         ),
@@ -584,28 +599,28 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
         AppTextField(
           controller: _ibanCtrl,
           label: 'IBAN',
-          hint: 'e.g. LT12 3456 7890 1234 5678',
+          hint: AppLocalizations.of(context).uiEGLt12345678901234,
           prefixIcon: Icon(Icons.account_balance_outlined,
               color: AppPalette.of(context).gray400),
         ),
         const SizedBox(height: 16),
         AppTextField(
           controller: _ibanBankNameCtrl,
-          label: 'Bank Name',
-          hint: 'e.g. Revolut, N26, Wise',
+          label: AppLocalizations.of(context).uiBankName,
+          hint: AppLocalizations.of(context).uiEGRevolutN26Wise,
           prefixIcon: Icon(Icons.account_balance,
               color: AppPalette.of(context).gray400),
         ),
         const SizedBox(height: 16),
         AppTextField(
           controller: _swiftCtrl,
-          label: 'SWIFT/BIC',
-          hint: 'e.g. REVOLT21',
+          label: AppLocalizations.of(context).uiSwiftBic,
+          hint: AppLocalizations.of(context).uiEGRevolt21,
           prefixIcon: Icon(Icons.tag, color: AppPalette.of(context).gray400),
         ),
         const SizedBox(height: 32),
         AppButton(
-          label: 'Save Bank Account',
+          label: AppLocalizations.of(context).uiSaveBankAccount,
           isLoading: _isSubmitting,
           onPressed: _isSubmitting ? null : _submitIban,
         ),
@@ -622,7 +637,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
         const SizedBox(height: 24),
         Text(
           _otpMessage ??
-              'Enter the 6-digit confirmation code we sent to your email.',
+              tr('Enter the 6-digit confirmation code we sent to your email.'),
           style: AppTextStyles.bodyMd
               .copyWith(color: AppPalette.of(context).gray400, height: 1.5),
         ),
@@ -633,7 +648,8 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
               await Clipboard.setData(ClipboardData(text: _debugOtp!));
               if (mounted) {
                 AppSnackBar.show(context,
-                    message: 'Confirmation code copied.',
+                    message:
+                        AppLocalizations.of(context).uiConfirmationCodeCopied,
                     type: SnackBarType.info);
               }
             },
@@ -650,7 +666,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Simulator code',
+                    AppLocalizations.of(context).uiSimulatorCode,
                     style: AppTextStyles.labelMd.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w800,
@@ -667,7 +683,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tap to copy this test code if the email does not arrive.',
+                    AppLocalizations.of(context).uiTapToCopyThisTestCode,
                     style: AppTextStyles.bodySm
                         .copyWith(color: AppPalette.of(context).gray300),
                   ),
@@ -679,7 +695,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
         const SizedBox(height: 20),
         AppTextField(
           controller: _otpCtrl,
-          label: 'Verification Code',
+          label: AppLocalizations.of(context).verificationCodeLabel,
           hint: '123456',
           keyboardType: TextInputType.number,
           maxLength: 6,
@@ -688,7 +704,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
         ),
         const SizedBox(height: 24),
         AppButton(
-          label: 'Confirm Bank Account',
+          label: AppLocalizations.of(context).uiConfirmBankAccount,
           isLoading: _isSubmitting,
           onPressed: _isSubmitting ? null : _verifyOtp,
         ),
@@ -705,7 +721,7 @@ class _FlutterwaveBankSetupState extends ConsumerState<_FlutterwaveBankSetup> {
                   });
                 },
           child: Text(
-            'Go back',
+            AppLocalizations.of(context).goBack,
             style: AppTextStyles.bodyMd.copyWith(
               color: AppPalette.of(context).gray400,
               decoration: TextDecoration.underline,
@@ -791,7 +807,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Select Bank',
+            child: Text(AppLocalizations.of(context).uiSelectBank,
                 style: AppTextStyles.h4.copyWith(
                     color: AppPalette.of(context).white,
                     fontWeight: FontWeight.w700)),
@@ -803,7 +819,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
               controller: _searchCtrl,
               style: const TextStyle(color: AppColors.white),
               decoration: InputDecoration(
-                hintText: 'Search bank...',
+                hintText: AppLocalizations.of(context).uiSearchBank,
                 hintStyle: TextStyle(color: AppPalette.of(context).gray500),
                 filled: true,
                 fillColor: AppPalette.of(context).gray800,

@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 
@@ -136,7 +137,8 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
         backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
         leading: BackButton(color: AppPalette.of(context).black),
-        title: Text('Support', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).uiSupport,
+            style: AppTextStyles.h3),
       ),
       body: Stack(
         children: [
@@ -159,7 +161,8 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
                         color: AppPalette.of(context).primary, size: 48),
                     const SizedBox(height: 16),
                     Text(
-                      'Support chat is temporarily unavailable.\nPlease email support@sendwithbago.com',
+                      AppLocalizations.of(context)
+                          .uiSupportChatIsTemporarilyUnavailablePlease,
                       style: AppTextStyles.bodyMd
                           .copyWith(color: AppPalette.of(context).gray700),
                       textAlign: TextAlign.center,
@@ -171,7 +174,8 @@ class _CuoralChatScreenState extends ConsumerState<CuoralChatScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
                       ),
-                      child: const Text('Open web support'),
+                      child:
+                          Text(AppLocalizations.of(context).uiOpenWebSupport),
                     ),
                   ],
                 ),

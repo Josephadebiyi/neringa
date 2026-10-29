@@ -65,6 +65,8 @@ const verifyPremblyWebhook = (req) => {
 const premblyHeaders = () => {
   const headers = { 'x-api-key': process.env.PREMBLY_API_KEY || PREMBLY_API_KEY, 'Content-Type': 'application/json' };
   const appId = process.env.PREMBLY_APP_ID || PREMBLY_APP_ID;
+  const organisationId = process.env.PREMBLY_ORGANISATION_ID || process.env.PREMBLY_ORGANIZATION_ID;
+  if (organisationId) headers['x-organisation-id'] = organisationId;
   if (appId) {
     headers['app_id'] = appId;
     headers['app-id'] = appId;
@@ -134,6 +136,8 @@ const sessionIdFromPayload = (payload = {}) =>
   payload?.data?.sessionId ||
   payload?.data?.session?.id ||
   payload?.session?.id ||
+  payload?.data?.widget_info?.session_id ||
+  payload?.widget_info?.session_id ||
   '';
 
 const userRefFromPayload = (payload = {}) =>
@@ -145,6 +149,8 @@ const userRefFromPayload = (payload = {}) =>
   payload?.data?.metadata?.userRef ||
   payload?.metadata?.user_ref ||
   payload?.metadata?.userRef ||
+  payload?.data?.widget_info?.user_ref ||
+  payload?.widget_info?.user_ref ||
   '';
 
 const clientFootprintFromRequest = (req = {}) => {
@@ -475,6 +481,9 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
     `SELECT email, first_name, last_name, device_fingerprint AS "deviceFingerprint", kyc_status AS "kycStatus" FROM public.profiles WHERE id = $1`,
     [userId],
   ).catch(() => null);
+  if (['approved', 'blocked_duplicate'].includes(userRow?.kycStatus)) {
+    return { status: userRow.kycStatus };
+  }
   const userEmail = userRow?.email;
   const userName  = [userRow?.first_name, userRow?.last_name].filter(Boolean).join(' ') || 'there';
 
@@ -535,7 +544,7 @@ async function applyPremblyResult(userId, status, rawPayload, { referenceId = ''
     const wasAlreadyPending = userRow?.kycStatus === 'pending';
     await query(
       `UPDATE public.profiles
-       SET kyc_status = 'pending', kyc_provider = 'prembly', kyc_verified_data = $2, updated_at = NOW()
+       SET kyc_status = 'pending', kyc_provider = 'prembly', kyc_verified_data = COALESCE(kyc_verified_data, '{}'::jsonb) || $2::jsonb, updated_at = NOW()
        WHERE id = $1 AND kyc_status NOT IN ('approved', 'blocked_duplicate')`,
       [userId, stored],
     );
@@ -971,7 +980,6 @@ export const syncPremblyResult = async (req, res) => {
     const clientFootprint = clientFootprintFromRequest(req);
     const callbackRef = verificationRefFromPayload(callbackPayload);
     const callbackSessionId = sessionIdFromPayload(callbackPayload);
-    const callbackStatus = normalizePremblyStatus(callbackPayload);
     const hasCallbackPayload = Object.keys(callbackPayload || {}).length > 0;
     const callbackError = callbackPayload?.error || callbackPayload?.message;
     const callbackLookupRef = callbackRef || callbackSessionId;
@@ -1010,12 +1018,8 @@ export const syncPremblyResult = async (req, res) => {
       callbackSessionId ||
       '';
 
-    if (callbackStatus !== 'unknown') {
-      const result = await applyPremblyResult(userId, callbackStatus, callbackPayloadWithFootprint, { referenceId: verificationRef, notify: true });
-      if (['approved', 'declined', 'blocked_duplicate', 'pending'].includes(result.status)) {
-        return res.json({ success: true, kycStatus: result.status, source: 'sdk_callback' });
-      }
-    }
+    // Client callbacks signal completion; only signed webhooks or a fresh
+    // server-to-server lookup establish the verification outcome.
 
     if (callbackLookupRef && !existing?.kycVerifiedData?.verificationRef && !existing?.kycVerifiedData?.premblyRef) {
       await query(
@@ -1078,35 +1082,12 @@ export const syncPremblyResult = async (req, res) => {
       return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
     }
 
-    // Fetch result from Prembly — try identitypass first, then checker-widget
-    try {
-      let responseData;
-      let source = 'prembly_api';
-      try {
-        const premblyRes = await axios.get(
-          `${PREMBLY_BASE}/verification`,
-          { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
-        );
-        responseData = premblyRes.data;
-      } catch (identitypassErr) {
-        if (identitypassErr?.response?.status !== 404) throw identitypassErr;
-        // Checker-widget session — look up via backend.prembly.com using Prembly's session_id
-        const lookupId = checkerWidgetSessionId || verificationRef;
-        const checkerSessionBase = PREMBLY_SDK_SESSION_URL.replace(/\/initiate\/?$/, '');
-        const checkerRes = await axios.get(
-          `${checkerSessionBase}/${encodeURIComponent(lookupId)}/`,
-          { headers: premblyHeaders(), timeout: 12000 },
-        );
-        responseData = checkerRes.data;
-        source = 'checker_widget_api';
-      }
-      const status = normalizePremblyStatus(responseData);
-      if (status !== 'unknown') {
-        const result = await applyPremblyResult(userId, status, responseData, { referenceId: verificationRef, notify: true });
-        return res.json({ success: true, kycStatus: result.status, source });
-      }
-    } catch (apiErr) {
-      console.log('Prembly sync API call failed (webhook fallback active):', apiErr.message);
+    const synced = await syncPremblyReferenceForUser(userId, verificationRef, {
+      notify: true,
+      sessionId: checkerWidgetSessionId,
+    });
+    if (synced.success) {
+      return res.json({ success: true, kycStatus: synced.status, source: synced.source });
     }
 
     return res.json({ success: true, kycStatus: currentStatus, source: 'db' });
@@ -1168,80 +1149,92 @@ export const isPremblyAvailable = isPremblyConfigured;
 // ---------------------------------------------------------------------------
 // Utility: sync a Prembly result for a given userId — callable from admin
 // ---------------------------------------------------------------------------
-export async function syncPremblyReferenceForUser(userId, verificationRef, { notify = true } = {}) {
+const premblySyncInFlight = new Map();
+
+export async function syncPremblyReferenceForUser(userId, verificationRef, options = {}) {
+  const key = `${userId}:${options.sessionId || verificationRef}`;
+  if (premblySyncInFlight.has(key)) return premblySyncInFlight.get(key);
+  const pending = fetchPremblyReferenceForUser(userId, verificationRef, options);
+  premblySyncInFlight.set(key, pending);
+  try {
+    return await pending;
+  } finally {
+    premblySyncInFlight.delete(key);
+  }
+}
+
+async function fetchPremblyReferenceForUser(userId, verificationRef, { notify = true, sessionId = '' } = {}) {
   if (!verificationRef) {
     return { success: false, status: 'not_started', message: 'No Prembly session reference found for this user.' };
   }
+
+  // Stored, authenticated webhooks are already authoritative. Read them before
+  // waiting on an API that may be unavailable or may still report processing.
+  await ensurePremblyWebhookEventTable();
+  const storedEvent = await queryOne(
+    `SELECT id, raw_payload AS "rawPayload", status
+     FROM public.prembly_webhook_events
+     WHERE (reference_id = ANY($1::text[]) OR session_id = ANY($1::text[]) OR user_ref = ANY($1::text[])
+       OR raw_payload#>>'{data,widget_info,session_id}' = ANY($1::text[])
+       OR raw_payload#>>'{data,widget_info,user_ref}' = ANY($1::text[])
+       OR raw_payload#>>'{widget_info,session_id}' = ANY($1::text[])
+       OR raw_payload#>>'{widget_info,user_ref}' = ANY($1::text[]))
+       AND (user_id IS NULL OR user_id = $2::uuid)
+     ORDER BY created_at DESC LIMIT 1`,
+    [[verificationRef, sessionId].filter(Boolean), userId],
+  );
+  const storedStatus = storedEvent?.rawPayload ? normalizePremblyStatus(storedEvent.rawPayload) : 'unknown';
+  if (['approved', 'declined'].includes(storedStatus)) {
+    const result = await applyPremblyResult(userId, storedStatus, storedEvent.rawPayload, { referenceId: verificationRef, notify });
+    await markPremblyWebhookHandled(storedEvent.id, userId);
+    return { success: true, status: result.status, source: 'stored_webhook' };
+  }
+
   if (!isPremblyConfigured()) {
     return { success: false, status: 'not_started', message: 'Prembly API key is not configured on the backend.' };
   }
-
-  try {
-    const premblyRes = await axios.get(
-      `${PREMBLY_BASE}/verification`,
-      { params: { verification_ref: verificationRef }, headers: premblyHeaders(), timeout: 12000 },
+  // Resolve the real checker session even when the caller supplies our local
+  // verification reference. The admin and user flows now use this same path.
+  if (!sessionId) {
+    await ensurePremblySessionTable();
+    const recorded = await queryOne(
+      `SELECT session_id AS "sessionId" FROM public.prembly_kyc_sessions
+       WHERE user_id = $1 AND (verification_ref = $2 OR prembly_ref = $2 OR session_id = $2 OR user_ref = $2)
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId, verificationRef],
     );
-    const status = normalizePremblyStatus(premblyRes.data);
-    if (status === 'unknown') {
-      return { success: false, status: 'unknown', message: 'Prembly returned unknown status.', raw: premblyRes.data };
-    }
-    const result = await applyPremblyResult(userId, status, premblyRes.data, { referenceId: verificationRef, notify });
-    return { success: true, status: result.status, source: 'prembly_api' };
-  } catch (err) {
-    // Checker-widget session IDs live in backend.prembly.com, not identitypass.
-    // If identitypass returned 404, fall back to the checker-widget session lookup.
-    if (err?.response?.status === 404) {
-      try {
-        const checkerSessionBase = PREMBLY_SDK_SESSION_URL.replace(/\/initiate\/?$/, '');
-        const checkerRes = await axios.get(
-          `${checkerSessionBase}/${encodeURIComponent(verificationRef)}/`,
-          { headers: premblyHeaders(), timeout: 12000 },
-        );
-        const status = normalizePremblyStatus(checkerRes.data);
-        if (status !== 'unknown') {
-          const result = await applyPremblyResult(userId, status, checkerRes.data, { referenceId: verificationRef, notify });
-          return { success: true, status: result.status, source: 'checker_widget_api' };
-        }
-      } catch (_) {
-        // fall through to stored webhook lookup
-      }
-    }
-
-    await ensurePremblyWebhookEventTable().catch(() => {});
-    const storedEvent = await queryOne(
-      `SELECT id, raw_payload AS "rawPayload", status
-       FROM public.prembly_webhook_events
-       WHERE reference_id = $1::text
-          OR session_id = $1::text
-          OR user_ref = $1::text
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [verificationRef],
-    ).catch(() => null);
-
-    if (storedEvent?.rawPayload) {
-      const storedStatus = normalizePremblyStatus(storedEvent.rawPayload);
-      if (storedStatus !== 'unknown') {
-        const result = await applyPremblyResult(userId, storedStatus, storedEvent.rawPayload, { referenceId: verificationRef, notify });
-        await query(
-          `UPDATE public.prembly_webhook_events
-           SET user_id = $2::uuid,
-               handled = true,
-               last_error = NULL,
-               updated_at = timezone('utc', now())
-           WHERE id = $1::uuid`,
-          [storedEvent.id, userId],
-        ).catch(() => {});
-        return { success: true, status: result.status, source: 'stored_webhook' };
-      }
-    }
-
-    return {
-      success: false,
-      status: 'sync_failed',
-      message: String(err?.response?.data?.message || err.message || err),
-    };
+    sessionId = recorded?.sessionId || '';
   }
+  const sessionBase = (process.env.PREMBLY_SDK_SESSION_URL || PREMBLY_SDK_SESSION_URL).replace(/\/initiate\/?$/, '');
+  const checkerLookup = {
+    url: `${sessionBase}/${encodeURIComponent(sessionId || verificationRef)}/`,
+    source: 'checker_widget_api',
+  };
+  const identityLookup = {
+    url: `${PREMBLY_BASE}/verification`,
+    params: { verification_ref: verificationRef },
+    source: 'prembly_api',
+  };
+  const lookups = sessionId ? [checkerLookup, identityLookup] : [identityLookup, checkerLookup];
+  let lastError = 'Prembly returned unknown status.';
+  for (const lookup of lookups) {
+    let responseData;
+    try {
+      const response = await axios.get(lookup.url, {
+        ...(lookup.params && { params: lookup.params }),
+        headers: premblyHeaders(), timeout: 4000,
+      });
+      responseData = response.data;
+    } catch (error) {
+      lastError = String(error?.response?.data?.message || error.message || error);
+      continue;
+    }
+    const status = normalizePremblyStatus(responseData);
+    if (status === 'unknown') continue;
+    const result = await applyPremblyResult(userId, status, responseData, { referenceId: verificationRef, notify });
+    return { success: true, status: result.status, source: lookup.source };
+  }
+  return { success: false, status: 'sync_failed', message: lastError };
 }
 
 export async function syncPremblyForUser(userId, { notify = true } = {}) {
@@ -1311,26 +1304,21 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
              NULLIF(s.verification_ref, s.user_id::text),
              NULLIF(s.user_ref, s.user_id::text)
            ) IS NOT NULL
-       AND s.updated_at < timezone('utc', now()) - INTERVAL '2 minutes'
-     ORDER BY s.created_at ASC
+       AND s.updated_at < timezone('utc', now()) - INTERVAL '15 seconds'
+     ORDER BY s.last_synced_at ASC NULLS FIRST, s.updated_at ASC
      LIMIT $1`,
     [limit],
   ).catch(() => ({ rows: [] }));
 
-  // Sessions are retried indefinitely below (no more giving up after one
-  // 404), and the oldest unresolved session always sorts first — so without
-  // a cutoff, one genuinely-unresolvable session (stale test data, a record
-  // truly lost on Prembly's side) would occupy a LIMIT slot on every single
-  // pass forever, eventually starving newer stuck sessions from ever being
-  // checked. Real verifications resolve in hours/days, never weeks, so this
-  // is a generous ceiling, not a race against real review times.
+  // Rotate attempts by last sync time so unresolved sessions cannot starve
+  // newly completed users. Keep the existing ceiling for stale provider data.
   const GIVE_UP_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
 
   const summary = { checked: 0, updated: 0, failed: 0, givenUp: 0 };
-  for (const session of result.rows || []) {
+  const processSession = async (session) => {
     summary.checked += 1;
     const reference = session.reference;
-    if (!reference || !isPremblyConfigured()) continue;
+    if (!reference || !isPremblyConfigured()) return;
 
     if (Date.now() - new Date(session.createdAt).getTime() > GIVE_UP_AFTER_MS) {
       summary.givenUp += 1;
@@ -1340,15 +1328,10 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
          WHERE id = $1`,
         [session.id],
       ).catch(() => {});
-      continue;
+      return;
     }
 
-    // Delegate to the same resolution path the admin's manual "sync Prembly
-    // status" button uses (identitypass API → checker-widget API → stored
-    // webhook event fallback). The background job previously duplicated only
-    // the first two steps, so a result that only showed up via webhook (and
-    // couldn't be matched to a user at receipt time) was never picked up here
-    // — the only way to resolve it was an admin manually clicking sync.
+    // Use the same stored-event and provider lookup as user and admin sync.
     const applied = await syncPremblyReferenceForUser(session.userId, reference, { notify });
 
     if (applied.success) {
@@ -1363,7 +1346,7 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
         [session.id, applied.status],
       ).catch(() => {});
       if (['approved', 'declined', 'blocked_duplicate'].includes(applied.status)) summary.updated += 1;
-      continue;
+      return;
     }
 
     // Not resolved this pass — including a plain 404 while Prembly is still
@@ -1385,6 +1368,19 @@ export async function reconcilePremblySessions({ limit = 25, notify = true } = {
        WHERE id = $1`,
       [session.id, String(applied.message || applied.status || 'sync_failed').slice(0, 300)],
     ).catch(() => {});
+  };
+  const sessions = result.rows || [];
+  // Bound provider traffic, but do not make every completed user wait behind
+  // a sequential batch of up to 25 slow network lookups.
+  for (let index = 0; index < sessions.length; index += 5) {
+    await Promise.all(sessions.slice(index, index + 5).map(async (session) => {
+      try {
+        await processSession(session);
+      } catch (error) {
+        summary.failed += 1;
+        console.error('Prembly session sync failed:', session.id, error.message);
+      }
+    }));
   }
   return summary;
 }
@@ -1406,7 +1402,11 @@ export async function reconcileUnhandledPremblyWebhookEvents({ limit = 25, notif
             raw_payload AS "rawPayload", created_at AS "createdAt"
      FROM public.prembly_webhook_events
      WHERE handled = false
-       AND COALESCE(reference_id, session_id, user_ref) IS NOT NULL
+       AND COALESCE(reference_id, session_id, user_ref,
+                    raw_payload#>>'{data,widget_info,session_id}',
+                    raw_payload#>>'{data,widget_info,user_ref}',
+                    raw_payload#>>'{widget_info,session_id}',
+                    raw_payload#>>'{widget_info,user_ref}') IS NOT NULL
      ORDER BY updated_at ASC
      LIMIT $1`,
     [limit],
@@ -1417,7 +1417,12 @@ export async function reconcileUnhandledPremblyWebhookEvents({ limit = 25, notif
 
   for (const event of result.rows || []) {
     summary.checked += 1;
-    const { userId, reference } = await resolvePremblyWebhookUser([event.referenceId, event.sessionId, event.userRef]);
+    const { userId, reference } = await resolvePremblyWebhookUser([
+      event.referenceId, event.sessionId, event.userRef,
+      verificationRefFromPayload(event.rawPayload),
+      sessionIdFromPayload(event.rawPayload),
+      userRefFromPayload(event.rawPayload),
+    ]);
 
     if (Date.now() - new Date(event.createdAt).getTime() > GIVE_UP_AFTER_MS) {
       await query(
@@ -1469,27 +1474,34 @@ export async function reconcileUnhandledPremblyWebhookEvents({ limit = 25, notif
   return summary;
 }
 
+let premblyReconcileRunning = false;
 async function runPremblyReconcilePass() {
-  const [sessions, webhooks] = await Promise.all([
-    reconcilePremblySessions({ notify: true }).catch((err) => {
-      console.error('Prembly session reconcile failed:', err?.message || err);
-      return null;
-    }),
-    reconcileUnhandledPremblyWebhookEvents({ notify: true }).catch((err) => {
-      console.error('Prembly webhook-event reconcile failed:', err?.message || err);
-      return null;
-    }),
-  ]);
-  if (sessions && (sessions.checked || sessions.updated || sessions.failed)) {
-    console.log('Prembly session reconcile summary:', sessions);
-  }
-  if (webhooks && (webhooks.checked || webhooks.resolved || webhooks.stillUnresolved)) {
-    console.log('Prembly webhook-event reconcile summary:', webhooks);
+  if (premblyReconcileRunning) return;
+  premblyReconcileRunning = true;
+  try {
+    const [sessions, webhooks] = await Promise.all([
+      reconcilePremblySessions({ notify: true }).catch((err) => {
+        console.error('Prembly session reconcile failed:', err?.message || err);
+        return null;
+      }),
+      reconcileUnhandledPremblyWebhookEvents({ notify: true }).catch((err) => {
+        console.error('Prembly webhook-event reconcile failed:', err?.message || err);
+        return null;
+      }),
+    ]);
+    if (sessions && (sessions.checked || sessions.updated || sessions.failed)) {
+      console.log('Prembly session reconcile summary:', sessions);
+    }
+    if (webhooks && (webhooks.checked || webhooks.resolved || webhooks.stillUnresolved)) {
+      console.log('Prembly webhook-event reconcile summary:', webhooks);
+    }
+  } finally {
+    premblyReconcileRunning = false;
   }
 }
 
 export function startPremblySessionReconciler() {
-  const intervalMs = Number(process.env.PREMBLY_RECONCILE_INTERVAL_MS || 5 * 60 * 1000);
+  const intervalMs = Number(process.env.PREMBLY_RECONCILE_INTERVAL_MS || 30 * 1000);
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) return;
   setTimeout(() => runPremblyReconcilePass(), 30 * 1000);
   setInterval(() => runPremblyReconcilePass(), intervalMs);

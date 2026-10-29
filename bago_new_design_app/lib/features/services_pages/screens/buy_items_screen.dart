@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +16,7 @@ class BuyItemsScreen extends StatelessWidget {
         backgroundColor: AppPalette.of(context).pageBackground,
         elevation: 0,
         title: Text(
-          'Buy Items Abroad',
+          AppLocalizations.of(context).uiBuyItemsAbroad,
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -53,7 +54,7 @@ class BuyItemsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Coming soon',
+                AppLocalizations.of(context).uiComingSoon,
                 style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black,
@@ -61,7 +62,7 @@ class BuyItemsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Buy Items Abroad is not live yet. We will implement it soon.',
+                AppLocalizations.of(context).uiBuyItemsAbroadIsNotLive,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.bodyMd.copyWith(
                   color: AppPalette.of(context).gray500,

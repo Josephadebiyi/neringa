@@ -2,14 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, Clock, XCircle, Loader } from 'lucide-react';
 import api from '../api';
-import { CHECKOUT_STASH_KEY } from './PaymentCheckout';
+import { completePaymentCheckout } from '../utils/paymentCheckout';
 
 const PAYMENT_PENDING_MESSAGE =
     'We are confirming your payment. If your bank has already charged you, your shipment will be created automatically shortly.';
 
-// Lands here after Flutterwave's hosted checkout redirects back. Flutterwave
-// appends transaction_id/tx_ref/status query params to whatever redirect_url
-// was passed at initialize time (see PaymentCheckout.jsx).
+// Both providers return here; booking is confirmed only after server-side verification.
 export default function PaymentCallback() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -17,97 +15,41 @@ export default function PaymentCallback() {
     const [message, setMessage] = useState('Verifying your payment...');
 
     useEffect(() => {
-        const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId');
-        const flutterwaveStatus = searchParams.get('status');
-        if (!transactionId) {
+        let alive = true;
+        let redirectTimer;
+        const provider = searchParams.get('provider') || 'flutterwave';
+        const reference = provider === 'stripe'
+            ? searchParams.get('payment_intent')
+            : searchParams.get('transaction_id') || searchParams.get('transactionId');
+        const returnedStatus = searchParams.get('status') || searchParams.get('redirect_status');
+        if (['cancelled', 'canceled', 'failed'].includes(returnedStatus)) {
             setStatus('error');
-            setMessage('No payment reference found. Please contact support.');
+            setMessage('Payment was not completed. You can return to checkout and try again.');
             return;
         }
-        if (flutterwaveStatus === 'cancelled') {
+        if (!reference || !['stripe', 'flutterwave'].includes(provider)) {
             setStatus('error');
-            setMessage('Payment was cancelled. You can try again below.');
+            setMessage('No valid payment reference found. Please contact support before paying again.');
             return;
         }
-        if (flutterwaveStatus === 'failed') {
-            setStatus('error');
-            setMessage('Flutterwave could not authorize this payment. Please try another available payment method.');
-            return;
-        }
-        completePayment(transactionId);
-    }, []);
-
-    const completePayment = async (transactionId) => {
-        try {
-            const raw = sessionStorage.getItem(CHECKOUT_STASH_KEY);
-            if (!raw) {
-                setStatus('error');
-                setMessage('Payment session expired. Please try again.');
-                return;
-            }
-            const pending = JSON.parse(raw);
-
-            const verify = await api.get(`/api/payments/flutterwave/verify/${transactionId}`);
-            if (!verify.data?.success) {
-                setStatus('pending');
-                setMessage(PAYMENT_PENDING_MESSAGE);
-                return;
-            }
-
-            let res;
-            if (pending.isAddKgMode) {
-                res = await api.post('/api/bago/RequestPackage', {
-                    requestId: pending.requestId,
-                    additionalKg: pending.additionalKg,
-                    paymentReference: transactionId,
-                    paymentProvider: 'flutterwave',
-                });
-            } else {
-                res = await api.post('/api/bago/RequestPackage', {
-                    travelerId: pending.travelerId,
-                    packageId: pending.packageId,
-                    tripId: pending.tripId,
-                    amount: pending.amount,
-                    currency: pending.currency,
-                    estimatedDeparture: pending.estimatedDeparture,
-                    insurance: pending.insurance,
-                    insuranceCost: pending.insuranceCost || 0,
-                    paymentReference: transactionId,
-                    paymentProvider: 'flutterwave',
-                    termsAccepted: true,
-                });
-            }
-
-            sessionStorage.removeItem(CHECKOUT_STASH_KEY);
-
-            if ([200, 201, 202].includes(res.status) || res.data?.success) {
-                const req = res.data.request || res.data.data || res.data;
+        (async () => {
+            try {
+                const { pending, request } = await completePaymentCheckout(provider, reference, api);
+                if (!alive) return;
                 setStatus('success');
-                setTimeout(() => {
-                    navigate('/shipping-success', {
-                        replace: true,
-                        state: {
-                            requestId: req?.id || req?._id || pending.requestId,
-                            trackingNumber: req?.trackingNumber,
-                            amount: pending.amount,
-                            currency: pending.currency,
-                            paymentMethod: 'flutterwave',
-                            isAddKg: pending.isAddKgMode,
-                            additionalKg: pending.additionalKg,
-                        },
-                    });
-                }, 1500);
-            } else {
-                console.error('[payment-callback]', res.data);
-                setStatus('pending');
-                setMessage(PAYMENT_PENDING_MESSAGE);
+                redirectTimer = setTimeout(() => navigate('/shipping-success', {
+                    replace: true,
+                    state: { requestId: request?.id || request?._id || pending.requestId,
+                        trackingNumber: request?.trackingNumber, amount: pending.amount,
+                        currency: pending.currency, paymentMethod: provider,
+                        isAddKg: pending.isAddKgMode, additionalKg: pending.additionalKg },
+                }), 1500);
+            } catch {
+                if (alive) { setStatus('pending'); setMessage(PAYMENT_PENDING_MESSAGE); }
             }
-        } catch (err) {
-            console.error('[payment-callback]', err);
-            setStatus('pending');
-            setMessage(PAYMENT_PENDING_MESSAGE);
-        }
-    };
+        })();
+        return () => { alive = false; clearTimeout(redirectTimer); };
+    }, [searchParams, navigate]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 flex items-center justify-center p-6">

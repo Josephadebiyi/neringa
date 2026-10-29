@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -282,7 +284,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: 'Unable to load banks right now: $e',
+          message: AppLocalizations.of(context).uiFUnableToLoadBanksRightNow(e),
           type: SnackBarType.error,
           duration: const Duration(seconds: 8),
         );
@@ -322,25 +324,27 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   Future<void> _linkBank() async {
     if (_bankCode.isEmpty || _accountCtrl.text.isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please select a bank and enter account number.',
+          message: AppLocalizations.of(context).uiPleaseSelectABankAndEnter,
           type: SnackBarType.error);
       return;
     }
     if (_currency == 'NGN' && _accountCtrl.text.length != 10) {
       AppSnackBar.show(context,
-          message: 'Account number must be 10 digits.',
+          message: AppLocalizations.of(context).uiAccountNumberMustBe10Digits,
           type: SnackBarType.error);
       return;
     }
     if (_currency != 'NGN' && _accountCtrl.text.length < 6) {
       AppSnackBar.show(context,
-          message: 'Please enter a valid account number.',
+          message:
+              AppLocalizations.of(context).uiPleaseEnterAValidAccountNumber,
           type: SnackBarType.error);
       return;
     }
     if (_currency != 'NGN' && _accountHolderCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please enter the account holder name.',
+          message:
+              AppLocalizations.of(context).uiPleaseEnterTheAccountHolderName,
           type: SnackBarType.error);
       return;
     }
@@ -375,8 +379,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       setState(() => _loading = false);
       if (mounted) {
         AppSnackBar.show(context,
-            message:
-                'Bank account setup could not be completed. Please try again.',
+            message: AppLocalizations.of(context).uiBankAccountSetupCouldNotBe,
             type: SnackBarType.error);
       }
     }
@@ -394,18 +397,20 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     final accountHolder = _accountHolderCtrl.text.trim();
     if (accountHolder.isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please enter the account holder name.',
+          message:
+              AppLocalizations.of(context).uiPleaseEnterTheAccountHolderName,
           type: SnackBarType.error);
       return;
     }
     if (!_isValidIban(iban)) {
       AppSnackBar.show(context,
-          message: 'Please enter a valid IBAN.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiPleaseEnterAValidIban,
+          type: SnackBarType.error);
       return;
     }
     if (_swiftCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please enter the SWIFT/BIC code.',
+          message: AppLocalizations.of(context).uiPleaseEnterTheSwiftBicCode,
           type: SnackBarType.error);
       return;
     }
@@ -416,8 +421,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
         _postalCodeCtrl.text.trim().isEmpty ||
         _addressCountryCtrl.text.trim().isEmpty) {
       AppSnackBar.show(context,
-          message:
-              'Please fill in your address (street, city, postal code, and country).',
+          message: AppLocalizations.of(context).uiPleaseFillInYourAddressStreet,
           type: SnackBarType.error);
       return;
     }
@@ -431,7 +435,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 'iban': iban.replaceAll(' ', '').toUpperCase(),
                 'bankName': _ibanBankNameCtrl.text.trim(),
                 'swiftBic': _swiftCtrl.text.trim().toUpperCase(),
-                'country': _currencyCountryMap[currency] ?? 'LT',
+                'country': _currencyCountryMap[currency] ?? tr('LT'),
                 'currency': currency,
                 'addressLine1': _addressLine1Ctrl.text.trim(),
                 if (_addressLine2Ctrl.text.trim().isNotEmpty)
@@ -458,8 +462,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       setState(() => _loading = false);
       if (mounted) {
         AppSnackBar.show(context,
-            message:
-                'Bank account setup could not be completed. Please try again.',
+            message: AppLocalizations.of(context).uiBankAccountSetupCouldNotBe,
             type: SnackBarType.error);
       }
     }
@@ -501,7 +504,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           if (routing.isNotEmpty) 'routingNumber': routing,
           if (swift.isNotEmpty) 'swiftBic': swift,
           'country': _bankCountryCtrl.text.trim().isEmpty
-              ? 'US'
+              ? tr('US')
               : _bankCountryCtrl.text.trim(),
           'currency': 'USD',
         },
@@ -523,7 +526,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('USD BANK ACCOUNT',
+          Text(AppLocalizations.of(context).uiUsdBankAccount,
               style: AppTextStyles.labelSm.copyWith(
                   color: AppPalette.of(context).gray400,
                   fontWeight: FontWeight.w800,
@@ -532,39 +535,39 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           const _ManualPayoutNotice(currency: 'USD'),
           const SizedBox(height: 22),
           _IbanField(
-            label: 'Account Holder Name *',
+            label: AppLocalizations.of(context).uiAccountHolderName2,
             controller: _accountHolderCtrl,
-            hint: 'Full name on the account',
+            hint: AppLocalizations.of(context).uiFullNameOnTheAccount,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Bank Name *',
+            label: AppLocalizations.of(context).uiBankName2,
             controller: _ibanBankNameCtrl,
-            hint: 'e.g. Chase, Bank of America, Wise',
+            hint: AppLocalizations.of(context).uiEGChaseBankOfAmerica,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Account Number *',
+            label: AppLocalizations.of(context).uiAccountNumber2,
             controller: _accountCtrl,
-            hint: 'Your USD account number',
+            hint: AppLocalizations.of(context).uiYourUsdAccountNumber,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Routing Number (US banks)',
+            label: AppLocalizations.of(context).uiRoutingNumberUsBanks,
             controller: _routingCtrl,
-            hint: '9-digit ABA routing number',
+            hint: AppLocalizations.of(context).ui9DigitAbaRoutingNumber,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'SWIFT / BIC (banks outside the US)',
+            label: AppLocalizations.of(context).uiSwiftBicBanksOutsideTheUs,
             controller: _swiftCtrl,
-            hint: 'e.g. CHASUS33',
+            hint: AppLocalizations.of(context).uiEGChasus33,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Bank Country',
+            label: AppLocalizations.of(context).uiBankCountry,
             controller: _bankCountryCtrl,
-            hint: 'e.g. United States',
+            hint: AppLocalizations.of(context).uiEGUnitedStates,
           ),
           const SizedBox(height: 32),
           SizedBox(
@@ -579,7 +582,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
               ),
               child: _loading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : Text('Confirm USD Bank Account',
+                  : Text(AppLocalizations.of(context).uiConfirmUsdBankAccount,
                       style: AppTextStyles.labelLg.copyWith(
                           color: Colors.white, fontWeight: FontWeight.w800)),
             ),
@@ -595,19 +598,20 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     final accountHolder = _accountHolderCtrl.text.trim();
     if (accountHolder.isEmpty) {
       AppSnackBar.show(context,
-          message: 'Please enter the account holder name.',
+          message:
+              AppLocalizations.of(context).uiPleaseEnterTheAccountHolderName,
           type: SnackBarType.error);
       return;
     }
     if (!RegExp(r'^\d{8}$').hasMatch(accountNumber)) {
       AppSnackBar.show(context,
-          message: 'UK account numbers must contain 8 digits.',
+          message: AppLocalizations.of(context).uiUkAccountNumbersMustContain8,
           type: SnackBarType.error);
       return;
     }
     if (!RegExp(r'^\d{6}$').hasMatch(sortCode)) {
       AppSnackBar.show(context,
-          message: 'UK sort codes must contain 6 digits.',
+          message: AppLocalizations.of(context).uiUkSortCodesMustContain6,
           type: SnackBarType.error);
       return;
     }
@@ -658,7 +662,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   Future<void> _verifyOtp() async {
     if (_otpCtrl.text.length != 6) {
       AppSnackBar.show(context,
-          message: 'Please enter the 6-digit code.', type: SnackBarType.error);
+          message: AppLocalizations.of(context).uiPleaseEnterThe6DigitCode2,
+          type: SnackBarType.error);
       return;
     }
     setState(() => _loading = true);
@@ -669,7 +674,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       await ref.read(authProvider.notifier).refreshProfile();
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: 'Bank account linked successfully!',
+          message: AppLocalizations.of(context).uiBankAccountLinkedSuccessfully,
           type: SnackBarType.success);
       setState(() {
         _showOtp = false;
@@ -686,7 +691,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
     } catch (_) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Could not confirm the code. Please try again.',
+            message:
+                AppLocalizations.of(context).uiCouldNotConfirmTheCodePlease,
             type: SnackBarType.error);
       }
     } finally {
@@ -697,7 +703,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
   String _bankSetupErrorMessage(DioException e) {
     final parsed = ApiService.parseError(e);
     if (e.response?.statusCode == 500 || parsed == 'An error occurred') {
-      return 'Bank account setup could not be completed. Please try again or contact support.';
+      return tr('Bank account setup could not be completed. Please try again or contact support.');
     }
     return parsed;
   }
@@ -720,7 +726,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 color: AppPalette.of(context).black),
           ),
         ),
-        title: Text('Add Bank Account',
+        title: Text(AppLocalizations.of(context).uiAddBankAccount,
             style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
@@ -740,29 +746,29 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('UK BANK ACCOUNT',
+          Text(AppLocalizations.of(context).uiUkBankAccount,
               style: AppTextStyles.labelSm.copyWith(
                   color: AppPalette.of(context).gray400,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1)),
           const SizedBox(height: 8),
-          Text('GBP payouts use a UK sort code and account number.',
+          Text(AppLocalizations.of(context).uiGbpPayoutsUseAUkSort,
               style: AppTextStyles.bodySm
                   .copyWith(color: AppPalette.of(context).gray500)),
           const SizedBox(height: 22),
           _IbanField(
-            label: 'Account Holder Name *',
+            label: AppLocalizations.of(context).uiAccountHolderName2,
             controller: _accountHolderCtrl,
-            hint: 'Full name on the account',
+            hint: AppLocalizations.of(context).uiFullNameOnTheAccount,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Bank Name',
+            label: AppLocalizations.of(context).uiBankName,
             controller: _ibanBankNameCtrl,
-            hint: 'e.g. Barclays, Lloyds, Monzo',
+            hint: AppLocalizations.of(context).uiEGBarclaysLloydsMonzo,
           ),
           const SizedBox(height: 18),
-          Text('Sort Code *',
+          Text(AppLocalizations.of(context).uiSortCode,
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
@@ -778,7 +784,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          Text('Account Number *',
+          Text(AppLocalizations.of(context).uiAccountNumber2,
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
@@ -806,7 +812,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
               ),
               child: _loading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : Text('Confirm UK Bank Account',
+                  : Text(AppLocalizations.of(context).uiConfirmUkBankAccount,
                       style: AppTextStyles.labelLg.copyWith(
                           color: Colors.white, fontWeight: FontWeight.w800)),
             ),
@@ -825,7 +831,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
+              color: AppPalette.of(context).successSoft,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFBBF7D0)),
             ),
@@ -836,9 +842,11 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Your bank details are encrypted and securely stored. Used strictly for traveler payouts.',
+                    AppLocalizations.of(context)
+                        .uiYourBankDetailsAreEncryptedAnd,
                     style: AppTextStyles.bodySm.copyWith(
-                        color: const Color(0xFF065F46),
+                        color:
+                            AppPalette.of(context).ink(const Color(0xFF065F46)),
                         height: 1.4,
                         fontWeight: FontWeight.w600),
                   ),
@@ -849,74 +857,74 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           const SizedBox(height: 12),
           _ManualPayoutNotice(currency: _currency),
           const SizedBox(height: 28),
-          Text('ACCOUNT DETAILS',
+          Text(AppLocalizations.of(context).uiAccountDetails,
               style: AppTextStyles.labelSm.copyWith(
                   color: AppPalette.of(context).gray400,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1)),
           const SizedBox(height: 16),
           _IbanField(
-            label: 'Account Holder Name *',
+            label: AppLocalizations.of(context).uiAccountHolderName2,
             controller: _accountHolderCtrl,
-            hint: 'Full name on the account',
+            hint: AppLocalizations.of(context).uiFullNameOnTheAccount,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'IBAN *',
+            label: AppLocalizations.of(context).uiIban,
             controller: _ibanCtrl,
-            hint: 'e.g. LT12 3456 7890 1234 5678',
+            hint: AppLocalizations.of(context).uiEGLt12345678901234,
             textCapitalization: TextCapitalization.characters,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Bank Name *',
+            label: AppLocalizations.of(context).uiBankName2,
             controller: _ibanBankNameCtrl,
-            hint: 'e.g. Revolut, N26, Wise',
+            hint: AppLocalizations.of(context).uiEGRevolutN26Wise,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'SWIFT/BIC *',
+            label: AppLocalizations.of(context).uiSwiftBic2,
             controller: _swiftCtrl,
-            hint: 'e.g. REVOLT21',
+            hint: AppLocalizations.of(context).uiEGRevolt21,
             textCapitalization: TextCapitalization.characters,
           ),
           const SizedBox(height: 28),
-          Text('BILLING ADDRESS',
+          Text(AppLocalizations.of(context).uiBillingAddress,
               style: AppTextStyles.labelSm.copyWith(
                   color: AppPalette.of(context).gray400,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1)),
           const SizedBox(height: 4),
-          Text('Required by our payout provider to verify EUR/GBP transfers.',
+          Text(AppLocalizations.of(context).uiRequiredByOurPayoutProviderTo,
               style: AppTextStyles.bodySm
                   .copyWith(color: AppPalette.of(context).gray400)),
           const SizedBox(height: 16),
           _IbanField(
-            label: 'Address Line 1 *',
+            label: AppLocalizations.of(context).uiAddressLine1,
             controller: _addressLine1Ctrl,
-            hint: 'Street address',
+            hint: AppLocalizations.of(context).uiStreetAddress,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Address Line 2',
+            label: AppLocalizations.of(context).uiAddressLine2,
             controller: _addressLine2Ctrl,
-            hint: 'Apartment, suite, etc. (optional)',
+            hint: AppLocalizations.of(context).uiApartmentSuiteEtcOptional,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'City *',
+            label: AppLocalizations.of(context).uiCity,
             controller: _cityCtrl,
-            hint: 'e.g. Berlin',
+            hint: AppLocalizations.of(context).uiEGBerlin,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'State / Region',
+            label: AppLocalizations.of(context).uiStateRegion,
             controller: _stateCtrl,
-            hint: 'Optional',
+            hint: AppLocalizations.of(context).uiOptional,
           ),
           const SizedBox(height: 18),
           _IbanField(
-            label: 'Postal Code *',
+            label: AppLocalizations.of(context).uiPostalCode,
             controller: _postalCodeCtrl,
             hint: 'e.g. 10115',
           ),
@@ -924,9 +932,9 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           DropdownButtonFormField<String>(
             initialValue: _selectedAddressCountry,
             decoration: InputDecoration(
-              labelText: 'Bank country *',
+              labelText: AppLocalizations.of(context).uiBankCountry2,
               filled: true,
-              fillColor: const Color(0xFFF7F7F8),
+              fillColor: AppPalette.of(context).gray100,
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             ),
@@ -962,7 +970,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                       height: 22,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2.5))
-                  : Text('Link Bank Account',
+                  : Text(AppLocalizations.of(context).uiLinkBankAccount,
                       style: AppTextStyles.labelLg.copyWith(
                           color: Colors.white, fontWeight: FontWeight.w800)),
             ),
@@ -974,7 +982,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
               Icon(Icons.lock_outline_rounded,
                   size: 14, color: AppPalette.of(context).gray400),
               const SizedBox(width: 6),
-              Text('Protected by bank-grade encryption',
+              Text(
+                  AppLocalizations.of(context).uiProtectedByBankGradeEncryption,
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray400)),
             ],
@@ -994,7 +1003,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
+              color: AppPalette.of(context).successSoft,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFBBF7D0)),
             ),
@@ -1005,9 +1014,11 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Your bank details are encrypted and securely stored. Used strictly for traveler payouts.',
+                    AppLocalizations.of(context)
+                        .uiYourBankDetailsAreEncryptedAnd,
                     style: AppTextStyles.bodySm.copyWith(
-                        color: const Color(0xFF065F46),
+                        color:
+                            AppPalette.of(context).ink(const Color(0xFF065F46)),
                         height: 1.4,
                         fontWeight: FontWeight.w600),
                   ),
@@ -1017,7 +1028,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           ),
           const SizedBox(height: 28),
 
-          Text('ACCOUNT DETAILS',
+          Text(AppLocalizations.of(context).uiAccountDetails,
               style: AppTextStyles.labelSm.copyWith(
                   color: AppPalette.of(context).gray400,
                   fontWeight: FontWeight.w800,
@@ -1028,9 +1039,9 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             DropdownButtonFormField<String>(
               initialValue: _selectedAddressCountry,
               decoration: InputDecoration(
-                labelText: 'Bank country *',
+                labelText: AppLocalizations.of(context).uiBankCountry2,
                 filled: true,
-                fillColor: const Color(0xFFF7F7F8),
+                fillColor: AppPalette.of(context).gray100,
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
               ),
@@ -1056,7 +1067,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           ],
 
           // Bank selector
-          Text('Select Bank *',
+          Text(AppLocalizations.of(context).uiSelectBank2,
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
@@ -1065,7 +1076,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F7F8),
+                color: AppPalette.of(context).gray100,
                 border: Border.all(
                     color: AppPalette.of(context).border, width: 1.5),
                 borderRadius: BorderRadius.circular(14),
@@ -1077,8 +1088,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 Expanded(
                   child: Text(
                     _banksLoading
-                        ? 'Loading banks...'
-                        : (_bankName.isEmpty ? 'Select your bank' : _bankName),
+                        ? tr('Loading banks...')
+                        : (_bankName.isEmpty ? tr('Select your bank') : _bankName),
                     style: AppTextStyles.bodyMd.copyWith(
                       color: _bankName.isEmpty
                           ? AppPalette.of(context).gray400
@@ -1103,14 +1114,14 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           const SizedBox(height: 18),
 
           // Account number
-          Text('Account Number *',
+          Text(AppLocalizations.of(context).uiAccountNumber2,
               style:
                   AppTextStyles.labelMd.copyWith(fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F8),
+              color: AppPalette.of(context).gray100,
               border:
                   Border.all(color: AppPalette.of(context).border, width: 1.5),
               borderRadius: BorderRadius.circular(14),
@@ -1123,8 +1134,9 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                   maxLength: _currency == 'NGN' ? 10 : 34,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   style: AppTextStyles.bodyMd,
-                  decoration: const InputDecoration(
-                      hintText: 'Enter account number',
+                  decoration: InputDecoration(
+                      hintText:
+                          AppLocalizations.of(context).uiEnterAccountNumber,
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
@@ -1144,7 +1156,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           // Account name (resolved)
           if (_accountName.isNotEmpty) ...[
             const SizedBox(height: 18),
-            Text('Account Holder Name',
+            Text(AppLocalizations.of(context).uiAccountHolderName,
                 style: AppTextStyles.labelMd
                     .copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
@@ -1171,9 +1183,9 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           if (_currency != 'NGN') ...[
             const SizedBox(height: 18),
             _IbanField(
-              label: 'Account Holder Name *',
+              label: AppLocalizations.of(context).uiAccountHolderName2,
               controller: _accountHolderCtrl,
-              hint: 'Full name on the bank account',
+              hint: AppLocalizations.of(context).uiFullNameOnTheBankAccount,
             ),
           ],
 
@@ -1195,7 +1207,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                       height: 22,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2.5))
-                  : Text('Link Bank Account',
+                  : Text(AppLocalizations.of(context).uiLinkBankAccount,
                       style: AppTextStyles.labelLg.copyWith(
                           color: Colors.white, fontWeight: FontWeight.w800)),
             ),
@@ -1208,7 +1220,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
               Icon(Icons.lock_outline_rounded,
                   size: 14, color: AppPalette.of(context).gray400),
               const SizedBox(width: 6),
-              Text('Protected by bank-grade encryption',
+              Text(
+                  AppLocalizations.of(context).uiProtectedByBankGradeEncryption,
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray400)),
             ],
@@ -1234,7 +1247,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 color: AppPalette.of(context).primary, size: 36),
           ),
           const SizedBox(height: 24),
-          Text('Confirm your bank',
+          Text(AppLocalizations.of(context).uiConfirmYourBank,
               style: AppTextStyles.displaySm.copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppPalette.of(context).black),
@@ -1242,13 +1255,13 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           const SizedBox(height: 10),
           Text(
               _otpMessage ??
-                  'We\'ve sent a 6-digit confirmation code to your email. Enter it below to complete the bank setup.',
+                  tr('We\'ve sent a 6-digit confirmation code to your email. Enter it below to complete the bank setup.'),
               style: AppTextStyles.bodyMd
                   .copyWith(color: AppPalette.of(context).gray500, height: 1.5),
               textAlign: TextAlign.center),
           const SizedBox(height: 8),
           Text(
-            'Can\'t find it? Check your spam or junk folder.',
+            AppLocalizations.of(context).uiCanTFindItCheckYour,
             style: AppTextStyles.bodySm.copyWith(
               color: AppPalette.of(context).gray400,
               fontStyle: FontStyle.italic,
@@ -1263,7 +1276,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 if (mounted) {
                   AppSnackBar.show(
                     context,
-                    message: 'Confirmation code copied.',
+                    message:
+                        AppLocalizations.of(context).uiConfirmationCodeCopied,
                     type: SnackBarType.info,
                   );
                 }
@@ -1281,7 +1295,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Simulator code',
+                      AppLocalizations.of(context).uiSimulatorCode,
                       style: AppTextStyles.labelMd.copyWith(
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary,
@@ -1297,7 +1311,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Tap to copy this test code if the email does not arrive.',
+                      AppLocalizations.of(context).uiTapToCopyThisTestCode,
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppPalette.of(context).gray500),
                     ),
@@ -1309,7 +1323,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
           const SizedBox(height: 40),
           Align(
               alignment: Alignment.centerLeft,
-              child: Text('Verification Code',
+              child: Text(AppLocalizations.of(context).verificationCodeLabel,
                   style: AppTextStyles.labelMd
                       .copyWith(fontWeight: FontWeight.w800))),
           const SizedBox(height: 8),
@@ -1317,7 +1331,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F7F8),
+              color: AppPalette.of(context).gray100,
               border:
                   Border.all(color: AppPalette.of(context).border, width: 1.5),
               borderRadius: BorderRadius.circular(14),
@@ -1353,7 +1367,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                       height: 22,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2.5))
-                  : Text('Confirm Bank Account',
+                  : Text(AppLocalizations.of(context).uiConfirmBankAccount,
                       style: AppTextStyles.labelLg.copyWith(
                           color: Colors.white, fontWeight: FontWeight.w800)),
             ),
@@ -1374,7 +1388,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                       _linkBank();
                     }
                   },
-            child: Text('Resend code',
+            child: Text(AppLocalizations.of(context).resendCode,
                 style: AppTextStyles.primary(AppTextStyles.labelMd)),
           ),
           TextButton(
@@ -1384,7 +1398,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
               _otpMessage = null;
               _debugOtp = null;
             }),
-            child: Text('Go back',
+            child: Text(AppLocalizations.of(context).goBack,
                 style: AppTextStyles.primary(AppTextStyles.labelMd)),
           ),
         ],
@@ -1418,7 +1432,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                 child: Row(children: [
                   Expanded(
-                      child: Text('Select Bank',
+                      child: Text(AppLocalizations.of(context).uiSelectBank,
                           style: AppTextStyles.h3
                               .copyWith(fontWeight: FontWeight.w800))),
                   GestureDetector(
@@ -1432,7 +1446,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   height: 48,
                   decoration: BoxDecoration(
-                      color: const Color(0xFFF7F7F8),
+                      color: AppPalette.of(context).gray100,
                       borderRadius: BorderRadius.circular(14)),
                   child: Row(children: [
                     Icon(Icons.search,
@@ -1442,8 +1456,8 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                         child: TextField(
                       controller: _searchCtrl,
                       style: AppTextStyles.bodyMd,
-                      decoration: const InputDecoration(
-                          hintText: 'Search banks...',
+                      decoration: InputDecoration(
+                          hintText: AppLocalizations.of(context).uiSearchBanks,
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero),
@@ -1466,7 +1480,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
                         child: _banksLoading
                             ? const CircularProgressIndicator(
                                 color: AppColors.primary)
-                            : Text('No banks found',
+                            : Text(AppLocalizations.of(context).uiNoBanksFound,
                                 style: AppTextStyles.bodyMd.copyWith(
                                     color: AppPalette.of(context).gray400)))
                     : ListView.builder(
@@ -1523,7 +1537,7 @@ class _IbanField extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F8),
+            color: AppPalette.of(context).gray100,
             border:
                 Border.all(color: AppPalette.of(context).border, width: 1.5),
             borderRadius: BorderRadius.circular(14),
@@ -1566,7 +1580,8 @@ class _ManualPayoutNotice extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '$currency withdrawals are paid by the Bago accounts team by bank transfer, usually within 1–3 business days. You\'ll get an email and a notification at each step.',
+              AppLocalizations.of(context)
+                  .uiFWithdrawalsArePaidByTheBago(currency),
               style: AppTextStyles.bodySm.copyWith(
                   color: AppPalette.of(context).gray700, height: 1.45),
             ),

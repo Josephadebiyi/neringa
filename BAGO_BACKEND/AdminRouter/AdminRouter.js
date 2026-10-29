@@ -59,7 +59,8 @@ import {
   deleteTrip,
   updateTripStatusBatch,
   updateTripPriceBatch,
-  deleteTripBatch
+  deleteTripBatch,
+  downloadTripProof
 } from '../controllers/AdminControllers/TripManagement.js';
 import { createTripForBusiness, createBusinessServiceForBusiness } from '../controllers/AdminControllers/AdminTripController.js';
 import { adminUploadFile } from '../controllers/AdminControllers/UploadController.js';
@@ -230,6 +231,7 @@ AdminRouter.post("/admin-trips", adminAuthenticated, can('trips.manage'), audit(
 AdminRouter.post("/admin-business-services", adminAuthenticated, can('trips.manage'), audit('admin.business_service.create', 'trip'), createBusinessServiceForBusiness);
 AdminRouter.get("/admin-trips", adminAuthenticated, getAllTrips);
 AdminRouter.get("/admin-trips/:id", adminAuthenticated, validateUuidParam('id'), getTripById);
+AdminRouter.get("/admin-trips/:id/proof", adminAuthenticated, validateUuidParam('id'), downloadTripProof);
 AdminRouter.put("/admin-trips/:id/status", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.status.update', 'trip'), updateTripStatus);
 AdminRouter.put("/admin-trips/:id/price", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.price.update', 'trip'), updateTripPrice);
 AdminRouter.delete("/admin-trips/:id", adminAuthenticated, can('trips.manage'), validateUuidParam('id'), audit('admin.trip.delete', 'trip'), deleteTrip);

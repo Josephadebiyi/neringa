@@ -1,31 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LockKeyhole, ShieldCheck, AlertCircle } from 'lucide-react';
 import api from '../api';
+import { customerError } from '../utils/customerErrors';
 
-const CHECKOUT_STASH_KEY = 'bago_flutterwave_checkout';
+import StripeWebCheckout from '../components/StripeWebCheckout';
+import { preparePaymentCheckout } from '../utils/paymentCheckout';
+export { CHECKOUT_STASH_KEY } from '../utils/paymentCheckout';
 
-function checkoutErrorMessage(error, fallback = 'Payment checkout could not load.') {
-    const data = error?.response?.data;
-    const raw = data?.message || data?.error || error?.message || fallback;
-    const value = String(raw || '').toLowerCase();
-    if (
-        data?.code === 'EXCHANGE_RATE_EXPIRED' ||
-        data?.code === 'EXCHANGE_RATE_MISSING' ||
-        value.includes('exchange rates are stale') ||
-        value.includes('exchange rates are not available') ||
-        value.includes('exchange rate refresh failed') ||
-        value.includes('exchange rate missing')
-    ) {
-        return 'Pricing is temporarily unavailable while exchange rates refresh. Please try again in a few minutes.';
-    }
-    return raw;
-}
+const checkoutErrorMessage = error => customerError(error, 'Payment checkout could not load. Please try again.');
 
-// Flutterwave is the sole active payment provider. Unlike PayPal's inline SDK,
-// Flutterwave Standard checkout is a hosted-page redirect — the browser leaves
-// Bago entirely, so checkout details are stashed in sessionStorage before
-// redirecting out and read back by PaymentCallback.jsx on return.
 export default function PaymentCheckout() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
@@ -33,7 +17,8 @@ export default function PaymentCheckout() {
     const [error, setError] = useState('');
     const [redirecting, setRedirecting] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [authorizationUrl, setAuthorizationUrl] = useState('');
+    const [prepared, setPrepared] = useState(null);
+    const [quotedCheckout, setQuotedCheckout] = useState(null);
 
     const checkout = useMemo(() => ({
         packageId:          params.get('packageId')          || '',
@@ -51,9 +36,9 @@ export default function PaymentCheckout() {
     const isAddKgMode = Boolean(checkout.requestId && checkout.additionalKg > 0);
 
     useEffect(() => {
-        const invalid = isAddKgMode
+        const invalid = !Number.isFinite(checkout.amount) || checkout.amount <= 0 || (isAddKgMode
             ? (!checkout.requestId || checkout.additionalKg <= 0 || checkout.amount <= 0)
-            : (!checkout.packageId || !checkout.tripId || !checkout.travelerId || checkout.amount <= 0);
+            : (!checkout.packageId || !checkout.tripId || !checkout.travelerId || checkout.amount <= 0));
 
         if (invalid) {
             setError('Checkout details are incomplete. Please go back and try again.');
@@ -63,57 +48,33 @@ export default function PaymentCheckout() {
 
         let alive = true;
 
+        setLoading(true);
+        setError('');
+        setPrepared(null);
         async function boot() {
             try {
-                const initBody = isAddKgMode ? {
-                    requestId:    checkout.requestId,
-                    additionalKg: checkout.additionalKg,
-                    amount:       checkout.amount,
-                    currency:     checkout.currency,
-                } : {
-                    packageId: checkout.packageId,
-                    tripId:    checkout.tripId,
-                    amount:    checkout.amount,
-                    currency:  checkout.currency,
-                    metadata: {
-                        insurance:     checkout.insurance,
-                        insuranceCost: checkout.insuranceCost,
-                    },
-                };
-                const res = await api.post('/api/payments/flutterwave/initialize', initBody);
+                const result = await preparePaymentCheckout(checkout, api, sessionStorage, () => alive);
                 if (!alive) return;
-                const url = res.data?.authorizationUrl || res.data?.data?.authorizationUrl;
-                const reference = res.data?.reference || res.data?.data?.reference;
-                if (!url || !reference) {
-                    throw new Error(res.data?.message || 'Could not start checkout.');
-                }
-
-                // Stash everything PaymentCallback.jsx needs to create the shipment
-                // once Flutterwave redirects back — the return URL only carries the
-                // transaction reference, not the full checkout context.
-                sessionStorage.setItem(CHECKOUT_STASH_KEY, JSON.stringify({
-                    ...checkout,
-                    isAddKgMode,
-                    reference,
-                }));
-
-                setAuthorizationUrl(url);
+                setPrepared(result);
+                setQuotedCheckout(result);
             } catch (err) {
-                if (!alive) return;
-                setError(checkoutErrorMessage(err));
+                if (alive) setError(checkoutErrorMessage(err));
             } finally {
                 if (alive) setLoading(false);
             }
         }
-
         boot();
         return () => { alive = false; };
-    }, [checkout.packageId, checkout.tripId, checkout.travelerId, checkout.requestId, checkout.additionalKg, checkout.amount, checkout.currency, isAddKgMode]);
+    }, [checkout, isAddKgMode]);
+
+    const continueStripeBooking = (reference = prepared?.reference) => {
+        navigate(`/payment/callback?provider=stripe&payment_intent=${encodeURIComponent(reference)}`);
+    };
 
     const goToFlutterwave = () => {
-        if (!authorizationUrl) return;
+        if (!prepared?.authorizationUrl) return;
         setRedirecting(true);
-        window.location.href = authorizationUrl;
+        window.location.assign(prepared.authorizationUrl);
     };
 
     return (
@@ -135,7 +96,11 @@ export default function PaymentCheckout() {
                             <div className="mb-5">
                                 <h1 className="text-lg font-black tracking-tight">Pay Now</h1>
                                 <p className="mt-1 text-xs font-bold text-gray-400">
-                                    Card, Apple Pay, bank transfer & mobile money — choose your method on the next page.
+                                    {prepared?.provider === 'stripe'
+                                        ? 'Pay by card or use Apple Pay when available.'
+                                        : prepared?.provider === 'flutterwave'
+                                            ? 'Choose from the payment methods available for your currency on Flutterwave.'
+                                            : 'Preparing the payment options for your currency.'}
                                 </p>
                             </div>
 
@@ -156,17 +121,23 @@ export default function PaymentCheckout() {
                                 </div>
                             )}
 
-                            {!loading && !redirecting && !error && (
+                            {!loading && !redirecting && !error && prepared?.provider === 'flutterwave' && (
                                 <button
                                     onClick={goToFlutterwave}
                                     className="w-full rounded-2xl bg-[#5845D8] py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-[#5845D8]/20 transition-all hover:bg-[#4838B5]"
                                 >
-                                    Pay Now
+                                    Continue to Flutterwave
                                 </button>
                             )}
 
+                            {!loading && !error && prepared?.provider === 'stripe' && (
+                                ['succeeded', 'processing'].includes(prepared.paymentStatus)
+                                    ? <button onClick={() => continueStripeBooking()} className="w-full rounded-2xl bg-[#5845D8] py-4 font-bold text-white">Continue to shipment confirmation</button>
+                                    : <StripeWebCheckout checkout={prepared} onPaid={continueStripeBooking} />
+                            )}
+
                             <p className="mt-4 text-center text-[10px] text-gray-400 font-medium">
-                                By completing this payment you agree to Bago's terms of service.
+                                By completing this payment you agree to Bago’s <Link to="/terms" className="underline">Terms</Link> and <Link to="/refund-policy" className="underline">Refund and Cancellation Policy</Link>. <Link to="/contact" className="underline">Contact us</Link>.
                             </p>
                         </section>
                     </main>
@@ -178,26 +149,27 @@ export default function PaymentCheckout() {
                                 <p className="text-[8px] font-black text-[#5845D8] uppercase tracking-widest mb-1">Additional Weight</p>
                                 <p className="text-base font-black text-[#012126]">+{checkout.additionalKg} KG</p>
                                 <p className="text-[9px] text-gray-400 font-bold mt-0.5">Added to existing shipment</p>
+                                {quotedCheckout?.weightQuote && <p className="text-xs text-gray-600 mt-2">Trip rate: {quotedCheckout.weightQuote.travelerCurrency} {quotedCheckout.weightQuote.travelerPricePerKg}/kg. Standard fees and any currency conversion are included in the total below.</p>}
                             </div>
                         )}
                         <p className="text-xs font-black uppercase tracking-widest text-gray-400">Order total</p>
                         <p className="mt-2 text-3xl font-black text-[#012126]">
-                            {checkout.currency} {checkout.amount.toFixed(2)}
+                            {(quotedCheckout || checkout).currency} {(quotedCheckout || checkout).amount.toFixed(2)}
                         </p>
 
                         {!isAddKgMode && checkout.insurance && checkout.insuranceCost > 0 && (
                             <div className="mt-3 space-y-2 text-xs font-bold text-gray-500">
                                 <div className="flex justify-between">
                                     <span>Shipment</span>
-                                    <span>{checkout.currency} {(checkout.amount - checkout.insuranceCost).toFixed(2)}</span>
+                                    <span>{(quotedCheckout || checkout).currency} {((quotedCheckout || checkout).amount - checkout.insuranceCost).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span>Insurance</span>
-                                    <span>{checkout.currency} {checkout.insuranceCost.toFixed(2)}</span>
+                                    <span>{(quotedCheckout || checkout).currency} {checkout.insuranceCost.toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-gray-100 pt-2 flex justify-between font-black text-[#012126]">
                                     <span>Total</span>
-                                    <span>{checkout.currency} {checkout.amount.toFixed(2)}</span>
+                                    <span>{(quotedCheckout || checkout).currency} {(quotedCheckout || checkout).amount.toFixed(2)}</span>
                                 </div>
                             </div>
                         )}
@@ -218,5 +190,3 @@ export default function PaymentCheckout() {
         </div>
     );
 }
-
-export { CHECKOUT_STASH_KEY };

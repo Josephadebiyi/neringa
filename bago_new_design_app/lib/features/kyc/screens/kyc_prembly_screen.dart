@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 import 'dart:io';
@@ -75,8 +77,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
         setState(() {
           _hasError = true;
           _errorMessage = cameraStatus.isPermanentlyDenied
-              ? 'Camera access is blocked. Open Settings, enable Camera for Bago, then try again.'
-              : 'Camera access is required to verify your identity. Please allow it and try again.';
+              ? tr('Camera access is blocked. Open Settings, enable Camera for Bago, then try again.')
+              : tr('Camera access is required to verify your identity. Please allow it and try again.');
         });
         return;
       }
@@ -254,7 +256,8 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
             Navigator.of(context).pop();
           },
         ),
-        title: Text('Identity Verification', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).identityVerification,
+            style: AppTextStyles.h3),
       ),
       body: _buildBody(),
     );
@@ -271,7 +274,7 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
               const Icon(Icons.error_outline, color: AppColors.error, size: 48),
               const SizedBox(height: 16),
               Text(
-                _errorMessage ?? 'Something went wrong. Please try again.',
+                _errorMessage ?? tr('Something went wrong. Please try again.'),
                 style: AppTextStyles.bodyMd
                     .copyWith(color: AppPalette.of(context).gray700),
                 textAlign: TextAlign.center,
@@ -281,13 +284,13 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
                 onPressed: _retry,
                 style:
                     FilledButton.styleFrom(backgroundColor: AppColors.primary),
-                child: const Text('Try Again'),
+                child: Text(AppLocalizations.of(context).uiTryAgain),
               ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () => openAppSettings(),
                 child: Text(
-                  'Open Settings',
+                  AppLocalizations.of(context).uiOpenSettings,
                   style: AppTextStyles.labelMd
                       .copyWith(color: AppPalette.of(context).primary),
                 ),
@@ -299,14 +302,14 @@ class _KycPremblyScreenState extends ConsumerState<KycPremblyScreen> {
     }
 
     if (_waitingForResult) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircularProgressIndicator(color: AppColors.primary, strokeWidth: 3),
             SizedBox(height: 20),
             Text(
-              'Processing your verification…',
+              AppLocalizations.of(context).uiProcessingYourVerification,
               textAlign: TextAlign.center,
             ),
           ],
@@ -416,7 +419,8 @@ class _PremblyHostedPageState extends State<_PremblyHostedPage> {
           // Pop with false — _start() sees !_waitingForResult and navigates back
           onPressed: () => Navigator.pop(context, false),
         ),
-        title: Text('Identity Verification', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).identityVerification,
+            style: AppTextStyles.h3),
       ),
       body: SafeArea(child: WebViewWidget(controller: _controller)),
     );

@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 
@@ -10,6 +11,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/providers/app_lock_provider.dart';
 import '../../../shared/providers/locale_provider.dart';
+import '../../../shared/widgets/appearance_selector.dart';
 import '../../../shared/services/push_notification_service.dart';
 import '../../../shared/services/storage_service.dart';
 import '../../../shared/widgets/app_snackbar.dart';
@@ -57,7 +59,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (mounted) {
             AppSnackBar.show(
               context,
-              message: 'Identity verification approved!',
+              message:
+                  AppLocalizations.of(context).uiIdentityVerificationApproved,
               type: SnackBarType.success,
             );
           }
@@ -99,8 +102,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (value && !_biometric && !_hasPasscode) {
       AppSnackBar.show(
         context,
-        message:
-            'Set an app passcode or enable biometrics first before turning on quick unlock.',
+        message: AppLocalizations.of(context).uiSetAnAppPasscodeOrEnable,
         type: SnackBarType.error,
       );
       return;
@@ -112,8 +114,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     AppSnackBar.show(
       context,
       message: value
-          ? 'Quick unlock is now enabled.'
-          : 'Quick unlock is now disabled.',
+          ? tr('Quick unlock is now enabled.')
+          : tr('Quick unlock is now disabled.'),
       type: SnackBarType.success,
     );
   }
@@ -127,22 +129,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           title:
-              Text(_hasPasscode ? 'Update App Passcode' : 'Set App Passcode'),
+              Text(_hasPasscode ? tr('Update App Passcode') : tr('Set App Passcode')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               AppTextField(
                 controller: firstCtrl,
-                label: 'Passcode',
-                hint: 'Enter 4-8 digits',
+                label: AppLocalizations.of(context).uiPasscode,
+                hint: AppLocalizations.of(context).uiEnter48Digits,
                 obscureText: true,
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               AppTextField(
                 controller: confirmCtrl,
-                label: 'Confirm passcode',
-                hint: 'Re-enter passcode',
+                label: AppLocalizations.of(context).uiConfirmPasscode,
+                hint: AppLocalizations.of(context).uiReEnterPasscode,
                 obscureText: true,
                 keyboardType: TextInputType.number,
               ),
@@ -151,7 +153,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(AppLocalizations.of(context).cancel),
             ),
             FilledButton(
               onPressed: () async {
@@ -161,7 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (first.length < 4 || first.length > 8) {
                   AppSnackBar.show(
                     context,
-                    message: 'Use a 4 to 8 digit app passcode.',
+                    message: AppLocalizations.of(context).uiUseA4To8Digit,
                     type: SnackBarType.error,
                   );
                   return;
@@ -169,7 +171,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (first != confirm) {
                   AppSnackBar.show(
                     context,
-                    message: 'Passcodes do not match.',
+                    message: AppLocalizations.of(context).uiPasscodesDoNotMatch,
                     type: SnackBarType.error,
                   );
                   return;
@@ -181,11 +183,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 navigator.pop();
                 AppSnackBar.show(
                   context,
-                  message: 'App passcode saved.',
+                  message: AppLocalizations.of(context).uiAppPasscodeSaved,
                   type: SnackBarType.success,
                 );
               },
-              child: const Text('Save'),
+              child: Text(AppLocalizations.of(context).uiSave),
             ),
           ],
         );
@@ -199,7 +201,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _hasPasscode = false);
     AppSnackBar.show(
       context,
-      message: 'App passcode removed.',
+      message: AppLocalizations.of(context).uiAppPasscodeRemoved,
       type: SnackBarType.success,
     );
   }
@@ -295,7 +297,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.successLight,
+                color: AppPalette.of(context).soft(AppColors.successLight),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                     color: AppColors.success.withValues(alpha: 0.18)),
@@ -346,7 +348,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               if (user?.isCompany == true)
                 BagoMenuItem(
-                  label: 'Business services',
+                  label: AppLocalizations.of(context).uiBusinessServices,
                   leading: Icon(Icons.storefront_rounded,
                       color: AppPalette.of(context).gray600),
                   onTap: () => context.push('/business-services'),
@@ -371,7 +373,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
               _SwitchRow(
-                label: 'Quick unlock after inactivity',
+                label:
+                    AppLocalizations.of(context).uiQuickUnlockAfterInactivity,
                 icon: Icons.lock_clock_outlined,
                 value: _quickUnlock,
                 onChanged: _setQuickUnlock,
@@ -386,12 +389,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               BagoMenuItem(
                 label:
-                    _hasPasscode ? 'Update app passcode' : 'Set app passcode',
+                    _hasPasscode ? tr('Update app passcode') : tr('Set app passcode'),
                 leading: Icon(Icons.pin_outlined,
                     color: AppPalette.of(context).gray600),
                 onTap: _showSetPasscodeDialog,
                 trailing: Text(
-                  _hasPasscode ? 'Saved' : 'Not set',
+                  _hasPasscode ? tr('Saved') : tr('Not set'),
                   style: AppTextStyles.labelSm.copyWith(
                     color: AppPalette.of(context).gray500,
                     fontWeight: FontWeight.w700,
@@ -400,7 +403,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               if (_hasPasscode)
                 BagoMenuItem(
-                  label: 'Remove app passcode',
+                  label: AppLocalizations.of(context).uiRemoveAppPasscode,
                   leading: Icon(Icons.lock_open_rounded,
                       color: AppPalette.of(context).gray600),
                   onTap: _removePasscode,
@@ -438,6 +441,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: 24),
+          const BagoSectionLabel('Appearance'),
+          const AppearanceSelector(),
           const SizedBox(height: 24),
           BagoSectionLabel(l10n.legalSection),
           BagoMenuGroup(

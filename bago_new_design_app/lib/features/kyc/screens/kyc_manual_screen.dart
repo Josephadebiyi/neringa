@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:io';
 
@@ -21,11 +23,11 @@ extension _IdTypeExt on _IdType {
   String get label {
     switch (this) {
       case _IdType.passport:
-        return 'Passport';
+        return tr('Passport');
       case _IdType.nationalId:
-        return 'National ID Card';
+        return tr('National ID Card');
       case _IdType.driverLicense:
-        return 'Driver\'s License';
+        return tr('Driver\'s License');
     }
   }
 
@@ -74,7 +76,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
   void _showImageSourceSheet(ValueSetter<File> onPicked) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppPalette.of(context).white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => SafeArea(
@@ -91,7 +93,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
             const SizedBox(height: 20),
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take photo'),
+              title: Text(AppLocalizations.of(context).uiTakePhoto2),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(fromCamera: true, onPicked: onPicked);
@@ -99,7 +101,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from library'),
+              title: Text(AppLocalizations.of(context).uiChooseFromLibrary),
               onTap: () {
                 Navigator.pop(context);
                 _pickImage(fromCamera: false, onPicked: onPicked);
@@ -140,7 +142,8 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
         _loading = false;
       });
       AppSnackBar.show(context,
-          message: 'Submission failed. Please try again.',
+          message:
+              AppLocalizations.of(context).uiSubmissionFailedPleaseTryAgain,
           type: SnackBarType.error);
     }
   }
@@ -164,7 +167,8 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                   }
                 },
               ),
-        title: Text('Identity Verification', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).identityVerification,
+            style: AppTextStyles.h3),
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 250),
@@ -180,9 +184,8 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
       case 1:
         return _buildPhotoStep(
           key: const ValueKey('front'),
-          title: 'Front of ${_selectedType.label}',
-          subtitle:
-              'Make sure all text is clearly visible and there\'s no glare.',
+          title: AppLocalizations.of(context).uiFFrontOf(_selectedType.label),
+          subtitle: AppLocalizations.of(context).uiMakeSureAllTextIsClearly,
           image: _frontImage,
           icon: Icons.credit_card_outlined,
           onPick: () =>
@@ -193,8 +196,8 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
       case 2:
         return _buildPhotoStep(
           key: const ValueKey('back'),
-          title: 'Back of ${_selectedType.label}',
-          subtitle: 'Take a clear photo of the back side.',
+          title: AppLocalizations.of(context).uiFBackOf(_selectedType.label),
+          subtitle: AppLocalizations.of(context).uiTakeAClearPhotoOfThe,
           image: _backImage,
           icon: Icons.flip_outlined,
           onPick: () =>
@@ -233,14 +236,16 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                         child: Text(
-                      'We\'ll review your documents within 1–2 business days and notify you of the result.',
+                      AppLocalizations.of(context)
+                          .uiWeLlReviewYourDocumentsWithin,
                       style: AppTextStyles.bodySm
                           .copyWith(color: AppColors.primary),
                     )),
                   ]),
                 ),
                 const SizedBox(height: 28),
-                Text('Select your ID type', style: AppTextStyles.h4),
+                Text(AppLocalizations.of(context).uiSelectYourIdType,
+                    style: AppTextStyles.h4),
                 const SizedBox(height: 16),
                 for (final type in _IdType.values) ...[
                   _TypeTile(
@@ -258,7 +263,8 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
           padding: EdgeInsets.fromLTRB(
               24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
           child: AppButton(
-              label: 'Continue', onPressed: () => setState(() => _step = 1)),
+              label: AppLocalizations.of(context).continueLabel,
+              onPressed: () => setState(() => _step = 1)),
         ),
       ],
     );
@@ -317,7 +323,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                                   size: 48,
                                   color: AppPalette.of(context).gray300),
                               const SizedBox(height: 12),
-                              Text('Tap to add photo',
+                              Text(AppLocalizations.of(context).uiTapToAddPhoto,
                                   style: AppTextStyles.bodyMd.copyWith(
                                       color: AppPalette.of(context).gray400)),
                             ],
@@ -329,12 +335,12 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                   TextButton.icon(
                     onPressed: onPick,
                     icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Retake'),
+                    label: Text(AppLocalizations.of(context).uiRetake),
                   ),
                 ],
                 if (optional) ...[
                   const SizedBox(height: 8),
-                  Text('Optional — skip if your ID has no back side',
+                  Text(AppLocalizations.of(context).uiOptionalSkipIfYourIdHas,
                       style: AppTextStyles.bodyXs
                           .copyWith(color: AppPalette.of(context).gray400)),
                 ],
@@ -353,7 +359,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: onNext,
-                  child: Text('Skip back photo',
+                  child: Text(AppLocalizations.of(context).uiSkipBackPhoto,
                       style: AppTextStyles.bodyMd
                           .copyWith(color: AppPalette.of(context).gray500)),
                 ),
@@ -376,7 +382,8 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Liveness Check', style: AppTextStyles.h4),
+                Text(AppLocalizations.of(context).uiLivenessCheck,
+                    style: AppTextStyles.h4),
                 const SizedBox(height: 6),
                 Text(
                   'Record a short video (up to 8 seconds) using your front camera. '
@@ -454,7 +461,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          hasVideo ? 'Video recorded ✓' : 'Tap to record video',
+                          hasVideo ? tr('Video recorded ✓') : tr('Tap to record video'),
                           style: AppTextStyles.bodyMd.copyWith(
                             color: hasVideo
                                 ? AppColors.success
@@ -465,7 +472,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                         ),
                         if (hasVideo) ...[
                           const SizedBox(height: 4),
-                          Text('Tap to re-record',
+                          Text(AppLocalizations.of(context).uiTapToReRecord,
                               style: AppTextStyles.bodyXs.copyWith(
                                   color: AppPalette.of(context).gray400)),
                         ],
@@ -481,7 +488,7 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
           padding: EdgeInsets.fromLTRB(
               24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
           child: AppButton(
-            label: 'Submit for Review',
+            label: AppLocalizations.of(context).uiSubmitForReview,
             onPressed: hasVideo ? _submit : null,
           ),
         ),
@@ -491,13 +498,13 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
 
   Widget _buildDoneStep() {
     if (_loading) {
-      return const Center(
+      return Center(
           child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 20),
-          Text('Uploading documents…'),
+          Text(AppLocalizations.of(context).uiUploadingDocuments),
         ],
       ));
     }
@@ -518,18 +525,18 @@ class _KycManualScreenState extends ConsumerState<KycManualScreen> {
                 color: AppPalette.of(context).primary, size: 44),
           ),
           const SizedBox(height: 24),
-          Text('Documents Submitted',
+          Text(AppLocalizations.of(context).uiDocumentsSubmitted,
               style: AppTextStyles.h2, textAlign: TextAlign.center),
           const SizedBox(height: 12),
           Text(
-            'Our team will review your identity documents within 1–2 business days. You\'ll receive a notification when it\'s done.',
+            AppLocalizations.of(context).uiOurTeamWillReviewYourIdentity,
             style: AppTextStyles.bodyMd
                 .copyWith(color: AppPalette.of(context).gray500, height: 1.6),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
           AppButton(
-            label: 'Back to Home',
+            label: AppLocalizations.of(context).backToHome,
             onPressed: () => context.go('/home'),
           ),
         ],
@@ -552,8 +559,9 @@ class _TypeTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color:
-              selected ? AppPalette.of(context).primarySoft : AppColors.white,
+          color: selected
+              ? AppPalette.of(context).primarySoft
+              : AppPalette.of(context).white,
           border: Border.all(
               color:
                   selected ? AppColors.primary : AppPalette.of(context).border,

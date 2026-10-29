@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:io';
 
@@ -15,6 +16,7 @@ import '../../../shared/providers/locale_provider.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
+import '../../../shared/widgets/appearance_selector.dart';
 import '../../../shared/utils/status_formatter.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -44,14 +46,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await ref.read(authProvider.notifier).uploadAvatar(File(picked.path));
       if (mounted) {
         AppSnackBar.show(context,
-            message: 'Profile photo updated', type: SnackBarType.success);
+            message: AppLocalizations.of(context).uiProfilePhotoUpdated,
+            type: SnackBarType.success);
       }
     } catch (e) {
       if (mounted) {
         final message = e.toString().replaceFirst('Exception: ', '').trim();
         AppSnackBar.show(
           context,
-          message: message.isEmpty ? 'Failed to upload photo' : message,
+          message: message.isEmpty ? tr('Failed to upload photo') : message,
           type: SnackBarType.error,
         );
       }
@@ -191,7 +194,11 @@ class _TopTab extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: selected ? AppColors.white : Colors.transparent,
+            color: selected
+                ? (AppPalette.of(context).dark
+                    ? AppPalette.of(context).primarySoft
+                    : AppPalette.of(context).white)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Center(
@@ -349,7 +356,7 @@ class _AboutTab extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            formatKycStatusLabel(kycStatus),
+                            tr(formatKycStatusLabel(kycStatus)),
                             style: AppTextStyles.labelSm.copyWith(
                               color: isVerified
                                   ? AppColors.primary
@@ -412,12 +419,13 @@ class _AboutTab extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3CD),
+                        color: AppPalette.of(context)
+                            .tint(const Color(0xFFFFF3CD)),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFFFFD600)),
                       ),
-                      child: const Text(
-                        'Unverified',
+                      child: Text(
+                        AppLocalizations.of(context).uiUnverified,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -443,7 +451,7 @@ class _AboutTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'MY BIO',
+                  AppLocalizations.of(context).uiMyBio,
                   style: AppTextStyles.labelSm.copyWith(
                     color: AppPalette.of(context).gray500,
                     fontWeight: FontWeight.w800,
@@ -462,7 +470,7 @@ class _AboutTab extends StatelessWidget {
                 GestureDetector(
                   onTap: () => context.push('/profile/edit-bio'),
                   child: Text(
-                    'Edit bio',
+                    AppLocalizations.of(context).uiEditBio,
                     style: AppTextStyles.labelSm.copyWith(
                       color: AppPalette.of(context).primary,
                       fontWeight: FontWeight.w700,
@@ -602,13 +610,13 @@ class _AccountTab extends StatelessWidget {
               onTap: () => context.push('/profile/payout-methods'),
             ),
             BagoMenuItem(
-              label: 'Withdraw Earnings',
+              label: AppLocalizations.of(context).uiWithdrawEarnings,
               leading: Icon(Icons.savings_outlined,
                   color: AppPalette.of(context).gray600),
               onTap: () => context.push('/profile/withdraw'),
             ),
             BagoMenuItem(
-              label: 'Referrals',
+              label: AppLocalizations.of(context).uiReferrals,
               leading: Icon(Icons.card_giftcard_outlined,
                   color: AppPalette.of(context).gray600),
               onTap: () => context.push('/profile/referrals'),
@@ -622,6 +630,9 @@ class _AccountTab extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        const BagoSectionLabel('Appearance'),
+        const AppearanceSelector(),
         const SizedBox(height: 24),
         BagoSectionLabel(l10n.supportLegal),
         BagoMenuGroup(
@@ -807,7 +818,7 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Total wallet',
+                      AppLocalizations.of(context).uiTotalWallet,
                       style: AppTextStyles.labelMd.copyWith(
                         color: Colors.white70,
                         fontWeight: FontWeight.w800,
@@ -823,7 +834,8 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Ready to withdraw + held in escrow',
+                      AppLocalizations.of(context)
+                          .uiReadyToWithdrawHeldInEscrow,
                       style: AppTextStyles.caption.copyWith(
                         color: Colors.white38,
                         fontWeight: FontWeight.w700,
@@ -861,7 +873,7 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
                                     color: Colors.white, size: 15),
                             const SizedBox(width: 6),
                             Text(
-                              'Refresh wallet',
+                              AppLocalizations.of(context).uiRefreshWallet,
                               style: AppTextStyles.labelXs.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
@@ -881,11 +893,11 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
             children: [
               Expanded(
                 child: _ProfileBalancePanel(
-                  label: 'Ready to withdraw',
+                  label: AppLocalizations.of(context).uiReadyToWithdraw,
                   amount: available,
                   currency: displayCurrency,
-                  note: 'Available now',
-                  color: const Color(0xFFFFE7B8),
+                  note: AppLocalizations.of(context).uiAvailableNow,
+                  color: AppPalette.of(context).tint(const Color(0xFFFFE7B8)),
                   backgroundAsset:
                       'assets/images/wallet/withdraw_background.png',
                 ),
@@ -893,11 +905,11 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
               const SizedBox(width: 12),
               Expanded(
                 child: _ProfileBalancePanel(
-                  label: 'In escrow',
+                  label: AppLocalizations.of(context).uiInEscrow,
                   amount: escrow,
                   currency: displayCurrency,
-                  note: 'After delivery',
-                  color: const Color(0xFFDDFDDD),
+                  note: AppLocalizations.of(context).uiAfterDelivery,
+                  color: AppPalette.of(context).tint(const Color(0xFFDDFDDD)),
                   backgroundAsset: 'assets/images/wallet/escrow_background.png',
                 ),
               ),
@@ -919,7 +931,7 @@ class _WalletCardState extends ConsumerState<_WalletCard> {
                       color: Colors.white, size: 19),
                   const SizedBox(width: 8),
                   Text(
-                    'Withdraw Earnings',
+                    AppLocalizations.of(context).uiWithdrawEarnings,
                     style: AppTextStyles.buttonMd.copyWith(
                         color: Colors.white, fontWeight: FontWeight.w800),
                   ),
@@ -975,7 +987,7 @@ class _ProfileBalancePanel extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.labelMd.copyWith(
-              color: AppPalette.of(context).gray700,
+              color: AppColors.gray700,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -985,7 +997,7 @@ class _ProfileBalancePanel extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.h3.copyWith(
-              color: AppPalette.of(context).black,
+              color: AppColors.black,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -993,7 +1005,7 @@ class _ProfileBalancePanel extends StatelessWidget {
           Text(
             note,
             style: AppTextStyles.caption.copyWith(
-              color: AppPalette.of(context).gray600,
+              color: AppColors.gray600,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1030,9 +1042,9 @@ class _CarrierKycBanner extends StatelessWidget {
 
   String get _statusLabel {
     final label = formatFrontendStatus(kycStatus);
-    if (label == 'Pending') return 'Pending Review';
-    if (label == 'Rejected') return 'Not Approved';
-    return label;
+    if (label == 'Pending') return tr('Pending Review');
+    if (label == 'Rejected') return tr('Not Approved');
+    return tr(label);
   }
 
   String get _bodyText {
@@ -1043,17 +1055,17 @@ class _CarrierKycBanner extends StatelessWidget {
       case 'admin_review':
       case 'manual_review':
       case 'under_review':
-        return 'Your identity verification is under review. You\'ll be notified once it\'s approved.';
+        return tr('Your identity verification is under review. You\'ll be notified once it\'s approved.');
       case 'rejected':
       case 'declined':
       case 'failed':
       case 'failed_verification':
       case 'blocked_duplicate':
-        return 'Your verification was rejected. Re-submit your documents to start accepting shipments.';
+        return tr('Your verification was rejected. Re-submit your documents to start accepting shipments.');
       case 'expired':
-        return 'Your verification has expired. Re-verify your identity to continue earning.';
+        return tr('Your verification has expired. Re-verify your identity to continue earning.');
       default:
-        return 'Verify your identity to post trips, accept shipments, and withdraw earnings.';
+        return tr('Verify your identity to post trips, accept shipments, and withdraw earnings.');
     }
   }
 
@@ -1105,7 +1117,7 @@ class _CarrierKycBanner extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Identity Verification',
+                        AppLocalizations.of(context).identityVerification,
                         style: AppTextStyles.labelMd
                             .copyWith(fontWeight: FontWeight.w800),
                       ),
@@ -1153,7 +1165,7 @@ class _CarrierKycBanner extends StatelessWidget {
                               color: Colors.white, size: 16),
                           const SizedBox(width: 6),
                           Text(
-                            'Verify Identity',
+                            AppLocalizations.of(context).uiVerifyIdentity,
                             style: AppTextStyles.labelSm.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,

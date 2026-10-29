@@ -1,3 +1,6 @@
+import '../../../shared/utils/localized_dates.dart';
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -60,33 +63,30 @@ class ActiveDeliveryCard extends StatelessWidget {
       };
 
   static String statusLabel(RequestStatus status) => switch (status) {
-        RequestStatus.pending => 'Pending',
+        RequestStatus.pending => tr('Pending'),
         RequestStatus.accepted ||
         RequestStatus.acceptedAwaitingInspection ||
         RequestStatus.inspectionInProgress ||
         RequestStatus.inspectionCompleted ||
         RequestStatus.approvedForTrip =>
-          'Accepted',
-        RequestStatus.rejectedAtInspectionUnderReview => 'In review',
-        RequestStatus.packageReceived => 'Picked up',
+          tr('Accepted'),
+        RequestStatus.rejectedAtInspectionUnderReview => tr('In review'),
+        RequestStatus.packageReceived => tr('Picked up'),
         RequestStatus.deliveryStarted ||
         RequestStatus.intransit =>
-          'In transit',
-        RequestStatus.arrivedAtHub => 'At hub',
-        RequestStatus.delivering => 'Delivering',
-        RequestStatus.completed => 'Delivered',
-        _ => 'Active',
+          tr('In transit'),
+        RequestStatus.arrivedAtHub => tr('At hub'),
+        RequestStatus.delivering => tr('Delivering'),
+        RequestStatus.completed => tr('Delivered'),
+        _ => tr('Active'),
       };
 
   String _deliveryLabel() {
-    if (request.status == RequestStatus.completed) return 'Delivered';
+    if (request.status == RequestStatus.completed) return tr('Delivered');
     final raw = request.estimatedArrival ?? request.deliveryDate;
     final date = DateTime.tryParse(raw ?? '');
     if (date == null) return _stops[stageFor(request.status)];
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
+    final months = [for (var m = 1; m <= 12; m++) monthShort(m)];
     return '${date.day} ${months[date.month - 1]}';
   }
 
@@ -105,8 +105,9 @@ class ActiveDeliveryCard extends StatelessWidget {
     final image = (request.image ?? '').trim().isNotEmpty
         ? request.image!.trim()
         : (request.packageImages.isNotEmpty ? request.packageImages.first : '');
-    final bg =
-        tint ? AppPalette.of(context).primarySoft : const Color(0xFFEAF4F7);
+    final bg = tint
+        ? AppPalette.of(context).primarySoft
+        : AppPalette.of(context).tint(const Color(0xFFEAF4F7));
 
     return Material(
       color: bg,
@@ -150,7 +151,7 @@ class ActiveDeliveryCard extends StatelessWidget {
                         Text(
                           request.packageTitle?.trim().isNotEmpty == true
                               ? request.packageTitle!.trim()
-                              : 'Shipment',
+                              : tr('Shipment'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -199,7 +200,7 @@ class ActiveDeliveryCard extends StatelessWidget {
                   Expanded(
                     child: _InfoColumn(
                       icon: Icons.location_on_outlined,
-                      label: 'Route',
+                      label: AppLocalizations.of(context).route,
                       value:
                           '${_city(request.fromLocation)} → ${_city(request.toLocation)}',
                     ),
@@ -207,7 +208,7 @@ class ActiveDeliveryCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   _InfoColumn(
                     icon: Icons.schedule_rounded,
-                    label: 'Delivery',
+                    label: AppLocalizations.of(context).deliveryLabel,
                     value: _deliveryLabel(),
                     alignEnd: true,
                   ),
@@ -240,7 +241,7 @@ class _ProgressLine extends StatelessWidget {
             Positioned(
               left: 0,
               right: 0,
-              child: Container(height: 3, color: AppColors.white),
+              child: Container(height: 3, color: AppPalette.of(context).white),
             ),
             Positioned(
               left: 0,
@@ -264,7 +265,8 @@ class _ProgressLine extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.white, width: 3),
+                          border: Border.all(
+                              color: AppPalette.of(context).white, width: 3),
                           boxShadow: [
                             BoxShadow(
                               color: AppColors.primary.withValues(alpha: 0.35),
@@ -279,8 +281,9 @@ class _ProgressLine extends StatelessWidget {
                         width: 14,
                         height: 14,
                         decoration: BoxDecoration(
-                          color:
-                              i < stage ? AppColors.primary : AppColors.white,
+                          color: i < stage
+                              ? AppColors.primary
+                              : AppPalette.of(context).white,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: i < stage

@@ -6,3 +6,7 @@ linter:
     prefer_const_literals_to_create_immutables: true
     avoid_print: true
     use_super_parameters: true
+
+analyzer:
+  exclude:
+    - bago_new_design_app/**

@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../core/theme/app_palette.dart';
 import 'dart:async';
 
@@ -189,7 +190,7 @@ class _BannerFallback extends StatelessWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            title.isEmpty ? 'Bago' : title,
+            title.isEmpty ? tr('Bago') : title,
             style: AppTextStyles.h3.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,

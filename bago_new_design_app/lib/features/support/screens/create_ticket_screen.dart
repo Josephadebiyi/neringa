@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,7 +50,9 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
         subject.isNotEmpty ? subject : 'Live Chat – Support Request';
     if (desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please describe your issue')),
+        SnackBar(
+            content:
+                Text(AppLocalizations.of(context).uiPleaseDescribeYourIssue)),
       );
       return;
     }
@@ -70,8 +74,9 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
       } else {
         // Ticket submitted — show success and pop
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ticket submitted! We\'ll get back to you soon.'),
+          SnackBar(
+            content:
+                Text(AppLocalizations.of(context).uiTicketSubmittedWeLlGetBack),
             backgroundColor: AppColors.success,
           ),
         );
@@ -80,7 +85,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
     } else {
       final err = ref.read(supportProvider).error;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(err ?? 'Something went wrong')));
+          .showSnackBar(SnackBar(content: Text(err ?? tr('Something went wrong'))));
     }
   }
 
@@ -105,7 +110,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
           ),
         ),
         title: Text(
-          _isLiveChat ? 'Start Live Chat' : 'Submit a Ticket',
+          _isLiveChat ? tr('Start Live Chat') : tr('Submit a Ticket'),
           style: AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -121,7 +126,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
               decoration: BoxDecoration(
                 color: _isLiveChat
                     ? AppPalette.of(context).primarySoft
-                    : const Color(0xFFF0FDF4),
+                    : AppPalette.of(context).tint(const Color(0xFFF0FDF4)),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(children: [
@@ -139,8 +144,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                       children: [
                         Text(
                           _isLiveChat
-                              ? 'Chat with our team'
-                              : 'Submit a support ticket',
+                              ? tr('Chat with our team')
+                              : tr('Submit a support ticket'),
                           style: AppTextStyles.labelMd.copyWith(
                               fontWeight: FontWeight.w800,
                               color: AppPalette.of(context).black),
@@ -148,8 +153,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                         const SizedBox(height: 3),
                         Text(
                           _isLiveChat
-                              ? 'An agent will join and reply in real-time.'
-                              : 'We\'ll email you a response within a few hours.',
+                              ? tr('An agent will join and reply in real-time.')
+                              : tr('We\'ll email you a response within a few hours.'),
                           style: AppTextStyles.bodySm
                               .copyWith(color: AppPalette.of(context).gray600),
                         ),
@@ -160,7 +165,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
             const SizedBox(height: 24),
 
             // Category
-            Text('CATEGORY',
+            Text(AppLocalizations.of(context).uiCategory,
                 style: AppTextStyles.labelXs.copyWith(
                     color: AppPalette.of(context).gray400,
                     fontWeight: FontWeight.w800,
@@ -177,7 +182,9 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: selected ? AppColors.primary : AppColors.white,
+                      color: selected
+                          ? AppColors.primary
+                          : AppPalette.of(context).white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                           color: selected
@@ -206,7 +213,7 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
 
             // Subject (optional for live chat)
             if (!_isLiveChat) ...[
-              Text('SUBJECT',
+              Text(AppLocalizations.of(context).uiSubject,
                   style: AppTextStyles.labelXs.copyWith(
                       color: AppPalette.of(context).gray400,
                       fontWeight: FontWeight.w800,
@@ -214,13 +221,13 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
               const SizedBox(height: 8),
               AppTextField(
                   controller: _subjectCtrl,
-                  hint: 'Brief summary of your issue'),
+                  hint: AppLocalizations.of(context).uiBriefSummaryOfYourIssue),
               const SizedBox(height: 16),
             ],
 
             // Description
             Text(
-              _isLiveChat ? 'WHAT DO YOU NEED HELP WITH?' : 'DESCRIPTION',
+              _isLiveChat ? tr('WHAT DO YOU NEED HELP WITH?') : 'DESCRIPTION',
               style: AppTextStyles.labelXs.copyWith(
                   color: AppPalette.of(context).gray400,
                   fontWeight: FontWeight.w800,
@@ -230,8 +237,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
             AppTextField(
               controller: _descCtrl,
               hint: _isLiveChat
-                  ? 'Describe your issue and an agent will join shortly…'
-                  : 'Describe your issue in detail…',
+                  ? tr('Describe your issue and an agent will join shortly…')
+                  : tr('Describe your issue in detail…'),
               maxLines: _isLiveChat ? 4 : 5,
             ),
             const SizedBox(height: 32),
@@ -251,8 +258,8 @@ class _CreateTicketScreenState extends ConsumerState<CreateTicketScreen> {
                         size: 20),
                 label: Text(
                   isSending
-                      ? (_isLiveChat ? 'Connecting…' : 'Submitting…')
-                      : (_isLiveChat ? 'Start Chat' : 'Submit Ticket'),
+                      ? (_isLiveChat ? tr('Connecting…') : tr('Submitting…'))
+                      : (_isLiveChat ? tr('Start Chat') : tr('Submit Ticket')),
                   style: AppTextStyles.labelMd.copyWith(
                       color: AppColors.white, fontWeight: FontWeight.w800),
                 ),

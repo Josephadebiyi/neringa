@@ -1,3 +1,4 @@
+import '../../../l10n/runtime_tr.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../shared/utils/status_formatter.dart';
@@ -62,9 +63,9 @@ class KycService {
   /// Get KYC status string for display
   static String getStatusLabel(String? status) {
     final label = formatFrontendStatus(status);
-    if (label == 'Verified') return 'Verified';
-    if (label == 'Pending') return 'Verification Pending';
-    if (label == 'Rejected') return 'Verification Not Approved';
-    return label;
+    if (label == 'Verified') return tr('Verified');
+    if (label == 'Pending') return tr('Verification Pending');
+    if (label == 'Rejected') return tr('Verification Not Approved');
+    return tr(label);
   }
 }

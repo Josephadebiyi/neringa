@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/country_flag.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -38,9 +40,9 @@ class HomeHeroHeader extends StatelessWidget {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return tr('Good morning');
+    if (hour < 17) return tr('Good afternoon');
+    return tr('Good evening');
   }
 
   @override
@@ -63,7 +65,8 @@ class HomeHeroHeader extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppPalette.of(context).primarySoft,
-                    border: Border.all(color: AppColors.white, width: 2),
+                    border: Border.all(
+                        color: AppPalette.of(context).white, width: 2),
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.primary.withValues(alpha: 0.12),
@@ -119,12 +122,11 @@ class HomeHeroHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Trip search: From → To, date, search.
+          // Trip search: From, To, Date stacked, then Search.
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             decoration: BoxDecoration(
               color: AppPalette.of(context).white,
-              borderRadius: BorderRadius.circular(26),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.primary.withValues(alpha: 0.08),
@@ -135,57 +137,111 @@ class HomeHeroHeader extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Row(
+                Stack(
                   children: [
-                    Expanded(
-                      child: Column(
-                        children: [
-                          _SearchField(
-                              icon: Icons.radio_button_checked_rounded,
-                              label: 'From',
-                              value: from,
-                              hint: 'Pickup city',
-                              onTap: onFromTap),
-                          const Divider(height: 16),
-                          _SearchField(
-                              icon: Icons.location_on_rounded,
-                              label: 'To',
-                              value: to,
-                              hint: 'Destination',
-                              onTap: onToTap),
-                        ],
+                    Column(
+                      children: [
+                        _SearchField(
+                          icon: Icons.radio_button_checked_rounded,
+                          label: AppLocalizations.of(context).fromLabel,
+                          value: from,
+                          hint: AppLocalizations.of(context).enterPickupCity,
+                          onTap: onFromTap,
+                          rightInset: 64,
+                        ),
+                        Divider(
+                            height: 1,
+                            indent: 56,
+                            endIndent: 64,
+                            color: AppPalette.of(context).gray100),
+                        _SearchField(
+                          icon: Icons.location_on_rounded,
+                          label: AppLocalizations.of(context).toLabel,
+                          value: to,
+                          hint: AppLocalizations.of(context).enterDestination,
+                          onTap: onToTap,
+                          rightInset: 64,
+                        ),
+                      ],
+                    ),
+                    // Swap sits on the seam between From and To.
+                    Positioned(
+                      right: 16,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: Semantics(
+                          button: true,
+                          label: AppLocalizations.of(context).uiSwapCities,
+                          child: GestureDetector(
+                            onTap: onSwap,
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: AppPalette.of(context).primarySoft,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: AppPalette.of(context).white,
+                                    width: 3),
+                              ),
+                              child: Icon(Icons.swap_vert_rounded,
+                                  color: AppColors.primary, size: 20),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    IconButton(
-                        tooltip: 'Swap cities',
-                        onPressed: onSwap,
-                        icon: Icon(Icons.swap_vert_rounded,
-                            color: AppPalette.of(context).primary)),
                   ],
                 ),
-                Divider(height: 14, color: AppPalette.of(context).gray100),
+                Divider(
+                    height: 1,
+                    indent: 56,
+                    endIndent: 18,
+                    color: AppPalette.of(context).gray100),
                 _SearchField(
                   icon: Icons.calendar_today_rounded,
-                  label: 'Date',
+                  label: AppLocalizations.of(context).uiDate,
                   value: date,
-                  hint: 'Any date',
+                  hint: AppLocalizations.of(context).anyDate,
                   onTap: onDateTap,
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton.icon(
-                      onPressed: onSearch,
-                      style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: AppColors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18))),
-                      icon: const Icon(Icons.route_rounded, size: 20),
-                      label: const Text('Find a Route',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w800))),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                  child: Semantics(
+                    button: true,
+                    label: AppLocalizations.of(context).uiFindARoute,
+                    child: GestureDetector(
+                      onTap: onSearch,
+                      child: Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [AppColors.primaryLight, AppColors.primary],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search_rounded,
+                                color: Colors.white, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              AppLocalizations.of(context).uiFindARoute,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -240,7 +296,8 @@ class _RoundIconButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.error,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.white, width: 1.5),
+                  border: Border.all(
+                      color: AppPalette.of(context).white, width: 1.5),
                 ),
               ),
             ),
@@ -274,6 +331,7 @@ class _SearchField extends StatelessWidget {
     required this.value,
     required this.hint,
     required this.onTap,
+    this.rightInset = 18,
   });
 
   final IconData icon;
@@ -282,6 +340,9 @@ class _SearchField extends StatelessWidget {
   final String hint;
   final VoidCallback onTap;
 
+  /// Extra right padding so text never runs under the swap button.
+  final double rightInset;
+
   @override
   Widget build(BuildContext context) {
     final hasValue = value.trim().isNotEmpty;
@@ -289,14 +350,21 @@ class _SearchField extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: EdgeInsets.fromLTRB(18, 12, rightInset, 12),
         child: Row(
           children: [
-            if (CountryFlag.codeForLocation(value).isNotEmpty)
-              CountryFlag(code: CountryFlag.codeForLocation(value), size: 24)
-            else
-              Icon(icon, size: 18, color: AppPalette.of(context).primary),
-            const SizedBox(width: 8),
+            // Fixed slot so text lines up whether a flag or icon shows.
+            SizedBox(
+              width: 24,
+              child: Center(
+                child: CountryFlag.codeForLocation(value).isNotEmpty
+                    ? CountryFlag(
+                        code: CountryFlag.codeForLocation(value), size: 22)
+                    : Icon(icon,
+                        size: 20, color: AppPalette.of(context).primary),
+              ),
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

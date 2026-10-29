@@ -1,3 +1,5 @@
+import { previewAdditionalWeight } from './services/additionalWeightQuote.js';
+import { createStripePaymentIntent, getStripeCheckoutConfig, isStripeCheckoutEnabled, stripeConnectWebhook } from './controllers/StripeController.js';
 import express from 'express';
 import cors from 'cors';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
@@ -62,6 +64,13 @@ app.use((_req, res, next) => {
   const sendJson = res.json.bind(res);
   res.json = (payload) => {
     if (res.statusCode >= 500) {
+      const insuranceFailures = {
+        INSURANCE_ACTIVATION_FAILED: 'Your insurance details were saved, but insurance activation failed. Please contact support with your shipment tracking number.',
+        INSURANCE_DETAILS_SAVE_FAILED: 'Your insurance details could not be saved or verified. Please try again or contact support with your shipment tracking number.',
+      };
+      if (Object.hasOwn(insuranceFailures, payload?.code || '')) {
+        return sendJson({success: false, code: payload.code, detailsSaved: payload.detailsSaved === true, message: insuranceFailures[payload.code]});
+      }
       return sendJson({
         success: false,
         message: 'Something went wrong. Please try again.',
@@ -346,7 +355,7 @@ app.use(express.json({
       '/api/bago/kyc/dojah/webhook',
       '/api/bago/kyc/prembly/webhook',
     ]);
-    if (rawBodyRoutes.has(req.originalUrl)) {
+    if (rawBodyRoutes.has(req.originalUrl.split('?')[0].replace(/\/$/, ''))) {
       req.rawBody = buf;
     }
   },
@@ -842,11 +851,11 @@ schema('/api/payouts/flutterwave/withdraw', {
   max: { amount: 20, currency: 3, otp: 12 },
 });
 schema('/api/payments/create-intent', {
-  allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted'],
+  allowed: ['amount', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId', 'termsAccepted', 'insurance', 'requestId', 'additionalKg'],
   required: ['amount', 'currency'],
-  strings: ['currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId'],
-  booleans: ['termsAccepted'],
-  stringOrNumbers: ['amount'],
+  strings: ['requestId', 'currency', 'countryCode', 'shipmentId', 'deliveryId', 'paymentMethodId', 'paymentMethodType', 'packageId', 'tripId', 'travelerId'],
+  booleans: ['termsAccepted', 'insurance'],
+  stringOrNumbers: ['amount', 'additionalKg'],
   max: { amount: 20, currency: 3, countryCode: 2, shipmentId: 80, deliveryId: 80, paymentMethodId: 120, paymentMethodType: 20, packageId: 80, tripId: 80, travelerId: 80 },
 });
 schema('/api/payments/bizum-checkout', {
@@ -1051,6 +1060,7 @@ app.post('/api/currency/quote', getPaymentQuote);
 // Pricing contains no account-private data. Keeping this public lets search
 // results use the exact same live FX and fee calculation as checkout.
 app.post('/api/checkout/shipment-preview', previewShipmentCheckout);
+app.post('/api/checkout/additional-weight-preview', isAuthenticated, previewAdditionalWeight);
 
 // ✅ Flutterwave — sole active payment/payout provider. Endpoint paths match
 // what the mobile (api_constants.dart) and web (PaymentCheckout.jsx/Earnings.jsx/
@@ -1084,7 +1094,9 @@ app.get('/api/payments/cards', isAuthenticated, (_req, res) => res.json({
 app.post('/api/payments/cards/set-default', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.delete('/api/payments/cards/:paymentMethodId', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.get('/api/payments/methods', disabledPaymentProvider('Stripe'));
-app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
+app.post('/api/payments/create-intent', isAuthenticated, requireKycVerification, (req, res) => (
+  isStripeCheckoutEnabled() ? createStripePaymentIntent(req, res) : disabledPaymentProvider('Stripe')(req, res)
+));
 app.post('/api/payments/bizum-checkout', isAuthenticated, requireKycVerification, disabledPaymentProvider('Stripe'));
 app.get('/api/payments/bizum-checkout/:sessionId', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.get('/api/payments/bizum-return', (_req, res) => {
@@ -1098,15 +1110,11 @@ app.post('/api/escrow/cancel', isAuthenticated, disabledPaymentProvider('Stripe'
 app.post('/api/refunds/issue', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.get('/api/refunds/status/:shipmentId', isAuthenticated, disabledPaymentProvider('Stripe'));
 app.post('/api/payouts/connect/webhook', disabledPaymentProvider('Stripe'));
-app.post('/api/webhooks/stripe', disabledPaymentProvider('Stripe'));
+app.post('/api/webhooks/stripe', (req, res) => isStripeCheckoutEnabled()
+  ? stripeConnectWebhook(req, res) : disabledPaymentProvider('Stripe')(req, res));
 
 // ✅ Shared config
-app.get('/api/config/stripe', (_req, res) => {
-  return res.status(410).json({
-    success: false,
-    message: 'Stripe is disabled. Bago checkout runs on Flutterwave.',
-  });
-});
+app.get('/api/config/stripe', getStripeCheckoutConfig);
 
 app.get('/api/config/pricing-config', async (_req, res) => {
   try {

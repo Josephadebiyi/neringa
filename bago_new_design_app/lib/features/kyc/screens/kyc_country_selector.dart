@@ -1,3 +1,4 @@
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +42,8 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
           color: AppPalette.of(context).black,
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Identity Verification', style: AppTextStyles.h3),
+        title: Text(AppLocalizations.of(context).identityVerification,
+            style: AppTextStyles.h3),
       ),
       body: Column(
         children: [
@@ -68,12 +70,15 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Data Protection & Consent',
+                              Text(
+                                  AppLocalizations.of(context)
+                                      .uiDataProtectionConsent,
                                   style: AppTextStyles.bodyMd
                                       .copyWith(fontWeight: FontWeight.w700)),
                               const SizedBox(height: 6),
                               Text(
-                                'To verify your identity we collect and process your personal data including government-issued ID documents and biometric information. This is required by applicable law and our platform terms.',
+                                AppLocalizations.of(context)
+                                    .uiToVerifyYourIdentityWeCollect,
                                 style: AppTextStyles.bodySm.copyWith(
                                     color: AppPalette.of(context).gray500,
                                     height: 1.5),
@@ -86,7 +91,7 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
                   ),
                   const SizedBox(height: 28),
 
-                  Text('What we collect',
+                  Text(AppLocalizations.of(context).uiWhatWeCollect,
                       style: AppTextStyles.bodyMd
                           .copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
@@ -115,12 +120,12 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
                     ),
                   const SizedBox(height: 24),
 
-                  Text('How we use it',
+                  Text(AppLocalizations.of(context).uiHowWeUseIt,
                       style: AppTextStyles.bodyMd
                           .copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   Text(
-                    'Your data is processed solely to verify your identity and comply with anti-money-laundering (AML) and know-your-customer (KYC) regulations. It is not sold to third parties.',
+                    AppLocalizations.of(context).uiYourDataIsProcessedSolelyTo,
                     style: AppTextStyles.bodySm.copyWith(
                         color: AppPalette.of(context).gray500, height: 1.5),
                   ),
@@ -134,9 +139,12 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
                         style: AppTextStyles.bodySm
                             .copyWith(color: AppPalette.of(context).gray500),
                         children: [
-                          const TextSpan(text: 'I have read and agree to the '),
                           TextSpan(
-                            text: 'Terms & Conditions',
+                              text: AppLocalizations.of(context)
+                                  .uiIHaveReadAndAgreeTo),
+                          TextSpan(
+                            text:
+                                AppLocalizations.of(context).uiTermsConditions,
                             style: AppTextStyles.bodySm.copyWith(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600),
@@ -157,11 +165,11 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
                         style: AppTextStyles.bodySm
                             .copyWith(color: AppPalette.of(context).gray500),
                         children: [
-                          const TextSpan(
-                              text:
-                                  'I consent to the collection and processing of my personal data as described in the '),
                           TextSpan(
-                            text: 'Privacy Policy',
+                              text: AppLocalizations.of(context)
+                                  .uiIConsentToTheCollectionAnd),
+                          TextSpan(
+                            text: AppLocalizations.of(context).privacyPolicy,
                             style: AppTextStyles.bodySm.copyWith(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600),
@@ -169,9 +177,9 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
                               ..onTap = () => launchUrl(
                                   Uri.parse('https://bago.app/privacy')),
                           ),
-                          const TextSpan(
-                              text:
-                                  ', including processing by our identity verification partner.'),
+                          TextSpan(
+                              text: AppLocalizations.of(context)
+                                  .uiIncludingProcessingByOurIdentityVerification),
                         ],
                       ),
                     ),
@@ -185,7 +193,7 @@ class _KycCountrySelectorState extends State<KycCountrySelector> {
             padding: EdgeInsets.fromLTRB(
                 24, 8, 24, MediaQuery.of(context).padding.bottom + 16),
             child: AppButton(
-              label: 'I agree — Start Verification',
+              label: AppLocalizations.of(context).uiIAgreeStartVerification,
               onPressed: canContinue ? _proceed : null,
             ),
           ),

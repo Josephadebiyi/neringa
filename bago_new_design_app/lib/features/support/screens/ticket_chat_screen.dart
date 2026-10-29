@@ -1,3 +1,5 @@
+import '../../../l10n/runtime_tr.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -106,7 +108,7 @@ class _TicketChatScreenState extends ConsumerState<TicketChatScreen> {
         ),
         title: Column(
           children: [
-            Text(ticket?.subject ?? 'Support Chat',
+            Text(ticket?.subject ?? tr('Support Chat'),
                 style: AppTextStyles.labelMd.copyWith(
                     fontWeight: FontWeight.w800,
                     color: AppPalette.of(context).black),
@@ -120,7 +122,8 @@ class _TicketChatScreenState extends ConsumerState<TicketChatScreen> {
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
           : ticket == null
-              ? const Center(child: Text('Ticket not found'))
+              ? Center(
+                  child: Text(AppLocalizations.of(context).uiTicketNotFound))
               : Column(
                   children: [
                     _ConversationSummary(ticket: ticket),
@@ -234,7 +237,7 @@ class _ConversationSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Conversation with Bago support',
+                  AppLocalizations.of(context).uiConversationWithBagoSupport,
                   style: AppTextStyles.labelMd.copyWith(
                     fontWeight: FontWeight.w800,
                     color: AppPalette.of(context).black,
@@ -242,7 +245,8 @@ class _ConversationSummary extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Category: ${ticket.category}  •  Priority: ${ticket.priority}',
+                  AppLocalizations.of(context)
+                      .uiFCategoryPriority(ticket.category, ticket.priority),
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray500),
                 ),
@@ -291,10 +295,10 @@ class _EmptyChat extends StatelessWidget {
             Icon(Icons.support_agent_rounded,
                 color: AppPalette.of(context).primary, size: 48),
             const SizedBox(height: 16),
-            Text('Waiting for an agent',
+            Text(AppLocalizations.of(context).uiWaitingForAnAgent,
                 style: AppTextStyles.h4.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
-            Text('An agent will join shortly. You can send a message below.',
+            Text(AppLocalizations.of(context).uiAnAgentWillJoinShortlyYou,
                 style: AppTextStyles.bodySm
                     .copyWith(color: AppPalette.of(context).gray500),
                 textAlign: TextAlign.center),
@@ -308,7 +312,7 @@ class _EmptyChat extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Your issue:',
+                    Text(AppLocalizations.of(context).uiYourIssue,
                         style: AppTextStyles.labelSm.copyWith(
                             color: AppPalette.of(context).gray500,
                             fontWeight: FontWeight.w700)),
@@ -347,7 +351,7 @@ class _MessageBubble extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: isAssistant
-                      ? const Color(0xFFF4EEFF)
+                      ? AppPalette.of(context).tint(const Color(0xFFF4EEFF))
                       : AppPalette.of(context).primarySoft,
                   shape: BoxShape.circle,
                 ),
@@ -369,8 +373,9 @@ class _MessageBubble extends StatelessWidget {
                   color: isUser
                       ? AppColors.primary
                       : isAssistant
-                          ? const Color(0xFFF8F4FF)
-                          : const Color(0xFFFDFDFF),
+                          ? AppPalette.of(context).tint(const Color(0xFFF8F4FF))
+                          : AppPalette.of(context)
+                              .tint(const Color(0xFFFDFDFF)),
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(18),
                     topRight: const Radius.circular(18),
@@ -442,7 +447,7 @@ String _supportMetaLabel(SupportTicket ticket) {
     return 'Human reply due by ${DateFormat('MMM d, h:mm a').format(due.toLocal())}.';
   }
 
-  return 'Bago Assistant is active.';
+  return tr('Bago Assistant is active.');
 }
 
 class _DateDivider extends StatelessWidget {
@@ -454,7 +459,7 @@ class _DateDivider extends StatelessWidget {
     final now = DateTime.now();
     final label =
         date.year == now.year && date.month == now.month && date.day == now.day
-            ? 'Today'
+            ? tr('Today')
             : DateFormat('MMM d, y').format(date);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -481,7 +486,7 @@ class _ClosedBanner extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       color: AppPalette.of(context).gray100,
       child: Text(
-        'This conversation has been closed. Start a new ticket if you still need help.',
+        AppLocalizations.of(context).uiThisConversationHasBeenClosedStart,
         style: AppTextStyles.bodyMd
             .copyWith(color: AppPalette.of(context).gray500),
         textAlign: TextAlign.center,
@@ -540,7 +545,7 @@ class _InputBar extends StatelessWidget {
                   textInputAction: TextInputAction.newline,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    hintText: 'Reply to support…',
+                    hintText: AppLocalizations.of(context).uiReplyToSupport,
                     hintStyle: AppTextStyles.bodyMd
                         .copyWith(color: AppPalette.of(context).gray400),
                     contentPadding: const EdgeInsets.symmetric(
