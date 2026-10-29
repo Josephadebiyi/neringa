@@ -1890,6 +1890,12 @@ export function getStripeCheckoutConfig(_req, res) {
   });
 }
 
+// Current state of a PaymentIntent, for the paid-booking recovery job.
+export async function retrieveStripePaymentIntent(paymentIntentId) {
+  if (!isStripeCheckoutEnabled() || !/^pi_[A-Za-z0-9]+$/.test(String(paymentIntentId || ''))) return null;
+  return requireStripe().paymentIntents.retrieve(paymentIntentId);
+}
+
 // Server-side check a booking must pass before it is trusted as paid via
 // Stripe — mirrors verifyFlutterwaveTransactionServerSide.
 export async function verifyStripePaymentIntentServerSide(paymentIntentId, expected = {}) {

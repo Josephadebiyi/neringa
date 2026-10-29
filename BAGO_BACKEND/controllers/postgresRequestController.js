@@ -411,16 +411,51 @@ export async function applyPaidAdditionalKg({
   return updatedRequestId ? getShipmentRequestById(updatedRequestId) : null;
 }
 
+// One lock per paid package (or per paid additional-weight payment), shared by
+// the app, the website, provider webhooks and the recovery job, so a paid
+// booking is only ever created once.
+function paidBookingLockKey(body = {}) {
+  return body.requestId
+    ? `paid-addkg:${body.requestId}:${body.paymentReference}`
+    : `paid-pkg:${body.packageId}`;
+}
+
 export async function RequestPackage(req, res) {
-  const reference = req.body?.paymentReference;
-  if (String(req.body?.paymentProvider || '').toLowerCase() === 'stripe' && /^pi_[A-Za-z0-9]+$/.test(String(reference || ''))) {
+  const provider = String(req.body?.paymentProvider || 'flutterwave').toLowerCase();
+  if (req.body?.paymentReference && ['stripe', 'flutterwave'].includes(provider)) {
     return withTransaction(async client => {
-      // Serialize webhook and app finalization for the same captured payment.
-      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [reference]);
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [paidBookingLockKey(req.body)]);
       return handlePackageRequest(req, res);
     });
   }
   return handlePackageRequest(req, res);
+}
+
+// Creates the booking for a payment the server has verified but nobody
+// finalised (app closed, browser dismissed, redirect lost). Returns
+// {status: 'created' | 'exists' | 'failed', code, result}.
+export async function finalizePaidBooking(senderId, body) {
+  return withTransaction(async client => {
+    await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [paidBookingLockKey(body)]);
+    if (!body.requestId) {
+      const existing = await client.query(
+        `select id from public.shipment_requests
+         where sender_id = $1 and package_id = $2 and status::text not in ('cancelled', 'rejected')
+         limit 1`,
+        [senderId, body.packageId],
+      );
+      if (existing.rows.length) return { status: 'exists', requestId: existing.rows[0].id };
+    }
+    let code = 200;
+    let result;
+    const response = {
+      status(value) { code = value; return this; },
+      json(value) { result = value; return this; },
+    };
+    await handlePackageRequest({ user: { id: senderId }, app: { get: () => null }, headers: {}, ip: null, body: { ...body, termsAccepted: true } }, response);
+    const created = code < 400 && result?.success !== false && result?.paymentPending !== true;
+    return { status: created ? 'created' : 'failed', code, result };
+  });
 }
 
 async function handlePackageRequest(req, res) {
@@ -589,6 +624,18 @@ async function handlePackageRequest(req, res) {
         `,
         [senderId, travelerId, packageId, tripId, paymentReference],
       );
+      // A paid package has one booking. If the server's recovery already created
+      // it under another reference, return that booking instead of a second one.
+      if (!existingRequest && !requestId) {
+        existingRequest = await queryOne(
+          `select id from public.shipment_requests
+           where sender_id = $1 and package_id = $2 and trip_id = $3
+             and status::text not in ('cancelled', 'rejected')
+             and coalesce(payment_status, '') in ('paid', 'paid_escrow', 'processing_escrow', 'succeeded', 'completed')
+           order by created_at desc limit 1`,
+          [senderId, packageId, tripId],
+        );
+      }
     }
 
     const tripDoc = await getTripById(tripId);

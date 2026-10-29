@@ -15,7 +15,7 @@ export async function completeStripeBooking(intent, requestPackage) {
     status(value) { code = value; return this; },
     json(value) { result = value; return this; },
   };
-  await requestPackage({user: {id: metadata.senderId}, app: {get: () => null}, body: {
+  await requestPackage({user: {id: metadata.senderId}, app: {get: () => null}, headers: {}, ip: null, body: {
     packageId: metadata.packageId, tripId: metadata.tripId, travelerId: metadata.travelerId,
     amount: quote.totalAmount, currency: quote.senderCurrency,
     ...(metadata.additionalRequestId && {requestId: metadata.additionalRequestId, additionalKg: Number(metadata.additionalKg)}),

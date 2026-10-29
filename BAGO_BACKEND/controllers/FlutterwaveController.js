@@ -361,9 +361,16 @@ export const flutterwaveWebhook = async (req, res) => {
     ).catch((e) => console.warn('Flutterwave webhook event log failed:', e.message));
 
     if (eventType === 'charge.completed' && event.data?.status === 'successful' && transactionId) {
-      await verifyFlutterwaveTransactionServerSide(transactionId).catch((e) =>
-        console.warn('Flutterwave webhook verification follow-up failed:', e.message),
-      );
+      const verified = await verifyFlutterwaveTransactionServerSide(transactionId).catch((e) => {
+        console.warn('Flutterwave webhook verification follow-up failed:', e.message);
+        return null;
+      });
+      // Create the booking now if the payer never made it back to the app or site.
+      if (verified?.success && verified.data?.txRef) {
+        const { recoverFlutterwavePaymentByReference } = await import('../services/paidBookingRecovery.js');
+        await recoverFlutterwavePaymentByReference(verified.data.txRef).catch((e) =>
+          console.warn('Flutterwave webhook booking recovery failed:', e.message));
+      }
     }
 
     if (eventType === 'transfer.completed' && event.data?.reference) {

@@ -136,6 +136,23 @@ export async function verifyTransaction(transactionId) {
 }
 
 /**
+ * Looks a payment up by Bago's own tx_ref, for payments whose webhook and
+ * redirect never reached us (so we never learned the numeric transaction id).
+ */
+export async function verifyTransactionByReference(txRef) {
+  try {
+    const response = await client().get('/transactions/verify_by_reference', { params: { tx_ref: txRef } });
+    const data = response.data?.data;
+    if (response.data?.status === 'success' && data && ['successful', 'success'].includes(String(data.status).toLowerCase())) {
+      return { success: true, data: { id: data.id, txRef: data.tx_ref, amount: Number(data.amount || 0), currency: data.currency, status: data.status } };
+    }
+    return { success: false, message: response.data?.message || 'Transaction was not successful.', data };
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || error.message || 'Verification request failed' };
+  }
+}
+
+/**
  * Refund a transaction (full or partial). Docs: POST /v3/transactions/:id/refund
  * Takes Flutterwave's numeric transaction_id, not tx_ref.
  */
