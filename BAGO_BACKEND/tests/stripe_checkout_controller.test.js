@@ -1,9 +1,10 @@
 import {beforeEach, afterEach, describe, expect, it, vi} from 'vitest';
-const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn(), session: vi.fn()}));
+const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn(), session: vi.fn(), bookable: vi.fn()}));
 vi.mock('../lib/postgres/db.js', () => ({query: m.query, queryOne: m.queryOne, withTransaction: vi.fn()}));
 vi.mock('../controllers/SenderOnboardingController.js', () => ({checkTermsAccepted: vi.fn().mockResolvedValue(true)}));
 vi.mock('../lib/postgres/tripCapacity.js', () => ({buildTripCapacitySnapshot: vi.fn().mockResolvedValue({availableKg: 20})}));
 vi.mock('../controllers/CurrencyController.js', () => ({buildShipmentCheckoutPreview: m.quote}));
+vi.mock('../services/tripBookability.js', () => ({tripBookingProblem: m.bookable}));
 vi.mock('../services/resendClient.js', () => ({resend: null}));
 vi.mock('../services/ipGeolocation.js', () => ({getClientIP: () => '127.0.0.1', getLocationFromIP: vi.fn().mockResolvedValue(null)}));
 vi.mock('../services/emailNotifications.js', () => ({sendWithdrawalProcessedEmail: vi.fn(), sendWithdrawalSubmittedEmail: vi.fn()}));
@@ -26,6 +27,7 @@ beforeEach(() => {
   m.query.mockResolvedValue({rows: []});
   m.queryOne.mockImplementation(async sql => sql.includes('select p.*') ? {id: 'sender', preferred_currency: 'EUR', phone_verified: true, stripe_customer_id: 'cus_test'} : {id: 'pkg', package_weight: 2, declared_value: 50});
   m.quote.mockResolvedValue(quote);
+  m.bookable.mockResolvedValue(null);
   m.create.mockResolvedValue({id: 'pi_mock', status: 'requires_payment_method', client_secret: 'pi_mock_secret_test'});
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -44,6 +46,11 @@ describe('Stripe card and Apple Pay initialization', () => {
   it('offers redirect wallets like Revolut Pay to app builds that support them', async () => {
     await createStripePaymentIntent({...req(), body: {...req().body, supportsRedirects: true}}, res());
     expect(m.create.mock.calls[0][0].automatic_payment_methods).toEqual({enabled: true, allow_redirects: 'always'});
+  });
+  it('refuses to charge for a trip that can no longer take the package', async () => {
+    m.bookable.mockResolvedValue({status: 409, body: {success: false, code: 'TRIP_NOT_BOOKABLE', message: 'This trip is no longer available for booking.'}});
+    const response = res(); await createStripePaymentIntent(req(), response);
+    expect(response.code).toBe(409); expect(response.data.code).toBe('TRIP_NOT_BOOKABLE'); expect(m.create).not.toHaveBeenCalled();
   });
   it('blocks a price that omits commission before charging', async () => {
     const response = res(); await createStripePaymentIntent(req(99), response);

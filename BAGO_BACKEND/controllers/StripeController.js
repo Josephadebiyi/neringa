@@ -5,6 +5,7 @@ import { completeStripeBooking } from '../services/stripeBookingCompletion.js';
 import { buildShipmentCheckoutPreview } from './CurrencyController.js';
 import { encodeStripeQuote, verifyStripeBookingIntent } from '../services/stripeCheckoutRules.js';
 import { acceptQuotedAmount } from '../services/checkoutPriceDrift.js';
+import { tripBookingProblem } from '../services/tripBookability.js';
 import Stripe from 'stripe';
 
 import { query, queryOne, withTransaction } from '../lib/postgres/db.js';
@@ -1000,6 +1001,10 @@ async function validateStripeBooking(req, profile) {
   );
   if (!tripRow) {
     return reject(404, { success: false, message: 'Trip not found or not owned by traveler.' });
+  }
+  if (!additionalRequestId) {
+    const problem = await tripBookingProblem({ tripId, travelerId, packageWeight: packageRow.package_weight });
+    if (problem) return reject(problem.status, problem.body);
   }
   const additionalQuote = additionalRequestId
     ? await buildAdditionalWeightQuote({requestId: additionalRequestId, senderId: profile.id, additionalKg, currency})

@@ -1,5 +1,6 @@
 import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
 import { acceptQuotedAmount } from '../services/checkoutPriceDrift.js';
+import { tripBookingProblem } from '../services/tripBookability.js';
 import { rememberPackageCheckout } from '../lib/postgres/shipping.js';
 import {
   MANUAL_PAYOUT_PROVIDER, isManualPayoutCurrency, isValidBic, isValidIban, normalizeBic, normalizeIban,
@@ -180,6 +181,8 @@ export const initializeFlutterwavePayment = async (req, res, next) => {
       if (!packageRow) {
         return res.status(404).json({ success: false, message: 'Package not found.' });
       }
+      const problem = await tripBookingProblem({ tripId, packageWeight: packageRow.package_weight });
+      if (problem) return res.status(problem.status).json(problem.body);
       const freshPreview = await buildShipmentCheckoutPreview({
         tripId,
         weight: packageRow.package_weight,
