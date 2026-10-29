@@ -1,3 +1,4 @@
+import { refundPaidShipmentRequest } from '../services/shipmentRefundService.js';
 import { buildAdditionalWeightQuote } from '../services/additionalWeightQuote.js';
 import crypto from 'crypto';
 import { completeStripeBooking } from '../services/stripeBookingCompletion.js';
@@ -1459,33 +1460,9 @@ export async function cancelStripeEscrow(req, res) {
       return res.status(400).json({ success: false, message: 'Payment already released. Use the refund endpoint instead.' });
     }
 
-    const paymentIntent = await requireStripe().paymentIntents.retrieve(request.stripe_payment_intent_id);
-    let refund = null;
-    if (paymentIntent.status === 'requires_capture') {
-      await requireStripe().paymentIntents.cancel(request.stripe_payment_intent_id);
-    } else {
-      refund = await requireStripe().refunds.create({
-        payment_intent: paymentIntent.id,
-        reason: 'requested_by_customer',
-        metadata: { shipmentId, refundReason: 'cancelled_before_release' },
-      });
-    }
-    await query(
-      `
-        update public.shipment_requests
-        set payment_status = $3,
-            cancelled_at = timezone('utc', now()),
-            payment_info = coalesce(payment_info, '{}'::jsonb) || $2::jsonb,
-            updated_at = timezone('utc', now())
-        where id = $1
-      `,
-      [
-        shipmentId,
-        { method: 'stripe', gateway: 'stripe', status: refund ? 'refunded' : 'cancelled', refundId: refund?.id },
-        refund ? 'refunded' : 'cancelled',
-      ],
-    );
-    return res.json({ success: true, message: refund ? 'Payment refunded.' : 'Authorization released.', refundId: refund?.id });
+    const refund = await refundPaidShipmentRequest({ id: shipmentId }, { reason: 'sender_cancelled' });
+    return res.json({ success: true, refundInfo: refund, refundId: refund?.reference,
+      message: refund?.status === 'succeeded' ? 'Payment refunded or authorization released.' : 'Refund is being processed.' });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
@@ -1494,89 +1471,19 @@ export async function cancelStripeEscrow(req, res) {
 export async function issueStripeRefund(req, res) {
   try {
     const shipmentId = req.body?.shipmentId || req.body?.deliveryId;
-    const type = String(req.body?.type || 'full').toLowerCase();
-    const reason = String(req.body?.reason || 'requested_by_customer').toLowerCase();
-    const partialAmount = req.body?.partialAmount ? toMinorAmount(req.body.partialAmount) : null;
-    const senderId = userIdFromReq(req);
-
-    const request = await queryOne(`select * from public.shipment_requests where id = $1`, [shipmentId]);
+    const request = await queryOne('select * from public.shipment_requests where id = $1', [shipmentId]);
     if (!request) return res.status(404).json({ success: false, message: 'Shipment not found.' });
-    if (request.sender_id !== senderId) return res.status(403).json({ success: false, message: 'Only the sender can request this refund.' });
+    if (request.sender_id !== userIdFromReq(req)) return res.status(403).json({ success: false, message: 'Only the sender can request this refund.' });
     if (!request.stripe_payment_intent_id) return res.status(400).json({ success: false, message: 'No payment found for this shipment.' });
-
-    if (request.payment_status === 'authorized') {
-      await requireStripe().paymentIntents.cancel(request.stripe_payment_intent_id);
-      await query(
-        `
-          update public.shipment_requests
-          set payment_status = 'refunded',
-              refund_reason = $2,
-              refunded_at = timezone('utc', now()),
-              updated_at = timezone('utc', now())
-          where id = $1
-        `,
-        [shipmentId, reason],
-      );
-      return res.json({ success: true, method: 'authorization_cancelled' });
-    }
-
-    if (!['paid_escrow', 'processing_escrow', 'released', 'captured'].includes(request.payment_status)) {
-      return res.status(400).json({ success: false, message: 'Payment is not in a refundable state.' });
-    }
-
-    const paymentIntent = await requireStripe().paymentIntents.retrieve(request.stripe_payment_intent_id);
-    if (paymentIntent.status === 'requires_capture') {
-      await requireStripe().paymentIntents.cancel(paymentIntent.id);
-      await query(
-        `
-          update public.shipment_requests
-          set payment_status = 'refunded',
-              refund_reason = $2,
-              refunded_at = timezone('utc', now()),
-              updated_at = timezone('utc', now())
-          where id = $1
-        `,
-        [shipmentId, reason],
-      );
-      return res.json({ success: true, method: 'authorization_cancelled' });
-    }
-    const refundAmount = type === 'full' ? paymentIntent.amount_received : partialAmount;
-    if (!refundAmount || refundAmount <= 0) return res.status(400).json({ success: false, message: 'Refund amount is invalid.' });
-    const refund = await requireStripe().refunds.create({
-      payment_intent: paymentIntent.id,
-      amount: refundAmount,
-      reason: reason === 'dispute' ? 'requested_by_customer' : 'requested_by_customer',
-      metadata: { shipmentId, refundReason: reason },
+    const type = String(req.body?.type || 'full').toLowerCase();
+    if (!['full', 'partial'].includes(type)) return res.status(400).json({ success: false, message: 'Invalid refund type.' });
+    const partialAmount = type === 'partial' ? toMinorAmount(req.body?.partialAmount) : null;
+    if (type === 'partial' && (!Number.isInteger(partialAmount) || partialAmount <= 0)) return res.status(400).json({ success: false, message: 'Invalid refund amount.' });
+    const refund = await refundPaidShipmentRequest({ id: shipmentId }, {
+      reason: String(req.body?.reason || 'requested_by_customer'), partialAmount,
     });
-
-    if (request.stripe_transfer_id) {
-      const reversalAmount = type === 'full'
-        ? request.traveler_payout_amount
-        : Math.round(refundAmount * (1 - PLATFORM_FEE_PERCENT));
-      if (reversalAmount > 0) {
-        await requireStripe().transfers.createReversal(request.stripe_transfer_id, {
-          amount: reversalAmount,
-          metadata: { shipmentId, reason },
-        });
-      }
-    }
-
-    await query(
-      `
-        update public.shipment_requests
-        set payment_status = 'refunded',
-            stripe_refund_id = $2,
-            refund_amount = $3,
-            refund_reason = $4,
-            refunded_at = timezone('utc', now()),
-            payment_info = coalesce(payment_info, '{}'::jsonb) || $5::jsonb,
-            updated_at = timezone('utc', now())
-        where id = $1
-      `,
-      [shipmentId, refund.id, refundAmount, reason, { method: 'stripe', gateway: 'stripe', status: 'refunded', refundId: refund.id }],
-    );
-
-    return res.json({ success: true, refundId: refund.id, refundAmount, method: 'refunded_to_original_payment' });
+    return res.json({ success: true, refundId: refund?.reference, refundAmount: refund?.amount,
+      refundInfo: refund, method: 'refunded_to_original_payment' });
   } catch (error) {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }

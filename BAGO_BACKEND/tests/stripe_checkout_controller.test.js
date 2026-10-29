@@ -1,5 +1,6 @@
 import {beforeEach, afterEach, describe, expect, it, vi} from 'vitest';
-const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn(), ephemeral: vi.fn(), location: vi.fn()}));
+const m = vi.hoisted(() => ({query: vi.fn(), queryOne: vi.fn(), quote: vi.fn(), create: vi.fn(), retrieve: vi.fn(), signature: vi.fn(), ephemeral: vi.fn(), location: vi.fn(), shipmentRefund: vi.fn()}));
+vi.mock('../services/shipmentRefundService.js', () => ({ refundPaidShipmentRequest: m.shipmentRefund }));
 vi.mock('../lib/postgres/db.js', () => ({query: m.query, queryOne: m.queryOne, withTransaction: vi.fn()}));
 vi.mock('../lib/postgres/tripCapacity.js', () => ({buildTripCapacitySnapshot: vi.fn().mockResolvedValue({availableKg: 20})}));
 vi.mock('../controllers/CurrencyController.js', () => ({buildShipmentCheckoutPreview: m.quote}));
@@ -11,7 +12,7 @@ vi.mock('stripe', () => ({default: class Stripe {
   ephemeralKeys = {create: m.ephemeral};
   webhooks = {constructEvent: m.signature};
 }}));
-import {createStripePaymentIntent, isStripeCheckoutEnabled, stripeConnectWebhook} from '../controllers/StripeController.js';
+import {createStripePaymentIntent, isStripeCheckoutEnabled, stripeConnectWebhook, cancelStripeEscrow, issueStripeRefund} from '../controllers/StripeController.js';
 const quote = {travelerCurrency: 'USD', senderCurrency: 'EUR', travelerPayout: 100,
   convertedTravelerPayout: 92, platformFee: 13.8, processingFee: 2, fxBuffer: 0,
   shippingAmount: 107.8, insuranceAmount: 5, totalAmount: 112.8, bagoNetRevenue: 15.8, exchangeRate: .92};
@@ -128,4 +129,16 @@ it('additional weight creates its own intent using the trip quote, not an origin
   expect(m.retrieve).not.toHaveBeenCalled();
   expect(m.quote).toHaveBeenCalledWith(expect.objectContaining({weight: 3, insurance: false}));
   expect(m.create.mock.calls[0][0].metadata).toMatchObject({additionalRequestId: 'request', additionalKg: '3', baseWeight: '2'});
+});
+
+
+describe('all Stripe refund entrypoints use the shared duplicate guard', () => {
+  it.each([cancelStripeEscrow, issueStripeRefund])('delegates the refund instead of directly calling Stripe', async handler => {
+    m.queryOne.mockResolvedValue({ id: 'shipment', sender_id: 'sender', stripe_payment_intent_id: 'pi_mock', payment_status: 'paid_escrow' });
+    m.shipmentRefund.mockResolvedValue({ status: 'pending', reference: 're_once' });
+    const response = res();
+    await handler({ user: { id: 'sender' }, body: { shipmentId: 'shipment' } }, response);
+    expect(response.code).toBe(200);
+    expect(m.shipmentRefund).toHaveBeenCalledWith({ id: 'shipment' }, expect.any(Object));
+  });
 });

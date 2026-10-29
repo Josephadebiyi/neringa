@@ -1374,7 +1374,7 @@ export async function updatePaymentStatus(req, res) {
     if (!updated) {
       return res.status(404).json({ message: 'Request not found' });
     }
-    return res.status(200).json({ success: true, data: updated, message: 'Payment status updated successfully' });
+    return res.status(200).json({ success: true, data: updated, message: 'Payment status verified by the server' });
   } catch (error) {
     if (error.code === 'UNAUTHORIZED') {
       return res.status(403).json({ success: false, message: 'You are not a party to this shipment request.' });

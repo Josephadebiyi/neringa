@@ -41,7 +41,9 @@ vi.mock('../services/myCoverService.js', () => ({ purchaseMyCoverPolicy: vi.fn()
 vi.mock('../services/myCoverPricing.js', () => ({ getRouteProtectionFee: vi.fn() }));
 vi.mock('../services/referralService.js', () => ({ applyReferralShipmentReward: vi.fn() }));
 
-import { RequestPackage } from '../controllers/postgresRequestController.js';
+import { updateShipmentRequestStatus } from '../lib/postgres/shipping.js';
+import { refundPaidShipmentRequest } from '../services/shipmentRefundService.js';
+import { RequestPackage, updateRequestStatus } from '../controllers/postgresRequestController.js';
 
 function mockRes() {
   const res = { _code: null, _body: null };
@@ -152,5 +154,27 @@ describe('RequestPackage — restricted business trip owners cannot receive new 
 
     expect(res._code).toBe(404);
     expect(mocks.getPackageById).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('traveller rejection refunds', () => {
+  it.each(['rejected', 'cancelled'])('routes %s through the shared original-processor refund service', async status => {
+    const request = { id: 'paid-request', travelerId: 'traveller', status, paymentInfo: { gateway: 'stripe', requestId: 'pi_paid' } };
+    updateShipmentRequestStatus.mockResolvedValue(request);
+    refundPaidShipmentRequest.mockReset().mockResolvedValue({ status: 'pending', provider: 'stripe' });
+    const res = mockRes();
+    await updateRequestStatus({ params: { requestId: request.id }, body: { status }, user: { id: 'traveller' } }, res);
+    expect(refundPaidShipmentRequest).toHaveBeenCalledWith(request);
+    expect(res._code).toBe(200);
+    expect(res._body.refund.provider).toBe('stripe');
+  });
+  it('reports refund failure without claiming the sender was refunded', async () => {
+    updateShipmentRequestStatus.mockResolvedValue({ id: 'paid-request', status: 'rejected' });
+    refundPaidShipmentRequest.mockReset().mockRejectedValue(new Error('processor timeout'));
+    const res = mockRes();
+    await updateRequestStatus({ params: { requestId: 'paid-request' }, body: { status: 'rejected' }, user: { id: 'traveller' } }, res);
+    expect(res._code).toBe(502);
+    expect(res._body).toMatchObject({ success: false, refundFailed: true });
   });
 });

@@ -7,7 +7,7 @@ import { generateShippingLabelPDF } from '../../services/pdfGenerator.js';
 import { refundPaidShipmentRequest } from '../../services/shipmentRefundService.js';
 import { adminHasPermission } from '../../services/supportAutomationService.js';
 
-const CANCEL_BLOCKED_STATUSES = new Set(['completed', 'cancelled', 'refund_approved']);
+const CANCEL_BLOCKED_STATUSES = new Set(['completed', 'refund_approved']);
 
 // Granular business delivery-workflow statuses (Booking Confirmed → Package
 // Received → Delivery Started → In Transit → Arrived at Hub → Out for
@@ -516,9 +516,9 @@ export const getOrderConversation = async (req, res, next) => {
 export const adminCancelRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { issueRefund, reason } = req.body;
+    const { reason } = req.body;
 
-    if (issueRefund && !adminHasPermission(req.admin, 'refunds.manage')) {
+    if (!adminHasPermission(req.admin, 'refunds.manage')) {
       return res.status(403).json({
         success: false,
         code: 'ADMIN_PERMISSION_REQUIRED',
@@ -560,24 +560,19 @@ export const adminCancelRequest = async (req, res, next) => {
 
     let refundInfo = null;
     let refundFailed = false;
-    if (issueRefund) {
-      try {
-        refundInfo = await refundPaidShipmentRequest(request, { reason: 'admin_cancelled' });
-      } catch (refundError) {
-        console.error('Admin cancelled order but refund failed:', {
-          requestId: id,
-          error: refundError.message,
-        });
-        refundFailed = true;
-      }
+    try {
+      refundInfo = await refundPaidShipmentRequest(request, { reason: 'admin_cancelled' });
+    } catch (refundError) {
+      console.error('Admin cancelled order but refund failed:', { requestId: id, error: refundError.message });
+      refundFailed = true;
     }
 
     const notificationResults = await notifyShipmentStatusChange(updated, 'cancelled', null);
 
-    return res.status(200).json({
-      success: true,
+    return res.status(refundFailed ? 502 : 200).json({
+      success: !refundFailed,
       message: refundFailed
-        ? 'Order cancelled, but the refund could not be started automatically. Please retry or contact support.'
+        ? 'Order cancelled, but the refund could not be started automatically. Contact support to reconcile the refund before retrying.'
         : 'Order cancelled successfully.',
       data: updated,
       refundInfo,
@@ -747,6 +742,10 @@ export const updateRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid shipment status' });
     }
 
+    const requiresRefund = ['rejected', 'cancelled'].includes(status);
+    if (requiresRefund && !adminHasPermission(req.admin, 'refunds.manage')) {
+      return res.status(403).json({ success: false, code: 'ADMIN_PERMISSION_REQUIRED', message: 'You do not have permission to issue refunds.' });
+    }
     const current = await queryOne(
       `SELECT id, sender_id, traveler_id, package_id, trip_id, status,
               tracking_number, movement_tracking
@@ -759,6 +758,9 @@ export const updateRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Request not found' });
     }
 
+    if (requiresRefund && CANCEL_BLOCKED_STATUSES.has(current.status)) {
+      return res.status(409).json({ success: false, message: 'This shipment cannot be rejected or cancelled. Use the dispute review process.' });
+    }
     const fields = [];
     const values = [];
     let idx = 1;
@@ -802,6 +804,15 @@ export const updateRequest = async (req, res, next) => {
       values
     );
 
+    let refundInfo = null;
+    if (requiresRefund) {
+      try {
+        refundInfo = await refundPaidShipmentRequest({ id }, { reason: status === 'rejected' ? 'admin_rejected' : 'admin_cancelled' });
+      } catch (error) {
+        return res.status(502).json({ success: false, refundFailed: true,
+          message: 'Request declined, but the refund needs reconciliation. Contact support before retrying.' });
+      }
+    }
     const notificationResults = status
       ? await notifyShipmentStatusChange(updated, status, location)
       : [];
@@ -809,6 +820,7 @@ export const updateRequest = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       message: 'Request updated successfully',
+      refundInfo,
       data: updated,
       notificationResults,
     });

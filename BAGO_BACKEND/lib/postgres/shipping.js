@@ -1464,23 +1464,18 @@ export async function updateTravelerProof({ requestId, travelerId, travelerProof
   return getShipmentRequestById(requestId);
 }
 
-export async function updatePaymentInfo({ requestId, paymentInfo, callerId }) {
+export async function updatePaymentInfo({ requestId, callerId }) {
   const current = await getShipmentRequestById(requestId);
   if (!current) return null;
-  // SECURITY: this previously had no ownership check at all — any
-  // authenticated user could overwrite another user's payment metadata by
-  // guessing/enumerating a requestId. Only the sender or traveler on the
-  // shipment may update it.
-  if (callerId && current.senderId !== callerId && current.travelerId !== callerId) {
+  if (!callerId || (current.senderId !== callerId && current.travelerId !== callerId)) {
     const error = new Error('Unauthorized');
     error.code = 'UNAUTHORIZED';
     throw error;
   }
-  await query(
-    `update public.shipment_requests set payment_info = $2, updated_at = timezone('utc', now()) where id = $1`,
-    [requestId, paymentInfo],
-  );
-  return getShipmentRequestById(requestId);
+  // This legacy client endpoint is read-only. Payment identity, paid status,
+  // and refund reservations are exclusively written by verified server flows.
+  // Client-supplied gateway/reference/status must never replace the original.
+  return current;
 }
 
 export async function confirmShipmentReceived({ requestId, senderId }) {

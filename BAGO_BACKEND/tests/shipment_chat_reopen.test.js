@@ -5,7 +5,7 @@ vi.mock('../lib/postgres/tripCapacity.js', () => ({ensureTripCapacityColumns: vi
 vi.mock('../lib/postgres/operationalRecords.js', () => ({recordOperationalEvent: vi.fn()}));
 vi.mock('../services/currencyConverter.js', () => ({convertCurrency: vi.fn()}));
 vi.mock('../services/chatPolicyService.js', () => ({classifyChatMessage: vi.fn().mockResolvedValue({})}));
-import {updateShipmentRequestStatus} from '../lib/postgres/shipping.js';
+import {updateShipmentRequestStatus, updatePaymentInfo} from '../lib/postgres/shipping.js';
 import {getConversationById} from '../lib/postgres/messaging.js';
 const request = {id: 'new-request', status: 'pending', sender_id: 'sender', traveler_id: 'traveler', trip_id: 'trip', package_id: 'pkg'};
 beforeEach(() => {
@@ -48,4 +48,17 @@ it('marking delivered still waits for sender confirmation rather than completing
   await updateShipmentRequestStatus({requestId: 'new-request', travelerId: 'traveler', status: 'delivered'});
   const update = m.query.mock.calls.find(([sql]) => sql.includes('set status = $2'));
   expect(update[1][1]).toBe('delivering');
+});
+
+it('client payment updates cannot replace the processor, reference, or refund marker', async () => {
+  const payment_info = { gateway: 'stripe', requestId: 'pi_original', status: 'paid', refund: { status: 'pending' } };
+  m.one.mockResolvedValue({ ...request, payment_info });
+  const result = await updatePaymentInfo({ requestId: request.id, callerId: 'sender',
+    paymentInfo: { gateway: 'flutterwave', requestId: '999', status: 'paid', refund: null } });
+  expect(result.paymentInfo).toEqual(payment_info);
+  expect(m.query.mock.calls.some(([sql]) => sql.includes('set payment_info'))).toBe(false);
+});
+it('legacy payment status reads still enforce shipment ownership', async () => {
+  await expect(updatePaymentInfo({ requestId: request.id, callerId: 'stranger', paymentInfo: {} }))
+    .rejects.toMatchObject({ code: 'UNAUTHORIZED' });
 });
