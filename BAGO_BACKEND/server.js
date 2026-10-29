@@ -25,6 +25,7 @@ import { startFastPayoutRelease } from './cron/fastPayoutCron.js'
 import { startBirthdayGreetings } from './cron/birthdayCron.js'
 import { startBusinessGracePeriodCron } from './cron/businessGracePeriodCron.js'
 import { startInsuranceRetry } from './cron/insuranceRetryCron.js'
+import { startPaidBookingRecovery } from './cron/paidBookingRecoveryCron.js'
 import {
   initializeFlutterwavePayment,
   verifyFlutterwavePayment,
@@ -1249,6 +1250,7 @@ async function startApplication() {
   startBirthdayGreetings();
   startBusinessGracePeriodCron();
   startInsuranceRetry();
+  startPaidBookingRecovery();
   startPremblySessionReconciler();
 
   httpServer.listen(PORT, () => {
