@@ -904,6 +904,19 @@ async function handlePackageRequest(req, res) {
           });
           await sendPushNotification(newRequest.travelerId, '📦 New Shipping Request!', `${newRequest.senderName || 'A sender'} wants to send a package on your trip to ${tripDoc.toLocation}`);
         }
+        // Tell the sender too: a booking the server finished on its own (after
+        // the app closed) would otherwise reach them with no confirmation.
+        if (paymentReference && newRequest?.id) {
+          const senderMessage = `Your payment is confirmed and your request for the trip to ${tripDoc.toLocation} has been sent. We'll let you know when the traveler accepts.`;
+          await createNotification({
+            userId: senderId,
+            title: 'Booking confirmed',
+            body: senderMessage,
+            type: 'shipment_status',
+            payload: { requestId: newRequest.id, tripId },
+          });
+          await sendPushNotification(senderId, '✅ Booking confirmed', senderMessage);
+        }
       }
     } catch (notifError) {
       console.error('Failed to notify traveler:', notifError);
