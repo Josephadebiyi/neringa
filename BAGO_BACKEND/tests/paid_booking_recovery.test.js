@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const m = vi.hoisted(() => ({
   query: vi.fn(), queryOne: vi.fn(), finalize: vi.fn(), byRef: vi.fn(), markVerified: vi.fn(),
-  retrieve: vi.fn(), completeStripe: vi.fn(),
+  retrieve: vi.fn(), completeStripe: vi.fn(), admins: vi.fn(), alert: vi.fn(),
 }));
 vi.mock('../lib/postgres/db.js', () => ({ query: m.query, queryOne: m.queryOne }));
 vi.mock('../lib/postgres/flutterwavePayments.js', () => ({ markPaymentVerified: m.markVerified }));
@@ -10,6 +10,8 @@ vi.mock('../services/flutterwaveService.js', () => ({ verifyTransactionByReferen
 vi.mock('../services/stripeBookingCompletion.js', () => ({ completeStripeBooking: m.completeStripe }));
 vi.mock('../controllers/postgresRequestController.js', () => ({ finalizePaidBooking: m.finalize, RequestPackage: vi.fn() }));
 vi.mock('../controllers/StripeController.js', () => ({ retrieveStripePaymentIntent: m.retrieve }));
+vi.mock('../lib/postgres/trips.js', () => ({ listActiveAdminEmails: m.admins }));
+vi.mock('../services/emailNotifications.js', () => ({ sendPaidBookingFailedAdminAlert: m.alert }));
 
 import { recoverFlutterwavePayment, recoverPaidBookings } from '../services/paidBookingRecovery.js';
 
@@ -24,6 +26,8 @@ beforeEach(() => {
   m.queryOne.mockResolvedValue({ user_id: 'traveller-1' });
   m.finalize.mockResolvedValue({ status: 'created' });
   m.query.mockResolvedValue({ rows: [] });
+  m.admins.mockResolvedValue(['ops@example.com']);
+  m.alert.mockResolvedValue(true);
 });
 
 describe('recovering a paid Flutterwave booking', () => {
@@ -76,5 +80,20 @@ describe('the recovery job', () => {
       .mockResolvedValueOnce({ rows: [] });
     m.finalize.mockResolvedValueOnce({ status: 'failed', code: 403, result: { message: 'KYC required' } }).mockResolvedValueOnce({ status: 'created' });
     await expect(recoverPaidBookings()).resolves.toEqual({ confirmed: 0, created: 1, failed: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(m.alert).toHaveBeenCalledTimes(1);
+    expect(m.alert.mock.calls[0][1]).toMatchObject({ reason: 'KYC required' });
+  });
+
+  it('does not alert admins twice for the same payment', async () => {
+    m.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [flutterwavePayment] })
+      .mockResolvedValueOnce({ rows: [] });
+    m.finalize.mockResolvedValueOnce({ status: 'failed', code: 403, result: { message: 'KYC required' } });
+    m.queryOne.mockImplementation(async (sql) => (sql.includes('recoveryAlertedAt') ? null : { user_id: 'traveller-1' }));
+    await recoverPaidBookings();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(m.alert).not.toHaveBeenCalled();
   });
 });

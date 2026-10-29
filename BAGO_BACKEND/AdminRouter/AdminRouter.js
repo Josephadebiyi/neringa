@@ -8,6 +8,7 @@ import { adminSetEarningCurrency, adminCorrectWalletBalance } from '../controlle
 import { activeShipmentLocations, tracking, updateRequest, getAllOrders, downloadOrderRecord, getOrderConversation, adminCancelRequest, updateExternalTracking } from '../controllers/AdminControllers/Tracking.js';
 import { getDisputes, updateDispute } from '../controllers/postgresRequestController.js';
 import { dashboard } from '../controllers/AdminControllers/getDasboarddata.js';
+import { listPayments, retryPaymentBooking } from '../controllers/AdminControllers/PaymentsController.js';
 import { analystic } from '../controllers/AdminControllers/Analysic.js';
 import { getAllkyc, Verifykyc } from '../controllers/KycVerificationsController.js';
 import { getCurrentSetting, updateSettings } from '../controllers/AdminControllers/setting.js';
@@ -275,6 +276,9 @@ AdminRouter.get("/insurance/payload/:requestId", adminAuthenticated, validateUui
 AdminRouter.get("/insurance/payloads/export", adminAuthenticated, exportInsurancePayloadsCsv);
 
 // Withdrawal / Payout Management
+// Every customer payment (paid or not), and a retry that books a paid payment with no booking.
+AdminRouter.get("/payments", adminAuthenticated, can('finance.withdrawals.manage'), listPayments);
+AdminRouter.post("/payments/:id/retry-booking", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('id'), audit('admin.payment.retry_booking', 'payment', 'id'), retryPaymentBooking);
 AdminRouter.get("/withdrawals", adminAuthenticated, can('finance.withdrawals.manage'), getAllWithdrawals);
 AdminRouter.put("/withdrawals/:transactionId/status", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), audit('admin.withdrawal.status.update', 'wallet_transaction', 'transactionId'), updateWithdrawalStatus);
 AdminRouter.post("/withdrawals/:transactionId/approve", adminAuthenticated, can('finance.withdrawals.manage'), validateUuidParam('transactionId'), audit('admin.withdrawal.approve', 'wallet_transaction', 'transactionId'), approveWithdrawal);

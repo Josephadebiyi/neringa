@@ -82,18 +82,18 @@ export async function getLocationFromIP(ip) {
  */
 export function getClientIP(req) {
   // Check various headers that proxies/load balancers might set
-  const forwarded = req.headers['x-forwarded-for'];
+  const forwarded = req.headers?.['x-forwarded-for'];
   if (forwarded) {
     // x-forwarded-for can contain multiple IPs, take the first one
     return forwarded.split(',')[0].trim();
   }
 
-  const realIP = req.headers['x-real-ip'];
+  const realIP = req.headers?.['x-real-ip'];
   if (realIP) {
     return realIP;
   }
 
-  const cfConnectingIP = req.headers['cf-connecting-ip']; // Cloudflare
+  const cfConnectingIP = req.headers?.['cf-connecting-ip']; // Cloudflare
   if (cfConnectingIP) {
     return cfConnectingIP;
   }

@@ -12,6 +12,8 @@ export async function createAuditLog({
 }) {
   if (!action || !targetType) return;
 
+  // An audit row is a record of what happened, never a reason for it to fail:
+  // a logging error must not abort a booking, payment or admin action.
   await query(
     `
       insert into public.audit_logs (
@@ -27,5 +29,5 @@ export async function createAuditLog({
       values ($1,$2,$3,$4,$5,$6,$7,$8)
     `,
     [actorUserId, actorAdminId, action, targetType, targetId, ipAddress, userAgent, metadata],
-  );
+  ).catch((error) => console.error(`Audit log failed (${action}):`, error.message));
 }

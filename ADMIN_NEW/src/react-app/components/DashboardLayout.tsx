@@ -35,6 +35,7 @@ import {
   Building2,
   Grip,
   Inbox,
+  Receipt,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -69,6 +70,7 @@ const allNavItems: NavItemDef[] = [
   { group: "Care",       icon: ShieldAlert,     label: "Disputes",           path: "/disputes",         roles: ["SUPER_ADMIN", "SAFETY_ADMIN"] },
   { group: "Care",       icon: RotateCcw,       label: "Refunds",            path: "/refund",           roles: ["SUPER_ADMIN"] },
 
+  { group: "Finance",    icon: Receipt,         label: "Payments",           path: "/payments",         roles: ["SUPER_ADMIN"] },
   { group: "Finance",    icon: CreditCard,      label: "Withdrawals",        path: "/withdrawals",      roles: ["SUPER_ADMIN"] },
   { group: "Finance",    icon: Ticket,          label: "Promo Codes",        path: "/promo-codes",      roles: ["SUPER_ADMIN"] },
 

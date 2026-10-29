@@ -57,7 +57,7 @@ export function normalizeName(first = '', last = '') {
 // ─── Client IP extraction ─────────────────────────────────────────────────────
 
 export function extractIp(req) {
-  const xff = req.headers['x-forwarded-for'];
+  const xff = req.headers?.['x-forwarded-for'];
   if (xff) return xff.split(',')[0].trim().replace(/^::ffff:/, '');
   return (req.socket?.remoteAddress || req.ip || '').replace(/^::ffff:/, '');
 }
@@ -350,8 +350,8 @@ const reviewRetryMessage = (minutes = REVIEW_COOLDOWN_MINUTES) =>
  */
 export async function runPreKycChecks(user, req) {
   const ip       = extractIp(req);
-  const deviceFp = (req.headers['x-device-fingerprint'] || '').trim() || user.deviceFingerprint;
-  const userAgent = (req.headers['user-agent'] || '').slice(0, 300);
+  const deviceFp = (req.headers?.['x-device-fingerprint'] || '').trim() || user.deviceFingerprint;
+  const userAgent = (req.headers?.['user-agent'] || '').slice(0, 300);
   const profile = await queryOne(
     `SELECT account_status AS "accountStatus", banned, is_flagged AS "isFlagged",
             flag_source AS "flagSource", flagged_at AS "flaggedAt"

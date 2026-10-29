@@ -31,6 +31,7 @@ const CreateTripPage = lazy(() => import("./pages/CreateTrip"));
 const CreateBusinessServicePage = lazy(() => import("./pages/CreateBusinessService"));
 const PromoCodesPage = lazy(() => import("./pages/PromoCodes"));
 const OrdersPage = lazy(() => import("./pages/Orders"));
+const PaymentsPage = lazy(() => import("./pages/Payments"));
 const BannersPage = lazy(() => import("./pages/Banners"));
 const ProfilePage = lazy(() => import("./pages/Profile"));
 const ItemCategoriesPage = lazy(() => import("./pages/ItemCategories"));
@@ -140,6 +141,16 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <SupportPage />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payments"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout>
+                  <PaymentsPage />
                 </DashboardLayout>
               </ProtectedRoute>
             }

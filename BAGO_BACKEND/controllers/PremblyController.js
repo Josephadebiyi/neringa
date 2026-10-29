@@ -38,7 +38,7 @@ const safeEqualText = (left = '', right = '') => {
 
 const verifyPremblyWebhook = (req) => {
   const publicKey = process.env.PREMBLY_PUBLIC_KEY;
-  const signature = req.headers['x-prembly-signature'];
+  const signature = req.headers?.['x-prembly-signature'];
   const token = req.headers.token;
   if (publicKey && signature && token && req.rawBody) {
     const expected = crypto
@@ -55,9 +55,9 @@ const verifyPremblyWebhook = (req) => {
   if (!secret) return process.env.NODE_ENV !== 'production';
 
   const receivedSecret =
-    req.headers['x-prembly-webhook-secret'] ||
-    req.headers['x-prembly-secret'] ||
-    req.headers['x-webhook-secret'];
+    req.headers?.['x-prembly-webhook-secret'] ||
+    req.headers?.['x-prembly-secret'] ||
+    req.headers?.['x-webhook-secret'];
 
   return Boolean(receivedSecret && safeEqualText(receivedSecret, secret));
 };

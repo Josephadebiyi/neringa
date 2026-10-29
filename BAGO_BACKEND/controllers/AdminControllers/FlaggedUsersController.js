@@ -7,7 +7,7 @@ const normalizeFullName = (first = '', last = '') =>
   `${first} ${last}`.toLowerCase().replace(/\s+/g, ' ').trim();
 
 const getClientIp = (req) => {
-  const xff = req.headers['x-forwarded-for'];
+  const xff = req.headers?.['x-forwarded-for'];
   if (xff) return xff.split(',')[0].trim();
   return (req.socket?.remoteAddress || req.ip || '').replace(/^::ffff:/, '');
 };

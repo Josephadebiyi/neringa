@@ -806,6 +806,69 @@ export async function sendWithdrawalAdminNotification(adminEmail, { userName, us
   }
 }
 
+export async function sendNewPaidOrderAdminNotification(adminEmail, { senderName, senderEmail, travelerName, route, amount, currency, provider, reference }) {
+  [senderName, senderEmail, travelerName, route, currency, provider, reference] =
+    [senderName, senderEmail, travelerName, route, currency, provider, reference].map(neutralizeMarkup);
+  if (!resend) return false;
+  try {
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        A new paid booking has been created. The traveler has been asked to accept it.
+      </p>
+      <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5240E8;">
+        <p style="margin:0 0 12px; font-size:14px; color:#111827; font-weight:600;">ORDER DETAILS</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Sender:</strong> ${senderName} (${senderEmail})</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Traveler:</strong> ${travelerName}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Route:</strong> ${route}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Paid:</strong> ${currency} ${Number(amount).toFixed(2)} via ${provider}</p>
+        <p style="margin:0; font-size:14px; color:#374151;"><strong>Payment reference:</strong> ${reference}</p>
+      </div>
+    `;
+    await resend.emails.send({
+      from: 'Bago Admin <admin@sendwithbago.com>',
+      to: adminEmail,
+      subject: `🧾 New paid order — ${currency} ${Number(amount).toFixed(2)}`,
+      html: generateEmailTemplate('New Paid Order', content, 'View Orders', `${process.env.ADMIN_URL || FRONTEND_URL + '/admin'}/orders`),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send new order admin notification:', error);
+    return false;
+  }
+}
+
+export async function sendPaidBookingFailedAdminAlert(adminEmail, { userEmail, amount, currency, provider, reference, reason }) {
+  [userEmail, currency, provider, reference, reason] = [userEmail, currency, provider, reference, reason].map(neutralizeMarkup);
+  if (!resend) return false;
+  try {
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        A customer has paid but Bago could not create their booking automatically. Please check it and contact the customer.
+      </p>
+      <div style="background:#fef2f2; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #DC2626;">
+        <p style="margin:0 0 12px; font-size:14px; color:#111827; font-weight:600;">PAYMENT WITHOUT BOOKING</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Customer:</strong> ${userEmail}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Paid:</strong> ${currency} ${Number(amount).toFixed(2)} via ${provider}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Payment reference:</strong> ${reference}</p>
+        <p style="margin:0; font-size:14px; color:#374151;"><strong>Reason:</strong> ${reason}</p>
+      </div>
+      <p style="margin:0; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Bago retries every 10 minutes for 3 days. This alert is sent once per payment.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago Admin <admin@sendwithbago.com>',
+      to: adminEmail,
+      subject: `⚠️ Paid but not booked — ${currency} ${Number(amount).toFixed(2)}`,
+      html: generateEmailTemplate('Payment Needs Attention', content, 'Open Admin', `${process.env.ADMIN_URL || FRONTEND_URL + '/admin'}/orders`),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send paid booking failure alert:', error);
+    return false;
+  }
+}
+
 export async function sendSecurityFlagNotification(adminEmail, { userName, userEmail, reason, signals = [] }) {
   [userName, userEmail, reason, signals] = [userName, userEmail, reason, signals].map(neutralizeMarkup);
   if (!resend) return false;

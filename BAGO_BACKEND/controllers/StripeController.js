@@ -645,7 +645,7 @@ export async function stripeConnectRefresh(req, res) {
 }
 
 export async function stripeConnectWebhook(req, res) {
-  const signature = req.headers['stripe-signature'];
+  const signature = req.headers?.['stripe-signature'];
   let event;
   try {
     event = requireStripe().webhooks.constructEvent(req.rawBody || req.body, signature, process.env.STRIPE_WEBHOOK_SECRET);

@@ -339,7 +339,7 @@ export const verifyFlutterwavePayment = async (req, res, next) => {
 
 export const flutterwaveWebhook = async (req, res) => {
   try {
-    const signature = req.headers['verif-hash'];
+    const signature = req.headers?.['verif-hash'];
     if (!verifyWebhookSignature(signature)) {
       return res.status(401).json({ success: false, message: 'Invalid webhook signature' });
     }

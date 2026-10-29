@@ -845,3 +845,15 @@ export async function banUserWithDevice(userId: string, reason: string) {
 }
 
 export { API_BASE, ADMIN_API, MAIN_API };
+
+// Payments (every customer payment, paid or not)
+export async function getPayments(filter = 'all', search = '', provider = '', page = 1) {
+  const qs = new URLSearchParams({ filter, page: String(page), limit: '50' });
+  if (search) qs.set('search', search);
+  if (provider) qs.set('provider', provider);
+  return apiCall(`${ADMIN_API}/payments?${qs}`);
+}
+
+export async function retryPaymentBooking(id: string) {
+  return apiCall(`${ADMIN_API}/payments/${id}/retry-booking`, { method: 'POST' });
+}

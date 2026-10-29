@@ -81,7 +81,7 @@ function getClientIp(req) {
 }
 
 async function checkDeviceFingerprint(req) {
-  const fp = (req.headers['x-device-fingerprint'] || '').trim();
+  const fp = (req.headers?.['x-device-fingerprint'] || '').trim();
   if (!fp) return { fp: null, banned: false };
   const row = await queryOne(
     `SELECT fingerprint FROM public.banned_device_fingerprints WHERE fingerprint = $1 LIMIT 1`,
@@ -485,7 +485,7 @@ export async function signUp(req, res) {
     const activationOtp = Math.floor(100000 + Math.random() * 900000).toString();
     // Hash the password before embedding in the JWT — never store plaintext in tokens
     const hashedPasswordForToken = await bcrypt.hash(password, 10);
-    const platform = req.headers['x-platform'] || 'app';
+    const platform = req.headers?.['x-platform'] || 'app';
     const signupSource = ['ios', 'android', 'web'].includes(platform) ? platform : 'app';
 
     const signupToken = jwt.sign(
@@ -625,7 +625,7 @@ export async function verifySignupOtp(req, res) {
 
     await storeDeviceFingerprint(newUser.id, fp);
     await storeSignupIp(newUser.id, signupIp);
-    const emailSignupUa = (req.headers['user-agent'] || '').slice(0, 300);
+    const emailSignupUa = (req.headers?.['user-agent'] || '').slice(0, 300);
     if (emailSignupUa) {
       await query(
         `UPDATE public.profiles SET user_agent = $1, updated_at = NOW() WHERE id = $2 AND user_agent IS NULL`,
@@ -879,7 +879,7 @@ export async function signIn(req, res) {
     }
 
     const { accessToken, refreshToken } = signUserToken(user);
-    await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    await storeRefreshToken(user.id, refreshToken, 30, req.headers?.['user-agent']?.slice(0, 200));
     updateLastLoginIp(user.id, loginIp).catch(() => {});
 
     const isProd = process.env.NODE_ENV === 'production';
@@ -1014,7 +1014,7 @@ export async function googleAuth(req, res) {
       return res.status(403).json({ success: false, message: 'This device has been restricted. Please contact support.' });
     }
 
-    const googlePlatform = req.headers['x-platform'] || 'app';
+    const googlePlatform = req.headers?.['x-platform'] || 'app';
     const googleLocation = getLocationDataFromRequest(req);
     const googleCountry =
       country ||
@@ -1067,7 +1067,7 @@ export async function googleAuth(req, res) {
     }
 
     // Store browser UA
-    const googleUa = (req.headers['user-agent'] || '').slice(0, 300);
+    const googleUa = (req.headers?.['user-agent'] || '').slice(0, 300);
     if (googleUa) {
       await query(
         `UPDATE public.profiles SET user_agent = $1, updated_at = NOW() WHERE id = $2 AND user_agent IS NULL`,
@@ -1083,7 +1083,7 @@ export async function googleAuth(req, res) {
     }
 
     const { accessToken: userAccessToken, refreshToken: userRefreshToken } = signUserToken(user);
-    await storeRefreshToken(user.id, userRefreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    await storeRefreshToken(user.id, userRefreshToken, 30, req.headers?.['user-agent']?.slice(0, 200));
     const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', userAccessToken, {
       httpOnly: true,
@@ -1189,7 +1189,7 @@ export async function appleAuth(req, res) {
       return res.status(403).json({ success: false, message: 'This device has been restricted. Please contact support.' });
     }
 
-    const applePlatform = req.headers['x-platform'] || 'ios';
+    const applePlatform = req.headers?.['x-platform'] || 'ios';
     const appleLocation = getLocationDataFromRequest(req);
     const appleCountry =
       country ||
@@ -1232,7 +1232,7 @@ export async function appleAuth(req, res) {
     }
 
     const { accessToken, refreshToken } = signUserToken(user);
-    await storeRefreshToken(user.id, refreshToken, 30, req.headers['user-agent']?.slice(0, 200));
+    await storeRefreshToken(user.id, refreshToken, 30, req.headers?.['user-agent']?.slice(0, 200));
     const isProd = process.env.NODE_ENV === 'production';
     res.cookie('token', accessToken, {
       httpOnly: true,

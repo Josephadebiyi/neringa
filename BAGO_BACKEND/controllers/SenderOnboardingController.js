@@ -25,8 +25,8 @@ function getTwilioClient() {
 export async function acceptShipmentTerms(req, res) {
   try {
     const userId = req.user.id || req.user._id;
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const ua = req.headers['user-agent'] || '';
+    const ip = req.ip || req.headers?.['x-forwarded-for'] || 'unknown';
+    const ua = req.headers?.['user-agent'] || '';
     const deviceInfo = req.body.deviceInfo || {};
     const version = req.body.version || CURRENT_TERMS_VERSION;
 
@@ -180,7 +180,7 @@ export async function verifyPhoneOtp(req, res) {
       targetType: 'user',
       targetId: userId,
       ipAddress: req.ip,
-      userAgent: req.headers['user-agent'],
+      userAgent: req.headers?.['user-agent'],
       metadata: {},
     });
 

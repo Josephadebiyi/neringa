@@ -20,7 +20,7 @@ export const myCoverWebhook = async (req, res) => {
     // MyCover signs the JSON payload with the distributor secret key using
     // HMAC-SHA512 and sends it in x-mycoverai-signature.
     const secret = process.env.MYCOVER_SECRET_KEY;
-    const incomingSignature = req.headers['x-mycoverai-signature'];
+    const incomingSignature = req.headers?.['x-mycoverai-signature'];
     if (!validSignature(req.body, incomingSignature, secret)) {
       return res.status(401).json({ success: false, message: 'Invalid webhook signature' });
     }
