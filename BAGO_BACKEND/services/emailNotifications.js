@@ -806,6 +806,37 @@ export async function sendWithdrawalAdminNotification(adminEmail, { userName, us
   }
 }
 
+export async function sendBookingConfirmedSenderEmail(senderEmail, senderName, { route, amount, currency, reference }) {
+  [senderEmail, senderName, route, currency, reference] = [senderEmail, senderName, route, currency, reference].map(neutralizeMarkup);
+  if (!resend || !senderEmail) return false;
+  try {
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Hi ${senderName || 'there'}, your payment is confirmed and your shipping request has been sent to the traveler.
+        We'll let you know as soon as they accept it.
+      </p>
+      <div style="background:#f9fafb; padding:20px; border-radius:8px; margin:24px 0; border-left:4px solid #5240E8;">
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Route:</strong> ${route}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Paid:</strong> ${currency} ${Number(amount).toFixed(2)}</p>
+        <p style="margin:0; font-size:14px; color:#374151;"><strong>Payment reference:</strong> ${reference}</p>
+      </div>
+      <p style="margin:0; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        Your payment is held securely until your package is delivered.
+      </p>
+    `;
+    await resend.emails.send({
+      from: 'Bago <no-reply@sendwithbago.com>',
+      to: senderEmail,
+      subject: '✅ Your Bago booking is confirmed',
+      html: generateEmailTemplate('Booking Confirmed', content, 'View Shipment', `${FRONTEND_URL}/dashboard?tab=shipments`),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send booking confirmed email:', error);
+    return false;
+  }
+}
+
 export async function sendNewPaidOrderAdminNotification(adminEmail, { senderName, senderEmail, travelerName, route, amount, currency, provider, reference }) {
   [senderName, senderEmail, travelerName, route, currency, provider, reference] =
     [senderName, senderEmail, travelerName, route, currency, provider, reference].map(neutralizeMarkup);
