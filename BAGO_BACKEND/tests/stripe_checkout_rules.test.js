@@ -44,8 +44,8 @@ describe('Stripe server-side booking verification', () => {
     expect(book).toHaveBeenCalledTimes(1);
   });
   it('pending booking tells Stripe to retry rather than dropping the paid shipment', async () => {
-    const book = vi.fn(async (_, res) => res.status(202).json({success: true, paymentPending: true}));
-    await expect(completeStripeBooking(paid(), book)).rejects.toThrow('another attempt');
+    const book = vi.fn(async (_, res) => res.status(202).json({success: true, paymentPending: true, reason: 'This trip does not have enough space left'}));
+    await expect(completeStripeBooking(paid(), book)).rejects.toThrow('booking not created: This trip does not have enough space left');
   });
   it('a processing webhook never creates a shipment', async () => {
     const book = vi.fn();

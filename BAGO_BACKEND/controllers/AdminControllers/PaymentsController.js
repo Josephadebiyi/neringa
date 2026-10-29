@@ -137,7 +137,7 @@ export async function retryPaymentBooking(req, res, next) {
         message: 'Booking created. The customer and traveler have been notified.' });
     }
     return res.status(422).json({ success: false, status: outcome.status,
-      message: outcome.result?.message || outcome.error || 'The booking could not be created. Check the server logs.' });
+      message: outcome.result?.reason || outcome.result?.message || outcome.error || 'The booking could not be created. Check the server logs.' });
   } catch (error) {
     if (!res.headersSent) {
       return res.status(500).json({ success: false, message: `Retry failed: ${error.message}` });

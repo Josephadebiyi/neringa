@@ -23,7 +23,16 @@ export async function completeStripeBooking(intent, requestPackage) {
     termsAccepted: true, paymentProvider: 'stripe', paymentReference: intent.id,
   }}, response);
   if (code >= 400 || result?.success !== true || result?.paymentPending === true) {
-    throw new Error('Paid shipment finalization needs another attempt.');
+    // Say exactly which booking check refused the payment: this message is what
+    // Stripe's webhook log, the admin retry button and the admin alert show.
+    const reason = result?.paymentPending
+      ? `booking not created: ${result.reason || 'payment secured but escrow hold failed'}`
+      : `${result?.code ? `${result.code}: ` : ''}${result?.message || result?.error || 'no reason given'}`;
+    const error = new Error(`Booking refused for ${intent.id} (HTTP ${code}) — ${reason}`);
+    error.bookingStatus = code;
+    error.bookingResult = result;
+    console.error(error.message);
+    throw error;
   }
   return result;
 }

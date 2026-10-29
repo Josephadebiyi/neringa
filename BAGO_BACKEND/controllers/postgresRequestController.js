@@ -1012,6 +1012,8 @@ async function handlePackageRequest(req, res) {
         success: true,
         paymentPending: true,
         message: 'Payment is confirmed and your shipment is being finalized. Please check My Shipments shortly.',
+        // Why the booking wasn't created, for webhooks, recovery and admin retry.
+        reason: error.message,
       });
     }
     if ([

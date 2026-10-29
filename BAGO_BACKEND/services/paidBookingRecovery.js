@@ -115,7 +115,7 @@ function tally(summary, outcome, label, paymentId) {
   if (outcome.status === 'created') summary.created += 1;
   else if (outcome.status === 'failed') {
     summary.failed += 1;
-    const reason = outcome.error || outcome.result?.message || `Booking returned ${outcome.code}`;
+    const reason = outcome.error || outcome.result?.reason || outcome.result?.message || `Booking returned ${outcome.code}`;
     console.error(`Paid booking recovery failed for ${label}:`, reason);
     if (paymentId) alertAdminsOnce(paymentId, reason).catch((error) => console.error('Paid booking alert failed:', error.message));
   }
