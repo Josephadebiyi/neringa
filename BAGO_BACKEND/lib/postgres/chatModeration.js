@@ -73,7 +73,10 @@ export async function getChatModerationDetails(conversationId) {
       `select * from (
          select m.id, m.sender_id as "senderId",
                 concat_ws(' ', p.first_name, p.last_name) as "senderName",
-                m.content, m.metadata, m.created_at as "createdAt"
+                m.content, m.metadata, m.created_at as "createdAt",
+                -- snake_case copies for admin dashboard builds that read these names
+                m.sender_id, concat_ws(' ', p.first_name, p.last_name) as sender_name,
+                m.created_at
          from public.messages m
          left join public.profiles p on p.id = m.sender_id
          where m.conversation_id = $1
