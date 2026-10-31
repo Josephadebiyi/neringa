@@ -17,14 +17,16 @@ beforeEach(() => {
   });
 });
 describe('traveler wallet currency after Stripe payment', () => {
-  it('converts earnings from trip currency instead of sender currency', async () => {
+  // Sender paid NGN 175,000; Bago charged NGN 22,500 commission + NGN 2,500 processing.
+  // Traveler earns NGN 150,000, converted from the payment currency into the wallet currency.
+  it('credits what was paid minus fees, converted from the payment currency', async () => {
     await holdEscrowForPaidRequest({requestId: 'request', providerReference: 'pi_paid', provider: 'stripe'});
-    expect(m.convert).toHaveBeenCalledExactlyOnceWith(100, 'USD', 'EUR');
+    expect(m.convert).toHaveBeenCalledExactlyOnceWith(150000, 'NGN', 'EUR');
     expect(m.query.mock.calls.find(([sql]) => sql.includes('set escrow_balance = escrow_balance +'))[1]).toEqual(['traveler', 92]);
   });
-  it('does not convert again when trip and wallet currencies match', async () => {
-    walletCurrency = 'USD'; await holdEscrowForPaidRequest({requestId: 'request', providerReference: 'pi_paid', provider: 'stripe'});
+  it('does not convert when the wallet is in the payment currency', async () => {
+    walletCurrency = 'NGN'; await holdEscrowForPaidRequest({requestId: 'request', providerReference: 'pi_paid', provider: 'stripe'});
     expect(m.convert).not.toHaveBeenCalled();
-    expect(m.query.mock.calls.find(([sql]) => sql.includes('set escrow_balance = escrow_balance +'))[1]).toEqual(['traveler', 100]);
+    expect(m.query.mock.calls.find(([sql]) => sql.includes('set escrow_balance = escrow_balance +'))[1]).toEqual(['traveler', 150000]);
   });
 });

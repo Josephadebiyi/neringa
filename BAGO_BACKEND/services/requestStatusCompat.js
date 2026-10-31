@@ -21,24 +21,25 @@ export function withClientStatus(request) {
 }
 
 /**
- * The traveler's earning (travelerPayout) is in the trip's currency, but apps
- * label every amount with `currency`, which is what the SENDER paid in. A
- * Lagos trip priced in NGN booked by a sender paying EUR showed
- * "Your earning EUR 89750.00" instead of "NGN 89750.00". For the traveler's
- * own view, label the request with the payout currency and convert the
+ * The traveler's own view of a request. Their earning is what the sender paid
+ * minus insurance and Bago's fees, in the traveler's wallet currency
+ * (`earning`, from getTravelerEarningForRequest). Apps label every amount with
+ * `currency`, so the view uses the earning's currency and converts the
  * insurance figure to match. The sender's currency stays in paymentCurrency.
  */
-export async function forTravelerView(request, convert) {
+export async function forTravelerView(request, { earning, convert }) {
   if (!request || typeof request !== 'object') return request;
-  const payoutCurrency = String(request.travelerPayoutCurrency || request.currency || '').toUpperCase();
   const paymentCurrency = String(request.currency || '').toUpperCase();
   const view = { ...request, paymentCurrency: request.currency, paymentAmount: request.amount };
-  if (!payoutCurrency || !paymentCurrency || payoutCurrency === paymentCurrency) return view;
-  view.currency = payoutCurrency;
+  if (!earning) return view;
+  const earningCurrency = String(earning.currency || paymentCurrency).toUpperCase();
+  view.travelerPayout = earning.amount;
+  view.travelerPayoutCurrency = earningCurrency;
+  view.currency = earningCurrency;
   const insuranceCost = Number(request.insuranceCost) || 0;
-  if (insuranceCost > 0) {
+  if (insuranceCost > 0 && paymentCurrency && earningCurrency !== paymentCurrency) {
     try {
-      view.insuranceCost = Number((await convert(insuranceCost, paymentCurrency, payoutCurrency)).toFixed(2));
+      view.insuranceCost = Number((await convert(insuranceCost, paymentCurrency, earningCurrency)).toFixed(2));
     } catch {
       view.insuranceCost = 0;
     }

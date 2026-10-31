@@ -1,7 +1,7 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { findProfileById, getWalletByUserId } from './profiles.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
-import { getFullPricingConfig } from '../../services/pricingService.js';
+import { feesFrom, getSurchargeMultiplier, netForTraveler, travelerEarningIn } from '../../services/travelerEarnings.js';
 
 function toNumber(value, fallback = 0) {
   const numericValue = Number(value);
@@ -693,25 +693,15 @@ export async function holdEscrowForPaidRequest({ requestId, providerReference, p
       const walletCurrency = (wallet.currency || 'USD').toUpperCase();
       const rawAmount = toNumber(request.amount);
       const insuranceFee = toNumber(request.insurance_cost);
-      const storedTravelerPayout = toNumber(request.traveler_payout);
-      let travelerEarningCurrency = (request.trip_currency || requestCurrency).toUpperCase();
-      let travelerEarningAmount = storedTravelerPayout;
-      if (travelerEarningAmount <= 0) {
-        const weight = toNumber(request.package_weight);
-        const pricePerKg = toNumber(request.price_per_kg);
-        if (weight > 0 && pricePerKg > 0) {
-          travelerEarningAmount = Number((weight * pricePerKg).toFixed(2));
-        } else {
-          const config = await getFullPricingConfig();
-          const surchargeMultiplier =
-            (1 + Number(config.platformCommissionPercent || 0) / 100) *
-            (1 +
-              Number(config.processingFeePercent || 0) / 100 +
-              Number(config.fxBufferPercent || 0) / 100);
-          travelerEarningCurrency = requestCurrency;
-          travelerEarningAmount = Number(((rawAmount - insuranceFee) / surchargeMultiplier).toFixed(2));
-        }
-      }
+      // Traveler earns what the sender paid minus insurance and Bago's fees,
+      // converted from the payment currency into the traveler's wallet currency.
+      const travelerEarningCurrency = requestCurrency;
+      const travelerEarningAmount = netForTraveler({
+        amountPaid: rawAmount,
+        insuranceCost: insuranceFee,
+        fees: feesFrom(request),
+        multiplier: await getSurchargeMultiplier(),
+      });
       const commissionAmount = request.platform_commission != null ? toNumber(request.platform_commission)
         : Math.max(0, rawAmount - insuranceFee - (travelerEarningCurrency === requestCurrency
           ? travelerEarningAmount : await convertCurrency(travelerEarningAmount, travelerEarningCurrency, requestCurrency)));
@@ -844,4 +834,39 @@ export async function markKycApproved(userId, payload = {}) {
 
     return { approved: true, duplicate: false, userId };
   });
+}
+
+/**
+ * What the traveler earns for a request, in their wallet currency: the escrow
+ * held for it when payment has been confirmed, otherwise what the sender paid
+ * minus insurance and Bago's fees, converted now.
+ */
+export async function getTravelerEarningForRequest(request) {
+  if (!request?.travelerId && !request?.traveler_id) return null;
+  const travelerId = request.travelerId || request.traveler_id;
+  const requestId = request.id || request._id;
+  const held = await queryOne(
+    `select coalesce(sum(amount), 0)::numeric as amount, max(currency) as currency
+     from public.wallet_transactions
+     where request_id = $1 and user_id = $2 and type = 'escrow_hold' and status = 'completed'`,
+    [requestId, travelerId],
+  );
+  if (Number(held?.amount) > 0 && held?.currency) {
+    return { amount: Number(Number(held.amount).toFixed(2)), currency: String(held.currency).toUpperCase() };
+  }
+  const walletRow = await queryOne(
+    `select coalesce(w.currency, p.earning_currency, p.preferred_currency) as currency
+     from public.profiles p left join public.wallet_accounts w on w.user_id = p.id
+     where p.id = $1`,
+    [travelerId],
+  );
+  const { amount, currency } = await travelerEarningIn({
+    amountPaid: request.amount,
+    insuranceCost: request.insuranceCost ?? request.insurance_cost,
+    fees: feesFrom(request),
+    paymentCurrency: request.currency,
+    toCurrency: walletRow?.currency || request.currency,
+    convert: convertCurrency,
+  });
+  return { amount, currency };
 }

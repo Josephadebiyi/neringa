@@ -2,6 +2,7 @@ import { ensureTrackingNumber } from '../../services/trackingNumber.js';
 import { randomInt } from 'crypto';
 import { query, queryOne, withTransaction } from './db.js';
 import { convertCurrency } from '../../services/currencyConverter.js';
+import { feesFrom, travelerEarningIn } from '../../services/travelerEarnings.js';
 import { recordOperationalEvent } from './operationalRecords.js';
 import {
   buildTripCapacitySnapshot,
@@ -1727,16 +1728,20 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
           [request.id, request.traveler_id],
         );
         const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
-        const travelerPayout = calculateTravelerPayoutFromRow(request);
-        // The payout is priced in the trip's currency (same rule as the escrow hold).
-        const payoutCurrency = travelerPayoutCurrency(request);
-        const intendedCreditAmount = travelerPayout > 0
-          ? (twCurrency !== payoutCurrency ? await convertCurrency(travelerPayout, payoutCurrency, twCurrency) : travelerPayout)
-          : 0;
-        const travelerCreditAmount = heldAmount > 0 && intendedCreditAmount > 0
-          ? Math.min(heldAmount, intendedCreditAmount)
-          : heldAmount || intendedCreditAmount ||
-            (twCurrency !== requestCurrency ? await convertCurrency(rawAmount, requestCurrency, twCurrency) : rawAmount);
+        // Release exactly what was held in escrow: what the sender paid minus
+        // insurance and Bago's fees, already converted to the wallet currency.
+        // Only bookings with no escrow record fall back to computing it now.
+        const travelerCreditAmount = heldAmount > 0
+          ? heldAmount
+          : (await travelerEarningIn({
+              amountPaid: toNumber(request.amount),
+              insuranceCost: toNumber(request.insurance_cost),
+      fees: feesFrom(request),
+              paymentCurrency: requestCurrency,
+              toCurrency: twCurrency,
+              convert: convertCurrency,
+            })).amount;
+        const travelerPayout = travelerCreditAmount;
         const travelerEscrowReleaseAmount = heldAmount || travelerCreditAmount;
 
         await client.query(
@@ -2253,15 +2258,20 @@ export async function redeemHandoverToken({ requestId, pin, travelerId }) {
           );
           const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
           const requestCurrency = (request.currency || 'USD').toUpperCase();
-          const travelerPayout = calculateTravelerPayoutFromRow(request);
-          // The payout is priced in the trip's currency (same rule as the escrow hold).
-          const payoutCurrency = travelerPayoutCurrency(request);
-          const intendedCreditAmount = travelerPayout > 0
-            ? (twCurrency !== payoutCurrency ? await convertCurrency(travelerPayout, payoutCurrency, twCurrency) : travelerPayout)
-            : 0;
-          const travelerCreditAmount = heldAmount > 0 && intendedCreditAmount > 0
-            ? Math.min(heldAmount, intendedCreditAmount)
-            : heldAmount || intendedCreditAmount;
+          // Release exactly what was held in escrow: what the sender paid minus
+          // insurance and Bago's fees, already converted to the wallet currency.
+          // Only bookings with no escrow record fall back to computing it now.
+          const travelerCreditAmount = heldAmount > 0
+            ? heldAmount
+            : (await travelerEarningIn({
+                amountPaid: toNumber(request.amount),
+                insuranceCost: toNumber(request.insurance_cost),
+      fees: feesFrom(request),
+                paymentCurrency: requestCurrency,
+                toCurrency: twCurrency,
+                convert: convertCurrency,
+              })).amount;
+          const travelerPayout = travelerCreditAmount;
           const travelerEscrowReleaseAmount = heldAmount || travelerCreditAmount;
           if (travelerCreditAmount > 0 || travelerEscrowReleaseAmount > 0) {
             await client.query(

@@ -1,5 +1,7 @@
 import { listActiveAdminEmails } from '../lib/postgres/trips.js';
 import { clientRequestStatus, forTravelerView, withClientStatus } from '../services/requestStatusCompat.js';
+import { travelerEarningIn } from '../services/travelerEarnings.js';
+import { getTravelerEarningForRequest } from '../lib/postgres/accounts.js';
 import { getConversationById } from '../lib/postgres/messaging.js';
 import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
 import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail, sendNewPaidOrderAdminNotification, sendBookingConfirmedSenderEmail } from '../services/emailNotifications.js';
@@ -375,11 +377,14 @@ export async function applyPaidAdditionalKg({
     const wallet = walletResult.rows[0];
     if (wallet && rawAmount > 0) {
       const walletCurrency = String(wallet.currency || 'USD').toUpperCase();
-      const payoutCurrency = quote.travelerCurrency;
-      const payoutAmount = Number(quote.travelerPayout);
-      const escrowAmount = payoutCurrency !== walletCurrency
-        ? await convertCurrency(payoutAmount, payoutCurrency, walletCurrency)
-        : payoutAmount;
+      // Extra kg paid minus Bago's fees, converted into the traveler's wallet currency.
+      const { amount: escrowAmount } = await travelerEarningIn({
+        amountPaid: rawAmount,
+        fees: { platformCommission: quote.platformFee, processingFee: quote.processingFee, fxBuffer: quote.fxBuffer },
+        paymentCurrency: nextCurrency,
+        toCurrency: walletCurrency,
+        convert: convertCurrency,
+      });
       await client.query(
         `update public.wallet_accounts set escrow_balance = escrow_balance + $2, updated_at = timezone('utc', now()) where user_id = $1`,
         [request.traveler_id, escrowAmount],
@@ -1279,6 +1284,14 @@ export async function submitPackageInspection(req, res) {
   }
 }
 
+async function travelerView(request) {
+  const earning = await getTravelerEarningForRequest(request).catch((error) => {
+    console.warn('travelerView: could not compute traveler earning:', error.message);
+    return null;
+  });
+  return forTravelerView(request, { earning, convert: convertCurrency });
+}
+
 export async function getRequests(req, res) {
   try {
     const { tripId } = req.params;
@@ -1304,7 +1317,7 @@ export async function getRequests(req, res) {
       ...requests.filter((request) => request.status === 'completed'),
     ].map(withClientStatus);
     const viewerRequests = await Promise.all(sortedRequests.map((request) => (
-      String(request.travelerId) === String(userId) ? forTravelerView(request, convertCurrency) : request
+      String(request.travelerId) === String(userId) ? travelerView(request) : request
     )));
 
     return res.status(200).json({
@@ -1328,7 +1341,7 @@ export async function getIncomingRequests(req, res) {
     }
 
     const incomingRequests = await Promise.all(
-      (await listIncomingRequestsForTraveler(travelerId)).map((request) => forTravelerView(request, convertCurrency)),
+      (await listIncomingRequestsForTraveler(travelerId)).map((request) => travelerView(request)),
     );
     const data = incomingRequests.map((request) => ({
       _id: request.id,
@@ -1512,7 +1525,7 @@ export async function getRequestDetails(req, res) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
     const isTravelerViewer = userId !== storedRequest.senderId;
-    const request = isTravelerViewer ? await forTravelerView(storedRequest, convertCurrency) : storedRequest;
+    const request = isTravelerViewer ? await travelerView(storedRequest) : storedRequest;
     return res.status(200).json({
       success: true,
       data: {

@@ -20,21 +20,24 @@ describe('request status shown to mobile apps', () => {
   });
 });
 
-describe('traveler earning currency', () => {
+describe('traveler view', () => {
   const convert = async (amount, from, to) => (from === 'EUR' && to === 'NGN' ? amount * 1700 : amount);
 
-  it('labels the traveler view with the trip (payout) currency', async () => {
+  it('shows the earning in the traveler wallet currency', async () => {
     const { forTravelerView } = await import('../services/requestStatusCompat.js');
     const view = await forTravelerView(
-      { amount: 60, currency: 'EUR', travelerPayout: 89750, travelerPayoutCurrency: 'NGN', insuranceCost: 2 },
-      convert,
+      { amount: 60, currency: 'EUR', travelerPayout: 89750, insuranceCost: 2 },
+      { earning: { amount: 86956.52, currency: 'NGN' }, convert },
     );
-    expect(view).toMatchObject({ currency: 'NGN', travelerPayout: 89750, paymentCurrency: 'EUR', paymentAmount: 60, insuranceCost: 3400 });
+    expect(view).toMatchObject({
+      currency: 'NGN', travelerPayout: 86956.52, travelerPayoutCurrency: 'NGN',
+      paymentCurrency: 'EUR', paymentAmount: 60, insuranceCost: 3400,
+    });
   });
 
-  it('changes nothing when sender and trip use the same currency', async () => {
+  it('leaves the request alone when no earning is known', async () => {
     const { forTravelerView } = await import('../services/requestStatusCompat.js');
-    const view = await forTravelerView({ currency: 'NGN', travelerPayout: 5000, travelerPayoutCurrency: 'NGN', insuranceCost: 100 }, convert);
-    expect(view).toMatchObject({ currency: 'NGN', insuranceCost: 100 });
+    const view = await forTravelerView({ currency: 'NGN', travelerPayout: 5000 }, { earning: null, convert });
+    expect(view).toMatchObject({ currency: 'NGN', travelerPayout: 5000 });
   });
 });
