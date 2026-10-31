@@ -1385,6 +1385,36 @@ export async function setExternalTracking({ requestId, carrier, carrierCustomNam
   return getShipmentRequestById(requestId);
 }
 
+export function isPackageInspectionComplete(inspection = {}) {
+  const travelerCount = Array.isArray(inspection.travelerPhotos) ? inspection.travelerPhotos.length : 0;
+  return travelerCount >= 2 && travelerCount <= 4
+    && inspection.inspectionConfirmed === true
+    && inspection.safetyConfirmed === true
+    && inspection.responsibilityAccepted === true;
+}
+
+/**
+ * Moves bookings that were stuck in inspection only because sender photos were
+ * missing. Same rule as isPackageInspectionComplete(). Safe to run repeatedly.
+ */
+export async function repairStuckInspections() {
+  const result = await query(`
+    update public.shipment_requests
+    set status = 'approved_for_trip',
+        inspection_completed_at = coalesce(inspection_completed_at, timezone('utc', now())),
+        updated_at = timezone('utc', now())
+    where status = 'inspection_in_progress'
+      and coalesce((inspection_data->>'rejected')::boolean, false) = false
+      and (case when jsonb_typeof(inspection_data->'travelerPhotos') = 'array'
+                then jsonb_array_length(inspection_data->'travelerPhotos') else 0 end) between 2 and 4
+      and (inspection_data->>'inspectionConfirmed')::boolean is true
+      and (inspection_data->>'safetyConfirmed')::boolean is true
+      and (inspection_data->>'responsibilityAccepted')::boolean is true
+    returning id, tracking_number
+  `);
+  return result.rows;
+}
+
 export async function savePackageInspection({
   requestId,
   actorId,
@@ -1460,11 +1490,11 @@ export async function savePackageInspection({
       status = 'rejected_at_inspection_under_review';
       rejectedAt = new Date();
     } else {
-      const senderCount = Array.isArray(next.senderPhotos) ? next.senderPhotos.length : 0;
-      const travelerCount = Array.isArray(next.travelerPhotos) ? next.travelerPhotos.length : 0;
-      if (senderCount >= 2 && senderCount <= 4 && travelerCount >= 2 && travelerCount <= 4
-          && next.inspectionConfirmed === true && next.safetyConfirmed === true
-          && next.responsibilityAccepted === true) {
+      // The traveler's own inspection (2-4 photos + the three signed confirmations)
+      // is what clears the package for the trip. Sender photos are optional: no
+      // app screen collects them, and requiring them left every accepted booking
+      // stuck at "awaiting inspection" with no way to start shipping.
+      if (isPackageInspectionComplete(next)) {
         status = 'approved_for_trip';
         completedAt = new Date();
       }

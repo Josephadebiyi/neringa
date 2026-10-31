@@ -18,6 +18,7 @@ import multer from 'multer';
 import { messageController } from './controllers/MessageController.js';
 import AdminRouter from './AdminRouter/AdminRouter.js';
 import chatModerationRouter from './routers/chatModerationRouter.js';
+import { repairStuckInspections } from './lib/postgres/shipping.js';
 import priceRoutes from "./AdminRouter/priceperkgRoute.js";
 import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
@@ -1254,6 +1255,12 @@ async function startApplication() {
   startInsuranceRetry();
   startPaidBookingRecovery();
   startPremblySessionReconciler();
+
+  // One-off safety net: release bookings stuck at inspection by the old
+  // "sender photos required" rule. Idempotent, never blocks startup.
+  repairStuckInspections()
+    .then((rows) => { if (rows.length) console.log(`✅ Released ${rows.length} booking(s) stuck at inspection:`, rows.map((r) => r.tracking_number || r.id).join(', ')); })
+    .catch((e) => console.error('repairStuckInspections failed:', e.message));
 
   httpServer.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
