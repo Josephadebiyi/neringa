@@ -1,5 +1,5 @@
 import { listActiveAdminEmails } from '../lib/postgres/trips.js';
-import { clientRequestStatus, withClientStatus } from '../services/requestStatusCompat.js';
+import { clientRequestStatus, forTravelerView, withClientStatus } from '../services/requestStatusCompat.js';
 import { getConversationById } from '../lib/postgres/messaging.js';
 import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
 import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail, sendNewPaidOrderAdminNotification, sendBookingConfirmedSenderEmail } from '../services/emailNotifications.js';
@@ -1303,11 +1303,14 @@ export async function getRequests(req, res) {
       ...requests.filter((request) => request.status !== 'completed'),
       ...requests.filter((request) => request.status === 'completed'),
     ].map(withClientStatus);
+    const viewerRequests = await Promise.all(sortedRequests.map((request) => (
+      String(request.travelerId) === String(userId) ? forTravelerView(request, convertCurrency) : request
+    )));
 
     return res.status(200).json({
       message: 'Requests fetched successfully',
-      data: { requests: sortedRequests, packages: sortedRequests.map((request) => request.package).filter(Boolean) },
-      requests: sortedRequests,
+      data: { requests: viewerRequests, packages: viewerRequests.map((request) => request.package).filter(Boolean) },
+      requests: viewerRequests,
       success: true,
       errors: false,
     });
@@ -1324,7 +1327,9 @@ export async function getIncomingRequests(req, res) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const incomingRequests = await listIncomingRequestsForTraveler(travelerId);
+    const incomingRequests = await Promise.all(
+      (await listIncomingRequestsForTraveler(travelerId)).map((request) => forTravelerView(request, convertCurrency)),
+    );
     const data = incomingRequests.map((request) => ({
       _id: request.id,
       id: request.id,
@@ -1364,6 +1369,8 @@ export async function getIncomingRequests(req, res) {
       processingFee: request.processingFee,
       fxBuffer: request.fxBuffer,
       currency: request.currency,
+      paymentCurrency: request.paymentCurrency,
+      travelerPayoutCurrency: request.travelerPayoutCurrency,
       sender: request.sender,
       traveler: request.traveler,
       tripId: request.tripId,
@@ -1497,13 +1504,15 @@ export async function getRequestDetails(req, res) {
   try {
     const { requestId } = req.params;
     const userId = req.user.id || req.user._id;
-    const request = await getShipmentRequestById(requestId);
-    if (!request) {
+    const storedRequest = await getShipmentRequestById(requestId);
+    if (!storedRequest) {
       return res.status(404).json({ success: false, message: 'Request not found' });
     }
-    if (userId !== request.senderId && userId !== request.travelerId) {
+    if (userId !== storedRequest.senderId && userId !== storedRequest.travelerId) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
+    const isTravelerViewer = userId !== storedRequest.senderId;
+    const request = isTravelerViewer ? await forTravelerView(storedRequest, convertCurrency) : storedRequest;
     return res.status(200).json({
       success: true,
       data: {
@@ -1519,6 +1528,10 @@ export async function getRequestDetails(req, res) {
         senderReceived: request.senderReceived === true,
         amount: request.amount,
         currency: request.currency,
+        paymentCurrency: request.paymentCurrency || request.currency,
+        // Without this the app fell back to its own maths for the traveler's earning.
+        travelerPayout: request.travelerPayout,
+        travelerPayoutCurrency: request.travelerPayoutCurrency,
         sender: request.sender || (request.senderId ? {
           id: request.senderId,
           _id: request.senderId,

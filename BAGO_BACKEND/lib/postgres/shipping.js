@@ -39,6 +39,12 @@ function calculateTravelerPayoutFromRow(row) {
   return 0;
 }
 
+// traveler_payout (and the weight x price-per-kg fallback) are in the trip's
+// currency, not the currency the sender paid in.
+export function travelerPayoutCurrency(row) {
+  return String(row?.trip_currency || row?.currency || 'USD').toUpperCase();
+}
+
 async function ensureShipmentBreakdownColumns(client) {
   const exec = client?.query ? (sql) => client.query(sql) : (sql) => query(sql);
   await exec(`
@@ -280,6 +286,7 @@ function normalizeRequest(row) {
     agreedPrice: senderTotalAmount,
     senderTotalAmount,
     travelerPayout,
+    travelerPayoutCurrency: travelerPayoutCurrency(row),
     platformCommission: toNumber(row.platform_commission),
     processingFee: toNumber(row.processing_fee),
     fxBuffer: toNumber(row.fx_buffer),
@@ -1721,8 +1728,10 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
         );
         const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
         const travelerPayout = calculateTravelerPayoutFromRow(request);
+        // The payout is priced in the trip's currency (same rule as the escrow hold).
+        const payoutCurrency = travelerPayoutCurrency(request);
         const intendedCreditAmount = travelerPayout > 0
-          ? (twCurrency !== requestCurrency ? await convertCurrency(travelerPayout, requestCurrency, twCurrency) : travelerPayout)
+          ? (twCurrency !== payoutCurrency ? await convertCurrency(travelerPayout, payoutCurrency, twCurrency) : travelerPayout)
           : 0;
         const travelerCreditAmount = heldAmount > 0 && intendedCreditAmount > 0
           ? Math.min(heldAmount, intendedCreditAmount)
@@ -2245,8 +2254,10 @@ export async function redeemHandoverToken({ requestId, pin, travelerId }) {
           const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
           const requestCurrency = (request.currency || 'USD').toUpperCase();
           const travelerPayout = calculateTravelerPayoutFromRow(request);
+          // The payout is priced in the trip's currency (same rule as the escrow hold).
+          const payoutCurrency = travelerPayoutCurrency(request);
           const intendedCreditAmount = travelerPayout > 0
-            ? (twCurrency !== requestCurrency ? await convertCurrency(travelerPayout, requestCurrency, twCurrency) : travelerPayout)
+            ? (twCurrency !== payoutCurrency ? await convertCurrency(travelerPayout, payoutCurrency, twCurrency) : travelerPayout)
             : 0;
           const travelerCreditAmount = heldAmount > 0 && intendedCreditAmount > 0
             ? Math.min(heldAmount, intendedCreditAmount)

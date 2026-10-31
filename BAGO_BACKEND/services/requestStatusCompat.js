@@ -19,3 +19,29 @@ export function withClientStatus(request) {
   if (!request || typeof request !== 'object') return request;
   return { ...request, status: clientRequestStatus(request.status), workflowStatus: request.status };
 }
+
+/**
+ * The traveler's earning (travelerPayout) is in the trip's currency, but apps
+ * label every amount with `currency`, which is what the SENDER paid in. A
+ * Lagos trip priced in NGN booked by a sender paying EUR showed
+ * "Your earning EUR 89750.00" instead of "NGN 89750.00". For the traveler's
+ * own view, label the request with the payout currency and convert the
+ * insurance figure to match. The sender's currency stays in paymentCurrency.
+ */
+export async function forTravelerView(request, convert) {
+  if (!request || typeof request !== 'object') return request;
+  const payoutCurrency = String(request.travelerPayoutCurrency || request.currency || '').toUpperCase();
+  const paymentCurrency = String(request.currency || '').toUpperCase();
+  const view = { ...request, paymentCurrency: request.currency, paymentAmount: request.amount };
+  if (!payoutCurrency || !paymentCurrency || payoutCurrency === paymentCurrency) return view;
+  view.currency = payoutCurrency;
+  const insuranceCost = Number(request.insuranceCost) || 0;
+  if (insuranceCost > 0) {
+    try {
+      view.insuranceCost = Number((await convert(insuranceCost, paymentCurrency, payoutCurrency)).toFixed(2));
+    } catch {
+      view.insuranceCost = 0;
+    }
+  }
+  return view;
+}
