@@ -1,10 +1,19 @@
-import { query, queryOne, withTransaction } from '../../lib/postgres/db.js';
+import { query, queryOne } from '../../lib/postgres/db.js';
+import {
+  findConversationIdByOrderNumber,
+  getChatModerationDetails,
+  keepChatLocked,
+  unlockChat,
+} from '../../lib/postgres/chatModeration.js';
 
 export async function getFlaggedChats(req, res, next) {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const offset = (page - 1) * limit;
+    // ?status=locked → only chats that are locked right now and still need a decision
+    const onlyLocked = String(req.query.status || '').toLowerCase() === 'locked';
+    const where = onlyLocked ? 'where c.chat_locked = true' : '';
     const result = await query(
       `select
          f.id, f.conversation_id as "conversationId", f.request_id as "requestId",
@@ -22,10 +31,14 @@ export async function getFlaggedChats(req, res, next) {
        join public.conversations c on c.id = f.conversation_id
        join public.profiles sender on sender.id = f.sender_id
        left join public.shipment_requests sr on sr.id = f.request_id
+       ${where}
        order by f.created_at desc limit $1 offset $2`,
       [limit, offset],
     );
-    const count = await queryOne('select count(*)::int as total from public.chat_policy_flags');
+    const count = await queryOne(
+      `select count(*)::int as total from public.chat_policy_flags f
+       join public.conversations c on c.id = f.conversation_id ${where}`,
+    );
     return res.json({ success: true, data: result.rows, total: count?.total || 0, page, limit });
   } catch (error) {
     return next(error);
@@ -34,30 +47,21 @@ export async function getFlaggedChats(req, res, next) {
 
 export async function getFlaggedConversation(req, res, next) {
   try {
-    const [flags, messages, conversation] = await Promise.all([
-      query(
-      `select f.*, concat_ws(' ', p.first_name, p.last_name) as sender_name
-       from public.chat_policy_flags f join public.profiles p on p.id = f.sender_id
-       where f.conversation_id = $1 order by f.created_at`,
-      [req.params.id],
-      ),
-      query(
-      `select m.id, m.sender_id, concat_ws(' ', p.first_name, p.last_name) as sender_name,
-              m.content, m.metadata, m.created_at
-       from public.messages m left join public.profiles p on p.id = m.sender_id
-       where m.conversation_id = $1 order by m.created_at`,
-      [req.params.id],
-      ),
-      queryOne(
-        `select id, chat_locked as "chatLocked", chat_lock_reason as "chatLockReason",
-                chat_locked_at as "chatLockedAt", chat_policy_unlocked_at as "unlockedAt",
-                chat_policy_unlock_note as "unlockNote"
-         from public.conversations where id = $1`,
-        [req.params.id],
-      ),
-    ]);
-    if (!conversation) return res.status(404).json({ success: false, message: 'Conversation not found.' });
-    return res.json({ success: true, conversation, flags: flags.rows, messages: messages.rows });
+    const details = await getChatModerationDetails(req.params.id);
+    if (!details) return res.status(404).json({ success: false, message: 'Conversation not found.' });
+    return res.json({ success: true, ...details });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Look a chat up by the order number users and support quote (e.g. SVV2GVX93).
+export async function getFlaggedConversationByOrder(req, res, next) {
+  try {
+    const conversationId = await findConversationIdByOrderNumber(req.params.orderNumber);
+    if (!conversationId) return res.status(404).json({ success: false, message: 'No chat found for that order number.' });
+    const details = await getChatModerationDetails(conversationId);
+    return res.json({ success: true, ...details });
   } catch (error) {
     return next(error);
   }
@@ -65,62 +69,39 @@ export async function getFlaggedConversation(req, res, next) {
 
 export async function unlockFlaggedConversation(req, res, next) {
   try {
-    const note = String(req.body?.note || '').trim();
-    if (note.length < 3) {
-      return res.status(400).json({ success: false, message: 'An admin unlock note is required.' });
-    }
-    const adminId = req.admin?.id;
-    const conversation = await withTransaction(async (client) => {
-      const current = await client.query(
-        `select id, chat_locked from public.conversations where id = $1 for update`,
-        [req.params.id],
-      );
-      if (!current.rows[0]) return null;
-      if (!current.rows[0].chat_locked) {
-        return { id: req.params.id, chatLocked: false, alreadyUnlocked: true };
-      }
-      await client.query(
-        `update public.conversations
-         set chat_locked = false,
-             chat_locked_at = null,
-             chat_lock_reason = null,
-             chat_locked_by = null,
-             policy_warning_count = 0,
-             chat_policy_unlocked_at = timezone('utc', now()),
-             chat_policy_unlocked_by = $2,
-             chat_policy_unlock_note = $3,
-             updated_at = timezone('utc', now())
-         where id = $1`,
-        [req.params.id, adminId, note],
-      );
-      await client.query(
-        `update public.chat_policy_flags
-         set reviewed_at = coalesce(reviewed_at, timezone('utc', now())),
-             reviewed_by = coalesce(reviewed_by, $2),
-             review_notes = concat_ws(' | ', nullif(review_notes, ''), $3)
-         where conversation_id = $1 and reviewed_at is null`,
-        [req.params.id, adminId, `Chat unlocked: ${note}`],
-      );
-      await client.query(
-        `insert into public.messages (conversation_id, sender_id, content, metadata)
-         select c.id, c.sender_id,
-                'Bago Support has reviewed and unlocked this chat. Keep all shipment discussions, payments, and arrangements inside Bago.',
-                $2
-         from public.conversations c where c.id = $1`,
-        [req.params.id, {
-          type: 'system',
-          system: true,
-          policyNotice: true,
-          enforcementAction: 'chat_unlocked',
-          adminId,
-        }],
-      );
-      return { id: req.params.id, chatLocked: false, alreadyUnlocked: false };
-    });
+    const note = String(req.body?.note || '').trim().slice(0, 500);
+    const conversation = await unlockChat({ conversationId: req.params.id, adminId: req.admin?.id, note });
     if (!conversation) {
       return res.status(404).json({ success: false, message: 'Conversation not found.' });
     }
-    return res.json({ success: true, conversation, message: 'Chat unlocked successfully.' });
+    if (!conversation.alreadyUnlocked) {
+      req.app.get('io')?.to(String(req.params.id)).emit('chat_policy_action', {
+        action: 'chat_unlocked',
+        message: 'Bago Support has reviewed and unlocked this chat.',
+      });
+    }
+    return res.json({
+      success: true,
+      conversation,
+      message: conversation.alreadyUnlocked ? 'Chat was already unlocked.' : 'Chat unlocked successfully.',
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function keepFlaggedConversationLocked(req, res, next) {
+  try {
+    const note = String(req.body?.note || '').trim().slice(0, 500);
+    const conversation = await keepChatLocked({ conversationId: req.params.id, adminId: req.admin?.id, note });
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: 'Conversation not found.' });
+    }
+    return res.json({
+      success: true,
+      conversation,
+      message: conversation.notLocked ? 'Chat is not locked; nothing changed.' : 'Chat kept locked and flags marked reviewed.',
+    });
   } catch (error) {
     return next(error);
   }

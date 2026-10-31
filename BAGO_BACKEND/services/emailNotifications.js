@@ -900,6 +900,54 @@ export async function sendPaidBookingFailedAdminAlert(adminEmail, { userEmail, a
   }
 }
 
+export async function sendChatLockedAdminNotification(adminEmail, {
+  orderNumber, senderName, senderEmail, travelerName, travelerEmail,
+  flaggedMessages = [], unlockUrl, keepLockedUrl, reviewUrl,
+}) {
+  if (!resend) return false;
+  try {
+    const rows = flaggedMessages.map((m) => `
+      <div style="background:#ffffff; border:1px solid #fde2e2; border-radius:8px; padding:12px 14px; margin:0 0 10px;">
+        <p style="margin:0 0 6px; font-size:12px; color:#6b7280;">
+          <strong style="color:#111827;">${escapeHtml(m.senderName || 'User')}</strong>
+          · ${escapeHtml(m.createdAt ? new Date(m.createdAt).toUTCString() : '')}
+          · ${m.action === 'chat_locked' ? '<span style="color:#b91c1c; font-weight:600;">LOCKED CHAT</span>' : 'warning'}
+        </p>
+        <p style="margin:0 0 6px; font-size:14px; color:#111827; white-space:pre-wrap;">“${escapeHtml(m.content)}”</p>
+        <p style="margin:0; font-size:12px; color:#6b7280;">Why flagged: ${escapeHtml(m.reason || 'policy match')}</p>
+      </div>`).join('');
+    const button = (href, label, bg) => `<a href="${href}" style="display:inline-block; background:${bg}; color:#ffffff; text-decoration:none; padding:12px 22px; border-radius:8px; font-size:14px; font-weight:700; margin:0 8px 8px 0;">${label}</a>`;
+    const content = `
+      <p style="margin:0 0 18px; font-family:Arial,sans-serif; font-size:14px; color:#374151; line-height:1.6;">
+        A chat was <strong>automatically locked</strong> after repeated warnings about sharing contact details or moving business outside Bago. Both users are blocked from messaging until an admin reviews it.
+      </p>
+      <div style="background:#fef2f2; padding:18px; border-radius:8px; margin:0 0 20px; border-left:4px solid #dc2626;">
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Order:</strong> ${escapeHtml(orderNumber || 'not linked')}</p>
+        <p style="margin:0 0 8px; font-size:14px; color:#374151;"><strong>Sender:</strong> ${escapeHtml(senderName || 'Unknown')} (${escapeHtml(senderEmail || '-')})</p>
+        <p style="margin:0; font-size:14px; color:#374151;"><strong>Traveler:</strong> ${escapeHtml(travelerName || 'Unknown')} (${escapeHtml(travelerEmail || '-')})</p>
+      </div>
+      <p style="margin:0 0 10px; font-size:13px; color:#9a3412; font-weight:600;">FLAGGED MESSAGES (not delivered to the other user)</p>
+      ${rows || '<p style="font-size:13px; color:#6b7280;">No flagged message text was recorded.</p>'}
+      <p style="margin:22px 0 10px; font-size:14px; color:#374151;"><strong>Decide now</strong> — each button asks you to confirm before anything changes:</p>
+      <p style="margin:0 0 18px;">
+        ${button(unlockUrl, 'Unlock chat', '#16a34a')}
+        ${button(keepLockedUrl, 'Keep locked', '#dc2626')}
+      </p>
+      <p style="margin:0; font-size:12px; color:#6b7280;">These buttons are personal to you and expire in 7 days.</p>
+    `;
+    await resend.emails.send({
+      from: 'Bago Safety <admin@sendwithbago.com>',
+      to: adminEmail,
+      subject: `🔒 Chat locked${orderNumber ? ` — order ${String(orderNumber).replace(/[\r\n]/g, '')}` : ''} needs review`,
+      html: generateEmailTemplate('Chat Locked — Review Needed', content, 'Open Flagged Chats', reviewUrl),
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send chat locked admin notification:', error);
+    return false;
+  }
+}
+
 export async function sendSecurityFlagNotification(adminEmail, { userName, userEmail, reason, signals = [] }) {
   [userName, userEmail, reason, signals] = [userName, userEmail, reason, signals].map(neutralizeMarkup);
   if (!resend) return false;

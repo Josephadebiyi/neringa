@@ -1,6 +1,7 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { maskPublicUserName } from '../privacy/publicUser.js';
 import { classifyChatMessage } from '../../services/chatPolicyService.js';
+import { notifyAdminsOfChatLock } from '../../services/chatModerationActions.js';
 
 let messagingSchemaReady = false;
 
@@ -524,7 +525,7 @@ export async function createConversationMessage({
   mimeType = null,
 }) {
   const policy = await classifyChatMessage(text);
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const conversationResult = await client.query(
       `
         select *
@@ -705,6 +706,12 @@ export async function createConversationMessage({
       message: insertedMessage || (await listConversationMessages(conversationId)).slice(-1)[0],
     };
   });
+
+  // Tell admins right away so they can unlock or keep the chat locked.
+  if (result?.policyAction === 'chat_locked') {
+    notifyAdminsOfChatLock(conversationId);
+  }
+  return result;
 }
 
 export async function markConversationRead(conversationId, userId) {
