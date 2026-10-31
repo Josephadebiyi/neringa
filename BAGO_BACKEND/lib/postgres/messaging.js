@@ -587,7 +587,10 @@ export async function createConversationMessage({
            and created_at > coalesce($3, '-infinity'::timestamptz)`,
         [conversationId, senderId, conversation.chat_policy_unlocked_at],
       );
-      const repeated = Number(priorResult.rows[0]?.count || 0) >= (policy.warningLimit || 1);
+      const priorCount = Number(priorResult.rows[0]?.count || 0);
+      const warningLimit = policy.warningLimit || 3;
+      const repeated = priorCount >= warningLimit;
+      const warningsLeft = Math.max(0, warningLimit - priorCount - 1);
       const action = repeated ? 'chat_locked' : 'warning';
       const attempted = await client.query(
         `insert into public.messages (conversation_id, sender_id, content, metadata)
@@ -613,8 +616,12 @@ export async function createConversationMessage({
         ],
       );
       const notice = repeated
-        ? 'This chat has been locked because attempts to move business outside Bago continued after a warning. Do not exchange payment or delivery arrangements outside Bago. Please contact Bago Support.'
-        : 'Safety warning: Keep all shipment discussions, payments, and business inside Bago. External contact or off-platform arrangements are not allowed. Continued attempts will lock this chat.';
+        ? `This chat has been locked because attempts to share contact details or move business outside Bago continued after ${warningLimit} warnings. Please contact Bago Support to have it reviewed.`
+        : `Warning ${priorCount + 1} of ${warningLimit}: your message was not delivered. For your safety, phone numbers, emails, social handles and off-app payments can't be shared in Bago chat. Keep all shipment details and payments inside Bago. ${
+          warningsLeft === 0
+            ? 'One more attempt will lock this chat.'
+            : `${warningsLeft} more warning${warningsLeft === 1 ? '' : 's'} before this chat is locked.`
+        }`;
       const noticeMessage = await client.query(
         `insert into public.messages (conversation_id, sender_id, content, metadata)
          values ($1,$2,$3,$4)

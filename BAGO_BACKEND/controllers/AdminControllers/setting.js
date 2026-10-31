@@ -1,4 +1,5 @@
 import { query, queryOne } from '../../lib/postgres/db.js';
+import { DEFAULT_WARNINGS_BEFORE_LOCK, clampWarningLimit } from '../../services/chatPolicyLimits.js';
 
 const DEFAULTS = {
   insuranceStatus: true,
@@ -24,7 +25,7 @@ const DEFAULTS = {
   chatModerationEnabled: true,
   chatAiModerationEnabled: true,
   chatModerationConfidenceThreshold: 0.9,
-  chatWarningsBeforeLock: 1,
+  chatWarningsBeforeLock: DEFAULT_WARNINGS_BEFORE_LOCK,
   chatModerationFailOpen: true,
   itemImageScanEnabled: true,
   itemImageAutoRejectEnabled: true,
@@ -127,7 +128,7 @@ export const updateSettings = async (req, res, next) => {
       _cached.chatModerationConfidenceThreshold = Math.max(0.75, Math.min(0.99, req.body.chatModerationConfidenceThreshold));
     }
     if (Number.isInteger(req.body.chatWarningsBeforeLock)) {
-      _cached.chatWarningsBeforeLock = Math.max(1, Math.min(5, req.body.chatWarningsBeforeLock));
+      _cached.chatWarningsBeforeLock = clampWarningLimit(req.body.chatWarningsBeforeLock);
     }
     if (typeof req.body.itemImageScanEnabled === 'boolean') _cached.itemImageScanEnabled = req.body.itemImageScanEnabled;
     if (typeof req.body.itemImageAutoRejectEnabled === 'boolean') _cached.itemImageAutoRejectEnabled = req.body.itemImageAutoRejectEnabled;

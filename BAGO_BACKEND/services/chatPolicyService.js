@@ -1,8 +1,17 @@
 import { askClaude, isAiEnabled } from './aiService.js';
 import { getAppSettings } from '../controllers/AdminControllers/setting.js';
+import { DEFAULT_WARNINGS_BEFORE_LOCK, clampWarningLimit } from './chatPolicyLimits.js';
 
 const MODEL = process.env.AI_CHAT_POLICY_MODEL || 'claude-haiku-4-5';
-const CONTACT_PATTERN = /(\+?\d[\d\s().-]{7,}\d)|([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(whats\s*app|telegram|signal|t\.me|wa\.me|instagram|snapchat|wechat|viber)/i;
+const PHONE_CANDIDATE_PATTERN = /\+?\d[\d\s().-]{7,}\d/g;
+const CONTACT_PATTERN = /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(whats\s*app|telegram|signal|t\.me|wa\.me|instagram|snapchat|wechat|viber)/i;
+
+// Only treat a number as a phone number when it has at least 9 digits, so prices,
+// weights, dates and flight numbers don't trigger the policy.
+function containsPhoneNumber(text) {
+  const matches = String(text).match(PHONE_CANDIDATE_PATTERN) || [];
+  return matches.some((m) => m.replace(/\D/g, '').length >= 9);
+}
 const OFF_PLATFORM_PATTERN = /(pay|payment|transfer|bank|cash|deal|business|book|ship|deliver).{0,45}(outside|off.?app|direct|privately|without bago|avoid.{0,12}(fee|commission))|(outside|off.?app|direct|privately|without bago).{0,45}(pay|payment|transfer|deal|business|book|ship|deliver)/i;
 
 function parseJson(text = '') {
@@ -20,17 +29,17 @@ export async function classifyChatMessage(text = '') {
     chatModerationEnabled: true,
     chatAiModerationEnabled: true,
     chatModerationConfidenceThreshold: 0.9,
-    chatWarningsBeforeLock: 1,
+    chatWarningsBeforeLock: DEFAULT_WARNINGS_BEFORE_LOCK,
     chatModerationFailOpen: true,
   }));
-  const warningLimit = Math.max(1, Math.min(5, Number(settings.chatWarningsBeforeLock) || 1));
+  const warningLimit = clampWarningLimit(settings.chatWarningsBeforeLock);
   if (settings.chatModerationEnabled === false) {
     return { flagged: false, confidence: 1, provider: 'backend_config', reasonCode: 'moderation_disabled', warningLimit };
   }
   const content = String(text).trim().slice(0, 4000);
   if (!content) return { flagged: false, confidence: 1, provider: 'rules', reasonCode: 'empty', warningLimit };
 
-  const hasContact = CONTACT_PATTERN.test(content);
+  const hasContact = CONTACT_PATTERN.test(content) || containsPhoneNumber(content);
   const hasOffPlatformIntent = OFF_PLATFORM_PATTERN.test(content);
   if (hasContact || hasOffPlatformIntent) {
     return {
