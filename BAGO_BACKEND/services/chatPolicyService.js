@@ -67,7 +67,9 @@ export async function classifyChatMessage(text = '') {
         role: 'user',
         content: `Decide whether this message tries to move a shipment, payment, negotiation, booking, or business relationship outside the Bago app, including coded or obfuscated contact sharing.
 Do not flag ordinary pickup logistics, addresses needed for the active delivery, greetings, or users explicitly saying they will stay/pay in Bago.
-Return {"flagged":boolean,"confidence":number,"reasonCode":"off_platform_transaction_attempt|contact_details_shared|no_policy_signal","reason":"short explanation"}.
+Use "contact_request" when the user only ASKS for the other person's phone number, email or social handle without sharing their own and without arranging payment outside Bago.
+Use "contact_details_shared" only when the message itself contains contact details (including spelled-out or disguised numbers).
+Return {"flagged":boolean,"confidence":number,"reasonCode":"off_platform_transaction_attempt|contact_details_shared|contact_request|no_policy_signal","reason":"short explanation"}.
 Message: ${JSON.stringify(content)}`,
       }],
     });
