@@ -1,8 +1,17 @@
 import { askClaude, isAiEnabled } from './aiService.js';
 import { getAppSettings } from '../controllers/AdminControllers/setting.js';
+import { DEFAULT_WARNINGS_BEFORE_LOCK, clampWarningLimit } from './chatPolicyLimits.js';
 
 const MODEL = process.env.AI_CHAT_POLICY_MODEL || 'claude-haiku-4-5';
-const CONTACT_PATTERN = /(\+?\d[\d\s().-]{7,}\d)|([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(whats\s*app|telegram|signal|t\.me|wa\.me|instagram|snapchat|wechat|viber)/i;
+const PHONE_CANDIDATE_PATTERN = /\+?\d[\d\s().-]{7,}\d/g;
+const CONTACT_PATTERN = /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(whats\s*app|telegram|signal|t\.me|wa\.me|instagram|snapchat|wechat|viber)/i;
+
+// Only treat a number as a phone number when it has at least 9 digits, so prices,
+// weights, dates and flight numbers don't trigger the policy.
+function containsPhoneNumber(text) {
+  const matches = String(text).match(PHONE_CANDIDATE_PATTERN) || [];
+  return matches.some((m) => m.replace(/\D/g, '').length >= 9);
+}
 const OFF_PLATFORM_PATTERN = /(pay|payment|transfer|bank|cash|deal|business|book|ship|deliver).{0,45}(outside|off.?app|direct|privately|without bago|avoid.{0,12}(fee|commission))|(outside|off.?app|direct|privately|without bago).{0,45}(pay|payment|transfer|deal|business|book|ship|deliver)/i;
 
 function parseJson(text = '') {
@@ -20,17 +29,19 @@ export async function classifyChatMessage(text = '') {
     chatModerationEnabled: true,
     chatAiModerationEnabled: true,
     chatModerationConfidenceThreshold: 0.9,
-    chatWarningsBeforeLock: 1,
+    chatWarningsBeforeLock: DEFAULT_WARNINGS_BEFORE_LOCK,
     chatModerationFailOpen: true,
+    chatAllowContactSharing: true,
   }));
-  const warningLimit = Math.max(1, Math.min(5, Number(settings.chatWarningsBeforeLock) || 1));
+  const allowContactSharing = settings.chatAllowContactSharing !== false;
+  const warningLimit = clampWarningLimit(settings.chatWarningsBeforeLock);
   if (settings.chatModerationEnabled === false) {
-    return { flagged: false, confidence: 1, provider: 'backend_config', reasonCode: 'moderation_disabled', warningLimit };
+    return { flagged: false, confidence: 1, provider: 'backend_config', reasonCode: 'moderation_disabled', warningLimit, allowContactSharing };
   }
   const content = String(text).trim().slice(0, 4000);
-  if (!content) return { flagged: false, confidence: 1, provider: 'rules', reasonCode: 'empty', warningLimit };
+  if (!content) return { flagged: false, confidence: 1, provider: 'rules', reasonCode: 'empty', warningLimit, allowContactSharing };
 
-  const hasContact = CONTACT_PATTERN.test(content);
+  const hasContact = CONTACT_PATTERN.test(content) || containsPhoneNumber(content);
   const hasOffPlatformIntent = OFF_PLATFORM_PATTERN.test(content);
   if (hasContact || hasOffPlatformIntent) {
     return {
@@ -42,11 +53,12 @@ export async function classifyChatMessage(text = '') {
         ? 'The message attempts to arrange shipment business or payment outside Bago.'
         : 'The message shares external contact details that could move the transaction outside Bago.',
       warningLimit,
+      allowContactSharing,
     };
   }
 
   if (settings.chatAiModerationEnabled === false || !isAiEnabled() || content.length < 8) {
-    return { flagged: false, confidence: 0.8, provider: 'rules', reasonCode: 'no_policy_signal', warningLimit };
+    return { flagged: false, confidence: 0.8, provider: 'rules', reasonCode: 'no_policy_signal', warningLimit, allowContactSharing };
   }
 
   try {
@@ -58,7 +70,9 @@ export async function classifyChatMessage(text = '') {
         role: 'user',
         content: `Decide whether this message tries to move a shipment, payment, negotiation, booking, or business relationship outside the Bago app, including coded or obfuscated contact sharing.
 Do not flag ordinary pickup logistics, addresses needed for the active delivery, greetings, or users explicitly saying they will stay/pay in Bago.
-Return {"flagged":boolean,"confidence":number,"reasonCode":"off_platform_transaction_attempt|contact_details_shared|no_policy_signal","reason":"short explanation"}.
+Use "contact_request" when the user only ASKS for the other person's phone number, email or social handle without sharing their own and without arranging payment outside Bago.
+Use "contact_details_shared" only when the message itself contains contact details (including spelled-out or disguised numbers).
+Return {"flagged":boolean,"confidence":number,"reasonCode":"off_platform_transaction_attempt|contact_details_shared|contact_request|no_policy_signal","reason":"short explanation"}.
 Message: ${JSON.stringify(content)}`,
       }],
     });
@@ -73,6 +87,7 @@ Message: ${JSON.stringify(content)}`,
       reasonCode: parsed?.reasonCode || 'no_policy_signal',
       reason: String(parsed?.reason || '').slice(0, 500),
       warningLimit,
+      allowContactSharing,
     };
   } catch (error) {
     // Availability failures must never fabricate a violation.
@@ -84,6 +99,7 @@ Message: ${JSON.stringify(content)}`,
       reasonCode: 'classifier_unavailable',
       reason: String(error?.message || 'AI classifier unavailable').slice(0, 500),
       warningLimit,
+      allowContactSharing,
     };
   }
 }

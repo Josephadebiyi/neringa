@@ -1,6 +1,7 @@
 import { query, queryOne, withTransaction } from './db.js';
 import { maskPublicUserName } from '../privacy/publicUser.js';
 import { classifyChatMessage } from '../../services/chatPolicyService.js';
+import { notifyAdminsOfChatLock } from '../../services/chatModerationActions.js';
 
 let messagingSchemaReady = false;
 
@@ -514,6 +515,9 @@ export async function listConversationMessages(conversationId, { limit = 50, bef
   return result.rows.reverse().map(normalizeMessage);
 }
 
+export const CONTACT_DISCLAIMER =
+  'Heads up: contact details were shared in this chat. Bago is not responsible for any issues, payments or arrangements made outside the Bago app. To stay protected (payment protection, insurance and support), keep payments and booking changes inside Bago.';
+
 export async function createConversationMessage({
   conversationId,
   senderId,
@@ -524,7 +528,7 @@ export async function createConversationMessage({
   mimeType = null,
 }) {
   const policy = await classifyChatMessage(text);
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const conversationResult = await client.query(
       `
         select *
@@ -580,14 +584,27 @@ export async function createConversationMessage({
       ...(mimeType ? { mimeType } : {}),
     };
 
-    if (policy.flagged) {
+    // Contact sharing is currently allowed: deliver the message and add a disclaimer.
+    // Off-platform payment/deal attempts are still blocked below.
+    const contactAllowed = policy.flagged
+      && policy.allowContactSharing
+      && ['contact_details_shared', 'contact_request'].includes(policy.reasonCode);
+
+    if (policy.flagged && !contactAllowed) {
       const priorResult = await client.query(
         `select count(*)::int as count from public.chat_policy_flags
          where conversation_id = $1 and sender_id = $2
+           and reason_code <> 'contact_request'
            and created_at > coalesce($3, '-infinity'::timestamptz)`,
         [conversationId, senderId, conversation.chat_policy_unlocked_at],
       );
-      const repeated = Number(priorResult.rows[0]?.count || 0) >= (policy.warningLimit || 1);
+      const priorCount = Number(priorResult.rows[0]?.count || 0);
+      const warningLimit = policy.warningLimit || 3;
+      // Only asking for contact details is never enough to lock a chat: the message
+      // is held back and the user is warned, but it does not count toward the lock.
+      const isRequestOnly = policy.reasonCode === 'contact_request';
+      const repeated = !isRequestOnly && priorCount >= warningLimit;
+      const warningsLeft = Math.max(0, warningLimit - priorCount - 1);
       const action = repeated ? 'chat_locked' : 'warning';
       const attempted = await client.query(
         `insert into public.messages (conversation_id, sender_id, content, metadata)
@@ -613,8 +630,14 @@ export async function createConversationMessage({
         ],
       );
       const notice = repeated
-        ? 'This chat has been locked because attempts to move business outside Bago continued after a warning. Do not exchange payment or delivery arrangements outside Bago. Please contact Bago Support.'
-        : 'Safety warning: Keep all shipment discussions, payments, and business inside Bago. External contact or off-platform arrangements are not allowed. Continued attempts will lock this chat.';
+        ? `This chat has been locked because attempts to share contact details or move business outside Bago continued after ${warningLimit} warnings. Please contact Bago Support to have it reviewed.`
+        : isRequestOnly
+          ? 'Your message was not delivered. For your safety, phone numbers, emails and social handles can\'t be exchanged in Bago chat. Please arrange pickup, dispatch and delivery details here in the chat instead.'
+          : `Warning ${priorCount + 1} of ${warningLimit}: your message was not delivered. For your safety, phone numbers, emails, social handles and off-app payments can't be shared in Bago chat. Keep all shipment details and payments inside Bago. ${
+          warningsLeft === 0
+            ? 'One more attempt will lock this chat.'
+            : `${warningsLeft} more warning${warningsLeft === 1 ? '' : 's'} before this chat is locked.`
+        }`;
       const noticeMessage = await client.query(
         `insert into public.messages (conversation_id, sender_id, content, metadata)
          values ($1,$2,$3,$4)
@@ -661,6 +684,37 @@ export async function createConversationMessage({
 
     const senderIsSender = conversation.sender_id === senderId;
 
+    let disclaimer = null;
+    if (contactAllowed) {
+      // Show the disclaimer at most once a day per chat so it doesn't flood the conversation.
+      const recent = await client.query(
+        `select 1 from public.messages
+         where conversation_id = $1
+           and metadata->>'enforcementAction' = 'contact_disclaimer'
+           and created_at > timezone('utc', now()) - interval '24 hours'
+         limit 1`,
+        [conversationId],
+      );
+      if (!recent.rows[0]) {
+        const noticeResult = await client.query(
+          `insert into public.messages (conversation_id, sender_id, content, metadata)
+           values ($1,$2,$3,$4)
+           returning id, conversation_id, sender_id, content, metadata, created_at`,
+          [conversationId, senderId, CONTACT_DISCLAIMER, {
+            type: 'system',
+            system: true,
+            policyNotice: true,
+            enforcementAction: 'contact_disclaimer',
+          }],
+        );
+        disclaimer = normalizeMessage({
+          ...noticeResult.rows[0],
+          sender_first_name: 'Bago',
+          sender_last_name: 'Safety',
+        });
+      }
+    }
+
     await client.query(
       `
         update public.conversations
@@ -696,8 +750,15 @@ export async function createConversationMessage({
     return {
       conversation: await getConversationById(conversationId, senderId),
       message: insertedMessage || (await listConversationMessages(conversationId)).slice(-1)[0],
+      disclaimer,
     };
   });
+
+  // Tell admins right away so they can unlock or keep the chat locked.
+  if (result?.policyAction === 'chat_locked') {
+    notifyAdminsOfChatLock(conversationId);
+  }
+  return result;
 }
 
 export async function markConversationRead(conversationId, userId) {

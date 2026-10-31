@@ -15,6 +15,15 @@ import { resolveSupportAdminId } from '../services/supportAutomationService.js';
 import { resourceTypeForMimetype } from '../lib/cloudinaryDocuments.js';
 import { findProfileById } from '../lib/postgres/profiles.js';
 
+function emitSystemNotice(io, conversationId, notice) {
+  io.to(conversationId.toString()).emit('new_message', {
+    _id: notice.id, id: notice.id, conversationId,
+    text: notice.content, content: notice.content,
+    sender: notice.sender?._id || notice.senderId, timestamp: notice.createdAt,
+    type: 'system', metadata: notice.metadata,
+  });
+}
+
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -210,6 +219,7 @@ export const messageController = (io) => {
         };
 
         io.to(conversationId.toString()).emit('new_message', messageData);
+        if (result.disclaimer) emitSystemNotice(io, conversationId, result.disclaimer);
         io.to(conversation.sender?._id?.toString()).emit('update_conversation', conversation);
         io.to(conversation.traveler?._id?.toString()).emit('update_conversation', conversation);
 
@@ -503,6 +513,7 @@ export const sendMessage = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       io.to(conversationId.toString()).emit('new_message', messageData);
+      if (result.disclaimer) emitSystemNotice(io, conversationId, result.disclaimer);
       if (conversation.sender?._id) io.to(conversation.sender._id.toString()).emit('update_conversation', conversation);
       if (conversation.traveler?._id) io.to(conversation.traveler._id.toString()).emit('update_conversation', conversation);
     }
@@ -521,6 +532,7 @@ export const sendMessage = async (req, res) => {
     res.status(201).json({
       success: true,
       data: message,
+      ...(result.disclaimer ? { disclaimer: result.disclaimer } : {}),
       message: 'Message sent',
     });
   } catch (error) {

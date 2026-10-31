@@ -115,7 +115,7 @@ import {
   rejectKyc,
   setAccountStatus,
 } from '../controllers/AdminControllers/FlaggedUsersController.js';
-import { getFlaggedChats, getFlaggedConversation, unlockFlaggedConversation } from '../controllers/AdminControllers/ChatPolicyController.js';
+import { getFlaggedChats, getFlaggedConversation, getFlaggedConversationByOrder, keepFlaggedConversationLocked, unlockFlaggedConversation } from '../controllers/AdminControllers/ChatPolicyController.js';
 
 const AdminRouter = express.Router();
 const can = requireAdminPermission;
@@ -289,6 +289,8 @@ AdminRouter.post("/credentials/verify-change", adminAuthenticated, verifyAdminCr
 // Flagged / Banned Users
 AdminRouter.get("/flagged-users", adminAuthenticated, can('users.manage'), getFlaggedUsers);
 AdminRouter.get("/flagged-chats", adminAuthenticated, can('users.manage'), getFlaggedChats);
+AdminRouter.get("/flagged-chats/by-order/:orderNumber", adminAuthenticated, can('users.manage'), getFlaggedConversationByOrder);
+AdminRouter.post("/flagged-chats/:id/keep-locked", adminAuthenticated, can('users.manage'), validateUuidParam('id'), audit('admin.chat.keep_locked', 'conversation'), keepFlaggedConversationLocked);
 AdminRouter.get("/flagged-chats/:id", adminAuthenticated, can('users.manage'), validateUuidParam('id'), getFlaggedConversation);
 AdminRouter.post("/flagged-chats/:id/unlock", adminAuthenticated, can('users.manage'), validateUuidParam('id'), audit('admin.chat.unlock', 'conversation'), unlockFlaggedConversation);
 AdminRouter.post("/users/:userId/flag", adminAuthenticated, can('users.manage'), validateUuidParam('userId'), audit('admin.user.flag', 'profile', 'userId'), flagUser);

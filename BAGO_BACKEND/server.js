@@ -17,6 +17,7 @@ import cloudinary from 'cloudinary';
 import multer from 'multer';
 import { messageController } from './controllers/MessageController.js';
 import AdminRouter from './AdminRouter/AdminRouter.js';
+import chatModerationRouter from './routers/chatModerationRouter.js';
 import priceRoutes from "./AdminRouter/priceperkgRoute.js";
 import { query as pgQuery, queryOne } from './lib/postgres/db.js';
 import { Resend } from 'resend';
@@ -971,6 +972,7 @@ messageController(io);
 // ✅ Main Routes
 app.use('/api/bago', userRouter);
 app.use('/api/Adminbaggo', AdminRouter);
+app.use('/api/chat-moderation', chatModerationRouter);
 app.use("/api/prices", priceRoutes);
 
 // ✅ Route Pricing API (Public endpoints for mobile app)
