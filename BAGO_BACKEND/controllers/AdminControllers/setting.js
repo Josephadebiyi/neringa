@@ -26,6 +26,8 @@ const DEFAULTS = {
   chatAiModerationEnabled: true,
   chatModerationConfidenceThreshold: 0.9,
   chatWarningsBeforeLock: DEFAULT_WARNINGS_BEFORE_LOCK,
+  // When true, phone numbers / emails / handles are delivered with a disclaimer instead of being blocked.
+  chatAllowContactSharing: true,
   chatModerationFailOpen: true,
   itemImageScanEnabled: true,
   itemImageAutoRejectEnabled: true,
@@ -123,6 +125,7 @@ export const updateSettings = async (req, res, next) => {
     if (typeof referralShipmentBonusUsd === 'number' && referralShipmentBonusUsd >= 0) _cached.referralShipmentBonusUsd = referralShipmentBonusUsd;
     if (typeof req.body.chatModerationEnabled === 'boolean') _cached.chatModerationEnabled = req.body.chatModerationEnabled;
     if (typeof req.body.chatAiModerationEnabled === 'boolean') _cached.chatAiModerationEnabled = req.body.chatAiModerationEnabled;
+    if (typeof req.body.chatAllowContactSharing === 'boolean') _cached.chatAllowContactSharing = req.body.chatAllowContactSharing;
     if (typeof req.body.chatModerationFailOpen === 'boolean') _cached.chatModerationFailOpen = req.body.chatModerationFailOpen;
     if (typeof req.body.chatModerationConfidenceThreshold === 'number') {
       _cached.chatModerationConfidenceThreshold = Math.max(0.75, Math.min(0.99, req.body.chatModerationConfidenceThreshold));

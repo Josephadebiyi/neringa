@@ -52,3 +52,17 @@ describe('admin email action tokens', () => {
     expect(verifyChatActionToken(token, now + 8 * 24 * 3600 * 1000)).toBeNull();
   });
 });
+
+describe('contact sharing allowed', () => {
+  it('reports that contact sharing is allowed by default', async () => {
+    const { classifyChatMessage } = await import('../services/chatPolicyService.js');
+    const r = await classifyChatMessage('my number is 08031234567');
+    expect(r).toMatchObject({ flagged: true, reasonCode: 'contact_details_shared', allowContactSharing: true });
+  });
+
+  it('still treats off-platform payment as off_platform_transaction_attempt', async () => {
+    const { classifyChatMessage } = await import('../services/chatPolicyService.js');
+    const r = await classifyChatMessage("let's pay directly outside the app to avoid the fee");
+    expect(r.reasonCode).toBe('off_platform_transaction_attempt');
+  });
+});

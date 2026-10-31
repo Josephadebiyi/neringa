@@ -31,13 +31,15 @@ export async function classifyChatMessage(text = '') {
     chatModerationConfidenceThreshold: 0.9,
     chatWarningsBeforeLock: DEFAULT_WARNINGS_BEFORE_LOCK,
     chatModerationFailOpen: true,
+    chatAllowContactSharing: true,
   }));
+  const allowContactSharing = settings.chatAllowContactSharing !== false;
   const warningLimit = clampWarningLimit(settings.chatWarningsBeforeLock);
   if (settings.chatModerationEnabled === false) {
-    return { flagged: false, confidence: 1, provider: 'backend_config', reasonCode: 'moderation_disabled', warningLimit };
+    return { flagged: false, confidence: 1, provider: 'backend_config', reasonCode: 'moderation_disabled', warningLimit, allowContactSharing };
   }
   const content = String(text).trim().slice(0, 4000);
-  if (!content) return { flagged: false, confidence: 1, provider: 'rules', reasonCode: 'empty', warningLimit };
+  if (!content) return { flagged: false, confidence: 1, provider: 'rules', reasonCode: 'empty', warningLimit, allowContactSharing };
 
   const hasContact = CONTACT_PATTERN.test(content) || containsPhoneNumber(content);
   const hasOffPlatformIntent = OFF_PLATFORM_PATTERN.test(content);
@@ -51,11 +53,12 @@ export async function classifyChatMessage(text = '') {
         ? 'The message attempts to arrange shipment business or payment outside Bago.'
         : 'The message shares external contact details that could move the transaction outside Bago.',
       warningLimit,
+      allowContactSharing,
     };
   }
 
   if (settings.chatAiModerationEnabled === false || !isAiEnabled() || content.length < 8) {
-    return { flagged: false, confidence: 0.8, provider: 'rules', reasonCode: 'no_policy_signal', warningLimit };
+    return { flagged: false, confidence: 0.8, provider: 'rules', reasonCode: 'no_policy_signal', warningLimit, allowContactSharing };
   }
 
   try {
@@ -84,6 +87,7 @@ Message: ${JSON.stringify(content)}`,
       reasonCode: parsed?.reasonCode || 'no_policy_signal',
       reason: String(parsed?.reason || '').slice(0, 500),
       warningLimit,
+      allowContactSharing,
     };
   } catch (error) {
     // Availability failures must never fabricate a violation.
@@ -95,6 +99,7 @@ Message: ${JSON.stringify(content)}`,
       reasonCode: 'classifier_unavailable',
       reason: String(error?.message || 'AI classifier unavailable').slice(0, 500),
       warningLimit,
+      allowContactSharing,
     };
   }
 }

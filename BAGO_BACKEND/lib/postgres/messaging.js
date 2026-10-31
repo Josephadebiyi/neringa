@@ -515,6 +515,9 @@ export async function listConversationMessages(conversationId, { limit = 50, bef
   return result.rows.reverse().map(normalizeMessage);
 }
 
+export const CONTACT_DISCLAIMER =
+  'Heads up: contact details were shared in this chat. Bago is not responsible for any issues, payments or arrangements made outside the Bago app. To stay protected (payment protection, insurance and support), keep payments and booking changes inside Bago.';
+
 export async function createConversationMessage({
   conversationId,
   senderId,
@@ -581,7 +584,13 @@ export async function createConversationMessage({
       ...(mimeType ? { mimeType } : {}),
     };
 
-    if (policy.flagged) {
+    // Contact sharing is currently allowed: deliver the message and add a disclaimer.
+    // Off-platform payment/deal attempts are still blocked below.
+    const contactAllowed = policy.flagged
+      && policy.allowContactSharing
+      && ['contact_details_shared', 'contact_request'].includes(policy.reasonCode);
+
+    if (policy.flagged && !contactAllowed) {
       const priorResult = await client.query(
         `select count(*)::int as count from public.chat_policy_flags
          where conversation_id = $1 and sender_id = $2
@@ -675,6 +684,37 @@ export async function createConversationMessage({
 
     const senderIsSender = conversation.sender_id === senderId;
 
+    let disclaimer = null;
+    if (contactAllowed) {
+      // Show the disclaimer at most once a day per chat so it doesn't flood the conversation.
+      const recent = await client.query(
+        `select 1 from public.messages
+         where conversation_id = $1
+           and metadata->>'enforcementAction' = 'contact_disclaimer'
+           and created_at > timezone('utc', now()) - interval '24 hours'
+         limit 1`,
+        [conversationId],
+      );
+      if (!recent.rows[0]) {
+        const noticeResult = await client.query(
+          `insert into public.messages (conversation_id, sender_id, content, metadata)
+           values ($1,$2,$3,$4)
+           returning id, conversation_id, sender_id, content, metadata, created_at`,
+          [conversationId, senderId, CONTACT_DISCLAIMER, {
+            type: 'system',
+            system: true,
+            policyNotice: true,
+            enforcementAction: 'contact_disclaimer',
+          }],
+        );
+        disclaimer = normalizeMessage({
+          ...noticeResult.rows[0],
+          sender_first_name: 'Bago',
+          sender_last_name: 'Safety',
+        });
+      }
+    }
+
     await client.query(
       `
         update public.conversations
@@ -710,6 +750,7 @@ export async function createConversationMessage({
     return {
       conversation: await getConversationById(conversationId, senderId),
       message: insertedMessage || (await listConversationMessages(conversationId)).slice(-1)[0],
+      disclaimer,
     };
   });
 
