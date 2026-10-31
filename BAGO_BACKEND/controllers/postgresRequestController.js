@@ -1,4 +1,5 @@
 import { listActiveAdminEmails } from '../lib/postgres/trips.js';
+import { clientRequestStatus, withClientStatus } from '../services/requestStatusCompat.js';
 import { getConversationById } from '../lib/postgres/messaging.js';
 import { notifyTripOwnerByEmail } from '../services/tripRequestEmail.js';
 import { sendReceiverShipmentAcceptedEmail, sendReceiverShippingStartedEmail, sendShippingStatusEmail, sendHandoverPINEmail, sendShipmentLabelEmail, sendNewPaidOrderAdminNotification, sendBookingConfirmedSenderEmail } from '../services/emailNotifications.js';
@@ -1301,7 +1302,7 @@ export async function getRequests(req, res) {
     const sortedRequests = [
       ...requests.filter((request) => request.status !== 'completed'),
       ...requests.filter((request) => request.status === 'completed'),
-    ];
+    ].map(withClientStatus);
 
     return res.status(200).json({
       message: 'Requests fetched successfully',
@@ -1340,7 +1341,8 @@ export async function getIncomingRequests(req, res) {
       originCountry: request.package?.fromCountry,
       destinationCity: request.package?.toCity,
       destinationCountry: request.package?.toCountry,
-      status: request.status,
+      status: clientRequestStatus(request.status),
+      workflowStatus: request.status,
       insurance: request.insurance,
       insuranceCost: request.insuranceCost,
       insurancePolicyId: request.insurancePolicyId,
@@ -1512,7 +1514,8 @@ export async function getRequestDetails(req, res) {
         carrierId: request.travelerId,
         role: userId === request.senderId ? 'sender' : 'traveler',
         trackingNumber: request.trackingNumber,
-        status: request.status,
+        status: clientRequestStatus(request.status),
+        workflowStatus: request.status,
         senderReceived: request.senderReceived === true,
         amount: request.amount,
         currency: request.currency,
