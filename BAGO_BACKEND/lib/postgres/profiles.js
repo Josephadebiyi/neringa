@@ -34,6 +34,14 @@ async function convertDisplayAmount(amount, fromCurrency, toCurrency) {
   };
 }
 
+const PROVIDER_NAMES = /\b(flutterwave|stripe|paystack|bizum|prembly|dojah|mycover)\s*/gi;
+
+export function userFacingDescription(description) {
+  const cleaned = description.replace(PROVIDER_NAMES, '').replace(/\s{2,}/g, ' ').trim();
+  if (!cleaned) return description;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 async function decorateWalletHistoryRow(row, displayCurrency, statusMap) {
   const rawCurrency = String(row.currency || displayCurrency || 'USD').toUpperCase();
   const rawAmount = Number(row.amount || 0);
@@ -58,6 +66,9 @@ async function decorateWalletHistoryRow(row, displayCurrency, statusMap) {
 
   return {
     ...row,
+    // Older rows were written as e.g. "Flutterwave bank withdrawal" — users
+    // should only ever see Bago wording, never the payment provider's name.
+    ...(typeof row.description === 'string' ? { description: userFacingDescription(row.description) } : {}),
     amount: rawAmount,
     currency: rawCurrency,
     rawAmount,

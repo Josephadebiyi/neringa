@@ -851,22 +851,63 @@ export async function getTravelerEarningForRequest(request) {
      where request_id = $1 and user_id = $2 and type = 'escrow_hold' and status = 'completed'`,
     [requestId, travelerId],
   );
-  if (Number(held?.amount) > 0 && held?.currency) {
-    return { amount: Number(Number(held.amount).toFixed(2)), currency: String(held.currency).toUpperCase() };
-  }
   const walletRow = await queryOne(
     `select coalesce(w.currency, p.earning_currency, p.preferred_currency) as currency
      from public.profiles p left join public.wallet_accounts w on w.user_id = p.id
      where p.id = $1`,
     [travelerId],
   );
-  const { amount, currency } = await travelerEarningIn({
+  const walletCurrency = String(walletRow?.currency || request.currency || '').toUpperCase();
+  const expected = await travelerEarningIn({
     amountPaid: request.amount,
     insuranceCost: request.insuranceCost ?? request.insurance_cost,
     fees: feesFrom(request),
     paymentCurrency: request.currency,
-    toCurrency: walletRow?.currency || request.currency,
+    toCurrency: walletCurrency || request.currency,
     convert: convertCurrency,
-  });
-  return { amount, currency };
+  }).catch(() => null);
+
+  if (Number(held?.amount) > 0 && held?.currency) {
+    const heldAmount = Number(Number(held.amount).toFixed(2));
+    const heldCurrency = String(held.currency).toUpperCase();
+    // Bookings paid before the 2026-10-31 earnings fix could store the euro
+    // (payment-currency) figure labelled with the traveler's local currency,
+    // e.g. EUR 68.79 recorded as "NGN 68.79". Such a record is off from what
+    // the sender actually paid by roughly the exchange rate; show the correct
+    // converted earning instead and flag it for admin review.
+    if (expected && expected.amount > 0 && expected.currency === heldCurrency
+        && isCurrencyScaleMismatch(heldAmount, expected.amount)) {
+      console.warn(
+        `[traveler-earning] escrow hold for request ${requestId} looks mislabelled: `
+        + `held ${heldCurrency} ${heldAmount}, expected ${expected.currency} ${expected.amount}`,
+      );
+      return { amount: expected.amount, currency: expected.currency, escrowMismatch: true };
+    }
+    // The traveler's wallet currency can change after the hold (balances are
+    // converted then, older transactions are not) — show it in today's wallet currency.
+    if (walletCurrency && heldCurrency !== walletCurrency) {
+      try {
+        const converted = Number((await convertCurrency(heldAmount, heldCurrency, walletCurrency)).toFixed(2));
+        return { amount: converted, currency: walletCurrency };
+      } catch {
+        return { amount: heldAmount, currency: heldCurrency };
+      }
+    }
+    return { amount: heldAmount, currency: heldCurrency };
+  }
+  if (!expected) throw new Error('Could not compute traveler earning');
+  return { amount: expected.amount, currency: expected.currency };
+}
+
+/**
+ * True when two amounts that should be equal differ by more than any fee or
+ * rate movement could explain (5x either way) — i.e. one of them is really in
+ * another currency.
+ */
+export function isCurrencyScaleMismatch(actual, expected) {
+  const a = Number(actual);
+  const e = Number(expected);
+  if (!(a > 0) || !(e > 0)) return false;
+  const ratio = a / e;
+  return ratio < 0.2 || ratio > 5;
 }

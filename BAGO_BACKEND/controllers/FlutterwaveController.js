@@ -895,7 +895,7 @@ export const withdrawFundsFlutterwave = async (req, res) => {
         user.id,
         withdrawalAmount,
         walletCurrency,
-        'Flutterwave bank withdrawal',
+        'Bank withdrawal',
         { provider: 'flutterwave', reference },
       ],
     ).catch(() => {});
