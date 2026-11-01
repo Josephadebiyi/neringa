@@ -28,6 +28,7 @@ import '../../trips/models/trip_model.dart';
 import '../../trips/services/trip_service.dart';
 import '../services/shipment_service.dart';
 import 'shipment_terms_screen.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class _ItemDeclarationPanel extends StatelessWidget {
   const _ItemDeclarationPanel({
@@ -395,7 +396,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         _scheduleCheckoutPreview();
       }
     } catch (e) {
-      if (mounted) setState(() => _loadError = e.toString());
+      if (mounted) setState(() => _loadError = userFacingError(e));
     }
   }
 
@@ -733,7 +734,7 @@ class _RequestShipmentScreenState extends ConsumerState<RequestShipmentScreen> {
         return;
       }
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

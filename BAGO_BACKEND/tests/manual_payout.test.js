@@ -142,6 +142,20 @@ describe('withdrawing a Flutterwave currency', () => {
     expect(m.transfer).toHaveBeenCalledWith(expect.objectContaining({ accountBank: '058', amount: 50000, currency: 'NGN' }));
     expect(m.adminEmail).not.toHaveBeenCalled();
   });
+
+  it('never shows the user the payout provider\'s own error text', async () => {
+    m.queryOne.mockImplementation(async (sql) => (sql.includes('UPDATE public.wallet_accounts')
+      ? { available_balance: 0 } : { ...profile, currency: 'NGN', available_balance: 90000 }));
+    m.beneficiary.mockResolvedValue({ id: 'ben-2', currency: 'NGN', type: 'bank', bank_code: '058', account_number: '0123456789', account_holder_name: 'Ana' });
+    m.transfer.mockResolvedValue({ success: false, message: 'Please enable IP Whitelisting to access this service' });
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const response = res();
+    await withdrawFundsFlutterwave({ user: { id: 'u1' }, body: { amount: 50000, currency: 'NGN' } }, response);
+    expect(response.code).toBe(400);
+    expect(response.data.message).toBe("We couldn't process your withdrawal right now. Your balance has not been affected. Please try again later.");
+    expect(JSON.stringify(response.data)).not.toMatch(/whitelist/i);
+    errorLog.mockRestore();
+  });
 });
 
 describe('admin approval of a manual payout', () => {

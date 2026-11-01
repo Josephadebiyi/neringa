@@ -18,6 +18,7 @@ import '../models/trip_model.dart';
 import '../providers/trip_provider.dart';
 import '../services/trip_service.dart';
 import '../widgets/trip_route_card.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class TripDetailsScreen extends ConsumerStatefulWidget {
   const TripDetailsScreen(
@@ -72,7 +73,7 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
     }).catchError((e) {
       if (mounted) {
         setState(() {
-          _error = e?.toString() ?? 'Could not load trip.';
+          _error = userFacingError(e, fallback: 'Could not load trip.');
           _loading = false;
         });
       }
@@ -170,7 +171,7 @@ class _TripDetailsScreenState extends ConsumerState<TripDetailsScreen> {
     } catch (e) {
       if (context.mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     }
   }

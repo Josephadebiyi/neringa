@@ -16,6 +16,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../providers/auth_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 enum _Step {
   email,
@@ -247,7 +248,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       } catch (e) {
         if (mounted) {
           AppSnackBar.show(context,
-              message: e.toString(), type: SnackBarType.error);
+              message: userFacingError(e), type: SnackBarType.error);
         }
       }
       return;
@@ -277,7 +278,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       } catch (e) {
         if (mounted) {
           AppSnackBar.show(context,
-              message: e.toString(), type: SnackBarType.error);
+              message: userFacingError(e), type: SnackBarType.error);
         }
       }
       return;
@@ -445,7 +446,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     }
   }
@@ -461,7 +462,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     }
   }

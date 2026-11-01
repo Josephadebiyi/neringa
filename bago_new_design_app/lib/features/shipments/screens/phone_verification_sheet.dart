@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../services/sender_onboarding_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 /// Bottom sheet that walks Google/Apple users through phone verification.
 /// Returns `true` if verification succeeded.
@@ -54,7 +55,7 @@ class _PhoneVerificationSheetState
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
       setState(() => _isLoading = false);
     }
   }
@@ -71,7 +72,7 @@ class _PhoneVerificationSheetState
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
       setState(() => _isLoading = false);
     }
   }

@@ -6,6 +6,7 @@ import '../../../shared/services/socket_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -132,7 +133,7 @@ class TripNotifier extends Notifier<TripState> {
       final trips = await _service.getMyTrips();
       state = state.copyWith(myTrips: trips, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
     }
   }
 
@@ -151,7 +152,7 @@ class TripNotifier extends Notifier<TripState> {
               .toList(growable: false);
       state = state.copyWith(searchResults: visibleResults, isSearching: false);
     } catch (e) {
-      state = state.copyWith(isSearching: false, error: e.toString());
+      state = state.copyWith(isSearching: false, error: userFacingError(e));
     }
   }
 
@@ -167,7 +168,7 @@ class TripNotifier extends Notifier<TripState> {
         myTrips: state.myTrips.where((t) => t.id != tripId).toList(),
       );
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: userFacingError(e));
       rethrow;
     }
   }

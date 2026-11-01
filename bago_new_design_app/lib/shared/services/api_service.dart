@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
 import 'storage_service.dart';
+import '../utils/user_facing_error.dart';
 
 class ApiService {
   ApiService._();
@@ -114,9 +115,8 @@ class ApiService {
             data['kycRequired'] == true) {
           return 'Identity verification is required. Please complete KYC to continue.';
         }
-        return data['message']?.toString() ??
-            data['error']?.toString() ??
-            'An error occurred';
+        final raw = data['message'] ?? data['error'];
+        return sanitizeErrorMessage(raw is String ? raw : null);
       }
       if (data is String && data.trim().isNotEmpty) {
         final value = data.trim().toLowerCase();

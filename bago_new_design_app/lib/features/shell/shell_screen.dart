@@ -16,6 +16,7 @@ import '../auth/providers/auth_provider.dart';
 import '../messages/providers/message_provider.dart';
 import '../shipments/models/request_model.dart';
 import '../shipments/providers/shipment_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ShellScreen extends ConsumerStatefulWidget {
   const ShellScreen({super.key, required this.child});
@@ -208,7 +209,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             } catch (e) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString())),
+                  SnackBar(content: Text(userFacingError(e))),
                 );
               }
             } finally {
@@ -232,7 +233,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
             } catch (e) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.toString())),
+                  SnackBar(content: Text(userFacingError(e))),
                 );
               }
             } finally {

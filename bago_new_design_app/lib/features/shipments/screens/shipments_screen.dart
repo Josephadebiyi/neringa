@@ -32,6 +32,7 @@ import '../providers/shipment_provider.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/widgets/trip_ticket_card.dart';
 import '../../trips/providers/trip_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ShipmentsScreen extends ConsumerStatefulWidget {
   const ShipmentsScreen({super.key});
@@ -746,7 +747,7 @@ class _TripsList extends ConsumerWidget {
                         } catch (e) {
                           if (context.mounted) {
                             AppSnackBar.show(context,
-                                message: e.toString(),
+                                message: userFacingError(e),
                                 type: SnackBarType.error);
                           }
                         }
@@ -915,7 +916,7 @@ class _RequestCard extends ConsumerWidget {
                         if (context.mounted) {
                           AppSnackBar.show(
                             context,
-                            message: e.toString(),
+                            message: userFacingError(e),
                             type: SnackBarType.error,
                           );
                         }
@@ -948,7 +949,7 @@ class _RequestCard extends ConsumerWidget {
                         if (context.mounted) {
                           AppSnackBar.show(
                             context,
-                            message: e.toString(),
+                            message: userFacingError(e),
                             type: SnackBarType.error,
                           );
                         }
@@ -1166,7 +1167,7 @@ class _OpenShipmentChatButton extends ConsumerWidget {
             if (!context.mounted) return;
             AppSnackBar.show(
               context,
-              message: e.toString(),
+              message: userFacingError(e),
               type: SnackBarType.error,
             );
           }
@@ -1521,7 +1522,7 @@ class _DismissibleTrip extends StatelessWidget {
           } catch (e) {
             if (context.mounted) {
               AppSnackBar.show(context,
-                  message: e.toString(), type: SnackBarType.error);
+                  message: userFacingError(e), type: SnackBarType.error);
             }
           }
         },

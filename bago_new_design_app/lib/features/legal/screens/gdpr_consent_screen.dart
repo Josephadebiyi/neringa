@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/app_snackbar.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class GDPRConsentScreen extends ConsumerStatefulWidget {
   final VoidCallback? onConsentComplete;
@@ -51,7 +52,7 @@ class _GDPRConsentScreenState extends ConsumerState<GDPRConsentScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: e.toString(),
+          message: userFacingError(e),
           type: SnackBarType.error,
         );
         setState(() => _isSubmitting = false);

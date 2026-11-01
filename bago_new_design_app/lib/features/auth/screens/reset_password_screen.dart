@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../services/auth_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({
@@ -106,7 +107,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -127,7 +128,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _isResending = false);

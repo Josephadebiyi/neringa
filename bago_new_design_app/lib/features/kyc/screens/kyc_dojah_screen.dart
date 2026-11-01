@@ -16,6 +16,7 @@ import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/services/api_service.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 // Channel that controls the native UIWindow overlay for KYC startup
 const _kycOverlay = MethodChannel('bago/kyc_overlay');
@@ -252,7 +253,7 @@ class _KycDojahScreenState extends ConsumerState<KycDojahScreen> {
       if (!mounted) return;
       setState(() {
         _hasError = true;
-        _errorMessage = error.toString().replaceFirst('Bad state: ', '');
+        _errorMessage = userFacingError(error);
       });
       return;
     }

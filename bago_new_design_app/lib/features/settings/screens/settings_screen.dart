@@ -17,6 +17,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../../auth/services/auth_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -230,7 +231,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
       return;
     }
     if (!mounted) return;

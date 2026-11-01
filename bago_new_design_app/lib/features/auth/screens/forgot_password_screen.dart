@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../providers/auth_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key, this.initialEmail});
@@ -49,7 +50,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     }
   }

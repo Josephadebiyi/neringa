@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class RequestsScreen extends ConsumerStatefulWidget {
   const RequestsScreen({super.key});
@@ -181,7 +182,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: e.toString(),
+        message: userFacingError(e),
         type: SnackBarType.error,
       );
     } finally {
@@ -206,7 +207,7 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: e.toString(),
+        message: userFacingError(e),
         type: SnackBarType.error,
       );
     } finally {

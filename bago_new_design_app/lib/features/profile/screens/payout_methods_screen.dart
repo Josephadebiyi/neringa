@@ -11,6 +11,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/utils/user_currency_helper.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class PayoutMethodsScreen extends ConsumerStatefulWidget {
   const PayoutMethodsScreen({super.key});
@@ -107,7 +108,7 @@ class _PayoutMethodsScreenState extends ConsumerState<PayoutMethodsScreen> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: error.toString().replaceFirst('Exception: ', ''),
+        message: userFacingError(error),
         type: SnackBarType.error,
       );
     } finally {

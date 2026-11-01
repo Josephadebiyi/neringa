@@ -18,6 +18,7 @@ import '../../shipments/providers/shipment_provider.dart';
 import '../../trips/models/trip_model.dart';
 import '../../trips/providers/trip_provider.dart';
 import '../../trips/widgets/trip_ticket_card.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ActivityScreen extends ConsumerStatefulWidget {
   const ActivityScreen({super.key});
@@ -180,7 +181,7 @@ class _TripsTabState extends ConsumerState<_TripsTab> {
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
-              Text(state.error!,
+              Text(sanitizeErrorMessage(state.error),
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray500),
                   textAlign: TextAlign.center),
@@ -359,7 +360,7 @@ class _ShipmentsTabState extends ConsumerState<_ShipmentsTab> {
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
-              Text(state.error!,
+              Text(sanitizeErrorMessage(state.error),
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray500),
                   textAlign: TextAlign.center),
@@ -532,7 +533,7 @@ class _RequestsTabState extends ConsumerState<_RequestsTab> {
                   style:
                       AppTextStyles.h3.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
-              Text(state.error!,
+              Text(sanitizeErrorMessage(state.error),
                   style: AppTextStyles.bodySm
                       .copyWith(color: AppPalette.of(context).gray500),
                   textAlign: TextAlign.center),

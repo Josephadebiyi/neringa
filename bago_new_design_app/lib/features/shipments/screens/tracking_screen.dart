@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/journey_map_widget.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key, this.initialTrackingNumber});
@@ -66,7 +67,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

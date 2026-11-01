@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../models/support_ticket_model.dart';
 import '../providers/support_provider.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class TicketChatScreen extends ConsumerStatefulWidget {
   const TicketChatScreen({super.key, required this.ticketId});
@@ -41,7 +42,7 @@ class _TicketChatScreenState extends ConsumerState<TicketChatScreen> {
         if (next.error != null && next.error != prev?.error) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(next.error!),
+              content: Text(sanitizeErrorMessage(next.error)),
               backgroundColor: Colors.red.shade700,
             ),
           );

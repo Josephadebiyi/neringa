@@ -21,6 +21,7 @@ import '../../messages/services/message_realtime_service.dart';
 import '../models/request_model.dart';
 import '../providers/shipment_provider.dart';
 import '../services/shipment_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 /// A business account (not a staff sub-account without the permission) can
 /// manage delivery status/tracking. The backend enforces this too via
@@ -81,7 +82,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _isAccepting = false);
@@ -100,7 +101,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _isRejecting = false);
@@ -134,7 +135,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       if (!mounted) return;
       AppSnackBar.show(
         context,
-        message: e.toString(),
+        message: userFacingError(e),
         type: SnackBarType.error,
       );
     }
@@ -184,7 +185,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: e.toString(),
+          message: userFacingError(e),
           type: SnackBarType.error,
         );
       }
@@ -221,7 +222,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _confirmingHandover = false);
@@ -924,7 +925,7 @@ class _ShipmentRequestScreenState extends ConsumerState<ShipmentRequestScreen> {
                 if (mounted && sheetContext.mounted) {
                   AppSnackBar.show(
                     this.context,
-                    message: e.toString(),
+                    message: userFacingError(e),
                     type: SnackBarType.error,
                   );
                 }
@@ -1317,7 +1318,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _updating = false);
@@ -1404,7 +1405,7 @@ class _ShipmentStatusButtonsState extends State<_ShipmentStatusButtons> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _updating = false);
@@ -1634,7 +1635,7 @@ class _PackageInspectionSheetState extends State<_PackageInspectionSheet> {
     } catch (e) {
       if (mounted)
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -2434,7 +2435,7 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -2447,7 +2448,7 @@ class _ExternalTrackingSheetState extends State<_ExternalTrackingSheet> {
           .updateExternalTracking(widget.requestId, carrier: null);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = userFacingError(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

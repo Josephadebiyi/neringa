@@ -21,6 +21,7 @@ import '../providers/message_provider.dart';
 import '../services/message_service.dart';
 import '../../payment/services/shipment_checkout_service.dart';
 import '../../shipments/services/shipment_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ConversationScreen extends ConsumerStatefulWidget {
   const ConversationScreen({super.key, required this.conversationId});
@@ -386,7 +387,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     } catch (e) {
       if (!context.mounted) return;
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
     }
   }
 
@@ -408,7 +409,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
     }
   }
 
@@ -442,7 +443,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     }
   }

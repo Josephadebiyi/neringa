@@ -9,6 +9,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../auth/services/auth_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ChangeEmailScreen extends ConsumerStatefulWidget {
   const ChangeEmailScreen({super.key});
@@ -49,7 +50,7 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
     } catch (e) {
       if (mounted)
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
     } finally {
       setState(() => _loading = false);
     }
@@ -74,7 +75,7 @@ class _ChangeEmailScreenState extends ConsumerState<ChangeEmailScreen> {
     } catch (e) {
       if (mounted)
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
     } finally {
       setState(() => _loading = false);
     }

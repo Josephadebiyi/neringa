@@ -408,7 +408,7 @@ export async function signUp(req, res) {
     accountType = accountType === 'company' ? 'company' : 'individual';
     operationalCurrency = String(operationalCurrency || '').trim().toUpperCase();
     if (operationalCurrency && !FLUTTERWAVE_SUPPORTED_PAYOUT_CURRENCIES.includes(operationalCurrency)) {
-      return res.status(400).json({ message: 'Please select a Flutterwave-supported payout currency.' });
+      return res.status(400).json({ message: 'Please select a supported payout currency.' });
     }
 
     if (!firstName && fullName) {

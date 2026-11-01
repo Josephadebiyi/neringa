@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../support/services/support_service.dart';
 import '../../../l10n/app_localizations.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class CurrencySettingsScreen extends ConsumerStatefulWidget {
   const CurrencySettingsScreen({super.key});
@@ -73,7 +74,7 @@ class _CurrencySettingsScreenState
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: e.toString(),
+          message: userFacingError(e),
           type: SnackBarType.error,
         );
       }

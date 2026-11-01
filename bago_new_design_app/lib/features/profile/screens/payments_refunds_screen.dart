@@ -234,7 +234,7 @@ class _PaymentsRefundsScreenState extends ConsumerState<PaymentsRefundsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not generate statement: $e')),
+          SnackBar(content: Text('Could not generate the statement. Please try again.')),
         );
       }
     } finally {

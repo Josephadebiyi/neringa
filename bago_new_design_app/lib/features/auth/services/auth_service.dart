@@ -420,7 +420,8 @@ class AuthService {
         if (e.code == AuthorizationErrorCode.canceled) {
           throw 'Apple sign-in was cancelled';
         }
-        throw 'Apple sign-in failed: ${e.message}';
+        debugPrint('Apple sign-in failed: ${e.code} ${e.message}');
+        throw 'Apple sign-in failed. Please try again.';
       }
       rethrow;
     }

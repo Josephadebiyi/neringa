@@ -4,6 +4,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/package_model.dart';
 import '../models/request_model.dart';
 import '../services/shipment_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -71,7 +72,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
               .toList();
       state = state.copyWith(myPackages: senderPackages, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
     }
   }
 
@@ -88,7 +89,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
     }
   }
 
@@ -98,7 +99,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
       final incoming = await _service.getIncomingRequests();
       state = state.copyWith(incomingRequests: incoming, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
     }
   }
 
@@ -108,7 +109,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
       state = state.copyWith(incomingRequests: incoming);
       return incoming;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: userFacingError(e));
       rethrow;
     }
   }
@@ -119,7 +120,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
       final mine = await _service.getMyRequests();
       state = state.copyWith(myRequests: mine, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
     }
   }
 
@@ -128,7 +129,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
       await _service.acceptRequest(requestId);
       await loadIncomingRequests();
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: userFacingError(e));
       rethrow;
     }
   }
@@ -138,7 +139,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
       await _service.rejectRequest(requestId, reason: reason);
       await loadIncomingRequests();
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: userFacingError(e));
       rethrow;
     }
   }
@@ -150,7 +151,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
         myPackages: state.myPackages.where((p) => p.id != packageId).toList(),
       );
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: userFacingError(e));
       rethrow;
     }
   }
@@ -164,7 +165,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
             state.incomingRequests.where((r) => r.id != requestId).toList(),
       );
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: userFacingError(e));
       rethrow;
     }
   }

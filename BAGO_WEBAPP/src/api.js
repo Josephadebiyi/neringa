@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { sanitizeAxiosError, sanitizeErrorMessage } from './utils/userFacingError';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || "https://neringa.onrender.com",
@@ -104,9 +105,26 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+// Every failed request leaves this interceptor with a user-safe message —
+// server, payment-provider and axios internals are never shown on screen.
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const data = response?.data;
+        if (data && typeof data === 'object' && data.success === false && typeof data.message === 'string') {
+            data.message = sanitizeErrorMessage(data.message);
+        }
+        return response;
+    },
     async (error) => {
+        try {
+            return await handleResponseError(error);
+        } catch (failure) {
+            throw sanitizeAxiosError(failure);
+        }
+    },
+);
+
+async function handleResponseError(error) {
         const originalRequest = error.config;
 
         if (error.response?.status !== 401 || originalRequest?._retry) {
@@ -149,7 +167,6 @@ api.interceptors.response.use(
             handleSessionExpired();
             return Promise.reject(refreshError);
         }
-    }
-);
+}
 
 export default api;

@@ -18,6 +18,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/package_model.dart';
 import '../services/bago_shipping_pdf_service.dart';
 import '../services/shipment_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ShipmentDetailsScreen extends ConsumerStatefulWidget {
   const ShipmentDetailsScreen(
@@ -77,7 +78,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                     const SizedBox(height: 16),
                     Text(l10n.couldNotLoadShipment, style: AppTextStyles.h3),
                     const SizedBox(height: 8),
-                    Text(snap.error.toString(),
+                    Text(userFacingError(snap.error),
                         style: AppTextStyles.muted(AppTextStyles.bodyMd),
                         textAlign: TextAlign.center),
                     const SizedBox(height: 24),
@@ -179,7 +180,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                     } catch (e) {
                       if (mounted) {
                         AppSnackBar.show(context,
-                            message: e.toString(), type: SnackBarType.error);
+                            message: userFacingError(e), type: SnackBarType.error);
                       }
                     }
                   },
@@ -207,7 +208,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                     } catch (e) {
                       if (mounted) {
                         AppSnackBar.show(context,
-                            message: e.toString(), type: SnackBarType.error);
+                            message: userFacingError(e), type: SnackBarType.error);
                       }
                     }
                   },
@@ -273,7 +274,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                 if (mounted && sheetContext.mounted) {
                   AppSnackBar.show(
                     context,
-                    message: e.toString(),
+                    message: userFacingError(e),
                     type: SnackBarType.error,
                   );
                 }
@@ -413,7 +414,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
     } finally {
       if (mounted) setState(() => _confirmingReceived = false);

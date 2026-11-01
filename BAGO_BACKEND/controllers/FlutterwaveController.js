@@ -299,7 +299,8 @@ export async function verifyFlutterwaveTransactionServerSide(transactionReferenc
   // webhook/redirect), not our tx_ref — the frontend passes transaction_id through.
   const verification = await verifyTransaction(transactionReference);
   if (!verification.success) {
-    return { success: false, message: verification.message || 'Payment could not be verified.' };
+    console.warn('Flutterwave verify failed:', verification.message);
+    return { success: false, message: "We couldn't confirm your payment yet. If you were charged, please contact support." };
   }
   if (expected.senderId) {
     const payment = await queryOne(
@@ -406,7 +407,7 @@ export const getFlutterwaveBanks = async (req, res, next) => {
       return res.status(502).json({
         success: false,
         banks: [],
-        message: result.message || 'Could not fetch banks from the payout provider.',
+        message: "We couldn't load the list of banks right now. Please try again shortly.",
       });
     }
     return res.status(200).json({ success: true, banks: result.banks });
@@ -424,7 +425,8 @@ export const resolveFlutterwaveAccount = async (req, res, next) => {
     }
     const result = await resolveAccount({ accountNumber, accountBank: bankCode });
     if (!result.success) {
-      return res.status(400).json({ success: false, message: result.message });
+      console.warn('Flutterwave account resolve failed:', result.message);
+      return res.status(400).json({ success: false, message: "We couldn't verify this account. Check the account number and bank, then try again." });
     }
     return res.status(200).json({ success: true, accountName: result.accountName });
   } catch (error) {
@@ -570,7 +572,8 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
         country: addressCountry,
       });
       if (!recipientResult.success) {
-        return res.status(502).json({ success: false, message: recipientResult.message || 'Could not register payout recipient with Flutterwave.' });
+        console.warn('Flutterwave create-recipient failed:', recipientResult.message);
+        return res.status(502).json({ success: false, message: "We couldn't save this bank account right now. Please check the details and try again." });
       }
       flutterwaveRecipientId = recipientResult.recipientId;
 
@@ -592,7 +595,8 @@ export const connectFlutterwaveBeneficiary = async (req, res, next) => {
           : undefined,
       });
       if (!senderResult.success) {
-        return res.status(502).json({ success: false, message: senderResult.message || 'Could not register payout sender with Flutterwave.' });
+        console.warn('Flutterwave create-sender failed:', senderResult.message);
+        return res.status(502).json({ success: false, message: "We couldn't save this bank account right now. Please check the details and try again." });
       }
       flutterwaveSenderId = senderResult.senderId;
     }
@@ -925,7 +929,13 @@ export const withdrawFundsFlutterwave = async (req, res) => {
         `UPDATE public.wallet_transactions SET status = 'failed', updated_at = NOW() WHERE metadata->>'reference' = $1`,
         [reference],
       ).catch(() => {});
-      return res.status(400).json({ success: false, message: transfer.message || 'Transfer failed' });
+      // Provider messages here describe Bago's payout account (IP whitelisting,
+      // Bago's Flutterwave balance, ...), not the user's — never show them.
+      console.error('Flutterwave withdrawal transfer failed:', { reference, message: transfer.message });
+      return res.status(400).json({
+        success: false,
+        message: "We couldn't process your withdrawal right now. Your balance has not been affected. Please try again later.",
+      });
     }
 
     await sendWithdrawalSubmittedEmail(

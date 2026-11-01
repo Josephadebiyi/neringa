@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../services/sender_onboarding_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ShipmentTermsScreen extends ConsumerStatefulWidget {
   const ShipmentTermsScreen({super.key, this.onAccepted});
@@ -66,7 +67,7 @@ class _ShipmentTermsScreenState extends ConsumerState<ShipmentTermsScreen> {
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _isAccepting = false);
     }

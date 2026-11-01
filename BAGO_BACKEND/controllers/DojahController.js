@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isTechnicalMessage } from '../utils/clientSafeMessage.js';
 import crypto from 'crypto';
 import { query, queryOne } from '../lib/postgres/db.js';
 import { markKycApproved } from '../lib/postgres/accounts.js';
@@ -471,7 +472,7 @@ export const syncExistingDojahResult = async (req, res) => {
       canStartNewSession,
       referenceId,
       syncStatus: result.status,
-      message: result.message || null,
+      message: result.message && !isTechnicalMessage(result.message) ? result.message : null,
     });
   } catch (err) {
     console.error('syncExistingDojahResult error:', err);

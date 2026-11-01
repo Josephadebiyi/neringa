@@ -12,6 +12,7 @@ import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/services/auth_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class ChangePhoneScreen extends ConsumerStatefulWidget {
   const ChangePhoneScreen({super.key});
@@ -197,7 +198,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
     } catch (e) {
       if (mounted)
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -220,7 +221,7 @@ class _ChangePhoneScreenState extends ConsumerState<ChangePhoneScreen> {
     } catch (e) {
       if (mounted)
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

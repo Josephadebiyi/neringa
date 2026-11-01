@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/app_snackbar.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class MultiStepSignupScreen extends ConsumerStatefulWidget {
   const MultiStepSignupScreen({super.key});
@@ -188,7 +189,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
     } catch (e) {
       AppSnackBar.show(
         context,
-        message: e.toString(),
+        message: userFacingError(e),
         type: SnackBarType.error,
       );
       setState(() => _isLoading = false);
@@ -213,7 +214,7 @@ class _MultiStepSignupScreenState extends ConsumerState<MultiStepSignupScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
         setState(() => _isLoading = false);
       }
     }

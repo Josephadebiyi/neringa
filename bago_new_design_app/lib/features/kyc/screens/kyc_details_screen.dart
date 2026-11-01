@@ -13,6 +13,7 @@ import '../../../shared/utils/country_currency_helper.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'kyc_country_step.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 class KycDetailsScreen extends ConsumerStatefulWidget {
   const KycDetailsScreen({super.key, this.fromOnboarding = false});
@@ -139,7 +140,7 @@ class _KycDetailsScreenState extends ConsumerState<KycDetailsScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = userFacingError(e);
         _saving = false;
       });
     }

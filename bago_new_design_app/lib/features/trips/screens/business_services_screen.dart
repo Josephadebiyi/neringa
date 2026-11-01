@@ -11,6 +11,7 @@ import '../../../shared/widgets/bago_page_scaffold.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 /// Lets a business account create and manage its named per-kg shipping
 /// services (e.g. "Express", "Standard"). These are shown to senders on the
@@ -52,7 +53,7 @@ class _BusinessServicesScreenState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = userFacingError(e);
         _isLoading = false;
       });
     }
@@ -98,7 +99,7 @@ class _BusinessServicesScreenState
     } catch (e) {
       if (!mounted) return;
       AppSnackBar.show(context,
-          message: e.toString(), type: SnackBarType.error);
+          message: userFacingError(e), type: SnackBarType.error);
     }
   }
 
@@ -315,7 +316,7 @@ class _ServiceEditorSheetState extends ConsumerState<_ServiceEditorSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = userFacingError(e);
         _isSaving = false;
       });
     }

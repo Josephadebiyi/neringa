@@ -282,7 +282,7 @@ class _AddBankScreenState extends ConsumerState<AddBankScreen> {
       if (mounted) {
         AppSnackBar.show(
           context,
-          message: 'Unable to load banks right now: $e',
+          message: 'Unable to load banks right now. Please try again shortly.',
           type: SnackBarType.error,
           duration: const Duration(seconds: 8),
         );

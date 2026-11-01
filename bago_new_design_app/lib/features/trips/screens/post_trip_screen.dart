@@ -27,6 +27,7 @@ import '../providers/trip_provider.dart';
 import '../models/trip_model.dart';
 import '../services/trip_service.dart';
 import '../widgets/trip_route_card.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Steps: 0=compliance, 1=from, 2=to, 3=date, 4=time, 5=capacity, 6=price, 7=review
@@ -627,7 +628,7 @@ class _PostTripScreenState extends ConsumerState<PostTripScreen> {
     } catch (e) {
       if (mounted) {
         AppSnackBar.show(context,
-            message: e.toString(), type: SnackBarType.error);
+            message: userFacingError(e), type: SnackBarType.error);
       }
       return null;
     }

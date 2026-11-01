@@ -9,6 +9,7 @@ import '../../../shared/services/push_notification_service.dart';
 import '../../../shared/services/socket_service.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 // ---------------------------------------------------------------------------
 // Auth State
@@ -139,7 +140,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .refreshAfterAuthChange()
           .catchError((_) {});
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -173,7 +174,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(isLoading: false);
       return signupToken;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -204,7 +205,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .refreshAfterAuthChange()
           .catchError((_) {});
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -225,7 +226,7 @@ class AuthNotifier extends Notifier<AuthState> {
       await _service.forgotPassword(email);
       state = state.copyWith(isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -242,7 +243,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .refreshAfterAuthChange()
           .catchError((_) {});
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -259,7 +260,7 @@ class AuthNotifier extends Notifier<AuthState> {
           .refreshAfterAuthChange()
           .catchError((_) {});
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -289,7 +290,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(user: updated, isLoading: false);
       await PushNotificationService.instance.refreshAfterAuthChange();
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -301,7 +302,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(user: updated, isLoading: false);
       await PushNotificationService.instance.refreshAfterAuthChange();
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }
@@ -388,7 +389,7 @@ class AuthNotifier extends Notifier<AuthState> {
       await _service.deleteAccount();
       state = const AuthState(isInitialising: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       rethrow;
     }
   }

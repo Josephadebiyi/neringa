@@ -11,6 +11,7 @@ import '../models/conversation_model.dart';
 import '../models/message_model.dart';
 import '../services/message_service.dart';
 import '../services/message_realtime_service.dart';
+import 'package:bago_app/shared/utils/user_facing_error.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -222,7 +223,7 @@ class MessageNotifier extends Notifier<MessageState> {
       _attachSocketListeners();
       // No Supabase Realtime for conversations — socket sends full hydrated data.
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
     }
   }
 
@@ -298,7 +299,7 @@ class MessageNotifier extends Notifier<MessageState> {
       // It stops itself once realtime confirms SUBSCRIBED.
       _startPolling(conversationId);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: userFacingError(e));
       _startPolling(conversationId);
     }
   }
@@ -670,7 +671,7 @@ class MessageNotifier extends Notifier<MessageState> {
       final rolled =
           state.messages.where((m) => m.id != optimisticMsg.id).toList();
       state = state.copyWith(
-          messages: rolled, isSending: false, error: e.toString());
+          messages: rolled, isSending: false, error: userFacingError(e));
       rethrow;
     }
   }
