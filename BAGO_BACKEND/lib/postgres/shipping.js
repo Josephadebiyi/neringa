@@ -1653,17 +1653,9 @@ export async function confirmShipmentReceived({ requestId, senderId }) {
           [request.id, request.traveler_id],
         );
         if (existingCredit.rows[0]?.id) {
-          const escrowTxResult = await client.query(
-            `SELECT COALESCE(SUM(amount), 0) AS amount FROM public.wallet_transactions WHERE request_id=$1 AND user_id=$2 AND type='escrow_hold' AND status='completed'`,
-            [request.id, request.traveler_id],
-          );
-          const heldAmount = toNumber(escrowTxResult.rows[0]?.amount);
-          if (heldAmount > 0) {
-            await client.query(
-              `update public.wallet_accounts set escrow_balance = greatest(0, escrow_balance - $2), updated_at = timezone('utc', now()) where user_id = $1`,
-              [request.traveler_id, heldAmount],
-            );
-          }
+          // Already paid by fast payout / auto-release / handover PIN — each of
+          // those also took the amount out of escrow. Taking it out again here
+          // shrank the escrow shown for the traveler's other bookings.
         await client.query(
           `
             update public.shipment_ledgers

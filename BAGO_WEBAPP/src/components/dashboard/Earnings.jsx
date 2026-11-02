@@ -450,7 +450,7 @@ export default function Earnings({ user, checkAuthStatus }) {
                                 Bank Transfer ({walletCurrency})
                             </p>
                             <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
-                                {hasPayoutMethod ? 'Funds sent after approval' : 'Setup required before withdrawing'}
+                                {!hasPayoutMethod ? 'Setup required before withdrawing' : (['EUR', 'USD'].includes(String(walletCurrency).toUpperCase()) ? 'Funds sent after a quick review' : 'Funds sent to your bank right away')}
                             </p>
                         </div>
                         <button

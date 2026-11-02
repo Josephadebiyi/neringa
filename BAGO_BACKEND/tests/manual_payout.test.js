@@ -132,28 +132,72 @@ describe('withdrawing EUR', () => {
 });
 
 describe('withdrawing a Flutterwave currency', () => {
-  it('still pays out through Flutterwave as before', async () => {
-    m.queryOne.mockImplementation(async (sql) => (sql.includes('UPDATE public.wallet_accounts')
-      ? { available_balance: 0 } : { ...profile, currency: 'NGN', available_balance: 90000 }));
+  // A tiny in-memory wallet + withdrawal row, enough to see what really
+  // happens to the user's money in each outcome.
+  let db;
+  beforeEach(() => {
+    db = { balance: 90000, tx: null };
+    m.queryOne.mockResolvedValue({ ...profile, currency: 'NGN', available_balance: 90000 });
     m.beneficiary.mockResolvedValue({ id: 'ben-2', currency: 'NGN', type: 'bank', bank_code: '058', account_number: '0123456789', account_holder_name: 'Ana' });
+    m.client.query.mockImplementation(async (sql, params = []) => {
+      if (sql.includes('available_balance - $2')) {
+        if (db.balance < params[1]) return { rows: [] };
+        db.balance -= params[1];
+        return { rows: [{ available_balance: db.balance }] };
+      }
+      if (sql.includes('INSERT INTO public.wallet_transactions')) {
+        db.tx = { id: 'wt-1', user_id: 'u1', wallet_id: 'wallet-1', amount: params[2], currency: params[3], status: 'processing', metadata: params[5] };
+        return { rows: [{ id: 'wt-1' }] };
+      }
+      if (sql.includes("type::text = 'withdrawal'") && sql.includes('FOR UPDATE')) return { rows: db.tx ? [{ ...db.tx }] : [] };
+      if (sql.includes('available_balance + $2')) { db.balance += params[1]; return { rows: [{ id: 'wallet-1' }] }; }
+      if (sql.includes('UPDATE public.wallet_transactions')) {
+        db.tx = { ...db.tx, status: params[1], metadata: JSON.parse(params[2]) };
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+  });
+  const withdraw = async () => {
     const response = res();
     await withdrawFundsFlutterwave({ user: { id: 'u1' }, body: { amount: 50000, currency: 'NGN' } }, response);
+    return response;
+  };
+
+  it('pays out through Flutterwave and keeps the transfer id for status checks', async () => {
+    m.transfer.mockResolvedValue({ success: true, status: 'NEW', transferId: 777 });
+    const response = await withdraw();
     expect(response.code).toBe(200);
     expect(m.transfer).toHaveBeenCalledWith(expect.objectContaining({ accountBank: '058', amount: 50000, currency: 'NGN' }));
+    expect(db.balance).toBe(40000);
+    expect(db.tx.status).toBe('processing');
+    const saved = m.query.mock.calls.find(([sql, params]) => sql.includes('UPDATE public.wallet_transactions') && params?.[1]?.transferId);
+    expect(saved[1]).toEqual(['wt-1', { transferId: 777, transferStatus: 'NEW' }]);
     expect(m.adminEmail).not.toHaveBeenCalled();
   });
 
-  it('never shows the user the payout provider\'s own error text', async () => {
-    m.queryOne.mockImplementation(async (sql) => (sql.includes('UPDATE public.wallet_accounts')
-      ? { available_balance: 0 } : { ...profile, currency: 'NGN', available_balance: 90000 }));
-    m.beneficiary.mockResolvedValue({ id: 'ben-2', currency: 'NGN', type: 'bank', bank_code: '058', account_number: '0123456789', account_holder_name: 'Ana' });
-    m.transfer.mockResolvedValue({ success: false, message: 'Please enable IP Whitelisting to access this service' });
+  it('refunds once and hides the provider text when Flutterwave rejects the transfer', async () => {
+    m.transfer.mockResolvedValue({ success: false, uncertain: false, message: 'Please enable IP Whitelisting to access this service' });
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const response = res();
-    await withdrawFundsFlutterwave({ user: { id: 'u1' }, body: { amount: 50000, currency: 'NGN' } }, response);
+    const response = await withdraw();
     expect(response.code).toBe(400);
     expect(response.data.message).toBe("We couldn't process your withdrawal right now. Your balance has not been affected. Please try again later.");
     expect(JSON.stringify(response.data)).not.toMatch(/whitelist/i);
+    expect(db.balance).toBe(90000);
+    expect(db.tx).toMatchObject({ status: 'failed', metadata: expect.objectContaining({ refunded: true }) });
+    errorLog.mockRestore();
+  });
+
+  it('does NOT refund when Flutterwave times out, because the transfer may still go through', async () => {
+    m.transfer.mockResolvedValue({ success: false, uncertain: true, message: 'timeout of 20000ms exceeded' });
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const response = await withdraw();
+    expect(response.code).toBe(202);
+    expect(response.data).toMatchObject({ success: true, status: 'PENDING' });
+    expect(db.balance).toBe(40000);
+    expect(db.tx.status).toBe('processing');
+    const flagged = m.query.mock.calls.find(([, params]) => params?.[1]?.needsReconciliation);
+    expect(flagged[1][0]).toBe('wt-1');
     errorLog.mockRestore();
   });
 });

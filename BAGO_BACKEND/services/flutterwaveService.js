@@ -337,6 +337,18 @@ export async function createTransferSender({
  * than the flat account_bank/account_number shape used for African
  * corridors. Docs: POST /v3/transfers (payment_instruction variant).
  */
+/**
+ * Whether a failed transfer request might still have been executed by
+ * Flutterwave. Only a definite rejection (a 4xx answer) means no money moved.
+ * A timeout, dropped connection or 5xx means we don't know: the caller must
+ * NOT refund the user then, but wait for the transfer webhook / a status sync.
+ */
+export function isUncertainTransferError(error) {
+  const status = error?.response?.status;
+  if (!status) return true; // timeout, DNS, connection reset — no answer at all
+  return status >= 500;
+}
+
 export async function initiateOrchestratedTransfer({ recipientId, senderId, amount, sourceCurrency, narration, reference }) {
   try {
     const payload = {
@@ -363,7 +375,11 @@ export async function initiateOrchestratedTransfer({ recipientId, senderId, amou
     return { success: false, message: response.data?.message || 'Transfer could not be initiated.' };
   } catch (error) {
     console.error('❌ Flutterwave orchestrated transfer error:', error.response?.data || error.message);
-    return { success: false, message: error.response?.data?.message || error.message || 'Transfer request failed' };
+    return {
+      success: false,
+      uncertain: isUncertainTransferError(error),
+      message: error.response?.data?.message || error.message || 'Transfer request failed',
+    };
   }
 }
 
@@ -401,7 +417,11 @@ export async function initiateTransfer({ accountBank, accountNumber, swiftCode, 
     return { success: false, message: response.data?.message || 'Transfer could not be initiated.' };
   } catch (error) {
     console.error('❌ Flutterwave transfer error:', error.response?.data || error.message);
-    return { success: false, message: error.response?.data?.message || error.message || 'Transfer request failed' };
+    return {
+      success: false,
+      uncertain: isUncertainTransferError(error),
+      message: error.response?.data?.message || error.message || 'Transfer request failed',
+    };
   }
 }
 

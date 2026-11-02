@@ -239,7 +239,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 Text(
                   isManualPayout
                       ? 'Your withdrawal of $currency ${amount.toStringAsFixed(2)} has been sent to the Bago accounts team. They will pay it to your bank account and you\'ll be notified by email at each step.'
-                      : 'Your withdrawal of $currency ${amount.toStringAsFixed(2)} is under review. Once approved by our team, the funds will be sent to your payout account.',
+                      : 'Your withdrawal of $currency ${amount.toStringAsFixed(2)} is on its way to your bank account. If the bank can\'t accept it, the money comes straight back to your Bago wallet.',
                   style: const TextStyle(
                       fontSize: 14, color: Color(0xFF6B7280), height: 1.5),
                   textAlign: TextAlign.center,
@@ -610,8 +610,9 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               ),
               const SizedBox(height: 12),
               _PayoutMethodPanel(
-                method: 'Flutterwave bank account',
+                method: 'Bank account',
                 hasMethod: hasPayoutMethod,
+                needsApproval: _manualPayoutCurrencies.contains(currency),
                 onSetup: () => context.push('/profile/payout-methods'),
               ),
               const SizedBox(height: 12),
@@ -646,7 +647,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 amount: double.tryParse(_amountCtrl.text) ?? 0,
                 minimumAmount: minimumAmount,
                 balance: _balance,
-                method: 'Flutterwave bank account',
+                method: 'Bank account',
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -869,11 +870,15 @@ class _PayoutMethodPanel extends StatelessWidget {
     required this.method,
     required this.hasMethod,
     required this.onSetup,
+    this.needsApproval = false,
   });
 
   final String method;
   final bool hasMethod;
   final VoidCallback onSetup;
+  // Some currencies are paid out by our team after a review; the rest are
+  // sent to the bank straight away.
+  final bool needsApproval;
 
   @override
   Widget build(BuildContext context) {
@@ -914,9 +919,11 @@ class _PayoutMethodPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  hasMethod
-                      ? 'Funds are sent after approval.'
-                      : 'Set up payouts before withdrawing.',
+                  !hasMethod
+                      ? 'Set up payouts before withdrawing.'
+                      : needsApproval
+                          ? 'Funds are sent after a quick review.'
+                          : 'Funds are sent to this account right away.',
                   style: AppTextStyles.caption.copyWith(
                     color: AppPalette.of(context).gray500,
                     fontWeight: FontWeight.w700,

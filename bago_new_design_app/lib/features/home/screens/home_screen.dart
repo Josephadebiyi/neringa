@@ -1209,7 +1209,8 @@ class _RecentActivityList extends StatelessWidget {
     if (s == 'delivering') return 'Delivering';
     if (s == 'accepted') return 'Accepted';
     if (s == 'matched') return 'Matched';
-    if (s == 'rejected' || s == 'failed' || s == 'declined') return 'Rejected';
+    if (s == 'failed') return 'Failed';
+    if (s == 'rejected' || s == 'declined') return 'Rejected';
     if (s == 'cancelled') return 'Cancelled';
     return formatFrontendStatus(s);
   }
@@ -1772,11 +1773,15 @@ class _RecentActivityEntry {
       case 'succeeded':
       case 'settled':
         return 'paid';
-      case 'rejected':
-      case 'declined':
+      // 'failed' means the bank transfer didn't go through (the money is back
+      // in the wallet) — not that someone turned the withdrawal down.
       case 'failed':
+        return 'failed';
       case 'cancelled':
       case 'canceled':
+        return 'cancelled';
+      case 'rejected':
+      case 'declined':
         return 'rejected';
       default:
         return 'pending';

@@ -19,7 +19,9 @@ import {
   createTransferRecipient,
   createTransferSender,
   verifyWebhookSignature,
+  getTransferStatus,
 } from '../services/flutterwaveService.js';
+import { settleWithdrawal } from '../services/withdrawalSettlement.js';
 import { query as pgQuery, queryOne, withTransaction } from '../lib/postgres/db.js';
 import {
   recordPaymentInitiated,
@@ -377,16 +379,32 @@ export const flutterwaveWebhook = async (req, res) => {
       }
     }
 
-    if (eventType === 'transfer.completed' && event.data?.reference) {
-      const status = String(event.data.status || '').toLowerCase();
-      await pgQuery(
-        `
-          update public.wallet_transactions
-          set status = $2, updated_at = timezone('utc', now())
-          where metadata->>'reference' = $1 and type = 'withdrawal' and status not in ('completed','failed')
-        `,
-        [event.data.reference, status === 'successful' ? 'completed' : 'failed'],
-      ).catch((e) => console.warn('Flutterwave transfer webhook update failed:', e.message));
+    // Flutterwave sends the final outcome of a payout here — including payouts
+    // that were accepted at first and failed or were reversed later. A failed
+    // payout must put the money back in the user's wallet (exactly once).
+    if (/^transfer/i.test(String(eventType || '')) && event.data?.reference) {
+      try {
+        // Never refund on the webhook's word alone: confirm a failure with
+        // Flutterwave's API (falls back to the webhook status if unreachable).
+        let providerStatus = event.data.status;
+        if (event.data.id && /^(failed|reversed)$/i.test(String(providerStatus || ''))) {
+          const live = await getTransferStatus(event.data.id).catch(() => null);
+          if (live?.success && live.status) providerStatus = live.status;
+        }
+        const settled = await settleWithdrawal({
+          reference: event.data.reference,
+          providerStatus,
+          transferId: event.data.id,
+          source: 'flutterwave_webhook',
+        });
+        if (settled.refunded) {
+          console.warn(`Withdrawal ${settled.transactionId} ${event.data.status}: refunded ${settled.currency} ${settled.amount} to user ${settled.userId}`);
+        }
+      } catch (e) {
+        // Let Flutterwave retry the webhook rather than lose the refund.
+        console.error('Flutterwave transfer webhook settlement failed:', e.message);
+        return res.status(500).json({ success: false });
+      }
     }
 
     return res.status(200).json({ success: true });
@@ -875,30 +893,36 @@ export const withdrawFundsFlutterwave = async (req, res) => {
 
     const reference = `BAGO-WD-${Date.now()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
-    const debit = await queryOne(
-      `UPDATE public.wallet_accounts
-       SET available_balance = available_balance - $2, updated_at = NOW()
-       WHERE user_id = $1 AND currency = $3 AND available_balance >= $2
-       RETURNING available_balance`,
-      [user.id, withdrawalAmount, walletCurrency],
-    );
-    if (!debit) {
+    // Take the money and record the withdrawal together: either both happen
+    // or neither does, so a balance can never drop without a history entry.
+    const recorded = await withTransaction(async (client) => {
+      const debit = await client.query(
+        `UPDATE public.wallet_accounts
+         SET available_balance = available_balance - $2, updated_at = NOW()
+         WHERE user_id = $1 AND currency = $3 AND available_balance >= $2
+         RETURNING available_balance`,
+        [user.id, withdrawalAmount, walletCurrency],
+      );
+      if (!debit.rows[0]) return null;
+      const inserted = await client.query(
+        `INSERT INTO public.wallet_transactions
+          (wallet_id, user_id, type, amount, currency, status, description, metadata)
+         VALUES ($1, $2, 'withdrawal', $3, $4, 'processing', $5, $6)
+         RETURNING id`,
+        [
+          profile.wallet_id,
+          user.id,
+          withdrawalAmount,
+          walletCurrency,
+          'Bank withdrawal',
+          { provider: 'flutterwave', reference },
+        ],
+      );
+      return inserted.rows[0];
+    });
+    if (!recorded) {
       return res.status(400).json({ success: false, message: 'Insufficient balance' });
     }
-
-    await pgQuery(
-      `INSERT INTO public.wallet_transactions
-        (wallet_id, user_id, type, amount, currency, status, description, metadata)
-       VALUES ($1, $2, 'withdrawal', $3, $4, 'processing', $5, $6)`,
-      [
-        profile.wallet_id,
-        user.id,
-        withdrawalAmount,
-        walletCurrency,
-        'Bank withdrawal',
-        { provider: 'flutterwave', reference },
-      ],
-    ).catch(() => {});
 
     const transfer = beneficiary.flutterwave_recipient_id
       ? await initiateOrchestratedTransfer({
@@ -920,15 +944,40 @@ export const withdrawFundsFlutterwave = async (req, res) => {
           beneficiaryName: beneficiary.account_holder_name,
         });
 
-    if (!transfer.success) {
+    if (!transfer.success && transfer.uncertain) {
+      // Flutterwave did not answer (timeout / outage). The transfer may still
+      // go through, so refunding now could pay the user twice. Keep it
+      // processing; Flutterwave's transfer webhook (same reference) settles it,
+      // or an admin can check it from the dashboard.
+      console.error('Flutterwave withdrawal outcome unknown — left processing for reconciliation:', {
+        reference, transactionId: recorded.id, message: transfer.message,
+      });
       await pgQuery(
-        `UPDATE public.wallet_accounts SET available_balance = available_balance + $2, updated_at = NOW() WHERE user_id = $1`,
-        [user.id, withdrawalAmount],
-      );
-      await pgQuery(
-        `UPDATE public.wallet_transactions SET status = 'failed', updated_at = NOW() WHERE metadata->>'reference' = $1`,
-        [reference],
-      ).catch(() => {});
+        `UPDATE public.wallet_transactions
+         SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = NOW()
+         WHERE id = $1`,
+        [recorded.id, { needsReconciliation: true, initiationError: 'no_provider_response' }],
+      ).catch((e) => console.error('Could not flag withdrawal for reconciliation:', e.message));
+      return res.status(202).json({
+        success: true,
+        message: "Your withdrawal is being processed. We'll update its status as soon as the bank confirms it.",
+        reference,
+        status: 'PENDING',
+      });
+    }
+
+    const rejectedNow = !transfer.success || String(transfer.status || '').toUpperCase() === 'FAILED';
+    if (rejectedNow) {
+      // Flutterwave refused the transfer, so no money left Bago: refund once.
+      await settleWithdrawal({
+        transactionId: recorded.id,
+        providerStatus: 'FAILED',
+        transferId: transfer.transferId,
+        source: 'transfer_rejected',
+      }).catch((e) => {
+        // Left 'processing' — an admin must mark it failed (which refunds it).
+        console.error('WITHDRAWAL REFUND FAILED — needs admin action:', { reference, transactionId: recorded.id, error: e.message });
+      });
       // Provider messages here describe Bago's payout account (IP whitelisting,
       // Bago's Flutterwave balance, ...), not the user's — never show them.
       console.error('Flutterwave withdrawal transfer failed:', { reference, message: transfer.message });
@@ -936,6 +985,20 @@ export const withdrawFundsFlutterwave = async (req, res) => {
         success: false,
         message: "We couldn't process your withdrawal right now. Your balance has not been affected. Please try again later.",
       });
+    }
+
+    // Keep Flutterwave's transfer id so status syncs and webhooks can find it.
+    await pgQuery(
+      `UPDATE public.wallet_transactions
+       SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = NOW()
+       WHERE id = $1`,
+      [recorded.id, { transferId: transfer.transferId, transferStatus: transfer.status || 'NEW' }],
+    ).catch((e) => console.error('Could not save Flutterwave transfer id:', { reference, error: e.message }));
+
+    if (String(transfer.status || '').toUpperCase() === 'SUCCESSFUL') {
+      await settleWithdrawal({
+        transactionId: recorded.id, providerStatus: 'SUCCESSFUL', transferId: transfer.transferId, source: 'transfer_initiation',
+      }).catch(() => {});
     }
 
     await sendWithdrawalSubmittedEmail(

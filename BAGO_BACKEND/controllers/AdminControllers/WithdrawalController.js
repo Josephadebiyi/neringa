@@ -4,6 +4,7 @@ import { convertCurrency } from '../../services/currencyConverter.js';
 import { initiateTransfer, initiateOrchestratedTransfer, getTransferStatus } from '../../services/flutterwaveService.js';
 import { getActiveBeneficiary } from '../../lib/postgres/flutterwavePayments.js';
 import { MANUAL_PAYOUT_PROVIDER } from '../../services/manualPayout.js';
+import { settleWithdrawal } from '../../services/withdrawalSettlement.js';
 
 const FINAL_FAILURE_STATUSES = new Set(['failed', 'rejected', 'cancelled']);
 const REFUNDABLE_STATUSES = new Set(['pending', 'pending_admin_approval', 'processing', 'approved']);
@@ -485,15 +486,23 @@ export const approveWithdrawal = async (req, res, next) => {
         message: 'Approved. Send the bank transfer to the account shown, then mark it paid.' });
     }
 
-    // Lock it to processing so duplicate admin clicks can't double-send
-    await query(
+    // Lock it to processing so duplicate admin clicks can't double-send: only
+    // the click that moves it out of pending_admin_approval may pay. The
+    // reference is fixed now and reused on every retry, so Flutterwave rejects
+    // a second transfer for the same withdrawal instead of paying it twice.
+    const reference = metadata.reference || `BAGO-WD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const locked = await query(
       `UPDATE public.wallet_transactions
        SET status = 'processing',
            metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
            updated_at = timezone('utc', now())
-       WHERE id = $1`,
-      [transactionId, { adminApproved: true, adminId, approvedAt: new Date().toISOString() }],
+       WHERE id = $1 AND status = 'pending_admin_approval'
+       RETURNING id`,
+      [transactionId, { adminApproved: true, adminId, approvedAt: new Date().toISOString(), reference }],
     );
+    if (!locked.rows?.[0]) {
+      return res.status(409).json({ success: false, message: 'This withdrawal is already being processed.' });
+    }
 
     try {
       const beneficiary = await getActiveBeneficiary(tx.user_id);
@@ -502,7 +511,6 @@ export const approveWithdrawal = async (req, res, next) => {
         throw new Error(`Payout account currency (${beneficiary.currency}) does not match withdrawal currency (${currency}).`);
       }
 
-      const reference = metadata.reference || `BAGO-WD-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
       const transfer = beneficiary.flutterwave_recipient_id
         ? await initiateOrchestratedTransfer({
             recipientId: beneficiary.flutterwave_recipient_id,
@@ -522,6 +530,22 @@ export const approveWithdrawal = async (req, res, next) => {
             reference,
             beneficiaryName: beneficiary.account_holder_name,
           });
+      if (!transfer.success && transfer.uncertain) {
+        // No answer from Flutterwave — the transfer may still go through.
+        // Keep it processing (never back to pending, which would invite a
+        // second send); the transfer webhook or "Sync" settles it.
+        await query(
+          `UPDATE public.wallet_transactions
+           SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb, updated_at = timezone('utc', now())
+           WHERE id = $1`,
+          [transactionId, { needsReconciliation: true, initiationError: 'no_provider_response', lastAttemptAt: new Date().toISOString() }],
+        ).catch(() => {});
+        return res.status(202).json({
+          success: true,
+          pending: true,
+          message: "Flutterwave didn't respond in time. The payout may still complete — it stays processing until Flutterwave confirms. Don't resend it; check its status later.",
+        });
+      }
       if (!transfer.success) throw new Error(transfer.message || 'Transfer failed');
 
       await query(
@@ -594,22 +618,31 @@ export const syncFlutterwaveTransferStatus = async (req, res, next) => {
     }
     const transferStatus = String(result.status || '').toUpperCase();
 
-    let newStatus = tx.status;
-    if (transferStatus === 'SUCCESSFUL') newStatus = 'completed';
-    else if (transferStatus === 'FAILED') newStatus = 'failed';
-
-    if (newStatus !== tx.status) {
+    // Same settlement as the Flutterwave webhook: a FAILED or REVERSED
+    // transfer refunds the user's wallet exactly once.
+    const settled = await settleWithdrawal({
+      transactionId,
+      providerStatus: transferStatus,
+      transferId,
+      source: `admin_sync:${req.admin?.id || 'unknown'}`,
+    });
+    if (!settled.changed) {
       await query(
         `UPDATE public.wallet_transactions
-         SET status = $1,
-             metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
+         SET metadata = coalesce(metadata, '{}'::jsonb) || $2::jsonb,
              updated_at = timezone('utc', now())
-         WHERE id = $3`,
-        [newStatus, { transferStatus, transferSyncedAt: new Date().toISOString() }, transactionId],
+         WHERE id = $1`,
+        [transactionId, { transferStatus, transferSyncedAt: new Date().toISOString() }],
       );
     }
 
-    return res.json({ success: true, transferStatus, previousStatus: tx.status, newStatus });
+    return res.json({
+      success: true,
+      transferStatus,
+      previousStatus: tx.status,
+      newStatus: settled.changed ? settled.status : tx.status,
+      refunded: settled.refunded === true,
+    });
   } catch (error) {
     next(error);
   }
