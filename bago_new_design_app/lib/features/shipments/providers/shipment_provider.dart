@@ -80,7 +80,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final (mine, incoming) = await (
-        _service.getMyRequests(),
+        _service.getMyRequests(viewerId: ref.read(authProvider).user?.id),
         _service.getIncomingRequests(),
       ).wait;
       state = state.copyWith(
@@ -117,7 +117,7 @@ class ShipmentNotifier extends Notifier<ShipmentState> {
   Future<void> loadMyRequestHistory() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final mine = await _service.getMyRequests();
+      final mine = await _service.getMyRequests(viewerId: ref.read(authProvider).user?.id);
       state = state.copyWith(myRequests: mine, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: userFacingError(e));

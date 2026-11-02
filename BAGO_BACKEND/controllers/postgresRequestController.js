@@ -1316,8 +1316,13 @@ export async function getRequests(req, res) {
       ...requests.filter((request) => request.status !== 'completed'),
       ...requests.filter((request) => request.status === 'completed'),
     ].map(withClientStatus);
-    const viewerRequests = await Promise.all(sortedRequests.map((request) => (
-      String(request.travelerId) === String(userId) ? travelerView(request) : request
+    // The apps pick which amount to show from `role`: the traveler's earning
+    // (in their wallet currency) or what the sender paid. Without it a
+    // traveler saw the sender's EUR 68.79 labelled with their own NGN.
+    const viewerRequests = await Promise.all(sortedRequests.map(async (request) => (
+      String(request.travelerId) === String(userId)
+        ? { ...(await travelerView(request)), role: 'traveler' }
+        : { ...request, role: 'sender' }
     )));
 
     return res.status(200).json({
@@ -1612,7 +1617,12 @@ export const GetDetials = getRequestDetails;
 export async function recentOrder(req, res) {
   try {
     const userId = req.user.id || req.user._id;
-    const data = await listRecentOrdersForUser(userId);
+    const orders = await listRecentOrdersForUser(userId);
+    // Same as getRequests: a traveler sees their earning in their wallet
+    // currency; what the sender paid stays in paymentAmount/paymentCurrency.
+    const data = await Promise.all(orders.map(async (order) => (
+      order?.role === 'traveler' ? { ...(await travelerView(order)), role: 'traveler' } : order
+    )));
     return res.status(200).json({
       message: data.length ? 'Successfully retrieved orders' : 'No orders found',
       success: true,

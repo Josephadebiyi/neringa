@@ -141,12 +141,28 @@ class ShipmentService {
 
   // ── Requests ──────────────────────────────────────────────────────────────
 
-  Future<List<RequestModel>> getMyRequests() async {
+  /// [viewerId] is the signed-in user. When the server leaves out `role`,
+  /// it is derived from it so a traveler sees their own earning (in their
+  /// wallet currency) rather than what the sender paid under the wrong label.
+  Future<List<RequestModel>> getMyRequests({String? viewerId}) async {
     try {
       final res = await _api.get(ApiConstants.myRequests);
-      return ResponseParser.parseList(res.data, ['requests'])
-          .map((e) => RequestModel.fromJson(e))
-          .toList();
+      final viewer = viewerId?.trim() ?? '';
+      return ResponseParser.parseList(res.data, ['requests']).map((e) {
+        final json = Map<String, dynamic>.from(e);
+        final role = json['role']?.toString().trim() ?? '';
+        if (role.isEmpty && viewer.isNotEmpty) {
+          final carrier = json['carrier'] is Map ? json['carrier'] as Map : null;
+          final travelerId = (json['travelerId'] ??
+                  json['carrierId'] ??
+                  json['traveler_id'] ??
+                  carrier?['_id'] ??
+                  carrier?['id'])
+              ?.toString();
+          json['role'] = travelerId == viewer ? 'traveler' : 'sender';
+        }
+        return RequestModel.fromJson(json);
+      }).toList();
     } on DioException catch (e) {
       throw ApiService.parseError(e);
     }

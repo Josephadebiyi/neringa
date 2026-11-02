@@ -752,7 +752,8 @@ export default function Deliveries({ user, onNavigateToChat }) {
                                     ['Weight', (pkg(viewingDetails).packageWeight || fv(viewingDetails, ['weight'])) + ' KG'],
                                     ['Category', fv(viewingDetails, ['package.category', 'category'], 'General')],
                                     ['Declared Value', fv(viewingDetails, ['package.value', 'declaredValue', 'package.declaredValue'])],
-                                    ['Agreed Amount', `${viewingDetails.currency || ''} ${viewingDetails.amount || viewingDetails.agreedPrice || '—'}`],
+                                    // What the sender paid is in their own currency (paymentCurrency); `currency` is the traveler's wallet currency.
+                                    ['Sender Paid', `${viewingDetails.paymentCurrency || viewingDetails.currency || ''} ${viewingDetails.paymentAmount || viewingDetails.amount || viewingDetails.agreedPrice || '—'}`],
                                     ['Your Payout', `${viewingDetails.currency || ''} ${viewingDetails.travelerPayout || '—'}`],
                                     ['Tracking', viewingDetails.trackingNumber || 'Pending'],
                                 ].filter(([, v]) => v && v.trim() && v !== ' ' && v !== 'undefined undefined' && v !== ' KG').map(([label, value]) => (
